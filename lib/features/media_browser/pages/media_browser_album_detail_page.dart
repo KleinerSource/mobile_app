@@ -11,7 +11,6 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_playback.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// MediaBrowser 专辑详情页：专辑信息 + 曲目列表。
 ///
@@ -108,10 +107,7 @@ class _MediaBrowserAlbumDetailPageState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                AppL10n.of(context).loadFailed,
-                style: AppText.sectionTitle(context),
-              ),
+              Text('加载失败', style: AppText.sectionTitle(context)),
               const SizedBox(height: 8),
               Text(toApiException(error).message, textAlign: TextAlign.center),
               const SizedBox(height: 12),
@@ -124,7 +120,7 @@ class _MediaBrowserAlbumDetailPageState
                     ),
                   ),
                 ),
-                child: Text(AppL10n.of(context).mediaBrowserRetry),
+                child: const Text('重试'),
               ),
             ],
           ),
@@ -172,9 +168,9 @@ class _MediaBrowserAlbumDetailPageState
                             padding: const EdgeInsets.symmetric(vertical: 11),
                           ),
                           icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                          label: Text(
-                            AppL10n.of(context).mediaBrowserPlayAll,
-                            style: const TextStyle(
+                          label: const Text(
+                            '播放全部',
+                            style: TextStyle(
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w600,
                               fontSize: 12.5,
@@ -209,9 +205,7 @@ class _MediaBrowserAlbumDetailPageState
                             size: 16,
                           ),
                           label: Text(
-                            album.userData.isFavorite
-                                ? AppL10n.of(context).detailFavorited
-                                : AppL10n.of(context).mediaBrowserFavoriteAction,
+                            album.userData.isFavorite ? '已收藏' : '收藏',
                             style: const TextStyle(
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w600,
@@ -302,7 +296,7 @@ class _TrackSection extends ConsumerWidget {
                   ),
                 ),
               ),
-              child: Text(AppL10n.of(context).mediaBrowserRetry),
+              child: const Text('重试'),
             ),
           ],
         ),
@@ -311,23 +305,18 @@ class _TrackSection extends ConsumerWidget {
         if (list.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                AppL10n.of(context).mediaBrowserNoTracks,
-                style: AppText.meta(context),
-              ),
-            ),
+            child: Center(child: Text('暂无曲目', style: AppText.meta(context))),
           );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 4, 22, 14),
               child: MovieDetailSection(
-                title: AppL10n.of(context).mediaBrowserTracks,
+                title: '曲目',
                 bottom: 0,
-                child: const SizedBox.shrink(),
+                child: SizedBox.shrink(),
               ),
             ),
             for (final (index, track) in list.indexed)
@@ -379,8 +368,7 @@ class _TrackTile extends StatelessWidget {
     final showFeatured =
         featured.isNotEmpty && albumArtist != null && featured != albumArtist;
     final meta = [
-      if (showDisc)
-        AppL10n.of(context).mediaBrowserDisc(track.parentIndexNumber ?? 1),
+      if (showDisc) '光盘 ${track.parentIndexNumber ?? 1}',
       if (showFeatured) featured,
       if (duration > 0)
         '${duration ~/ 60}:${(duration % 60).toString().padLeft(2, '0')}',

@@ -7,11 +7,10 @@ enum PlayerNetworkType {
   wifi('wifi', 'Wi-Fi'),
   cellular4G('4g', '4G'),
   cellular5G('5g', '5G'),
-  // label 仅为非 UI 场景的兜底描述，界面文案在 PlayerStatusOverlay 里本地化。
-  mobile('mobile', 'Cellular'),
-  ethernet('ethernet', 'Ethernet'),
-  offline('offline', 'Offline'),
-  unknown('unknown', 'Network');
+  mobile('mobile', '流量'),
+  ethernet('ethernet', '以太网'),
+  offline('offline', '离线'),
+  unknown('unknown', '网络');
 
   const PlayerNetworkType(this.value, this.label);
 

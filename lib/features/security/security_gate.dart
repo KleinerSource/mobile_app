@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/shake_error_text.dart';
 import 'device_lock_monitor.dart';
@@ -270,9 +269,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     try {
       success = await ref
           .read(securityRepositoryProvider)
-          .authenticateBiometric(
-            localizedReason: AppL10n.of(context).securityBiometricReason,
-          );
+          .authenticateBiometric();
     } finally {
       _biometricInFlight = false;
       coordinator.endAuthentication();
@@ -294,7 +291,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
           _authenticationGraceTimer = null;
         });
       } else {
-        _error = AppL10n.of(context).securityVerifyIncomplete;
+        _error = '验证未完成，请重试或使用其他解锁方式';
       }
     });
   }
@@ -328,7 +325,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _locked = false;
       AppHaptics.medium();
     } else {
-      _showTransientError(AppL10n.of(context).securityPinIncorrect);
+      _showTransientError('数字密码不正确');
     }
   }
 
@@ -351,7 +348,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _locked = false;
       AppHaptics.medium();
     } else {
-      _showTransientError(AppL10n.of(context).securityPatternIncorrect);
+      _showTransientError('手势密码不正确');
     }
   }
 }
@@ -444,9 +441,9 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    Text(AppL10n.of(context).securityAppLocked, style: AppText.sectionTitle(context)),
+                    Text('应用已锁定', style: AppText.sectionTitle(context)),
                     const SizedBox(height: 6),
-                    Text(AppL10n.of(context).securityUnlockPrompt, style: AppText.meta(context)),
+                    Text('验证身份后继续使用 Oh My Media', style: AppText.meta(context)),
                     const SizedBox(height: 24),
                     if (widget.settings.biometricEnabled)
                       SizedBox(
@@ -456,7 +453,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                               ? null
                               : () => unawaited(widget.onBiometric()),
                           icon: const Icon(Icons.fingerprint),
-                          label: Text(widget.busy ? AppL10n.of(context).securityVerifying : AppL10n.of(context).securityBiometricUnlock),
+                          label: Text(widget.busy ? '验证中...' : '使用面容/指纹解锁'),
                         ),
                       ),
                     if (widget.settings.biometricEnabled && methods.isNotEmpty)
@@ -468,7 +465,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                                 setState(() => _showFallback = true);
                               },
                         icon: const Icon(Icons.password_outlined),
-                        label: Text(AppL10n.of(context).securityPasswordUnlock),
+                        label: const Text('使用密码/滑动解锁'),
                       ),
                     if (_showFallback &&
                         widget.settings.biometricEnabled &&
@@ -476,16 +473,16 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                       const SizedBox(height: 16),
                     if (_showFallback && methods.length > 1)
                       SegmentedButton<_UnlockMethod>(
-                        segments: [
+                        segments: const [
                           ButtonSegment(
                             value: _UnlockMethod.pin,
-                            icon: const Icon(Icons.password_outlined),
-                            label: Text(AppL10n.of(context).securityPinCode),
+                            icon: Icon(Icons.password_outlined),
+                            label: Text('数字密码'),
                           ),
                           ButtonSegment(
                             value: _UnlockMethod.gesture,
-                            icon: const Icon(Icons.gesture_rounded),
-                            label: Text(AppL10n.of(context).securitySwipeUnlock),
+                            icon: Icon(Icons.gesture_rounded),
+                            label: Text('滑动解锁'),
                           ),
                         ],
                         selected: {_method},
@@ -568,14 +565,14 @@ class _SecurityErrorView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(AppL10n.of(context).securityUnavailable, textAlign: TextAlign.center),
+              const Text('安全验证不可用，请重试', textAlign: TextAlign.center),
               const SizedBox(height: 12),
               Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 18),
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: Text(AppL10n.of(context).commonRetry),
+                label: const Text('重试'),
               ),
             ],
           ),

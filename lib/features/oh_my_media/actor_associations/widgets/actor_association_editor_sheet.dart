@@ -9,7 +9,6 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_repository.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 
 enum ActorAssocEditMode { create, edit, append }
 
@@ -57,14 +56,14 @@ class _ActorAssociationEditorSheetState
   bool get _isEdit => widget.mode == ActorAssocEditMode.edit;
   bool get _isAppend => widget.mode == ActorAssocEditMode.append;
 
-  String _title(AppL10n l) {
+  String get _title {
     switch (widget.mode) {
       case ActorAssocEditMode.create:
-        return l.actorAssocEditorTitleCreate;
+        return '新建演员关联';
       case ActorAssocEditMode.edit:
-        return l.actorAssocEditorTitleEdit;
+        return '编辑关联';
       case ActorAssocEditMode.append:
-        return l.actorAssocEditorTitleAppend;
+        return '追加别名';
     }
   }
 
@@ -87,13 +86,11 @@ class _ActorAssociationEditorSheetState
 
   Future<void> _save() async {
     if (_saving) return;
-    final l = AppL10n.of(context);
-    final title = _title(l);
     final mapped = _mapped.text.trim();
     if (mapped.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(l.actorAssocErrNameRequired)));
+      ).showSnackBar(const SnackBar(content: Text('请输入标准演员名称')));
       return;
     }
     final inputAliases = ActorAssociationsRepository.parseAliases(
@@ -102,15 +99,15 @@ class _ActorAssociationEditorSheetState
     );
 
     if (_isAppend && inputAliases.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.actorAssocErrAliasRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入要追加的别名')));
       return;
     }
     if (_isCreate && inputAliases.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.actorAssocErrAtLeastOneAlias)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请至少添加一个别名')));
       return;
     }
 
@@ -134,9 +131,7 @@ class _ActorAssociationEditorSheetState
           mapped,
         );
         if (merged.length == widget.existing!.originalValues.length) {
-          messenger.showSnackBar(
-            SnackBar(content: Text(l.actorAssocNoNewAliases)),
-          );
+          messenger.showSnackBar(const SnackBar(content: Text('没有可添加的新名称')));
           setState(() => _saving = false);
           return;
         }
@@ -148,18 +143,12 @@ class _ActorAssociationEditorSheetState
       }
       if (!mounted) return;
       AppHaptics.medium();
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.actorAssocSaved(title))),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('$_title 成功')));
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            l.actorAssocSaveFailed(title, toApiException(e).message),
-          ),
-        ),
+        SnackBar(content: Text('$_title 失败: ${toApiException(e).message}')),
       );
       setState(() => _saving = false);
     }
@@ -168,7 +157,6 @@ class _ActorAssociationEditorSheetState
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     final mq = MediaQuery.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: mq.viewInsets.bottom + 22),
@@ -180,21 +168,17 @@ class _ActorAssociationEditorSheetState
           children: [
             SheetHeader(
               icon: Icons.person_outline,
-              title: _title(l),
+              title: _title,
               subtitle: _isAppend
-                  ? l.actorAssocEditorExistingAliases(
-                      widget.existing?.originalValues.length ?? 0,
-                    )
-                  : l.actorAssocEditorSeparatorHint,
+                  ? '已有 ${widget.existing?.originalValues.length ?? 0} 个别名'
+                  : '使用换行 / 逗号 / 顿号分隔多个别名',
               padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
-            Text(l.actorAssocEditorCanonicalLabel, style: AppText.eyebrow(context)),
+            Text('标准演员名称', style: AppText.eyebrow(context)),
             const SizedBox(height: 2),
             Text(
-              _isCreate
-                  ? l.actorAssocEditorCanonicalHint
-                  : l.actorAssocEditorCanonicalLocked,
+              _isCreate ? '用于匹配影片中的演员名称' : '标准名称不可修改',
               style: AppText.meta(context),
             ),
             const SizedBox(height: 6),
@@ -205,7 +189,7 @@ class _ActorAssociationEditorSheetState
               textAlignVertical: TextAlignVertical.center,
               decoration: sheetInputDecoration(
                 context,
-                hintText: l.actorAssocEditorCanonicalExample,
+                hintText: '例: 加勒比海岛',
                 prefixIcon: const Icon(Icons.person_outline),
               ).copyWith(fillColor: _isCreate ? c.surface : c.chipBg),
               style: TextStyle(
@@ -217,14 +201,11 @@ class _ActorAssociationEditorSheetState
             ),
             const SizedBox(height: 16),
             Text(
-              (_isAppend
-                      ? l.actorAssocEditorNewAliasLabel
-                      : l.actorAssocEditorAliasLabel)
-                  .toUpperCase(),
+              (_isAppend ? '新增别名' : '关联别名').toUpperCase(),
               style: AppText.eyebrow(context),
             ),
             const SizedBox(height: 2),
-            Text(l.actorAssocEditorAliasHint, style: AppText.meta(context)),
+            Text('多个值用换行分隔', style: AppText.meta(context)),
             const SizedBox(height: 6),
             TextField(
               controller: _aliases,
@@ -232,7 +213,7 @@ class _ActorAssociationEditorSheetState
               maxLines: 5,
               decoration: sheetInputDecoration(
                 context,
-                hintText: l.actorAssocEditorAliasPlaceholder,
+                hintText: '一行一个, 或用 , ; 、 分隔',
                 prefixIcon: const Icon(Icons.sell_outlined),
               ),
               style: TextStyle(
@@ -258,7 +239,7 @@ class _ActorAssociationEditorSheetState
                         ),
                       )
                     : Text(
-                        _isCreate ? l.actorAssocEditorCreate : l.save,
+                        _isCreate ? '创建' : '保存',
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,

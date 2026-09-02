@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 
@@ -55,7 +54,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         title: movie.title.isEmpty ? movie.number : movie.title,
         code: movie.number,
         imageUrl: imageUrl,
-        meta: _metaText(context, movie),
+        meta: _metaText(movie),
         width: width,
         rating: movie.score,
         canPlay: movie.canPlay,
@@ -68,16 +67,14 @@ class DbOnlineMovieCard extends ConsumerWidget {
   }
 }
 
-String _metaText(BuildContext context, DbOnlineMovie movie) {
+String _metaText(DbOnlineMovie movie) {
   final parts = <String>[];
   final year = _yearFromDate(movie.releaseDate);
   if (year != null) parts.add('$year');
   final duration = _durationMinutes(movie.duration);
   if (duration != null && duration > 0) parts.add('${duration}m');
   if (movie.library != null) parts.add(movie.library!);
-  return parts.isEmpty
-      ? AppL10n.of(context).dbOnlineNoMeta
-      : parts.join(' · ');
+  return parts.isEmpty ? '暂无信息' : parts.join(' · ');
 }
 
 int? _yearFromDate(String? value) {

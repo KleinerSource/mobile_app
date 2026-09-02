@@ -5,7 +5,6 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/modal_transcription_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
@@ -52,14 +51,10 @@ class _ModalTranscriptionSettingsPageState
     'v1.1',
     'v1.0',
   ];
-  /// 令牌策略的稳定取值；显示文案在 _strategyLabel 里本地化。
-  String _strategyLabel(AppL10n l, String value) {
-    return switch (value) {
-      'round_robin' => l.transcriptionStrategyRoundRobin,
-      'fill_first' => l.transcriptionStrategyFillFirst,
-      _ => value,
-    };
-  }
+  static const _strategyLabels = {
+    'round_robin': '轮询（均匀分配）',
+    'fill_first': '填充优先（集中靠前令牌）',
+  };
 
   late final TextEditingController _hfToken = TextEditingController();
 
@@ -165,9 +160,8 @@ class _ModalTranscriptionSettingsPageState
   }
 
   Future<void> _save() async {
-    final l = AppL10n.of(context);
     if (_enabled && _tokens.isEmpty) {
-      setState(() => _error = l.transcriptionNeedToken);
+      setState(() => _error = '启用云端字幕转译时至少需要添加一个 Modal 令牌');
       return;
     }
     final incomplete = _tokens.any(
@@ -176,7 +170,7 @@ class _ModalTranscriptionSettingsPageState
           (token.tokenId.trim().isEmpty || token.tokenSecret.trim().isEmpty),
     );
     if (incomplete) {
-      setState(() => _error = l.transcriptionTokenIncomplete);
+      setState(() => _error = '新增令牌必须同时填写 Token ID 和 Token Secret');
       return;
     }
     final draftIds = [
@@ -184,15 +178,15 @@ class _ModalTranscriptionSettingsPageState
         if (token.tokenId.trim().isNotEmpty) token.tokenId.trim(),
     ];
     if (draftIds.length != draftIds.toSet().length) {
-      setState(() => _error = l.transcriptionDuplicateTokenId);
+      setState(() => _error = '存在重复的 Modal Token ID');
       return;
     }
     if (_workers < 1 || _workers > 10) {
-      setState(() => _error = l.transcriptionWorkersRange);
+      setState(() => _error = '并行数必须在 1-10 之间');
       return;
     }
     if (_perTokenWorkers < 0 || _perTokenWorkers > 10) {
-      setState(() => _error = l.transcriptionPerTokenWorkersRange);
+      setState(() => _error = '单令牌并发上限必须在 0-10 之间');
       return;
     }
 
@@ -224,9 +218,7 @@ class _ModalTranscriptionSettingsPageState
       // ignore: unused_result
       ref.refresh(modalTranscriptionConfigProvider);
       AppHaptics.medium();
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.transcriptionSaved)),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('云端字幕转译配置已保存')));
     } catch (error) {
       if (mounted) setState(() => _error = toApiException(error).message);
     } finally {
@@ -247,20 +239,17 @@ class _ModalTranscriptionSettingsPageState
             error: (error, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  '${AppL10n.of(context).loadFailed}: $error',
-                  style: AppText.body(context),
-                ),
+                child: Text('加载失败: $error', style: AppText.body(context)),
               ),
             ),
             data: (config) {
               _hydrate(config);
               return SettingsFixedHeaderLayout(
                 scrollController: _scrollController,
-                header: SettingsSubPageHeader(
-                  eyebrow: AppL10n.of(context).settingsGroupSystem,
-                  title: AppL10n.of(context).transcriptionTitle,
-                  subtitle: AppL10n.of(context).transcriptionSubtitle,
+                header: const SettingsSubPageHeader(
+                  eyebrow: '系统配置',
+                  title: '云端字幕转译',
+                  subtitle: '配置 Modal GPU 云端转译和任务并行参数',
                 ),
                 body: _buildForm(colors),
               );
@@ -272,7 +261,6 @@ class _ModalTranscriptionSettingsPageState
   }
 
   Widget _buildForm(AppColors colors) {
-    final l = AppL10n.of(context);
     return ListView(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
@@ -280,10 +268,8 @@ class _ModalTranscriptionSettingsPageState
         Container(
           decoration: settingsCardDecoration(context),
           child: SettingsTile(
-            title: l.transcriptionEnable,
-            subtitle: _enabled
-                ? l.transcriptionEnabledSubtitle
-                : l.transcriptionDisabledSubtitle,
+            title: '启用云端字幕转译',
+            subtitle: _enabled ? '已启用 · 可提交字幕转译任务' : '已停用 · 不会调用 Modal 云端服务',
             leadingIcon: Icons.cloud_sync_outlined,
             trailing: SettingsSwitch(
               value: _enabled,
@@ -296,44 +282,33 @@ class _ModalTranscriptionSettingsPageState
         ),
         const SizedBox(height: 18),
         _fieldLabel(
-          l.transcriptionTokensLabel,
+          'MODAL 令牌',
           _tokens.isEmpty
-              ? l.transcriptionTokensEmptyHint
-              : l.transcriptionTokensCount(
-                  _tokens.length,
-                  ModalTranscriptionConfig.maxTokenCount,
-                ),
+              ? '启用时至少配置一个 Modal 账号令牌'
+              : '已配置 ${_tokens.length} 个 · 上限 ${ModalTranscriptionConfig.maxTokenCount} 个',
         ),
         _buildTokenList(colors),
         const SizedBox(height: 10),
         _buildAddTokenButton(colors),
         const SizedBox(height: 18),
-        _fieldLabel(
-          'HF_TOKEN',
-          _hasHfToken ? l.transcriptionConfiguredKeepHint : l.transcriptionHfTokenOptional,
-        ),
+        _fieldLabel('HF_TOKEN', _hasHfToken ? '已配置 · 留空则保留' : '可选'),
         _secretField(
           _hfToken,
-          hint: _hasHfToken
-              ? l.transcriptionNewHfTokenHint
-              : l.transcriptionHfTokenHint,
+          hint: _hasHfToken ? '输入新的 HF Token' : '可选 Hugging Face Token',
           visible: _showHfToken,
           onToggle: () => setState(() => _showHfToken = !_showHfToken),
         ),
         const SizedBox(height: 18),
-        _fieldLabel(
-          l.transcriptionTokenStrategyLabel,
-          l.transcriptionTokenStrategyHelp,
-        ),
+        _fieldLabel('令牌策略', '多个令牌同时可用时的任务分配方式'),
         _dropdown(
           value: _tokenStrategy,
           values: ModalTranscriptionConfig.tokenStrategies,
           icon: Icons.shuffle_outlined,
           onChanged: (value) => setState(() => _tokenStrategy = value),
-          labelBuilder: (value) => _strategyLabel(l, value),
+          labelBuilder: (value) => _strategyLabels[value] ?? value,
         ),
         const SizedBox(height: 14),
-        _fieldLabel(l.transcriptionGpuLabel, l.transcriptionGpuHelp),
+        _fieldLabel('云端 GPU', 'Modal Sandbox 使用的 GPU 类型'),
         _dropdown(
           value: _gpu,
           values: _gpus,
@@ -341,10 +316,7 @@ class _ModalTranscriptionSettingsPageState
           onChanged: (value) => setState(() => _gpu = value),
         ),
         const SizedBox(height: 14),
-        _fieldLabel(
-          l.transcriptionModelBranchLabel,
-          l.transcriptionModelBranchHelp,
-        ),
+        _fieldLabel('云端模型版本', 'ChickenRice 模型对应的远端仓库分支'),
         _dropdown(
           value: _branch,
           values: _branches,
@@ -353,16 +325,10 @@ class _ModalTranscriptionSettingsPageState
           labelBuilder: (value) => 'ChickenRice $value',
         ),
         const SizedBox(height: 14),
-        _fieldLabel(
-          l.transcriptionMaxWorkersLabel,
-          l.transcriptionMaxWorkersHelp,
-        ),
+        _fieldLabel('最大并行数', '范围 1-10，默认 1'),
         _buildWorkersSlider(colors),
         const SizedBox(height: 14),
-        _fieldLabel(
-          l.transcriptionPerTokenWorkersLabel,
-          l.transcriptionPerTokenWorkersHelp,
-        ),
+        _fieldLabel('单令牌并发上限', '范围 0-10，0 表示跟随最大并行数'),
         _buildPerTokenWorkersSlider(colors),
         const SizedBox(height: 14),
         Container(
@@ -379,7 +345,7 @@ class _ModalTranscriptionSettingsPageState
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l.transcriptionTokenListHint,
+                  '令牌列表按完整目标列表提交：删除后保存即移除对应账号。新增令牌必须同时填写 Token ID 与 Secret，编辑已有令牌时留空凭据保持原值。仅支持 SRT 字幕格式。',
                   style: TextStyle(
                     color: colors.muted,
                     fontSize: 11.5,
@@ -398,7 +364,7 @@ class _ModalTranscriptionSettingsPageState
         SettingsSaveButton(
           onPressed: _save,
           saving: _saving,
-          label: l.transcriptionSaveButton,
+          label: '保存云端转译配置',
         ),
       ],
     );
@@ -414,7 +380,7 @@ class _ModalTranscriptionSettingsPageState
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
-          AppL10n.of(context).transcriptionNoTokensHint,
+          '暂无令牌，点击下方“添加令牌”配置第一个 Modal 账号。',
           style: TextStyle(color: colors.muted, fontSize: 12, height: 1.5),
         ),
       );
@@ -437,13 +403,10 @@ class _ModalTranscriptionSettingsPageState
   }
 
   Widget _buildTokenRow(AppColors colors, int index) {
-    final l = AppL10n.of(context);
     final token = _tokens[index];
     final display = token.isExisting
-        ? (token.tokenIdMasked.isEmpty
-              ? l.transcriptionTokenConfigured
-              : token.tokenIdMasked)
-        : l.transcriptionTokenDraft;
+        ? (token.tokenIdMasked.isEmpty ? '已配置' : token.tokenIdMasked)
+        : '新令牌 · 保存后生效';
     return SwipeActionCell(
       group: _openSwipe,
       cellKey: index,
@@ -451,13 +414,13 @@ class _ModalTranscriptionSettingsPageState
       actions: [
         SwipeActionData(
           icon: Icons.edit_outlined,
-          label: l.edit,
+          label: '编辑',
           color: colors.accent,
           onPressed: () => _editToken(index: index),
         ),
         SwipeActionData(
           icon: Icons.delete_outline,
-          label: l.delete,
+          label: '删除',
           color: colors.danger,
           onPressed: () => _removeToken(index),
         ),
@@ -487,11 +450,7 @@ class _ModalTranscriptionSettingsPageState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    token.name.isEmpty
-                        ? AppL10n.of(
-                            context,
-                          ).transcriptionTokenNumber(index + 1)
-                        : token.name,
+                    token.name.isEmpty ? '令牌 ${index + 1}' : token.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -533,11 +492,7 @@ class _ModalTranscriptionSettingsPageState
         ),
         icon: Icon(Icons.add_circle_outline, size: 18, color: colors.muted),
         label: Text(
-          reached
-              ? AppL10n.of(
-                  context,
-                ).transcriptionTokenLimit(ModalTranscriptionConfig.maxTokenCount)
-              : AppL10n.of(context).transcriptionAddToken,
+          reached ? '最多 ${ModalTranscriptionConfig.maxTokenCount} 个令牌' : '添加令牌',
           style: const TextStyle(
             fontFamily: 'Inter',
             fontWeight: FontWeight.w700,
@@ -558,7 +513,7 @@ class _ModalTranscriptionSettingsPageState
             children: [
               Expanded(
                 child: Text(
-                  AppL10n.of(context).transcriptionWorkersSliderLabel,
+                  '同时处理任务数',
                   style: TextStyle(
                     color: colors.text,
                     fontFamily: 'Inter',
@@ -601,7 +556,7 @@ class _ModalTranscriptionSettingsPageState
             children: [
               Expanded(
                 child: Text(
-                  AppL10n.of(context).transcriptionPerTokenSliderLabel,
+                  '每令牌同时任务数',
                   style: TextStyle(
                     color: colors.text,
                     fontFamily: 'Inter',
@@ -611,9 +566,7 @@ class _ModalTranscriptionSettingsPageState
                 ),
               ),
               Text(
-                _perTokenWorkers == 0
-                    ? AppL10n.of(context).transcriptionFollowMaxWorkers
-                    : '$_perTokenWorkers',
+                _perTokenWorkers == 0 ? '跟随最大并行数' : '$_perTokenWorkers',
                 style: AppText.mono(context, size: 14, color: colors.text),
               ),
             ],
@@ -779,16 +732,15 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
   }
 
   void _submit() {
-    final l = AppL10n.of(context);
     final isEdit = widget.initial.isExisting;
     final tokenId = _tokenId.text.trim();
     final tokenSecret = _tokenSecret.text.trim();
     if (!isEdit && (tokenId.isEmpty || tokenSecret.isEmpty)) {
-      setState(() => _error = l.transcriptionTokenIncomplete);
+      setState(() => _error = '新增令牌必须同时填写 Token ID 和 Token Secret');
       return;
     }
     if (tokenId.isNotEmpty && widget.otherTokenIds.contains(tokenId)) {
-      setState(() => _error = l.transcriptionTokenIdExists);
+      setState(() => _error = '已存在相同 Token ID 的令牌');
       return;
     }
     Navigator.of(context).pop(
@@ -805,7 +757,6 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final isEdit = widget.initial.isExisting;
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -821,12 +772,10 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
           children: [
             SheetHeader(
               icon: isEdit ? Icons.edit_outlined : Icons.key_outlined,
-              title: isEdit
-                  ? l.transcriptionEditTokenTitle
-                  : l.transcriptionAddToken,
+              title: isEdit ? '编辑令牌' : '添加令牌',
               subtitle: isEdit
-                  ? l.transcriptionEditTokenSubtitle
-                  : l.transcriptionAddTokenSubtitle,
+                  ? '留空的凭据保持服务端原值不变。'
+                  : '填写 Modal 账号的 Token ID 与 Token Secret。',
               padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 14),
@@ -836,28 +785,24 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
               textAlignVertical: TextAlignVertical.center,
               decoration: settingsInputDecoration(
                 context,
-                labelText: l.transcriptionTokenNameLabel,
-                hintText: l.transcriptionTokenNameHint,
+                labelText: '备注（可选）',
+                hintText: '如：主账号',
                 prefixIcon: const Icon(Icons.badge_outlined),
               ),
             ),
             const SizedBox(height: 10),
             _credentialField(
               controller: _tokenId,
-              label: l.transcriptionTokenIdLabel,
-              hint: isEdit
-                  ? l.transcriptionCredentialKeepHint
-                  : l.transcriptionTokenIdHint,
+              label: 'Token ID',
+              hint: isEdit ? '已配置，留空则不修改' : '输入 Modal Token ID',
               visible: _showTokenId,
               onToggle: () => setState(() => _showTokenId = !_showTokenId),
             ),
             const SizedBox(height: 10),
             _credentialField(
               controller: _tokenSecret,
-              label: l.transcriptionTokenSecretLabel,
-              hint: isEdit
-                  ? l.transcriptionCredentialKeepHint
-                  : l.transcriptionTokenSecretHint,
+              label: 'Token Secret',
+              hint: isEdit ? '已配置，留空则不修改' : '输入 Modal Token Secret',
               visible: _showTokenSecret,
               onToggle: () =>
                   setState(() => _showTokenSecret = !_showTokenSecret),
@@ -876,7 +821,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: sheetSecondaryButtonStyle(context),
-                    child: Text(l.cancel),
+                    child: const Text('取消'),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -885,7 +830,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
                   child: FilledButton(
                     onPressed: _submit,
                     style: sheetPrimaryButtonStyle(context),
-                    child: Text(l.confirm),
+                    child: const Text('确定'),
                   ),
                 ),
               ],

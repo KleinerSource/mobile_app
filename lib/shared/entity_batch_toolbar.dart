@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
-import '../l10n/generated/app_localizations.dart';
 
 /// 管理类列表通用的批量操作按钮。
 class EntityBatchAction {
@@ -39,7 +38,6 @@ class EntityBatchToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     final c = appColors(context);
     final background = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFF1B1A24)
@@ -69,7 +67,7 @@ class EntityBatchToolbar extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    l.selectedN(selectedCount),
+                    '$selectedCount 已选',
                     style: TextStyle(
                       color: c.text,
                       fontFamily: 'Inter',
@@ -88,7 +86,7 @@ class EntityBatchToolbar extends StatelessWidget {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(l.commonSelectAll),
+                    child: const Text('全选'),
                   ),
                   TextButton(
                     onPressed: onClear,
@@ -101,11 +99,11 @@ class EntityBatchToolbar extends StatelessWidget {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       foregroundColor: c.danger,
                     ),
-                    child: Text(l.commonClearSelection),
+                    child: const Text('清空'),
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: l.commonExitSelection,
+                    tooltip: '退出多选',
                     onPressed: onClose,
                     icon: Icon(Icons.close, size: 18, color: c.muted),
                     padding: EdgeInsets.zero,

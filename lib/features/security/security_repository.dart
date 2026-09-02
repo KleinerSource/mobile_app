@@ -102,10 +102,10 @@ class SecurityRepository {
     }
   }
 
-  Future<bool> authenticateBiometric({String? localizedReason}) async {
+  Future<bool> authenticateBiometric() async {
     try {
       return await _localAuthentication.authenticate(
-        localizedReason: localizedReason ?? '请验证身份以进入 Oh My Media',
+        localizedReason: '请验证身份以进入 Oh My Media',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/collection_card_layout.dart';
 import 'package:omm/shared/poster.dart';
 
@@ -45,10 +44,7 @@ class HomeLibrariesSection extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Text(
-                  AppL10n.of(context).homeLibraries,
-                  style: AppText.sectionTitle(context),
-                ),
+                child: Text('媒体库', style: AppText.sectionTitle(context)),
               ),
               const SizedBox(height: 14),
               SizedBox(

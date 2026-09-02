@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../l10n/generated/app_localizations.dart';
-
 /// mm:ss 或 h:mm:ss · 负值带前导 '-' (用于 seek 累计偏移)
 String formatDuration(Duration d) {
   final neg = d.isNegative;
@@ -123,9 +121,7 @@ class PlayerOverlayIndicators extends StatelessWidget {
       case PlayerIndicatorKind.speed:
         return _PillCard(
           icon: Icons.fast_forward,
-          label: AppL10n.of(
-            context,
-          ).playerSpeedActive('${ind.rate.toStringAsFixed(1)}x'),
+          label: '${ind.rate.toStringAsFixed(1)}x 倍速播放中',
         );
       case PlayerIndicatorKind.seek:
         final total = ind.seekTotal;

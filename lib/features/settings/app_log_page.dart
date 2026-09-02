@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../core/platform/app_log_store.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'settings_common.dart';
 
@@ -14,16 +13,15 @@ class AppLogPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            header: SettingsSubPageHeader(
-              eyebrow: l.settingsAppUpdate,
-              title: l.appLogTitle,
-              subtitle: l.appLogSubtitle,
+            header: const SettingsSubPageHeader(
+              eyebrow: '应用更新',
+              title: '播放日志',
+              subtitle: '复现问题后返回此页，复制日志发给开发者分析',
             ),
             body: ValueListenableBuilder<List<String>>(
               valueListenable: AppLogStore.instance.listenable,
@@ -33,21 +31,21 @@ class AppLogPage extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 80),
                   children: [
                     SettingsGroup(
-                      title: l.commonActions,
+                      title: '操作',
                       items: [
                         SettingsTile(
-                          title: l.appLogCopyAll,
+                          title: '复制全部日志',
                           subtitle: entries.isEmpty
-                              ? l.appLogEmpty
-                              : l.appLogCount(entries.length),
+                              ? '当前没有可复制的日志'
+                              : '共 ${entries.length} 条，仅保留本次运行期间的最近记录',
                           leadingIcon: Icons.copy_all_outlined,
                           onTap: entries.isEmpty
                               ? null
                               : () => _copyLogs(context),
                         ),
                         SettingsTile(
-                          title: l.appLogClear,
-                          subtitle: l.appLogClearSub,
+                          title: '清空日志',
+                          subtitle: '清空后重新复现，可减少无关信息',
                           leadingIcon: Icons.delete_outline,
                           onTap: entries.isEmpty
                               ? null
@@ -56,7 +54,7 @@ class AppLogPage extends StatelessWidget {
                       ],
                     ),
                     SettingsGroup(
-                      title: l.appLogContent,
+                      title: '日志内容',
                       items: [
                         Padding(
                           padding: const EdgeInsets.all(12),
@@ -72,7 +70,7 @@ class AppLogPage extends StatelessWidget {
                             child: entries.isEmpty
                                 ? Center(
                                     child: Text(
-                                      l.appLogEmptyHint,
+                                      '暂无日志\n先播放一次 SMB / WebDAV 视频',
                                       textAlign: TextAlign.center,
                                       style: AppText.meta(context),
                                     ),
@@ -116,7 +114,7 @@ class AppLogPage extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(AppL10n.of(context).appLogCopied)));
+      ).showSnackBar(const SnackBar(content: Text('日志已复制，可粘贴发送给开发者')));
     }
   }
 
@@ -124,6 +122,6 @@ class AppLogPage extends StatelessWidget {
     AppLogStore.instance.clear();
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(AppL10n.of(context).appLogCleared)));
+    ).showSnackBar(const SnackBar(content: Text('日志已清空')));
   }
 }

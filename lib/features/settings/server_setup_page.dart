@@ -14,7 +14,6 @@ import '../../core/sources/files/openlist_api.dart';
 import '../../core/sources/files/openlist_file_source.dart';
 import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
@@ -98,14 +97,13 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   }
 
   Future<void> _testAndSave() async {
-    final l = AppL10n.of(context);
     final project = _project;
     if (project == null) {
-      _showError(l.serverSetupSelectProject);
+      _showError('请选择服务器类型');
       return;
     }
     if (_nameController.text.trim().isEmpty) {
-      _showError(l.serverSetupNameRequired);
+      _showError('请输入服务器名称');
       return;
     }
     if (project.isFileSource) {
@@ -126,9 +124,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       normalized,
       excludingServerId: editingServer?.id,
     )) {
-      _showError(
-        AppL10n.of(context).serverSetupDuplicate(_projectLabel(project)),
-      );
+      _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
       return;
     }
 
@@ -186,20 +182,19 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   }
 
   Future<void> _testAndSaveFileSource(ServerProject project) async {
-    final l = AppL10n.of(context);
     final host = _hostController.text.trim();
     final port = _readPort(project);
     final path = _pathController.text.trim();
     if (host.isEmpty) {
-      _showError(l.serverSetupHostRequired);
+      _showError('请输入主机');
       return;
     }
     if (port == null) {
-      _showError(l.serverSetupPortInvalid);
+      _showError('请输入 1-65535 之间的端口');
       return;
     }
     if (path.isEmpty) {
-      _showError(l.serverSetupPathRequired);
+      _showError('请输入路径');
       return;
     }
 
@@ -231,9 +226,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       endpoint,
       excludingServerId: editingServer?.id,
     )) {
-      _showError(
-        AppL10n.of(context).serverSetupDuplicate(_projectLabel(project)),
-      );
+      _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
       return;
     }
     final config = switch (project) {
@@ -273,7 +266,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       ServerProject.feiniu => null,
     };
     if (config == null || !config.isValid) {
-      _showError(AppL10n.of(context).serverSetupInvalidFileConfig);
+      _showError('请完整填写有效的文件服务器配置');
       return;
     }
 
@@ -487,15 +480,14 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   }
 
   String? _buildHttpEndpoint(ServerProject project) {
-    final l = AppL10n.of(context);
     final host = _hostController.text.trim();
     final port = _readPort(project);
     if (host.isEmpty) {
-      _showError(l.serverSetupHostRequired);
+      _showError('请输入主机');
       return null;
     }
     if (port == null) {
-      _showError(l.serverSetupPortInvalid);
+      _showError('请输入 1-65535 之间的端口');
       return null;
     }
     return ServerConfig.normalizeForProject(
@@ -520,7 +512,6 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     final project = _project ?? ServerProject.ohMyMedia;
     final editing = _editingServerId != null;
     final httpServer =
@@ -539,14 +530,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: l.settingsGroupServer,
-              title: widget.title ??
-                  (editing
-                      ? l.serverSetupReplaceTitle
-                      : l.serverSetupConnectTitle),
-              subtitle: editing
-                  ? l.serverSetupEditSubtitle
-                  : l.serverSetupNewSubtitle,
+              eyebrow: '服务器',
+              title: widget.title ?? (editing ? '更换服务器' : '连接到服务器'),
+              subtitle: editing ? '修改连接信息后重新测试并保存。' : '选择服务器类型并填写连接信息。',
               showBackButton: Navigator.of(context).canPop(),
             ),
             body: ListView(
@@ -560,10 +546,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          l.serverSetupProjectLabel,
-                          style: AppText.cardTitle(context),
-                        ),
+                        Text('服务器类型', style: AppText.cardTitle(context)),
                         const SizedBox(height: 10),
                         _ProjectSelector(
                           value: project,
@@ -581,11 +564,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                         TextField(
                           controller: _nameController,
                           enabled: !_busy,
-                          decoration: InputDecoration(
-                            labelText: l.serverSetupNameLabel,
-                            prefixIcon: const Icon(
-                              Icons.drive_file_rename_outline,
-                            ),
+                          decoration: const InputDecoration(
+                            labelText: '服务器名称',
+                            prefixIcon: Icon(Icons.drive_file_rename_outline),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -609,7 +590,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                                   keyboardType: TextInputType.url,
                                   autocorrect: false,
                                   decoration: InputDecoration(
-                                    labelText: l.serverSetupHostLabel,
+                                    labelText: '主机',
                                     hintText: project == ServerProject.smb
                                         ? '192.168.1.10'
                                         : 'example.com',
@@ -627,7 +608,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                                   enabled: !_busy,
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    labelText: l.serverSetupPortLabel,
+                                    labelText: '端口',
                                     hintText: defaultServerPort(
                                       project,
                                       scheme: _scheme,
@@ -643,15 +624,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _pathController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: openList
-                                  ? l.serverSetupRootPathLabel
-                                  : l.serverSetupPathLabel,
+                              labelText: openList ? '根路径' : '路径',
                               hintText: switch (project) {
-                                ServerProject.smb =>
-                                  l.serverSetupPathHintSmb,
+                                ServerProject.smb => '共享名或 /',
                                 ServerProject.webDav => 'dav/media',
-                                ServerProject.openList =>
-                                  l.serverSetupPathHintOpenList,
+                                ServerProject.openList => '/ 或 /media',
                                 _ => '/',
                               },
                               prefixIcon: const Icon(Icons.folder_outlined),
@@ -662,9 +639,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _userController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: openList
-                                  ? l.serverSetupUserAnonymousLabel
-                                  : l.serverSetupUserLabel,
+                              labelText: openList ? '用户名（留空匿名访问）' : '用户名',
                               prefixIcon: const Icon(Icons.person_outline),
                             ),
                           ),
@@ -673,9 +648,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _passwordController,
                             enabled: !_busy,
                             obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: l.serverSetupPasswordLabel,
-                              prefixIcon: const Icon(Icons.lock_outline),
+                            decoration: const InputDecoration(
+                              labelText: '密码',
+                              prefixIcon: Icon(Icons.lock_outline),
                             ),
                           ),
                         ],
@@ -724,7 +699,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                 SettingsSaveButton(
                   onPressed: _testAndSave,
                   saving: _busy,
-                  label: l.serverTestAndSave,
+                  label: '测试并保存',
                 ),
               ],
             ),
@@ -816,7 +791,7 @@ class _ProtocolSelector extends StatelessWidget {
     return InputDecorator(
       decoration: settingsInputDecoration(
         context,
-        labelText: AppL10n.of(context).serverSetupProtocolLabel,
+        labelText: '协议',
         prefixIcon: const Icon(Icons.http_outlined),
       ),
       child: DropdownButtonHideUnderline(

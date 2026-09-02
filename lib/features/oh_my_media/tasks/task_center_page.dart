@@ -7,10 +7,8 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'task_center_provider.dart';
 import 'task_model.dart';
-import 'task_name_labels.dart';
 
 class TaskCenterPage extends ConsumerStatefulWidget {
   const TaskCenterPage({super.key});
@@ -26,7 +24,6 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final tasks = ref.watch(taskCenterProvider);
     final visible = tasks.where(_matchesFilter).toList();
     final activeCount = tasks.where((task) => task.isActive).length;
@@ -41,11 +38,11 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: l.taskCenterEyebrow,
-              title: l.taskCenterTitle,
+              eyebrow: '后台任务',
+              title: '任务中心',
               subtitle: activeCount == 0
-                  ? l.taskCenterSubtitleIdle(tasks.length)
-                  : l.taskCenterSubtitleActive(activeCount, tasks.length),
+                  ? '暂无进行中的任务 · 共 ${tasks.length} 条记录'
+                  : '$activeCount 条任务正在执行 · 共 ${tasks.length} 条记录',
             ),
             body: RefreshIndicator(
               onRefresh: ref.read(taskCenterProvider.notifier).refresh,
@@ -60,11 +57,11 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                   if (visible.isEmpty)
                     _buildEmpty(colors)
                   else
-                      for (final entry in groups.entries) ...[
+                    for (final entry in groups.entries) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(2, 10, 2, 8),
                         child: Text(
-                          '${taskNameLabel(l, entry.key)}  ·  ${entry.value.length}',
+                          '${entry.key}  ·  ${entry.value.length}',
                           style: TextStyle(
                             color: colors.muted,
                             fontFamily: 'Inter',
@@ -94,22 +91,11 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     };
   }
 
-  String _filterLabel(AppL10n l, String filter) {
-    return switch (filter) {
-      'active' => l.taskFilterActive,
-      'completed' => l.taskFilterCompleted,
-      'failed' => l.taskFilterFailed,
-      'canceled' => l.taskFilterCanceled,
-      _ => l.taskFilterAll,
-    };
-  }
-
   Widget _buildSummary(
     AppColors colors,
     List<TaskItem> tasks,
     int activeCount,
   ) {
-    final l = AppL10n.of(context);
     final failedCount = tasks
         .where((task) => const {'failed', 'error'}.contains(task.status))
         .length;
@@ -118,43 +104,36 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
       decoration: settingsCardDecoration(context),
       child: Row(
         children: [
-          _SummaryValue(label: l.taskFilterAll, value: tasks.length.toString()),
+          _SummaryValue(label: '全部', value: tasks.length.toString()),
           _SummaryDivider(color: colors.divider),
-          _SummaryValue(
-            label: l.taskFilterActive,
-            value: activeCount.toString(),
-          ),
+          _SummaryValue(label: '进行中', value: activeCount.toString()),
           _SummaryDivider(color: colors.divider),
-          _SummaryValue(
-            label: l.taskFilterFailed,
-            value: failedCount.toString(),
-          ),
+          _SummaryValue(label: '失败', value: failedCount.toString()),
         ],
       ),
     );
   }
 
   Widget _buildFilterBar(AppColors colors) {
-    final l = AppL10n.of(context);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           for (final entry in const [
-            'all',
-            'active',
-            'completed',
-            'failed',
-            'canceled',
+            ('all', '全部'),
+            ('active', '进行中'),
+            ('completed', '已完成'),
+            ('failed', '失败'),
+            ('canceled', '已取消'),
           ])
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(_filterLabel(l, entry)),
-                selected: _filter == entry,
-                onSelected: (_) => setState(() => _filter = entry),
+                label: Text(entry.$2),
+                selected: _filter == entry.$1,
+                onSelected: (_) => setState(() => _filter = entry.$1),
                 labelStyle: TextStyle(
-                  color: _filter == entry
+                  color: _filter == entry.$1
                       ? colors.tabActiveText
                       : colors.muted,
                   fontWeight: FontWeight.w700,
@@ -173,7 +152,6 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
 
   Widget _buildTaskCard(TaskItem task) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final percent = task.progress.clampedPercent / 100;
     final progressValue = task.progress.total <= 0 && task.isActive
         ? null
@@ -225,7 +203,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                           children: [
                             Expanded(
                               child: Text(
-                                taskNameLabel(l, task.name),
+                                task.name,
                                 style: TextStyle(
                                   color: colors.text,
                                   fontFamily: 'Inter',
@@ -277,9 +255,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      task.message.isEmpty
-                          ? l.taskMsgWaitingUpdate
-                          : taskMessageLabel(l, task.message),
+                      task.message.isEmpty ? '等待状态更新' : task.message,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -321,25 +297,24 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
   }
 
   List<_TaskAction> _taskActions(TaskItem task, AppColors colors, bool busy) {
-    final l = AppL10n.of(context);
     return [
       if (task.canRetry)
         _TaskAction(
-          label: l.taskActionRetry,
+          label: '重试',
           icon: Icons.refresh_rounded,
           color: colors.accent,
           onPressed: busy ? null : () => _runTaskAction(task, false),
         ),
       if (task.canCancel)
         _TaskAction(
-          label: busy ? l.taskActionBusy : l.cancel,
+          label: busy ? '处理中' : '取消',
           icon: Icons.stop_circle_outlined,
           color: colors.warning,
           onPressed: busy ? null : () => _runTaskAction(task, true),
         ),
       if (task.isTerminal)
         _TaskAction(
-          label: l.delete,
+          label: '删除',
           icon: Icons.delete_outline_rounded,
           color: colors.danger,
           onPressed: busy ? null : () => _deleteTask(task),
@@ -356,27 +331,26 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(AppL10n.of(context).taskRecordRemoved),
+          content: const Text('任务记录已删除'),
           action: SnackBarAction(
-            label: AppL10n.of(context).taskUndo,
+            label: '撤销',
             onPressed: () => notifier.restore(task),
           ),
         ),
       );
   }
 
-  String _emptyTitle(AppL10n l) {
+  String _emptyTitle() {
     return switch (_filter) {
-      'active' => l.taskEmptyActive,
-      'completed' => l.taskEmptyCompleted,
-      'failed' => l.taskEmptyFailed,
-      'canceled' => l.taskEmptyCanceled,
-      _ => l.taskEmptyAll,
+      'active' => '当前没有进行中的任务',
+      'completed' => '当前没有已完成的任务',
+      'failed' => '当前没有失败的任务',
+      'canceled' => '当前没有已取消的任务',
+      _ => '暂无任务记录',
     };
   }
 
   Widget _buildEmpty(AppColors colors) {
-    final l = AppL10n.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 48),
       decoration: settingsCardDecoration(context),
@@ -385,7 +359,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           Icon(Icons.task_alt_rounded, size: 38, color: colors.muted),
           const SizedBox(height: 12),
           Text(
-            _emptyTitle(l),
+            _emptyTitle(),
             style: TextStyle(
               color: colors.text,
               fontFamily: 'Inter',
@@ -395,7 +369,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           ),
           const SizedBox(height: 5),
           Text(
-            l.taskEmptyHint,
+            'NFO、云端转译、音频提取和扫库任务会显示在这里',
             textAlign: TextAlign.center,
             style: TextStyle(color: colors.muted, fontSize: 11.5),
           ),
@@ -415,11 +389,8 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
         await notifier.retry(task);
       }
       if (mounted) {
-        final l = AppL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(cancel ? l.taskCancelSubmitted : l.taskMsgRequeued),
-          ),
+          SnackBar(content: Text(cancel ? '任务取消请求已提交' : '任务已重新排队')),
         );
       }
     } catch (error) {
@@ -427,9 +398,9 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
         final message = error is StateError
             ? error.message.toString()
             : toApiException(error).message;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(taskErrorLabel(AppL10n.of(context), message))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       _busy.remove(task.key);

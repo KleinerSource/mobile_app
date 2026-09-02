@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 
 import '../core/platform/app_theme.dart';
-import '../l10n/generated/app_localizations.dart';
 
 /// omm 海报组件 · 真图优先, 失败回退到极简占位符 (深色块 + 图标 + 番号/标题)。
 class Poster extends StatelessWidget {
@@ -223,13 +222,12 @@ class OnlinePlayBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     final color = appColors(context).accent;
     return Semantics(
       container: true,
-      label: l.posterOnlinePlay,
+      label: '在线播放',
       child: Tooltip(
-        message: l.posterOnlinePlay,
+        message: '在线播放',
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.92),
@@ -250,9 +248,9 @@ class OnlinePlayBadge extends StatelessWidget {
                 ),
                 if (!iconOnly) ...[
                   const SizedBox(width: 2),
-                  Text(
-                    l.posterOnlinePlay,
-                    style: const TextStyle(
+                  const Text(
+                    '在线播放',
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,

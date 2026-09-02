@@ -176,8 +176,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     final state = _host.value;
     if (mounted) {
       if (state.lifecycle == PlaybackLifecycle.failed) {
-        final message =
-            state.error ?? AppL10n.of(context).playerAudioPlaybackFailed;
+        final message = state.error ?? '音频播放失败';
         if (_loading || _error != message) {
           setState(() {
             _loading = false;
@@ -408,7 +407,6 @@ class _AudioErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -422,8 +420,8 @@ class _AudioErrorView extends StatelessWidget {
             Wrap(
               spacing: 12,
               children: [
-                FilledButton(onPressed: onRetry, child: Text(l.fileRetry)),
-                OutlinedButton(onPressed: onExit, child: Text(l.playerExit)),
+                FilledButton(onPressed: onRetry, child: const Text('重试')),
+                OutlinedButton(onPressed: onExit, child: const Text('退出')),
               ],
             ),
           ],

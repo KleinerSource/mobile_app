@@ -13,7 +13,6 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/server_avatar.dart';
 import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
@@ -31,10 +30,6 @@ enum ServerSwitchPhase {
   finishing,
   returning,
 }
-
-/// 错误阶段的固定文案类别。Notifier 层拿不到 BuildContext，
-/// 只标记类别，最终展示文案由转场 UI 用 AppL10n 解析。
-enum ServerSwitchMessageKind { restoreFailed, connectionFailed, invalidTarget, authCheckTimeout }
 
 /// 服务器切换转场共用的头像几何。所有阶段都以这套尺寸和屏幕中心为锚点，
 /// 避免飞行头像、鉴权头像和登录完成后的揭示头像出现跳变。
@@ -60,7 +55,6 @@ class ServerSwitchState {
     this.targetServerId,
     this.previousServerId,
     this.message,
-    this.messageKind,
     this.avatarOrigin,
     this.returnToSelectionOnCancel = false,
   });
@@ -98,8 +92,7 @@ class ServerSwitchState {
   const ServerSwitchState.error({
     required String targetServerId,
     String? previousServerId,
-    String? message,
-    ServerSwitchMessageKind? messageKind,
+    required String message,
     Rect? avatarOrigin,
     bool returnToSelectionOnCancel = false,
   }) : this._(
@@ -107,7 +100,6 @@ class ServerSwitchState {
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          message: message,
-         messageKind: messageKind,
          avatarOrigin: avatarOrigin,
          returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
@@ -141,10 +133,7 @@ class ServerSwitchState {
   final ServerSwitchPhase phase;
   final String? targetServerId;
   final String? previousServerId;
-
-  /// 动态错误文本（后端/异常消息），固定文案用 [messageKind] 标记。
   final String? message;
-  final ServerSwitchMessageKind? messageKind;
   final Rect? avatarOrigin;
   final bool returnToSelectionOnCancel;
 
@@ -274,20 +263,15 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           .read(serverConfigProvider.notifier)
           .selectServer(previousServerId);
       if (!_isCurrent(operation)) return;
-      final result = await _refreshAuthState();
+      final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
-      final auth = result.auth;
       if (auth.phase == AuthPhase.authenticated) {
         await _completeAuthenticatedSwitch(operation);
       } else {
         state = ServerSwitchState.error(
           targetServerId: previousServerId,
           previousServerId: current.targetServerId,
-          // 固定前缀 + 动态明细在 UI 层按 messageKind 组装。
-          message: auth.message,
-          messageKind: result.timedOut
-              ? ServerSwitchMessageKind.authCheckTimeout
-              : ServerSwitchMessageKind.restoreFailed,
+          message: '无法恢复当前服务器：${auth.message ?? '服务器鉴权失败'}',
         );
       }
     } catch (error) {
@@ -307,7 +291,6 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     required String? previousServerId,
     required bool returnToSelectionOnCancel,
     required int operation,
-    bool timedOut = false,
   }) {
     switch (auth.phase) {
       case AuthPhase.authenticated:
@@ -324,16 +307,12 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         break;
       case AuthPhase.incompatible:
       case AuthPhase.unavailable:
-        final hasServerMessage = auth.message?.trim().isNotEmpty == true;
         state = ServerSwitchState.error(
           targetServerId: targetServerId,
           previousServerId: previousServerId,
-          message: hasServerMessage ? auth.message : null,
-          messageKind: hasServerMessage
-              ? null
-              : timedOut
-              ? ServerSwitchMessageKind.authCheckTimeout
-              : ServerSwitchMessageKind.connectionFailed,
+          message: auth.message?.trim().isNotEmpty == true
+              ? auth.message!
+              : '服务器连接失败，请重试或返回当前服务器',
           avatarOrigin: state.avatarOrigin,
           returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
@@ -343,7 +322,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         state = ServerSwitchState.error(
           targetServerId: targetServerId,
           previousServerId: previousServerId,
-          messageKind: ServerSwitchMessageKind.invalidTarget,
+          message: '目标服务器配置无效，请重试或返回当前服务器',
           avatarOrigin: state.avatarOrigin,
           returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
@@ -464,12 +443,11 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
       await _applyAuthResult(
-        auth.auth,
+        auth,
         targetServerId: serverId,
         previousServerId: previousServerId,
         returnToSelectionOnCancel: returnToSelectionOnCancel,
         operation: operation,
-        timedOut: auth.timedOut,
       );
     } catch (error) {
       if (!_isCurrent(operation)) return;
@@ -477,10 +455,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       state = ServerSwitchState.error(
         targetServerId: serverId,
         previousServerId: previousServerId,
-        message: exception.message.trim().isEmpty ? null : exception.message,
-        messageKind: exception.message.trim().isEmpty
-            ? ServerSwitchMessageKind.connectionFailed
-            : null,
+        message: exception.message.trim().isEmpty
+            ? '服务器连接失败，请重试或返回当前服务器'
+            : exception.message,
         avatarOrigin: avatarOrigin,
         returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
@@ -494,19 +471,17 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   /// 配置切换会同时触发 [authControllerProvider] 重建；只调用
   /// `invalidate` 后再读取 `.future` 可能仍然接到上一轮异步构建的 Future，
   /// 让切换遮罩一直停留在检查状态。`refresh` 会确保等待本次服务器对应的
-  /// 状态；超时则返回无消息的 unavailable 状态并标记 timedOut，
-  /// 由 UI 层给出本地化的超时文案，避免网络异常造成无限等待。
-  Future<({AuthState auth, bool timedOut})> _refreshAuthState() async {
+  /// 状态；超时则转成可重试错误，避免网络异常造成无限等待。
+  Future<AuthState> _refreshAuthState() async {
     try {
-      final auth = await ref
+      return await ref
           .read(authControllerProvider.notifier)
           .refreshCurrentServer()
           .timeout(_authCheckTimeout);
-      return (auth: auth, timedOut: false);
     } on TimeoutException {
-      return (
-        auth: const AuthState(phase: AuthPhase.unavailable),
-        timedOut: true,
+      return const AuthState(
+        phase: AuthPhase.unavailable,
+        message: '检查服务器鉴权状态超时，请检查网络后重试',
       );
     }
   }
@@ -585,13 +560,12 @@ class _ServerSwitchTransitionOverlayState
     final config = ref.watch(serverSelectionConfigProvider);
     final target = _targetServer(config, transition.targetServerId);
     if (target == null) {
-      final l = AppL10n.of(context);
       return _buildMaterial(
         context,
-        _TransitionContent(
+        const _TransitionContent(
           icon: Icons.dns_outlined,
-          title: l.homeSwitchTargetMissingTitle,
-          message: l.homeSwitchTargetMissingMessage,
+          title: '服务器配置无效',
+          message: '无法找到目标服务器，请返回后重试。',
         ),
         transition: transition,
       );
@@ -618,7 +592,12 @@ class _ServerSwitchTransitionOverlayState
         requiresTotp,
         transition.message,
       ),
-      ServerSwitchPhase.error => _buildError(context, colors, target, transition),
+      ServerSwitchPhase.error => _buildError(
+        context,
+        colors,
+        target,
+        transition.message,
+      ),
       ServerSwitchPhase.finishing => const SizedBox.shrink(),
       ServerSwitchPhase.returning => const SizedBox.shrink(),
       ServerSwitchPhase.idle => const SizedBox.shrink(),
@@ -1145,7 +1124,6 @@ class _ServerSwitchTransitionOverlayState
     AppColors colors,
     ServerProfile server,
   ) {
-    final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
@@ -1154,7 +1132,7 @@ class _ServerSwitchTransitionOverlayState
       key: const ValueKey('server-switch-checking'),
       children: [
         Text(
-          l.homeSwitchConnecting(name),
+          '连接 $name',
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -1162,7 +1140,7 @@ class _ServerSwitchTransitionOverlayState
         ),
         const SizedBox(height: 16),
         Text(
-          l.homeSwitchCheckingAuth,
+          '正在检查服务器鉴权状态…',
           textAlign: TextAlign.center,
           style: AppText.body(
             context,
@@ -1179,7 +1157,6 @@ class _ServerSwitchTransitionOverlayState
     bool requiresTotp,
     String? message,
   ) {
-    final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
@@ -1202,12 +1179,12 @@ class _ServerSwitchTransitionOverlayState
         const SizedBox(height: 16),
         Text(
           requiresTotp
-              ? l.homeSwitchTotpHint
+              ? '输入动态验证码完成切换。'
               : server.project == ServerProject.emby ||
                     server.project == ServerProject.jellyfin ||
                     server.project == ServerProject.feiniu
-              ? l.homeSwitchUsernamePasswordHint
-              : l.homeSwitchPasswordHint,
+              ? '请输入此服务器的用户名和密码继续。'
+              : '请输入此服务器的密码继续。',
           textAlign: TextAlign.center,
           style: AppText.body(
             context,
@@ -1229,7 +1206,7 @@ class _ServerSwitchTransitionOverlayState
             _input(
               context,
               controller: _usernameController,
-              label: l.homeSwitchUsernameLabel,
+              label: '用户名',
               icon: Icons.person_outline,
               enabled: !_loginBusy,
               onSubmitted: (_) => _submitLogin(),
@@ -1239,7 +1216,7 @@ class _ServerSwitchTransitionOverlayState
           _input(
             context,
             controller: _passwordController,
-            label: l.homeSwitchPasswordLabel,
+            label: '密码',
             obscureText: true,
             icon: Icons.key_outlined,
             enabled: !_loginBusy,
@@ -1272,10 +1249,10 @@ class _ServerSwitchTransitionOverlayState
                   ),
             label: Text(
               _loginBusy
-                  ? l.homeSwitchVerifying
+                  ? '验证中…'
                   : requiresTotp
-                  ? l.homeSwitchVerifyAndSwitch
-                  : l.homeSwitchSignInAndSwitch,
+                  ? '验证并切换'
+                  : '登录并切换',
             ),
           ),
         ),
@@ -1290,53 +1267,33 @@ class _ServerSwitchTransitionOverlayState
             requiresTotp ? Icons.arrow_back_rounded : Icons.close_rounded,
             size: 18,
           ),
-          label: Text(
-            requiresTotp ? l.homeSwitchBackToPassword : l.homeSwitchCancel,
-          ),
+          label: Text(requiresTotp ? '返回输入密码' : '取消切换'),
         ),
       ],
     );
-  }
-
-  /// Notifier 无法本地化固定文案，按 messageKind 解析成展示文本。
-  String? _resolveStateMessage(AppL10n l, ServerSwitchState transition) {
-    return switch (transition.messageKind) {
-      ServerSwitchMessageKind.restoreFailed =>
-        transition.message?.trim().isNotEmpty == true
-            ? l.homeSwitchRestoreFailed(transition.message!.trim())
-            : l.homeSwitchAuthFailed,
-      ServerSwitchMessageKind.connectionFailed => l.homeSwitchConnectionFailed,
-      ServerSwitchMessageKind.invalidTarget => l.homeSwitchInvalidTarget,
-      ServerSwitchMessageKind.authCheckTimeout => l.homeSwitchAuthTimeout,
-      null => transition.message,
-    };
   }
 
   Widget _buildError(
     BuildContext context,
     AppColors colors,
     ServerProfile server,
-    ServerSwitchState transition,
+    String? message,
   ) {
-    final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
         : server.name;
-    final message = _resolveStateMessage(l, transition);
     return Column(
       key: const ValueKey('server-switch-error'),
       children: [
         Text(
-          l.homeSwitchCannotConnect(name),
+          '无法连接 $name',
           textAlign: TextAlign.center,
           style: AppText.pageTitle(context).copyWith(fontSize: 23),
         ),
         const SizedBox(height: 10),
         Text(
-          message?.trim().isNotEmpty == true
-              ? message!
-              : l.homeSwitchCheckNetwork,
+          message?.trim().isNotEmpty == true ? message! : '请检查网络或服务器配置。',
           textAlign: TextAlign.center,
           style: AppText.body(context).copyWith(color: colors.muted),
         ),
@@ -1347,7 +1304,7 @@ class _ServerSwitchTransitionOverlayState
               child: OutlinedButton.icon(
                 onPressed: _cancel,
                 icon: const Icon(Icons.arrow_back_rounded),
-                label: Text(l.back),
+                label: const Text('返回'),
               ),
             ),
             const SizedBox(width: 10),
@@ -1355,7 +1312,7 @@ class _ServerSwitchTransitionOverlayState
               child: FilledButton.icon(
                 onPressed: _retry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: Text(l.fileRetry),
+                label: const Text('重试'),
               ),
             ),
           ],
@@ -1377,11 +1334,11 @@ class _ServerSwitchTransitionOverlayState
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     if (needsUsername && username.isEmpty) {
-      setState(() => _localError = AppL10n.of(context).homeSwitchNeedUsername);
+      setState(() => _localError = '请输入用户名');
       return;
     }
     if (password.trim().isEmpty) {
-      setState(() => _localError = AppL10n.of(context).homeSwitchNeedPassword);
+      setState(() => _localError = '请输入密码');
       return;
     }
     setState(() {
@@ -1407,11 +1364,7 @@ class _ServerSwitchTransitionOverlayState
   Future<void> _submitTotp() async {
     final totpCode = _totpController.text.trim();
     if (totpCode.length < totpCodeLength) {
-      setState(
-        () => _localError = AppL10n.of(
-          context,
-        ).homeSwitchNeedTotp(totpCodeLength),
-      );
+      setState(() => _localError = '请输入 $totpCodeLength 位 TOTP 验证码');
       return;
     }
     setState(() {

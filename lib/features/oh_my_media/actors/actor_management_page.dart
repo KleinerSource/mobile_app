@@ -230,24 +230,23 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     final actors = _selectedActors();
     if (actors.isEmpty) return;
     final force = actors.any((actor) => actor.movieCount > 0);
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.actorBatchDeleteTitle),
+        title: const Text('批量删除演员'),
         content: Text(
           force
-              ? l.actorBatchDeleteForceMessage(actors.length)
-              : l.actorBatchDeleteMessage(actors.length),
+              ? '已选择 ${actors.length} 位演员，其中包含影片关联。强制删除会解除关联，影片本身不会被删除。'
+              : '确定删除已选择的 ${actors.length} 位演员吗？',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(force ? l.actorForceDelete : l.delete),
+            child: Text(force ? '强制删除' : '删除'),
           ),
         ],
       ),
@@ -264,21 +263,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       unwrapStd<void>(raw, (_) {});
       if (!mounted) return;
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.actorBatchDeleted(actors.length))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已删除 ${actors.length} 位演员')));
       _exitSelection();
       _reload(preserveScroll: true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(
-              context,
-            ).actorBatchDeleteFailed(toApiException(error).message),
-          ),
-        ),
+        SnackBar(content: Text('批量删除失败: ${toApiException(error).message}')),
       );
     }
   }
@@ -341,7 +334,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                 actions: [
                   EntityBatchAction(
                     icon: Icons.delete_outline,
-                    label: l.delete,
+                    label: '删除',
                     color: c.danger,
                     onTap: selected.isEmpty ? null : _onBatchDelete,
                   ),
@@ -371,7 +364,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                       style: AppText.pageTitle(context),
                     ),
                     const SizedBox(width: 6),
-                    Text(l.actorCountSuffix, style: AppText.meta(context)),
+                    Text('位演员', style: AppText.meta(context)),
                   ],
                 ),
                 trailing: SettingsAddButton(
@@ -412,10 +405,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                     controller: _searchController,
                                     textAlignVertical: TextAlignVertical.center,
                                     onChanged: _onSearchChanged,
-                                    decoration: InputDecoration(
-                                      hintText: AppL10n.of(
-                                        context,
-                                      ).actorSearchHint,
+                                    decoration: const InputDecoration(
+                                      hintText: '搜索演员名称',
                                       isCollapsed: true,
                                       contentPadding: EdgeInsets.symmetric(
                                         vertical: 14,
@@ -453,21 +444,21 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                             padding: const EdgeInsets.symmetric(horizontal: 22),
                             children: [
                               CompactSortButton(
-                                label: l.actorSortMovieCount,
+                                label: '影片数',
                                 active: _sortBy == 'movie_count',
                                 ascending: _sortOrder == 'asc',
                                 onTap: () => _setSort('movie_count'),
                               ),
                               const SizedBox(width: 7),
                               CompactSortButton(
-                                label: l.actorSortName,
+                                label: '名称',
                                 active: _sortBy == 'name',
                                 ascending: _sortOrder == 'asc',
                                 onTap: () => _setSort('name'),
                               ),
                               const SizedBox(width: 7),
                               CompactSortButton(
-                                label: l.actorSortCreatedAt,
+                                label: '创建时间',
                                 active: _sortBy == 'created_at',
                                 ascending: _sortOrder == 'asc',
                                 onTap: () => _setSort('created_at'),
@@ -518,14 +509,14 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                 actions: [
                                   SwipeActionData(
                                     icon: Icons.edit_outlined,
-                                    label: l.edit,
+                                    label: '编辑',
                                     color: c.accent,
                                     onPressed: () =>
                                         _showEditor(context, actor: actor),
                                   ),
                                   SwipeActionData(
                                     icon: Icons.delete_outline,
-                                    label: l.delete,
+                                    label: '删除',
                                     color: c.danger,
                                     onPressed: () =>
                                         _confirmDelete(context, actor),
@@ -591,9 +582,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                   child: CircularProgressIndicator(),
                                 ),
                             firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                              message:
-                                  _controller.error?.toString() ??
-                                  l.loadFailed,
+                              message: _controller.error?.toString() ?? '加载失败',
                               onRetry: _controller.refresh,
                             ),
                             newPageErrorIndicatorBuilder: (_) =>
@@ -632,13 +621,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       text: associationData.aliases.join('\n'),
     );
     final isEdit = actor != null;
-    final l = AppL10n.of(context);
 
     final draft = await showGlassSheet<_ActorDraft>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) {
-        final sheetL = AppL10n.of(sheetContext);
         return Padding(
           padding: EdgeInsets.fromLTRB(
             22,
@@ -655,9 +642,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   icon: isEdit
                       ? Icons.edit_outlined
                       : Icons.person_add_outlined,
-                  title: isEdit
-                      ? sheetL.actorEditorTitleEdit
-                      : sheetL.actorEditorTitleNew,
+                  title: isEdit ? '编辑演员' : '新建演员',
                   padding: EdgeInsets.zero,
                 ),
                 const SizedBox(height: 14),
@@ -667,8 +652,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   textAlignVertical: TextAlignVertical.center,
                   decoration: settingsInputDecoration(
                     sheetContext,
-                    labelText: sheetL.actorEditorNameLabel,
-                    hintText: sheetL.actorEditorNameLabel,
+                    labelText: '演员名称',
+                    hintText: '演员名称',
                     prefixIcon: const Icon(Icons.person_outline),
                   ),
                   textInputAction: TextInputAction.next,
@@ -680,8 +665,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   minLines: 2,
                   decoration: settingsInputDecoration(
                     sheetContext,
-                    labelText: sheetL.actorEditorBiographyLabel,
-                    hintText: sheetL.actorEditorBiographyHint,
+                    labelText: '演员简介',
+                    hintText: '填写演员简介（可选）',
                     prefixIcon: const Icon(Icons.notes),
                   ),
                   textInputAction: TextInputAction.next,
@@ -693,8 +678,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   minLines: 2,
                   decoration: settingsInputDecoration(
                     sheetContext,
-                    labelText: sheetL.actorEditorAliasesLabel,
-                    hintText: sheetL.actorEditorAliasesHint,
+                    labelText: '关联名称',
+                    hintText: '每行一个，可选',
                     prefixIcon: const Icon(Icons.sell_outlined),
                   ),
                 ),
@@ -714,7 +699,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                       );
                     },
                     style: sheetPrimaryButtonStyle(sheetContext),
-                    child: Text(isEdit ? sheetL.save : sheetL.actorEditorCreate),
+                    child: Text(isEdit ? '保存' : '创建'),
                   ),
                 ),
               ],
@@ -758,16 +743,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       }
       AppHaptics.medium();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(isEdit ? l.actorSavedToast : l.actorCreatedToast),
-        ),
+        SnackBar(content: Text(isEdit ? '演员已保存' : '演员已创建')),
       );
       await _refresh(preserveScroll: isEdit);
     } catch (error) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l.operationFailed(toApiException(error).message)),
-        ),
+        SnackBar(content: Text('操作失败: ${toApiException(error).message}')),
       );
     }
   }
@@ -848,26 +829,25 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }) async {
     final hasMovies = actor.movieCount > 0;
     final willForce = force || hasMovies;
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(l.actorDeleteTitle),
+        title: const Text('删除演员'),
         content: Text(
           hasMovies
-              ? l.actorDeleteHasMovies(actor.name, actor.movieCount)
+              ? '「${actor.name}」关联了 ${actor.movieCount} 部影片。强制删除将解除关联,影片本身不会被删除。'
               : force
-              ? l.actorDeleteIsAlias(actor.name)
-              : l.actorDeleteConfirm(actor.name),
+              ? '「${actor.name}」是关联名称,删除将解除其影片关联,影片本身不会被删除。'
+              : '确定删除「${actor.name}」?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(AppL10n.of(dialogContext).cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(willForce ? l.actorForceDelete : l.delete),
+            child: Text(willForce ? '强制删除' : '删除'),
           ),
         ],
       ),
@@ -885,15 +865,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       unwrapStd<void>(raw, (_) {});
       _removeDeletedActor(actor.id);
       AppHaptics.medium();
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.actorDeletedToast)),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('演员已删除')));
       await _refresh(preserveScroll: true);
     } catch (error) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l.actorDeleteFailed(toApiException(error).message)),
-        ),
+        SnackBar(content: Text('删除失败: ${toApiException(error).message}')),
       );
     }
   }
@@ -1040,9 +1016,7 @@ class _ActorTile extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              AppL10n.of(context).libraryCount(
-                                actor.movieCount,
-                              ),
+                              '${actor.movieCount} 部影片',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppText.meta(context),
@@ -1143,7 +1117,6 @@ class _ActorMemberList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(56, 0, 14, 12),
       child: Column(
@@ -1160,13 +1133,13 @@ class _ActorMemberList extends StatelessWidget {
               actions: [
                 SwipeActionData(
                   icon: Icons.edit_outlined,
-                  label: l.edit,
+                  label: '编辑',
                   color: c.accent,
                   onPressed: () => onEdit(members[i]),
                 ),
                 SwipeActionData(
                   icon: Icons.delete_outline,
-                  label: l.delete,
+                  label: '删除',
                   color: c.danger,
                   onPressed: () => onDelete(members[i]),
                 ),
@@ -1221,7 +1194,7 @@ class _ActorMemberRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              AppL10n.of(context).actorAliasBadge,
+              '关联',
               style: TextStyle(
                 color: c.accent,
                 fontSize: 10.5,
@@ -1262,14 +1235,11 @@ class _EmptyActors extends StatelessWidget {
           Icon(Icons.people_outline, size: 42, color: c.muted),
           const SizedBox(height: 14),
           Text(
-            AppL10n.of(context).actorEmptyTitle,
+            '还没有演员',
             style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          Text(
-            AppL10n.of(context).actorEmptyHint,
-            style: AppText.meta(context),
-          ),
+          Text('点击右上角添加演员', style: AppText.meta(context)),
         ],
       ),
     );

@@ -263,9 +263,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(5),
                         ),
-                        child: Text(
-                          l.homeBadgeNew,
-                          style: const TextStyle(
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(
                             color: Colors.black,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w800,

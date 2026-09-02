@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'lists_providers.dart';
 
 /// 弹出底部 sheet 让用户把 movieId 加入/移出 多个 list
@@ -50,7 +49,7 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
           children: [
             SheetHeader(
               icon: Icons.playlist_add_outlined,
-              title: AppL10n.of(context).listAddToTitle,
+              title: '加入集合',
               subtitle: widget.movieTitle,
               padding: EdgeInsets.zero,
             ),
@@ -151,9 +150,7 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  AppL10n.of(context).listHeroCount(
-                                    l.movieIds.length,
-                                  ),
+                                  '${l.movieIds.length} 部',
                                   style: AppText.meta(context),
                                 ),
                               ],
@@ -195,7 +192,7 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
               child: ListTile(
                 leading: Icon(Icons.add, color: c.accent),
                 title: Text(
-                  AppL10n.of(context).newList,
+                  '新建集合',
                   style: TextStyle(
                     color: c.accent,
                     fontFamily: 'Inter',
@@ -220,7 +217,7 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text(AppL10n.of(ctx).newList),
+          title: const Text('新建集合'),
           content: StatefulBuilder(
             builder: (sctx, setSt) => Column(
               mainAxisSize: MainAxisSize.min,
@@ -231,7 +228,7 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                   textAlignVertical: TextAlignVertical.center,
                   decoration: sheetInputDecoration(
                     ctx,
-                    hintText: AppL10n.of(ctx).listNameHint,
+                    hintText: '集合名称',
                     prefixIcon: const Icon(Icons.label_outline),
                   ),
                 ),
@@ -275,11 +272,11 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(AppL10n.of(ctx).cancel),
+              child: const Text('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: Text(AppL10n.of(ctx).listCreate),
+              child: const Text('创建'),
             ),
           ],
         );

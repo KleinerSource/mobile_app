@@ -43,23 +43,21 @@ enum FavoritesViewMode { grid, list }
 const _favoritesViewModeKey = 'favorites.view_mode.v1';
 
 enum FavoritesSort {
-  recent(sortBy: 'created_at', order: 'desc'),
-  rating(sortBy: 'rating', order: 'desc'),
-  title(sortBy: 'title', order: 'asc'),
-  yearDesc(sortBy: 'year', order: 'desc');
+  recent(label: '最近添加', sortBy: 'created_at', order: 'desc'),
+  rating(label: '高分优先', sortBy: 'rating', order: 'desc'),
+  title(label: '标题 A→Z', sortBy: 'title', order: 'asc'),
+  yearDesc(label: '年份倒序', sortBy: 'year', order: 'desc');
 
-  const FavoritesSort({required this.sortBy, required this.order});
+  const FavoritesSort({
+    required this.label,
+    required this.sortBy,
+    required this.order,
+  });
 
+  final String label;
   final String sortBy;
   final String order;
 }
-
-String _favoritesSortLabel(AppL10n l, FavoritesSort sort) => switch (sort) {
-  FavoritesSort.recent => l.favoritesSortRecent,
-  FavoritesSort.rating => l.favoritesSortRating,
-  FavoritesSort.title => l.favoritesSortTitle,
-  FavoritesSort.yearDesc => l.favoritesSortYearDesc,
-};
 
 /// Favorites · You Tab
 /// - 顶部: 问候 + 设置入口
@@ -240,20 +238,19 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   Future<void> _startResourceScan() async {
     if (_resourceScanStarting || _totalCount <= 0) return;
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.favoritesScanTitle),
-        content: Text(l.favoritesScanConfirm(_totalCount)),
+        title: const Text('扫描收藏资源'),
+        content: Text('将扫描收藏夹中的 $_totalCount 部影片（包含全部分页），确定继续吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l.favoritesScanStart),
+            child: const Text('开始扫描'),
           ),
         ],
       ),
@@ -275,14 +272,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (!mounted) return;
       setState(() => _resourceScanStarting = false);
       final skippedText = result.skippedCount > 0
-          ? l.favoritesScanSkippedSuffix(result.skippedCount)
+          ? '，跳过 ${result.skippedCount} 部无效影片'
           : '';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${l.favoritesScanSubmitted(result.acceptedCount)}$skippedText',
-          ),
-        ),
+        SnackBar(content: Text('已提交 ${result.acceptedCount} 部影片$skippedText')),
       );
       await ResourceScanProgressSheet.show(
         context,
@@ -295,13 +288,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (!mounted) return;
       setState(() => _resourceScanStarting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(
-              context,
-            ).favoritesScanCreateFailed(toApiException(e).message),
-          ),
-        ),
+        SnackBar(content: Text('创建资源扫描任务失败: ${toApiException(e).message}')),
       );
     }
   }
@@ -352,18 +339,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (mounted) setState(() {});
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            AppL10n.of(context).favoritesRemovedOne(m.title),
-          ),
+          content: Text('已移除「${m.title}」'),
           duration: const Duration(seconds: 1),
         ),
       );
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(AppL10n.of(context).favoritesRemoveFailed('$e')),
-        ),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('移除失败: $e')));
     }
   }
 
@@ -371,20 +352,19 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     if (_selected.isEmpty) return;
     final messenger = ScaffoldMessenger.of(context);
     final ids = _selected.toList();
-    final l = AppL10n.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.favoritesRemoveTitle),
-        content: Text(l.favoritesRemoveConfirm(ids.length)),
+        title: const Text('移除收藏'),
+        content: Text('从收藏夹移除 ${ids.length} 部影片?\n影片本身不会被删除。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.remove),
+            child: const Text('移除'),
           ),
         ],
       ),
@@ -402,14 +382,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (mounted) _selection.exit();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.favoritesRemovedN(ids.length)),
+          content: Text('已移除 ${ids.length} 部'),
           duration: const Duration(seconds: 1),
         ),
       );
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.favoritesRemoveBatchFailed('$e'))),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('批量移除失败: $e')));
     }
   }
 
@@ -422,15 +400,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SheetHeader(
+              const SheetHeader(
                 icon: Icons.sort_rounded,
-                title: AppL10n.of(ctx).favoritesSortSheetTitle,
-                padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
+                title: '排序方式',
+                padding: EdgeInsets.fromLTRB(22, 4, 22, 14),
               ),
               for (final s in FavoritesSort.values)
                 ListTile(
                   title: Text(
-                    _favoritesSortLabel(AppL10n.of(ctx), s),
+                    s.label,
                     style: TextStyle(
                       color: c.text,
                       fontFamily: 'Inter',
@@ -516,7 +494,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                       color: c.text,
                                     ),
                             ),
-                            tooltip: AppL10n.of(context).favoritesScanTooltip,
+                            tooltip: '扫描资源',
                             onPressed: _resourceScanStarting || _totalCount <= 0
                                 ? null
                                 : _startResourceScan,
@@ -615,14 +593,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          AppL10n.of(context).allFavorites,
+                                          '全部收藏',
                                           style: AppText.eyebrow(context),
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          AppL10n.of(
-                                            context,
-                                          ).libraryCount(_totalCount),
+                                          '$_totalCount 部影片',
                                           style: AppText.sectionTitle(context),
                                         ),
                                       ],
@@ -646,10 +622,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                           ),
                                           const SizedBox(width: 6),
                                           _SortPill(
-                                            label: _favoritesSortLabel(
-                                              AppL10n.of(context),
-                                              _sort,
-                                            ),
+                                            label: _sort.label,
                                             onTap: _showSortSheet,
                                           ),
                                           const SizedBox(width: 6),
@@ -721,7 +694,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   actions: [
                     EntityBatchAction(
                       icon: Icons.delete_outline,
-                      label: AppL10n.of(context).favoritesRemoveAction,
+                      label: '移除收藏',
                       color: c.danger,
                       onTap: selected.isEmpty ? null : _removeSelection,
                     ),
@@ -762,9 +735,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message:
-            _controller.error?.toString() ??
-            AppL10n.of(context).loadFailed,
+        message: _controller.error?.toString() ?? '加载失败',
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
@@ -802,9 +773,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message:
-            _controller.error?.toString() ??
-            AppL10n.of(context).loadFailed,
+        message: _controller.error?.toString() ?? '加载失败',
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
@@ -829,16 +798,13 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              AppL10n.of(context).favoritesEmptyTitle,
+              '还没有收藏的影片',
               style: AppText.body(
                 context,
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
-            Text(
-              AppL10n.of(context).favoritesEmptyHint,
-              style: AppText.meta(context),
-            ),
+            Text('在影片详情页点击 ♡ 加入收藏', style: AppText.meta(context)),
           ],
         ),
       ),
@@ -876,7 +842,7 @@ class _FavoriteFilterPill extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              AppL10n.of(context).badgeNewResources,
+              '新资源',
               style: TextStyle(
                 color: active ? c.accent : c.text,
                 fontFamily: 'Inter',
@@ -1110,7 +1076,7 @@ class _ListRow extends StatelessWidget {
       actions: [
         SwipeActionData(
           icon: Icons.delete_outline,
-          label: AppL10n.of(context).remove,
+          label: '移除',
           color: c.danger,
           onPressed: onRemove,
         ),
@@ -1181,21 +1147,16 @@ class _StatsCard extends StatelessWidget {
         border: Border.all(color: c.cardBorder),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Builder(
-        builder: (context) {
-          final l = AppL10n.of(context);
-          return Row(
-            children: [
-              cell(
-                l.statSaved,
-                totalCount > 0 ? '$totalCount' : '${items.length}',
-                first: true,
-              ),
-              cell(l.statWatched, '${localStats.watchedCount}'),
-              cell(l.statMinutes, '${localStats.watchedMinutes}'),
-            ],
-          );
-        },
+      child: Row(
+        children: [
+          cell(
+            '已收藏',
+            totalCount > 0 ? '$totalCount' : '${items.length}',
+            first: true,
+          ),
+          cell('已看', '${localStats.watchedCount}'),
+          cell('分钟', '${localStats.watchedMinutes}'),
+        ],
       ),
     );
   }
@@ -1387,7 +1348,7 @@ class _NewListCard extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                AppL10n.of(context).newList,
+                '新建集合',
                 style: TextStyle(
                   color: c.text,
                   fontFamily: 'Inter',
@@ -1410,7 +1371,7 @@ class _NewListCard extends ConsumerWidget {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text(AppL10n.of(context).newList),
+          title: const Text('新建集合'),
           content: StatefulBuilder(
             builder: (sctx, setSt) => Column(
               mainAxisSize: MainAxisSize.min,
@@ -1419,9 +1380,9 @@ class _NewListCard extends ConsumerWidget {
                   controller: controller,
                   autofocus: true,
                   textAlignVertical: TextAlignVertical.center,
-                  decoration: InputDecoration(
-                    hintText: AppL10n.of(context).listNameHint,
-                    prefixIcon: const Icon(Icons.label_outline),
+                  decoration: const InputDecoration(
+                    hintText: '集合名称',
+                    prefixIcon: Icon(Icons.label_outline),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1464,11 +1425,11 @@ class _NewListCard extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(AppL10n.of(context).cancel),
+              child: const Text('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: Text(AppL10n.of(context).listCreate),
+              child: const Text('创建'),
             ),
           ],
         );

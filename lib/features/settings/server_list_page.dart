@@ -8,7 +8,6 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_config.dart';
 import '../../core/sources/files/file_source_providers.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/reorder_slot_feedback.dart';
 import '../../shared/server_avatar.dart';
@@ -55,7 +54,6 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final config = ref.watch(serverConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     return Scaffold(
@@ -65,9 +63,9 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
-              eyebrow: l.settingsGroupServer,
-              title: l.settingsServerList,
-              subtitle: l.serverListSubtitle,
+              eyebrow: '服务器',
+              title: '服务器列表',
+              subtitle: '每台服务器可单独配置线路，启动时选择服务器。',
               trailing: SettingsAddButton(onPressed: () => _showServerEditor()),
             ),
             // 服务器数量少且有界：设置页式分组卡，行间细分隔线；与收藏
@@ -185,25 +183,24 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     ServerProfile server,
     int count,
   ) {
-    final l = AppL10n.of(context);
     return [
       SwipeActionData(
         icon: Icons.edit_outlined,
-        label: l.serverEditAction,
+        label: '编辑服务器',
         color: colors.accent,
         onPressed: () => _showServerEditor(existing: server),
       ),
       if (server.project?.isFileSource != true)
         SwipeActionData(
           icon: Icons.alt_route_outlined,
-          label: l.serverManageLines,
+          label: '管理线路',
           color: AppHues.top(AppHues.sky),
           onPressed: () => _openLines(server),
         ),
       if (count > 1)
         SwipeActionData(
           icon: Icons.delete_outline,
-          label: l.delete,
+          label: '删除',
           color: colors.danger,
           onPressed: () => _deleteServer(server),
         ),
@@ -225,26 +222,19 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   }
 
   Future<void> _showServerEditor({ServerProfile? existing}) async {
-    final l = AppL10n.of(context);
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ServerSetupPage(
           editing: existing != null,
           serverId: existing?.id,
-          title: existing == null ? l.serverAddTitle : l.serverEditAction,
+          title: existing == null ? '添加服务器' : '编辑服务器',
         ),
       ),
     );
     if (saved != true || !mounted) return;
     AppHaptics.medium();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          existing == null
-              ? AppL10n.of(context).serverAdded
-              : AppL10n.of(context).serverUpdated,
-        ),
-      ),
+      SnackBar(content: Text(existing == null ? '服务器已添加' : '服务器已更新')),
     );
   }
 
@@ -257,20 +247,19 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   }
 
   Future<void> _deleteServer(ServerProfile server) async {
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l.serverDeleteTitle),
-        content: Text(l.serverDeleteBody(server.name)),
+        title: const Text('删除服务器'),
+        content: Text('确定删除“${server.name}”及其线路吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(l.delete),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -291,13 +280,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).serverDeleteFailed(toApiException(error).message),
-            ),
-          ),
+          SnackBar(content: Text('删除失败：${toApiException(error).message}')),
         );
       }
     }
@@ -360,7 +343,7 @@ class _ServerListCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       [
-                        AppL10n.of(context).serverLineCount(server.lines.length),
+                        '${server.lines.length} 条线路',
                         if (server.project != null)
                           server.project!.displayName
                         else if (server.projectName?.isNotEmpty == true)
@@ -400,7 +383,7 @@ class _ActiveChip extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Text(
-          AppL10n.of(context).serverCurrent,
+          '当前',
           style: TextStyle(
             color: color,
             fontSize: 11,

@@ -15,7 +15,6 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/filter_chip.dart';
 
 /// MediaBrowser 条目详情页（电影 / 单集等可播条目）。
@@ -62,16 +61,15 @@ class _ErrorBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l.loadFailed, style: AppText.sectionTitle(context)),
+          Text('加载失败', style: AppText.sectionTitle(context)),
           const SizedBox(height: 8),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: Text(l.mediaBrowserRetry)),
+          FilledButton(onPressed: onRetry, child: const Text('重试')),
         ],
       ),
     );
@@ -266,15 +264,12 @@ class _MediaBrowserDetailBodyState
           ),
         if (item.genres.isNotEmpty)
           SliverToBoxAdapter(
-            child: _ChipSection(
-              title: AppL10n.of(context).mediaBrowserGenres,
-              labels: item.genres,
-            ),
+            child: _ChipSection(title: '类型', labels: item.genres),
           ),
         if (directorPeople.isNotEmpty)
           SliverToBoxAdapter(
             child: MediaBrowserCastSection(
-              title: AppL10n.of(context).mediaBrowserDirectors,
+              title: '导演',
               people: directorPeople,
               urls: urls.value,
               onOpenPerson: onOpenPerson,
@@ -292,7 +287,7 @@ class _MediaBrowserDetailBodyState
         if (_hasDetails(item))
           SliverToBoxAdapter(
             child: MovieDetailSection(
-              title: AppL10n.of(context).mediaBrowserDetails,
+              title: '详细信息',
               child: _DetailsTable(item: item),
             ),
           ),
@@ -339,7 +334,6 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -364,9 +358,9 @@ class _ActionRow extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: Text(
-                l.detailPlay,
-                style: const TextStyle(
+              label: const Text(
+                '播放',
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontWeight: FontWeight.w700,
                 ),
@@ -381,9 +375,7 @@ class _ActionRow extends StatelessWidget {
                 icon: favorite
                     ? Icons.favorite_rounded
                     : Icons.favorite_border_rounded,
-                label: favorite
-                    ? l.detailFavorited
-                    : l.mediaBrowserFavoriteAction,
+                label: favorite ? '已收藏' : '收藏',
                 active: favorite,
                 onPressed: busy ? null : onToggleFavorite,
               ),
@@ -394,9 +386,7 @@ class _ActionRow extends StatelessWidget {
                 icon: played
                     ? Icons.task_alt_rounded
                     : Icons.check_circle_outline_rounded,
-                label: played
-                    ? l.mediaBrowserWatched
-                    : l.mediaBrowserMarkWatched,
+                label: played ? '已看' : '标记已看',
                 active: played,
                 onPressed: busy ? null : onTogglePlayed,
               ),
@@ -406,7 +396,7 @@ class _ActionRow extends StatelessWidget {
               Expanded(
                 child: MediaBrowserActionButton(
                   icon: Icons.auto_awesome_rounded,
-                  label: l.mediaBrowserTranscodePlay,
+                  label: '转码播放',
                   onPressed: busy ? null : onTranscodePlay,
                 ),
               ),
@@ -453,19 +443,17 @@ class _DetailsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     final rows = <(String, String)>[
       if (item.originalTitle?.trim().isNotEmpty == true)
-        (l.mediaBrowserOriginalTitle, item.originalTitle!),
+        ('原名', item.originalTitle!),
       if (item.seriesName?.trim().isNotEmpty == true)
-        (l.mediaBrowserSeriesLabel, item.seriesName!),
-      if (source?.path?.trim().isNotEmpty == true)
-        (l.mediaBrowserFilePath, source!.path!),
+        ('所属剧集', item.seriesName!),
+      if (source?.path?.trim().isNotEmpty == true) ('文件路径', source!.path!),
       if (source?.container?.trim().isNotEmpty == true)
-        (l.mediaBrowserContainer, source!.container!),
+        ('容器', source!.container!),
       if (source?.sizeInBytes != null && source!.sizeInBytes! > 0)
-        (l.mediaBrowserFileSize, formatFileSize(source.sizeInBytes!)),
+        ('文件大小', formatFileSize(source.sizeInBytes!)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

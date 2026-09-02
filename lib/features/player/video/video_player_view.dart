@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/playback.dart' as playback_models;
-import '../../../l10n/generated/app_localizations.dart';
 import '../common/player_gesture_layer.dart';
 import '../common/player_overlay_indicators.dart';
 import '../common/player_session_controller.dart';
@@ -230,16 +229,13 @@ class VideoPlayerLoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Center(
+        const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(color: Colors.white),
-              const SizedBox(height: 12),
-              Text(
-                AppL10n.of(context).playerLoadingVideo,
-                style: const TextStyle(color: Colors.white),
-              ),
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 12),
+              Text('正在加载影片…', style: TextStyle(color: Colors.white)),
             ],
           ),
         ),

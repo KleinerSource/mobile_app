@@ -7,7 +7,6 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/features/settings/settings_common.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
 
 class FfmpegSettingsPage extends ConsumerStatefulWidget {
@@ -70,9 +69,9 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       if (!mounted) return;
       ref.invalidate(ffmpegConfigProvider);
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).ffmpegSavedToast)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('FFmpeg、硬解与音频提取配置已保存')));
     } catch (e) {
       if (mounted) setState(() => _error = toApiException(e).message);
     } finally {
@@ -90,11 +89,8 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
         child: SafeArea(
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text(
-                '${AppL10n.of(context).loadFailed}: ${toApiException(error).message}',
-              ),
-            ),
+            error: (error, _) =>
+                Center(child: Text('加载失败: ${toApiException(error).message}')),
             data: (cfg) {
               _hydrate(cfg);
               return _buildForm(c);
@@ -106,22 +102,21 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
   }
 
   Widget _buildForm(AppColors c) {
-    final l = AppL10n.of(context);
     return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupTools,
-        title: l.ffmpegTitle,
-        subtitle: l.ffmpegSubtitle,
+      header: const SettingsSubPageHeader(
+        eyebrow: '工具',
+        title: 'FFmpeg 与硬解',
+        subtitle: '配置服务端转码、硬件解码和硬解失败回退策略。',
       ),
       body: ListView(
         primary: true,
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
         children: [
-          _sectionLabel(l.ffmpegHwSection),
+          _sectionLabel('硬件解码'),
           _switchCard(
             c,
-            title: l.ffmpegHwEnableTitle,
-            subtitle: _enabled ? l.ffmpegHwOn : l.ffmpegHwOff,
+            title: '启用硬件解码',
+            subtitle: _enabled ? '转码时优先使用 GPU' : '当前强制使用 CPU 软解',
             value: _enabled,
             onChanged: (value) => setState(() => _enabled = value),
           ),
@@ -129,7 +124,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
           InputDecorator(
             decoration: settingsInputDecoration(
               context,
-              labelText: l.ffmpegHwBackendLabel,
+              labelText: '硬件后端',
               prefixIcon: const Icon(Icons.memory_outlined),
             ),
             child: DropdownButtonHideUnderline(
@@ -147,7 +142,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
                   for (final value in FfmpegConfig.supportedHardwareAccels)
                     DropdownMenuItem(
                       value: value,
-                      child: Text(_hardwareLabel(l, value)),
+                      child: Text(_hardwareLabel(value)),
                     ),
                 ],
                 onChanged: _enabled
@@ -164,24 +159,24 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
           const SizedBox(height: 12),
           _switchCard(
             c,
-            title: l.ffmpegFallbackTitle,
-            subtitle: _fallback ? l.ffmpegFallbackOn : l.ffmpegFallbackOff,
+            title: '硬解失败自动回退',
+            subtitle: _fallback ? '失败时自动重启为 CPU 软解' : '失败时直接报告转码错误',
             value: _fallback,
             onChanged: _enabled
                 ? (value) => setState(() => _fallback = value)
                 : null,
           ),
           const SizedBox(height: 22),
-          _sectionLabel(l.ffmpegPathsSection),
-          _pathField(_ffmpegPath, l.ffmpegPathHint('ffmpeg')),
+          _sectionLabel('FFmpeg 路径'),
+          _pathField(_ffmpegPath, 'ffmpeg 路径，留空使用系统 PATH'),
           const SizedBox(height: 12),
-          _pathField(_ffprobePath, l.ffmpegPathHint('ffprobe')),
+          _pathField(_ffprobePath, 'ffprobe 路径，留空使用系统 PATH'),
           const SizedBox(height: 22),
-          _sectionLabel(l.ffmpegAudioSection),
+          _sectionLabel('音频提取'),
           _audioSettingCard(
             c,
-            title: l.ffmpegAudioWorkersTitle,
-            subtitle: l.ffmpegAudioWorkersSubtitle,
+            title: '音频提取最大并发任务数',
+            subtitle: '同时执行的音频提取任务数量。',
             value: _audioExtractWorkers,
             icon: Icons.queue_music_outlined,
             onChanged: (value) =>
@@ -190,8 +185,8 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
           const SizedBox(height: 12),
           _audioSettingCard(
             c,
-            title: l.ffmpegAudioThreadsTitle,
-            subtitle: l.ffmpegAudioThreadsSubtitle,
+            title: '音频提取编码线程数',
+            subtitle: '每个 FFmpeg 音频编码任务使用的线程数。',
             value: _audioExtractThreads,
             icon: Icons.memory_outlined,
             onChanged: (value) =>
@@ -314,8 +309,8 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
     );
   }
 
-  String _hardwareLabel(AppL10n l, String value) => switch (value) {
-    'none' => l.ffmpegHwNone,
+  String _hardwareLabel(String value) => switch (value) {
+    'none' => 'CPU 软解 / 不使用硬解',
     'amf' => 'AMD AMF',
     'nvenc' => 'NVIDIA NVENC',
     'qsv' => 'Intel Quick Sync',

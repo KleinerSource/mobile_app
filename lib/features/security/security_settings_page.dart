@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/glow_background.dart';
@@ -50,18 +49,17 @@ class _SecuritySettingsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppL10n.of(context);
     return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsAppSettings,
-        title: l.settingsSecurity,
-        subtitle: l.securitySettingsSub,
+      header: const SettingsSubPageHeader(
+        eyebrow: '应用设置',
+        title: '安全设置',
+        subtitle: '配置进入 Oh My Media 时使用的本地验证方式',
       ),
       body: ListView(
         primary: true,
         children: [
           SettingsGroup(
-            title: l.securityUnlockMethods,
+            title: '解锁方式',
             items: [
               _BiometricTile(
                 enabled: settings.biometricEnabled,
@@ -69,30 +67,26 @@ class _SecuritySettingsContent extends ConsumerWidget {
                 onConfigurePin: () => _configurePin(context, ref),
               ),
               SettingsTile(
-                title: l.securityAppPassword,
-                subtitle: settings.hasPin
-                    ? l.securityPinSet
-                    : l.securityNotSet,
+                title: '进入密码',
+                subtitle: settings.hasPin ? '已设置 · 6 位数字' : '未设置',
                 leadingIcon: Icons.password_outlined,
                 onTap: () => _openPinActions(context, ref, settings.hasPin),
               ),
               SettingsTile(
-                title: l.securityGesturePassword,
-                subtitle: settings.hasGesture
-                    ? l.securityGestureSet
-                    : l.securityNotSet,
+                title: '手势密码',
+                subtitle: settings.hasGesture ? '已设置 · 3×3 手势图案' : '未设置',
                 leadingIcon: Icons.gesture_rounded,
                 onTap: () =>
                     _openGestureActions(context, ref, settings.hasGesture),
               ),
             ],
           ),
-          SettingsGroup(
-            title: l.securityUsageNotes,
+          const SettingsGroup(
+            title: '使用说明',
             items: [
               SettingsTile(
-                title: l.securityLockVerifyTitle,
-                subtitle: l.securityLockVerifyDesc,
+                title: '应用锁定时验证',
+                subtitle: '配置任意一种方式后，应用启动和回到前台时会要求验证。',
                 leadingIcon: Icons.lock_outline,
               ),
             ],
@@ -108,15 +102,14 @@ class _SecuritySettingsContent extends ConsumerWidget {
     WidgetRef ref,
     bool configured,
   ) async {
-    final l = AppL10n.of(context);
     if (!configured) {
       await _configurePin(context, ref);
       return;
     }
     final action = await showGlassSheet<_CredentialAction>(
       context: context,
-      builder: (context) => _CredentialActionSheet(
-        title: l.securityAppPassword,
+      builder: (context) => const _CredentialActionSheet(
+        title: '进入密码',
         icon: Icons.password_outlined,
       ),
     );
@@ -126,7 +119,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
     } else {
       await _clearCredential(
         context,
-        title: l.securityClearPin,
+        title: '清除数字密码',
         onConfirm: () =>
             ref.read(securityControllerProvider.notifier).clearPin(),
       );
@@ -143,21 +136,12 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await ref.read(securityControllerProvider.notifier).savePin(pin);
       if (context.mounted) {
         AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).securityPinSaved)),
-        );
-      }
-    } on FormatException {
-      if (context.mounted) {
-        _showError(context, AppL10n.of(context).securityPinInvalid);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('数字密码已保存')));
       }
     } catch (error) {
-      if (context.mounted) {
-        _showError(
-          context,
-          AppL10n.of(context).securityPinSaveFailed(error.toString()),
-        );
-      }
+      if (context.mounted) _showError(context, '数字密码保存失败: $error');
     }
   }
 
@@ -166,15 +150,14 @@ class _SecuritySettingsContent extends ConsumerWidget {
     WidgetRef ref,
     bool configured,
   ) async {
-    final l = AppL10n.of(context);
     if (!configured) {
       await _configureGesture(context, ref);
       return;
     }
     final action = await showGlassSheet<_CredentialAction>(
       context: context,
-      builder: (context) => _CredentialActionSheet(
-        title: l.securityGesturePassword,
+      builder: (context) => const _CredentialActionSheet(
+        title: '手势密码',
         icon: Icons.gesture_rounded,
       ),
     );
@@ -184,7 +167,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
     } else {
       await _clearCredential(
         context,
-        title: l.securityClearGesture,
+        title: '清除手势密码',
         onConfirm: () =>
             ref.read(securityControllerProvider.notifier).clearGesture(),
       );
@@ -201,21 +184,12 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await ref.read(securityControllerProvider.notifier).saveGesture(pattern);
       if (context.mounted) {
         AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).securityGestureSaved)),
-        );
-      }
-    } on FormatException {
-      if (context.mounted) {
-        _showError(context, AppL10n.of(context).securityGestureMin);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('手势密码已保存')));
       }
     } catch (error) {
-      if (context.mounted) {
-        _showError(
-          context,
-          AppL10n.of(context).securityGestureSaveFailed(error.toString()),
-        );
-      }
+      if (context.mounted) _showError(context, '手势密码保存失败: $error');
     }
   }
 
@@ -224,20 +198,19 @@ class _SecuritySettingsContent extends ConsumerWidget {
     required String title,
     required Future<void> Function() onConfirm,
   }) async {
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: Text(l.securityClearConfirmBody),
+        content: const Text('清除后，应用将不再使用此方式解锁。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(l.commonClear),
+            child: const Text('清除'),
           ),
         ],
       ),
@@ -247,19 +220,12 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await onConfirm();
       if (context.mounted) {
         AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppL10n.of(context).securityUnlockMethodCleared),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('解锁方式已清除')));
       }
     } catch (error) {
-      if (context.mounted) {
-        _showError(
-          context,
-          AppL10n.of(context).securityClearFailed(error.toString()),
-        );
-      }
+      if (context.mounted) _showError(context, '清除失败: $error');
     }
   }
 
@@ -283,12 +249,9 @@ class _BiometricTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppL10n.of(context);
     return SettingsTile(
-      title: l.securityBiometricUnlock,
-      subtitle: enabled
-          ? l.securityBiometricOnDesc
-          : l.securityBiometricNeedsPin,
+      title: '面容/指纹解锁',
+      subtitle: enabled ? '已启用 · 进入密码可作为降级解锁' : '需要先配置进入密码',
       leadingIcon: Icons.fingerprint,
       trailing: SettingsSwitch(
         value: enabled,
@@ -313,41 +276,31 @@ class _BiometricTile extends ConsumerWidget {
           pinConfigured =
               ref.read(securityControllerProvider).value?.hasPin ?? false;
           if (!pinConfigured) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(AppL10n.of(context).securitySetPinFirst)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('请先设置进入密码，再启用生物识别')));
             return;
           }
         }
         final enabled = await controller.enableBiometrics();
         if (!enabled && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppL10n.of(context).securityBiometricUnavailable),
-            ),
+            const SnackBar(content: Text('当前设备没有可用的面容或指纹，或验证未完成')),
           );
         }
       } else {
         await controller.disableBiometrics();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppL10n.of(context).securityBiometricDisabled),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('面容/指纹解锁已关闭')));
         }
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).securityBiometricUpdateFailed(error.toString()),
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('更新生物识别设置失败: $error')));
       }
     }
   }
@@ -364,7 +317,6 @@ class _CredentialActionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -376,15 +328,12 @@ class _CredentialActionSheet extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.edit_outlined),
-            title: Text(l.commonChange),
+            title: const Text('修改'),
             onTap: () => Navigator.pop(context, _CredentialAction.configure),
           ),
           ListTile(
             leading: Icon(Icons.delete_outline, color: colors.danger),
-            title: Text(
-              l.commonClear,
-              style: TextStyle(color: colors.danger),
-            ),
+            title: Text('清除', style: TextStyle(color: colors.danger)),
             onTap: () => Navigator.pop(context, _CredentialAction.clear),
           ),
           const SizedBox(height: 8),
@@ -406,9 +355,8 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
   String? _error;
   int _errorToken = 0;
   Timer? _errorTimer;
-  String get _message => _error ?? (_firstPin == null
-      ? AppL10n.of(context).securityPinEnterFirst
-      : AppL10n.of(context).securityPinEnterAgain);
+  String get _message =>
+      _error ?? (_firstPin == null ? '请输入 6 位数字' : '请再次输入相同的 6 位密码');
 
   @override
   void dispose() {
@@ -429,9 +377,8 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return AlertDialog(
-      title: Text(l.securitySetPinTitle),
+      title: const Text('设置进入密码'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -452,7 +399,7 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l.cancel),
+          child: const Text('取消'),
         ),
       ],
     );
@@ -470,7 +417,7 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
     if (first != pin) {
       AppHaptics.error();
       setState(() => _firstPin = null);
-      _showTransientError(AppL10n.of(context).securityPinMismatch);
+      _showTransientError('两次输入的密码不一致，请重新设置');
       return;
     }
     AppHaptics.medium();
@@ -490,9 +437,8 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
   String? _error;
   int _errorToken = 0;
   Timer? _errorTimer;
-  String get _message => _error ?? (_firstPattern == null
-      ? AppL10n.of(context).securityPatternEnterFirst
-      : AppL10n.of(context).securityPatternEnterAgain);
+  String get _message =>
+      _error ?? (_firstPattern == null ? '连接至少 4 个节点' : '请再次绘制相同手势以确认');
 
   @override
   void dispose() {
@@ -513,9 +459,8 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return AlertDialog(
-      title: Text(l.securitySetPatternTitle),
+      title: const Text('设置手势密码'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -535,7 +480,7 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l.cancel),
+          child: const Text('取消'),
         ),
       ],
     );
@@ -544,7 +489,7 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
   void _handlePattern(List<int> pattern) {
     if (!isValidSecurityPattern(pattern)) {
       AppHaptics.error();
-      _showTransientError(AppL10n.of(context).securityPatternTooFew);
+      _showTransientError('手势至少需要连接 4 个不同节点');
       return;
     }
     final first = _firstPattern;
@@ -562,7 +507,7 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
     }
     AppHaptics.error();
     setState(() => _firstPattern = null);
-    _showTransientError(AppL10n.of(context).securityPatternMismatch);
+    _showTransientError('两次手势不一致，请重新绘制');
   }
 }
 
@@ -574,22 +519,18 @@ class _SecuritySettingsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              l.securityLoadFailed(message),
-              textAlign: TextAlign.center,
-            ),
+            Text('安全设置加载失败\n$message', textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: Text(l.commonRetry),
+              label: const Text('重试'),
             ),
           ],
         ),

@@ -4,7 +4,6 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/oh_my_media/movie_detail/cast_section.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Emby/Jellyfin/fnos 演员区 · 直接复用 OMM 详情页的 [CastSection],
 /// 仅负责把 MediaBrowserPerson 映射成 CastEntry(头像地址按服务器类型
@@ -15,22 +14,20 @@ class MediaBrowserCastSection extends StatelessWidget {
     super.key,
     required this.people,
     required this.urls,
-    this.title,
+    this.title = '演员',
     this.onOpenPerson,
   });
 
   final List<MediaBrowserPerson> people;
   final MediaBrowserServerUrls? urls;
-
-  /// 为 null 时使用默认文案「演员」。
-  final String? title;
+  final String title;
   final void Function(MediaBrowserPerson person)? onOpenPerson;
 
   @override
   Widget build(BuildContext context) {
     if (people.isEmpty) return const SizedBox.shrink();
     return CastSection(
-      title: title ?? AppL10n.of(context).detailCast,
+      title: title,
       entries: [
         for (final person in people)
           CastEntry(

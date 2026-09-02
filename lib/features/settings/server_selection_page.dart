@@ -17,7 +17,6 @@ import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../features/cache/image_cache_manager.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
@@ -252,7 +251,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                     vertical: 18,
                                   ),
                                   child: Text(
-                                    AppL10n.of(context).serverSelectionNoMatch,
+                                    '没有找到匹配的连接',
                                     textAlign: TextAlign.center,
                                     style: AppText.meta(context),
                                   ),
@@ -358,20 +357,19 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 
   Future<void> _deleteServer(ServerProfile server) async {
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l.serverDeleteTitle),
-        content: Text(l.serverDeleteBody(server.name)),
+        title: const Text('删除服务器'),
+        content: Text('确定删除“${server.name}”及其线路吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l.cancel),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l.delete),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -383,13 +381,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).serverDeleteFailed(toApiException(error).message),
-            ),
-          ),
+          SnackBar(content: Text('删除失败：${toApiException(error).message}')),
         );
       }
     }
@@ -464,81 +456,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           : _ServerStatus.unavailable;
     }
 
-    return _authStatus(server, line);
-  }
-
-  Future<_ServerStatus> _authStatus(
-    ServerProfile server,
-    ServerLine line,
-  ) async {
-    final project = server.project;
-    if (project == null || project.isFileSource) return _ServerStatus.connected;
-
-    final config = ServerConfig(
-      baseUrl: line.baseUrl,
-      lines: [line],
-      servers: [server],
-      activeServerId: server.id,
-    );
-    final client = ApiClient.fromConfig(
-      config,
-      sessionRepository: ref.read(authSessionRepositoryProvider),
-    );
-
-    try {
-      if (project == ServerProject.feiniu) {
-        // 飞牛没有通用的 auth/status 接口，userInfo 是其实际鉴权校验端点。
-        await client.feiniu.userInfo();
-        return _ServerStatus.connected;
-      }
-      if (project == ServerProject.emby || project == ServerProject.jellyfin) {
-        final mediaConfig = MediaBrowserConfig.byProject[project]!;
-        final sessionRepository = ref
-            .read(authSessionRepositoryProvider)
-            .forServer(server.id, allowLegacyMigration: false);
-        final session = await sessionRepository.load();
-        if (session == null || !session.hasAccessToken) {
-          return _ServerStatus.authenticationRequired;
-        }
-        await client
-            .mediaBrowserFor(mediaConfig)
-            .validateSession(session.userId);
-        return _ServerStatus.connected;
-      }
-
-      final status = await client.auth.status();
-      if (!status.enabled || !status.configured) {
-        return _ServerStatus.connected;
-      }
-      if (project == ServerProject.dbOnline) {
-        final session = await ref
-            .read(authSessionRepositoryProvider)
-            .forServer(server.id, allowLegacyMigration: false)
-            .load();
-        if (session == null || !session.hasAccessToken) {
-          return _ServerStatus.authenticationRequired;
-        }
-        if (!await client.auth.verify()) {
-          return _ServerStatus.authenticationRequired;
-        }
-        return _ServerStatus.connected;
-      }
-      final session = await ref
-          .read(authSessionRepositoryProvider)
-          .forServer(server.id, allowLegacyMigration: false)
-          .load();
-      if (session?.isUsable != true) {
-        return _ServerStatus.authenticationRequired;
-      }
-      return status.authenticated
-          ? _ServerStatus.connected
-          : _ServerStatus.authenticationRequired;
-    } catch (error) {
-      final exception = toApiException(error);
-      return exception.status == 401 || exception.status == 403
-          ? _ServerStatus.authenticationRequired
-          : _ServerStatus.unavailable;
-    }
+    return _ServerStatus.connected;
   }
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
@@ -645,14 +563,10 @@ class _ConnectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          l.serverSelectionTitle,
-          style: AppText.pageTitle(context).copyWith(fontSize: 24),
-        ),
+        Text('连接', style: AppText.pageTitle(context).copyWith(fontSize: 24)),
         if (showSearch) ...[
           const SizedBox(height: 16),
           SizedBox(
@@ -671,7 +585,7 @@ class _ConnectionHeader extends StatelessWidget {
                 style: AppText.body(context).copyWith(fontSize: 14),
                 cursorColor: colors.accent,
                 decoration: InputDecoration(
-                  hintText: l.serverSelectionSearchHint,
+                  hintText: '搜索连接',
                   hintStyle: TextStyle(
                     color: colors.muted,
                     fontFamily: 'Inter',
@@ -706,10 +620,9 @@ class _AddServerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return Semantics(
       button: true,
-      label: l.serverAddTitle,
+      label: '添加服务器',
       child: SizedBox(
         width: double.infinity,
         height: _ServerSelectionMetrics.cardHeight,
@@ -727,7 +640,7 @@ class _AddServerCard extends StatelessWidget {
                     size: _ServerSelectionMetrics.addIconSize,
                   ),
                   const SizedBox(height: 7),
-                  Text(l.serverAddTitle, style: AppText.cardTitle(context)),
+                  Text('添加服务器', style: AppText.cardTitle(context)),
                 ],
               ),
             ),
@@ -1249,7 +1162,6 @@ class _ServerActionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final overlayBackground = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFF1B1A24)
         : Colors.white;
@@ -1275,7 +1187,7 @@ class _ServerActionList extends StatelessWidget {
               child: _ServerActionListItem(
                 key: editKey,
                 icon: Icons.edit_outlined,
-                label: l.serverEditAction,
+                label: '编辑服务器',
                 color: colors.text,
                 onTap: onEdit,
               ),
@@ -1286,7 +1198,7 @@ class _ServerActionList extends StatelessWidget {
               child: _ServerActionListItem(
                 key: deleteKey,
                 icon: Icons.delete_outline,
-                label: l.serverDeleteTitle,
+                label: '删除服务器',
                 color: colors.danger,
                 onTap: onDelete,
               ),
@@ -1397,7 +1309,7 @@ class _ServerAvatarCard extends StatelessWidget {
         final projectLabel = _serverProjectLabel(server.project);
         return Semantics(
           button: true,
-          label: AppL10n.of(context).serverSelectionSelect(displayName),
+          label: '选择$displayName',
           child: _ServerCardShell(
             project: server.project,
             avatarUrl: avatarUrl,
@@ -1486,9 +1398,7 @@ class _ServerAvatarCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        AppL10n.of(
-                          context,
-                        ).serverLineCount(server.lines.length),
+                        '${server.lines.length}条线路',
                         style: AppText.meta(
                           context,
                         ).copyWith(fontSize: 11, color: colors.muted),
@@ -1499,7 +1409,7 @@ class _ServerAvatarCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        AppL10n.of(context).serverLatency,
+                        '延迟',
                         style: AppText.meta(
                           context,
                         ).copyWith(fontSize: 11, color: colors.muted),

@@ -90,11 +90,8 @@ Future<PlaybackEngineKind?> showPlaybackEnginePicker(
                           ? c.accent
                           : c.text2,
                     ),
-                    // libmpv / KSPlayer 是内核专名直接显示；audio 为普通词，走本地化。
                     title: Text(
-                      engineKind == PlaybackEngineKind.audio
-                          ? l.playerEngineAudio
-                          : engineKind.label,
+                      engineKind.label,
                       style: TextStyle(
                         color: c.text,
                         fontWeight: FontWeight.w700,

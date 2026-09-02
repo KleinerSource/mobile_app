@@ -8,12 +8,13 @@ import '../../core/config/server_config_provider.dart';
 /// - zh: 简体中文
 /// - en: English
 enum AppLocale {
-  system(value: 'system'),
-  zh(value: 'zh'),
-  en(value: 'en');
+  system(value: 'system', label: '跟随系统'),
+  zh(value: 'zh', label: '简体中文'),
+  en(value: 'en', label: 'English');
 
-  const AppLocale({required this.value});
+  const AppLocale({required this.value, required this.label});
   final String value;
+  final String label;
 
   static AppLocale fromValue(String? v) {
     return AppLocale.values.firstWhere(

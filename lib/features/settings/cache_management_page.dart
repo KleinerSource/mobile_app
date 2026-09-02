@@ -3,17 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../cache/disk_cache.dart';
 import '../cache/music_cache.dart';
 import 'settings_common.dart';
-
-String _cacheCategoryLabel(CacheCategory category, AppL10n l) =>
-    switch (category) {
-      CacheCategory.image => l.cacheCategoryImage,
-      CacheCategory.other => l.cacheCategoryOther,
-    };
 
 class CacheManagementPage extends ConsumerWidget {
   const CacheManagementPage({super.key});
@@ -22,23 +15,19 @@ class CacheManagementPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final usage = ref.watch(cacheUsageProvider);
     final musicUsage = ref.watch(musicCacheUsageProvider);
-    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            header: SettingsSubPageHeader(
-              eyebrow: l.settingsAppSettings,
-              title: l.settingsCacheManagement,
-            ),
+            header: const SettingsSubPageHeader(eyebrow: '应用设置', title: '缓存管理'),
             body: ListView(
               primary: true,
               children: [
                 SettingsGroup(
-                  title: l.settingsCurrentCache,
+                  title: '当前缓存',
                   items: [
-                    _CacheSectionLabel(title: l.settingsCacheCategories),
+                    const _CacheSectionLabel(title: '缓存分类'),
                     _CacheTile(
                       category: CacheCategory.image,
                       usage: usage,
@@ -50,10 +39,10 @@ class CacheManagementPage extends ConsumerWidget {
                       ref: ref,
                     ),
                     _MusicCacheTile(usage: musicUsage, ref: ref),
-                    _CacheSectionLabel(title: l.settingsCacheTotal),
+                    const _CacheSectionLabel(title: '总缓存'),
                     SettingsTile(
-                      title: l.settingsCacheTotalSize,
-                      subtitle: _totalCacheText(usage, musicUsage, l),
+                      title: '总缓存大小',
+                      subtitle: _totalCacheText(usage, musicUsage),
                       leadingIcon: Icons.storage_outlined,
                     ),
                     Padding(
@@ -66,7 +55,7 @@ class CacheManagementPage extends ConsumerWidget {
                             Icons.delete_sweep_outlined,
                             size: 18,
                           ),
-                          label: Text(l.settingsCacheCleanAll),
+                          label: const Text('一键清理'),
                           style: FilledButton.styleFrom(
                             backgroundColor: appColors(context).danger,
                             foregroundColor: Colors.white,
@@ -86,12 +75,11 @@ class CacheManagementPage extends ConsumerWidget {
   }
 
   Future<void> _clearAll(BuildContext context, WidgetRef ref) async {
-    final l = AppL10n.of(context);
     final confirmed = await _confirmCacheClear(
       context,
-      title: l.settingsCacheClearAllTitle,
-      message: l.settingsCacheClearAllBody,
-      actionLabel: l.settingsCacheCleanAll,
+      title: '确认清理全部缓存',
+      message: '将清理图片、其他和音乐缓存，此操作不可撤销。',
+      actionLabel: '一键清理',
     );
     if (!confirmed || !context.mounted) return;
 
@@ -103,9 +91,9 @@ class CacheManagementPage extends ConsumerWidget {
       ]);
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).settingsCacheClearFailed(error.toString()))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('清理失败: $error')));
       }
       return;
     }
@@ -114,7 +102,7 @@ class CacheManagementPage extends ConsumerWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(AppL10n.of(context).settingsCacheCleared)));
+      ).showSnackBar(const SnackBar(content: Text('缓存已清理')));
     }
   }
 }
@@ -142,7 +130,6 @@ Future<bool> _confirmCacheClear(
   required String message,
   required String actionLabel,
 }) async {
-  final l = AppL10n.of(context);
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
@@ -153,7 +140,7 @@ Future<bool> _confirmCacheClear(
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -183,14 +170,13 @@ class _CacheTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     final size = usage.when(
       data: (value) => formatCacheBytes(value.bytesFor(category)),
-      loading: () => l.commonLoading,
-      error: (_, __) => l.commonReadFailed,
+      loading: () => '读取中…',
+      error: (_, __) => '读取失败',
     );
     return SettingsTile(
-      title: _cacheCategoryLabel(category, l),
+      title: category.label,
       subtitle: size,
       leadingIcon: switch (category) {
         CacheCategory.image => Icons.image_outlined,
@@ -199,19 +185,17 @@ class _CacheTile extends StatelessWidget {
       trailing: TextButton.icon(
         onPressed: () => _clear(context),
         icon: const Icon(Icons.delete_outline, size: 16),
-        label: Text(l.settingsCacheClear),
+        label: const Text('清理'),
       ),
     );
   }
 
   Future<void> _clear(BuildContext context) async {
-    final l = AppL10n.of(context);
-    final categoryLabel = _cacheCategoryLabel(category, l);
     final confirmed = await _confirmCacheClear(
       context,
-      title: l.settingsCacheClearCategoryTitle(categoryLabel),
-      message: l.settingsCacheClearCategoryBody(categoryLabel),
-      actionLabel: l.settingsCacheClear,
+      title: '确认清理${category.label}',
+      message: '将删除当前${category.label}中的全部文件，此操作不可撤销。',
+      actionLabel: '清理',
     );
     if (!confirmed || !context.mounted) return;
 
@@ -220,25 +204,17 @@ class _CacheTile extends StatelessWidget {
       await ref.read(diskCacheServiceProvider).clear(category);
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(context).settingsCacheClearFailed(error.toString()),
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('清理失败: $error')));
       }
       return;
     }
     ref.invalidate(cacheUsageProvider);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(context).settingsCacheCategoryCleared(categoryLabel),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${category.label}已清理')));
     }
   }
 }
@@ -251,30 +227,28 @@ class _MusicCacheTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return SettingsTile(
-      title: l.cacheCategoryMusic,
+      title: '音乐缓存',
       subtitle: usage.when(
         data: formatCacheBytes,
-        loading: () => l.commonLoading,
-        error: (_, __) => l.commonReadFailed,
+        loading: () => '读取中…',
+        error: (_, __) => '读取失败',
       ),
       leadingIcon: Icons.music_note_outlined,
       trailing: TextButton.icon(
         onPressed: () => _clear(context),
         icon: const Icon(Icons.delete_outline, size: 16),
-        label: Text(l.settingsCacheClear),
+        label: const Text('清理'),
       ),
     );
   }
 
   Future<void> _clear(BuildContext context) async {
-    final l = AppL10n.of(context);
     final confirmed = await _confirmCacheClear(
       context,
-      title: l.settingsCacheClearMusicTitle,
-      message: l.settingsCacheClearMusicBody,
-      actionLabel: l.settingsCacheClear,
+      title: '确认清理音乐缓存',
+      message: '将删除音乐缓存中的全部未使用文件，此操作不可撤销。',
+      actionLabel: '清理',
     );
     if (!confirmed || !context.mounted) return;
 
@@ -283,13 +257,9 @@ class _MusicCacheTile extends StatelessWidget {
       await ref.read(musicCacheServiceProvider).clear();
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(context).settingsCacheClearFailed(error.toString()),
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('清理失败: $error')));
       }
       return;
     }
@@ -297,7 +267,7 @@ class _MusicCacheTile extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(AppL10n.of(context).settingsCacheMusicCleared)));
+      ).showSnackBar(const SnackBar(content: Text('音乐缓存已清理')));
     }
   }
 }
@@ -305,15 +275,14 @@ class _MusicCacheTile extends StatelessWidget {
 String _totalCacheText(
   AsyncValue<CacheUsage> usage,
   AsyncValue<int> musicUsage,
-  AppL10n l,
 ) {
   return usage.when(
     data: (base) => musicUsage.when(
       data: (music) => formatCacheBytes(base.totalBytes + music),
-      loading: () => l.commonLoading,
-      error: (_, __) => l.commonReadFailed,
+      loading: () => '读取中…',
+      error: (_, __) => '读取失败',
     ),
-    loading: () => l.commonLoading,
-    error: (_, __) => l.commonReadFailed,
+    loading: () => '读取中…',
+    error: (_, __) => '读取失败',
   );
 }

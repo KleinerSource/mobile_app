@@ -51,20 +51,18 @@ class MediaBrowserFavoritesPage extends ConsumerStatefulWidget {
 class _MediaBrowserFavoritesPageState
     extends ConsumerState<MediaBrowserFavoritesPage> {
   static const _pageSize = 24;
-  static final _typeOptions =
-      <({String value, String Function(AppL10n l) label})>[
-        (value: 'Movie,Series,Episode,MusicAlbum,Audio', label: (l) => l.filterAll),
-        (value: 'Movie', label: (l) => l.mediaBrowserTypeMovies),
-        (value: 'Series', label: (l) => l.mediaBrowserTypeTvShows),
-        (value: 'MusicAlbum,Audio', label: (l) => l.mediaBrowserTypeMusic),
-      ];
-  static final _sortOptions =
-      <({String value, String Function(AppL10n l) label, String order})>[
-        (value: 'DateCreated', label: (l) => l.mediaBrowserSortRecent, order: 'Descending'),
-        (value: 'SortName', label: (l) => l.mediaBrowserSortNameAZ, order: 'Ascending'),
-        (value: 'CommunityRating', label: (l) => l.mediaBrowserSortTopRated, order: 'Descending'),
-        (value: 'ProductionYear', label: (l) => l.mediaBrowserSortYearDesc, order: 'Descending'),
-      ];
+  static const _typeOptions = <({String value, String label})>[
+    (value: 'Movie,Series,Episode,MusicAlbum,Audio', label: '全部'),
+    (value: 'Movie', label: '电影'),
+    (value: 'Series', label: '剧集'),
+    (value: 'MusicAlbum,Audio', label: '音乐'),
+  ];
+  static const _sortOptions = <({String value, String label, String order})>[
+    (value: 'DateCreated', label: '最近入库', order: 'Descending'),
+    (value: 'SortName', label: '名称 A→Z', order: 'Ascending'),
+    (value: 'CommunityRating', label: '高分优先', order: 'Descending'),
+    (value: 'ProductionYear', label: '年份倒序', order: 'Descending'),
+  ];
 
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
@@ -80,8 +78,8 @@ class _MediaBrowserFavoritesPageState
   bool get _selecting => _selection.isActive;
   Set<Object> get _selected => _selection.selectedIds;
 
-  ({String value, String Function(AppL10n l) label, String order})
-  get _sort => _sortOptions[_sortIndex];
+  ({String value, String label, String order}) get _sort =>
+      _sortOptions[_sortIndex];
 
   bool get _isMusicGrid => _includeItemTypes == _typeOptions.last.value;
 
@@ -256,9 +254,7 @@ class _MediaBrowserFavoritesPageState
       _applyLocalRemoval({item.id});
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            AppL10n.of(context).mediaBrowserRemovedItem(item.name),
-          ),
+          content: Text('已移除「${item.name}」'),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -266,13 +262,7 @@ class _MediaBrowserFavoritesPageState
       if (!mounted) return;
       setState(() => _removing = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(
-              context,
-            ).mediaBrowserRemoveFavoriteFailed(toApiException(error).message),
-          ),
-        ),
+        SnackBar(content: Text('移除收藏失败: ${toApiException(error).message}')),
       );
     }
   }
@@ -283,18 +273,16 @@ class _MediaBrowserFavoritesPageState
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(AppL10n.of(ctx).mediaBrowserRemoveFavoritesTitle),
-        content: Text(
-          AppL10n.of(ctx).mediaBrowserRemoveFavoritesBody(ids.length),
-        ),
+        title: const Text('移除收藏'),
+        content: Text('从收藏夹移除 ${ids.length} 个条目?\n媒体本身不会被删除。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppL10n.of(ctx).cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(AppL10n.of(ctx).remove),
+            child: const Text('移除'),
           ),
         ],
       ),
@@ -322,11 +310,8 @@ class _MediaBrowserFavoritesPageState
         SnackBar(
           content: Text(
             failedIds.isEmpty
-                ? AppL10n.of(context).mediaBrowserRemovedNItems(removed.length)
-                : AppL10n.of(context).mediaBrowserRemovedNItemsWithFailed(
-                    removed.length,
-                    failedIds.length,
-                  ),
+                ? '已移除 ${removed.length} 个条目'
+                : '已移除 ${removed.length} 个条目，${failedIds.length} 个失败',
           ),
           duration: const Duration(seconds: 1),
         ),
@@ -335,20 +320,13 @@ class _MediaBrowserFavoritesPageState
       if (!mounted) return;
       setState(() => _removing = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(
-              context,
-            ).mediaBrowserBatchRemoveFailed(toApiException(error).message),
-          ),
-        ),
+        SnackBar(content: Text('批量移除失败: ${toApiException(error).message}')),
       );
     }
   }
 
   Future<void> _showSortSheet() async {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final picked = await showGlassSheet<int>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -357,15 +335,15 @@ class _MediaBrowserFavoritesPageState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SheetHeader(
+              const SheetHeader(
                 icon: Icons.sort_rounded,
-                title: l.mediaBrowserSortBy,
-                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+                title: '排序方式',
+                padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
               for (var i = 0; i < _sortOptions.length; i++)
                 ListTile(
                   dense: true,
-                  title: Text(_sortOptions[i].label(l)),
+                  title: Text(_sortOptions[i].label),
                   trailing: i == _sortIndex
                       ? Icon(
                           Icons.check_rounded,
@@ -388,7 +366,6 @@ class _MediaBrowserFavoritesPageState
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
-    final l = AppL10n.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final crossAxisCount = width >= 1100
         ? 6
@@ -483,16 +460,14 @@ class _MediaBrowserFavoritesPageState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          l.allFavorites,
+                                          '全部收藏',
                                           style: AppText.eyebrow(context),
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
                                           _totalCount > 0
-                                              ? l.mediaBrowserItemCount(
-                                                  _totalCount,
-                                                )
-                                              : l.mediaBrowserNoFavorites,
+                                              ? '$_totalCount 个条目'
+                                              : '暂无收藏',
                                           style: AppText.sectionTitle(context),
                                         ),
                                       ],
@@ -518,7 +493,7 @@ class _MediaBrowserFavoritesPageState
                                           ) ...[
                                             if (i > 0) const SizedBox(width: 6),
                                             _TypeChip(
-                                              label: _typeOptions[i].label(l),
+                                              label: _typeOptions[i].label,
                                               selected:
                                                   _includeItemTypes ==
                                                   _typeOptions[i].value,
@@ -530,7 +505,7 @@ class _MediaBrowserFavoritesPageState
                                           ],
                                           const SizedBox(width: 6),
                                           _SortPill(
-                                            label: _sort.label(l),
+                                            label: _sort.label,
                                             onTap: () =>
                                                 unawaited(_showSortSheet()),
                                           ),
@@ -610,9 +585,7 @@ class _MediaBrowserFavoritesPageState
                                                     message:
                                                         _controller.error
                                                             ?.toString() ??
-                                                        AppL10n.of(
-                                                          context,
-                                                        ).loadFailed,
+                                                        '加载失败',
                                                     onRetry: _controller
                                                         .retryLastFailedRequest,
                                                   ),
@@ -709,9 +682,7 @@ class _MediaBrowserFavoritesPageState
                                                     message:
                                                         _controller.error
                                                             ?.toString() ??
-                                                        AppL10n.of(
-                                                          context,
-                                                        ).loadFailed,
+                                                        '加载失败',
                                                     onRetry: _controller
                                                         .retryLastFailedRequest,
                                                   ),
@@ -750,7 +721,7 @@ class _MediaBrowserFavoritesPageState
                   actionsBuilder: (selected) => [
                     EntityBatchAction(
                       icon: Icons.delete_outline,
-                      label: AppL10n.of(context).mediaBrowserRemoveFavoritesTitle,
+                      label: '移除收藏',
                       color: colors.danger,
                       onTap: selected.isEmpty || _removing
                           ? null
@@ -850,7 +821,7 @@ class _ListRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  mediaBrowserItemMetaText(context, item),
+                  mediaBrowserItemMetaText(item),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.meta(context),
@@ -892,7 +863,7 @@ class _ListRow extends StatelessWidget {
       actions: [
         SwipeActionData(
           icon: Icons.delete_outline,
-          label: AppL10n.of(context).remove,
+          label: '移除',
           color: colors.danger,
           onPressed: onRemove,
         ),
@@ -922,16 +893,13 @@ class _EmptyState extends StatelessWidget {
             Icon(Icons.favorite_border, size: 36, color: colors.muted),
             const SizedBox(height: 10),
             Text(
-              AppL10n.of(context).mediaBrowserNoFavoritesYet,
+              '还没有收藏的内容',
               style: AppText.body(
                 context,
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
-            Text(
-              AppL10n.of(context).mediaBrowserNoFavoritesHint,
-              style: AppText.meta(context),
-            ),
+            Text('在详情页点击 ♡ 加入收藏', style: AppText.meta(context)),
           ],
         ),
       ),
@@ -962,10 +930,7 @@ class _FavoritesError extends StatelessWidget {
             style: TextStyle(color: colors.muted),
           ),
           const SizedBox(height: 12),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(AppL10n.of(context).mediaBrowserRetry),
-          ),
+          TextButton(onPressed: onRetry, child: const Text('重试')),
         ],
       ),
     );

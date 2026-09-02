@@ -18,7 +18,6 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// 某个媒体库下的影片列表 · library_id 过滤
 class LibraryMoviesPage extends ConsumerStatefulWidget {
@@ -184,14 +183,11 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
                     firstPageProgressIndicatorBuilder: (_) =>
                         const Center(child: CupertinoActivityIndicator()),
                     firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message:
-                          _controller.error?.toString() ??
-                          AppL10n.of(context).loadFailed,
+                      message: _controller.error?.toString() ?? '加载失败',
                       onRetry: () => _controller.refresh(),
                     ),
-                    noItemsFoundIndicatorBuilder: (_) => EmptyView(
-                      message: AppL10n.of(context).libraryMoviesEmpty,
-                    ),
+                    noItemsFoundIndicatorBuilder: (_) =>
+                        const EmptyView(message: '这个媒体库还没有影片'),
                     noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 ),
@@ -241,7 +237,7 @@ class _Hero extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    AppL10n.of(context).settingsGroupLibrary,
+                    '媒体库',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontFamily: 'Inter',
@@ -266,7 +262,7 @@ class _Hero extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    AppL10n.of(context).libraryCount(library.fileCount),
+                    '${library.fileCount} 部影片',
                     style: const TextStyle(
                       color: Color(0xCCFFFFFF),
                       fontFamily: 'Inter',

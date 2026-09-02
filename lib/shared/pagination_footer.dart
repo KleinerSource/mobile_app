@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
-import '../l10n/generated/app_localizations.dart';
 
 /// 统一的分页列表末尾状态。
 class NoMoreContent extends StatelessWidget {
@@ -13,12 +12,7 @@ class NoMoreContent extends StatelessWidget {
       width: double.infinity,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 16, 22, 30),
-        child: Center(
-          child: Text(
-            AppL10n.of(context).paginationNoMore,
-            style: AppText.meta(context),
-          ),
-        ),
+        child: Center(child: Text('没有更多内容', style: AppText.meta(context))),
       ),
     );
   }
@@ -35,10 +29,7 @@ class PaginationRetry extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Center(
-        child: TextButton(
-          onPressed: onRetry,
-          child: Text(AppL10n.of(context).paginationLoadFailedRetry),
-        ),
+        child: TextButton(onPressed: onRetry, child: const Text('加载更多失败，点击重试')),
       ),
     );
   }

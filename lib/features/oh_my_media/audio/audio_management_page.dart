@@ -24,34 +24,9 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
-import 'package:omm/features/oh_my_media/tasks/task_name_labels.dart';
 import 'package:omm/features/translation/modal_transcription_providers.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'audio_models.dart';
 import 'audio_providers.dart';
-
-/// 转译阶段的展示文案：未知 stage 原样返回，stage 为空且活跃时显示兜底。
-String _transcriptionStageLabel(AppL10n l, AudioTranscription t) {
-  if (t.stage.isNotEmpty) {
-    return switch (t.stage) {
-      'queued' => l.audioStageQueued,
-      'starting' => l.audioStageStarting,
-      'connecting' => l.audioStageConnecting,
-      'sandbox' => l.audioStageSandbox,
-      'preparing' => l.audioStagePreparing,
-      'uploading' => l.audioStageUploading,
-      'transcribing' => l.audioStageTranscribing,
-      'downloading' => l.audioStageDownloading,
-      'registering' => l.audioStageRegistering,
-      'completed' => l.audioStageCompleted,
-      'failed' => l.audioStageFailed,
-      'canceled' => l.audioStageCanceled,
-      'skipped' => l.audioStageSkipped,
-      _ => t.stage,
-    };
-  }
-  return t.isActive ? l.audioStageTranscribingFallback : t.status;
-}
 
 /// 音频管理 · 集中查看已提取的音频资产与字幕转译进度
 ///
@@ -304,7 +279,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       actions.add(
         SwipeActionData(
           icon: Icons.stop_rounded,
-          label: AppL10n.of(context).audioActionCancelTranscription,
+          label: '取消转译',
           color: c.danger,
           onPressed: () => _cancelTranscription(asset),
         ),
@@ -313,7 +288,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       actions.add(
         SwipeActionData(
           icon: Icons.refresh_rounded,
-          label: AppL10n.of(context).audioActionRetryTranscription,
+          label: '重新转译',
           color: c.warning,
           onPressed: () => _retryTranscription(asset),
         ),
@@ -322,7 +297,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       actions.add(
         SwipeActionData(
           icon: Icons.cloud_upload_outlined,
-          label: AppL10n.of(context).audioActionEnqueueTranscription,
+          label: '加入转译',
           color: c.accent,
           onPressed: () => _enqueueTranscriptions([asset]),
         ),
@@ -332,7 +307,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       actions.add(
         SwipeActionData(
           icon: Icons.delete_outline_rounded,
-          label: AppL10n.of(context).delete,
+          label: '删除',
           color: c.danger,
           onPressed: () => _deleteAssets([asset]),
         ),
@@ -416,22 +391,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     try {
       await ref.read(audioRepositoryProvider).cancelExtraction(task.id);
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(AppL10n.of(context).audioCancelExtractionSubmitted),
-          ),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('音频提取取消请求已提交')));
       }
     } catch (error) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).audioCancelExtractionFailed(toApiException(error).message),
-            ),
-          ),
+          SnackBar(content: Text('取消音频提取失败: ${toApiException(error).message}')),
         );
       }
     } finally {
@@ -447,21 +412,13 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     try {
       await ref.read(audioRepositoryProvider).cancelTranscription(asset.id);
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).audioCancelSubmitted)),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('已提交取消请求')));
         _reload(preserveScroll: true);
       }
     } catch (error) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).audioCancelTranscriptionFailed(toApiException(error).message),
-            ),
-          ),
+          SnackBar(content: Text('取消转译失败: ${toApiException(error).message}')),
         );
       }
     } finally {
@@ -473,15 +430,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   /// 单个/批量加入转译或失败重试前，让用户选择是否覆盖已有同名字幕。
   Future<void> _enqueueTranscriptions(List<AudioAsset> assets) async {
     if (assets.isEmpty || _busyAssetIds.isNotEmpty) return;
-    final l = AppL10n.of(context);
     final overwrite = await _showTranscriptionSheet(
-      title: assets.length == 1
-          ? l.audioEnqueueTitle
-          : l.audioEnqueueBatchTitle,
+      title: assets.length == 1 ? '加入字幕转译' : '批量加入字幕转译',
       message: assets.length == 1
-          ? l.audioEnqueueMessageSingle(assets.first.displayTitle)
-          : l.audioEnqueueMessageBatch(assets.length),
-      confirmLabel: l.audioEnqueueConfirm,
+          ? '将「${assets.first.displayTitle}」的音频加入云端转译队列。'
+          : '将 ${assets.length} 个音频资产加入云端转译队列。',
+      confirmLabel: '开始转译',
     );
     if (overwrite == null || !mounted) return;
 
@@ -500,11 +454,11 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
           : '';
       if (rejected.isNotEmpty) {
         messenger.showSnackBar(
-          SnackBar(content: Text(l.audioEnqueuedMixed(result.accepted, rejected))),
+          SnackBar(content: Text('已加入 ${result.accepted} 个任务 · $rejected')),
         );
       } else {
         messenger.showSnackBar(
-          SnackBar(content: Text(l.audioEnqueued(result.accepted))),
+          SnackBar(content: Text('已加入 ${result.accepted} 个字幕转译任务')),
         );
       }
       _exitSelection();
@@ -513,11 +467,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       if (mounted) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).audioEnqueueFailed(toApiException(error).message),
-            ),
+            content: Text('加入字幕转译队列失败: ${toApiException(error).message}'),
           ),
         );
       }
@@ -528,11 +478,10 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   Future<void> _retryTranscription(AudioAsset asset) async {
-    final l = AppL10n.of(context);
     final overwrite = await _showTranscriptionSheet(
-      title: l.audioRetryTitle,
-      message: l.audioRetryMessage(asset.displayTitle),
-      confirmLabel: l.audioRetryTitle,
+      title: '重新转译',
+      message: '重新提交「${asset.displayTitle}」的字幕转译任务。',
+      confirmLabel: '重新转译',
     );
     if (overwrite == null || !mounted) return;
 
@@ -544,21 +493,13 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
           .read(audioRepositoryProvider)
           .retryTranscription(asset.id, overwrite: overwrite);
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).audioRequeued)),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('任务已重新加入队列')));
         _reload(preserveScroll: true);
       }
     } catch (error) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).audioRetryFailed(toApiException(error).message),
-            ),
-          ),
+          SnackBar(content: Text('重新转译失败: ${toApiException(error).message}')),
         );
       }
     } finally {
@@ -570,24 +511,19 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   Future<void> _deleteAssets(List<AudioAsset> assets) async {
     if (assets.isEmpty || _busyAssetIds.isNotEmpty) return;
     final single = assets.length == 1;
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(single ? l.audioDeleteTitle : l.audioDeleteBatchTitle),
+        title: Text(single ? '删除音频资产' : '批量删除音频资产'),
         content: Text(
           single
-              ? l.audioDeleteMessageSingle(
-                  assets.first.fileName.isEmpty
-                      ? l.audioDeleteFileFallback
-                      : assets.first.fileName,
-                )
-              : l.audioDeleteMessageBatch(assets.length),
+              ? '确定删除「${assets.first.fileName.isEmpty ? '该音频文件' : assets.first.fileName}」吗？\n音频文件与转译信息都会被删除，已生成的字幕不受影响。'
+              : '确定删除选中的 ${assets.length} 个音频资产吗？\n音频文件与转译信息都会被删除，已生成的字幕不受影响。',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -595,7 +531,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
               backgroundColor: appColors(ctx).danger,
               foregroundColor: Colors.white,
             ),
-            child: Text(single ? l.delete : l.audioDeleteBatchAction),
+            child: Text(single ? '删除' : '批量删除'),
           ),
         ],
       ),
@@ -616,12 +552,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       if (rejected.isNotEmpty) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text(l.audioDeleteResult(result.deleted.length, rejected)),
+            content: Text('删除完成：成功 ${result.deleted.length} 个，$rejected'),
           ),
         );
       } else {
         messenger.showSnackBar(
-          SnackBar(content: Text(l.audioDeleted(result.deleted.length))),
+          SnackBar(content: Text('已删除 ${result.deleted.length} 个音频资产')),
         );
       }
       _exitSelection();
@@ -629,13 +565,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     } catch (error) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(
-                context,
-              ).audioDeleteFailed(toApiException(error).message),
-            ),
-          ),
+          SnackBar(content: Text('删除音频资产失败: ${toApiException(error).message}')),
         );
       }
     } finally {
@@ -687,9 +617,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            AppL10n.of(
-                              sheetContext,
-                            ).audioOverwriteExistingSubtitle,
+                            '覆盖已有同名字幕',
                             style: TextStyle(
                               color: c.text,
                               fontFamily: 'Inter',
@@ -713,9 +641,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(sheetContext),
                           style: sheetSecondaryButtonStyle(sheetContext),
-                          child: Text(
-                            AppL10n.of(sheetContext).cancel,
-                          ),
+                          child: const Text('取消'),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -744,7 +670,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     final tasks = ref.watch(taskCenterProvider);
     final extractionTasks = tasks
         .where(
@@ -787,8 +712,8 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                 SettingsFixedHeaderLayout(
                   scrollController: _scrollController,
                   header: SettingsSubPageHeader(
-                    eyebrow: l.audioEyebrow,
-                    title: l.audioTitle,
+                    eyebrow: '媒体工具',
+                    title: '音频管理',
                     titleTrailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -796,12 +721,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                       children: [
                         Text('$_totalCount', style: AppText.pageTitle(context)),
                         const SizedBox(width: 6),
-                        Text(l.audioAssetCountSuffix, style: AppText.meta(context)),
+                        Text('个音频资产', style: AppText.meta(context)),
                       ],
                     ),
                     subtitle: _search == null
-                        ? l.audioSubtitle
-                        : l.audioSearchSubtitle(_search!),
+                        ? '已提取的音频资产与字幕转译进度 · 提取请从影片详情页发起'
+                        : '搜索“$_search”',
                   ),
                   body: RefreshIndicator(
                     color: c.accent,
@@ -838,7 +763,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                   8,
                                 ),
                                 child: Text(
-                                  '${l.audioExtractingSection}  ·  ${extractionTasks.length}',
+                                  '提取中  ·  ${extractionTasks.length}',
                                   style: AppText.eyebrow(context),
                                 ),
                               ),
@@ -880,7 +805,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                             actions: [
                                               SwipeActionData(
                                                 icon: Icons.stop_rounded,
-                                                label: l.audioActionCancelExtraction,
+                                                label: '取消提取',
                                                 color: c.danger,
                                                 onPressed: () =>
                                                     _cancelExtraction(
@@ -1009,7 +934,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                         ErrorView(
                                           message:
                                               _controller.error?.toString() ??
-                                              l.loadFailed,
+                                              '加载失败',
                                           onRetry: () => _controller.refresh(),
                                         ),
                                     noItemsFoundIndicatorBuilder: (_) =>
@@ -1040,7 +965,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                           if (transcriptionEnabled)
                             EntityBatchAction(
                               icon: Icons.cloud_upload_outlined,
-                              label: l.audioActionEnqueueTranscription,
+                              label: '加入转译',
                               onTap: _busyAssetIds.isEmpty
                                   ? () =>
                                         _enqueueTranscriptions(_selectedItems())
@@ -1048,7 +973,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                             ),
                           EntityBatchAction(
                             icon: Icons.delete_outline,
-                            label: l.audioActionDeleteAudio,
+                            label: '删除音频',
                             color: c.danger,
                             onTap: _busyAssetIds.isEmpty
                                 ? () => _deleteAssets(_selectedItems())
@@ -1099,7 +1024,7 @@ class _SearchField extends StatelessWidget {
               textAlignVertical: TextAlignVertical.center,
               onChanged: onChanged,
               decoration: InputDecoration(
-                hintText: AppL10n.of(context).audioSearchHint,
+                hintText: '搜索影片或音频文件...',
                 hintStyle: TextStyle(
                   color: c.muted,
                   fontWeight: FontWeight.w500,
@@ -1168,9 +1093,7 @@ class _ExtractionTaskCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          title.isEmpty
-                              ? taskNameLabel(AppL10n.of(context), task.name)
-                              : title,
+                          title.isEmpty ? '音频提取' : title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1201,9 +1124,7 @@ class _ExtractionTaskCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    task.status == 'idle'
-                        ? AppL10n.of(context).audioTaskQueued
-                        : AppL10n.of(context).audioTaskExtracting,
+                    task.status == 'idle' ? '排队等待执行' : '正在提取音频…',
                     style: TextStyle(
                       color: c.muted,
                       fontFamily: 'Inter',
@@ -1245,7 +1166,7 @@ class _AssetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final transcription = asset.transcriptionView;
-    final status = _statusInfo(context, c);
+    final status = _statusInfo(c);
     final extracting = asset.isTranscriptionActive;
 
     final inner = AnimatedOpacity(
@@ -1360,13 +1281,12 @@ class _AssetCard extends StatelessWidget {
 
   Widget _buildSpecs(BuildContext context, AppColors c) {
     final brightness = Theme.of(context).brightness;
-    final l = AppL10n.of(context);
     final specs = <(String, int)>[
       (asset.formatLabel, AppHues.lavender),
       if (asset.bitrateKbps > 0) ('${asset.bitrateKbps} kbps', AppHues.sky),
       (_formatBytes(asset.fileSize), AppHues.mint),
       (_formatDuration(asset.durationSec), AppHues.solar),
-      if (!asset.fileExists) (l.audioFileMissing, AppHues.coral),
+      if (!asset.fileExists) ('文件缺失', AppHues.coral),
     ];
     return Wrap(
       spacing: 6,
@@ -1405,25 +1325,18 @@ class _AssetCard extends StatelessWidget {
     );
   }
 
-  _StatusInfo _statusInfo(BuildContext context, AppColors c) {
-    final l = AppL10n.of(context);
+  _StatusInfo _statusInfo(AppColors c) {
     final transcription = asset.transcriptionView;
     if (asset.isTranscriptionActive) {
-      return _StatusInfo(
-        _transcriptionStageLabel(l, transcription),
-        c.warning,
-        pulsing: true,
-      );
+      return _StatusInfo(transcription.stageLabel, c.warning, pulsing: true);
     }
-    if (transcription.isFailed) return _StatusInfo(l.audioStatusFailed, c.danger);
-    if (transcription.isCanceled) {
-      return _StatusInfo(l.audioStatusCanceled, c.muted);
-    }
+    if (transcription.isFailed) return _StatusInfo('转译失败', c.danger);
+    if (transcription.isCanceled) return _StatusInfo('已取消', c.muted);
     if (asset.isTranscriptionDone) {
-      return _StatusInfo(l.audioStatusTranscribed, AppHues.top(AppHues.mint));
+      return _StatusInfo('已转译', AppHues.top(AppHues.mint));
     }
-    if (!asset.fileExists) return _StatusInfo(l.audioFileMissing, c.danger);
-    return _StatusInfo(l.audioStatusNotTranscribed, c.muted2);
+    if (!asset.fileExists) return _StatusInfo('文件缺失', c.danger);
+    return _StatusInfo('未转译', c.muted2);
   }
 
   Widget _buildTranscriptionSection(
@@ -1439,9 +1352,7 @@ class _AssetCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  t.message.isNotEmpty
-                      ? t.message
-                      : _transcriptionStageLabel(AppL10n.of(context), t),
+                  t.message.isNotEmpty ? t.message : t.stageLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1487,7 +1398,7 @@ class _AssetCard extends StatelessWidget {
     }
     if (t.isCanceled) {
       return Text(
-        AppL10n.of(context).audioTranscriptionCanceledHint,
+        '字幕转译已取消，可重新发起',
         style: TextStyle(
           color: c.muted,
           fontSize: 11,
@@ -1562,9 +1473,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.graphic_eq_rounded, size: 38, color: c.muted),
           const SizedBox(height: 12),
           Text(
-            searching
-                ? AppL10n.of(context).audioEmptySearchTitle
-                : AppL10n.of(context).audioEmptyTitle,
+            searching ? '没有匹配的音频资产' : '暂无音频资产',
             style: TextStyle(
               color: c.text,
               fontFamily: 'Inter',
@@ -1574,9 +1483,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            searching
-                ? AppL10n.of(context).audioEmptySearchHint
-                : AppL10n.of(context).audioEmptyHint,
+            searching ? '换个关键词试试' : '在影片详情页发起音频提取后，资产会显示在这里',
             textAlign: TextAlign.center,
             style: TextStyle(color: c.muted, fontSize: 11.5),
           ),

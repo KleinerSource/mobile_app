@@ -74,7 +74,10 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
     final savedRepository = ref.watch(updateRepositoryUrlProvider);
     final includeDevelopment = ref.watch(includeDevelopmentUpdatesProvider);
     final playerSettings = ref.watch(playerSettingsProvider);
-    final l = AppL10n.of(context);
+    AppL10n? l;
+    try {
+      l = AppL10n.of(context);
+    } catch (_) {}
     final currentRepository = _repositoryController.text.trim();
     final hasSavedRepository =
         savedRepository != null && savedRepository.trim().isNotEmpty;
@@ -84,16 +87,16 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            header: SettingsSubPageHeader(
-              eyebrow: l.settingsAppSettings,
-              title: l.settingsAppUpdate,
-              subtitle: l.settingsAppUpdateSub,
+            header: const SettingsSubPageHeader(
+              eyebrow: '应用设置',
+              title: '应用更新',
+              subtitle: '填写 GitHub 仓库地址，自动检查对应平台的安装包',
             ),
             body: ListView(
               primary: true,
               children: [
                 SettingsGroup(
-                  title: l.settingsUpdateSource,
+                  title: '更新源',
                   items: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
@@ -112,7 +115,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                               textAlignVertical: TextAlignVertical.center,
                               decoration: settingsInputDecoration(
                                 context,
-                                labelText: l.settingsGithubRepoLabel,
+                                labelText: 'GitHub 仓库地址',
                                 hintText: 'https://github.com/owner/repository',
                                 prefixIcon: const Icon(Icons.link),
                               ),
@@ -127,9 +130,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                               onPressed: _checking || _downloading
                                   ? null
                                   : _saveOrEditRepository,
-                              tooltip: repositoryLocked
-                                  ? l.settingsEditUpdateSource
-                                  : l.settingsSaveUpdateSource,
+                              tooltip: repositoryLocked ? '编辑更新源' : '保存更新源',
                               icon: Icon(
                                 repositoryLocked
                                     ? Icons.edit_outlined
@@ -139,7 +140,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                             ),
                           ),
                           IconButton(
-                            tooltip: l.settingsClearUpdateSource,
+                            tooltip: '清空更新源',
                             onPressed:
                                 _checking ||
                                     _downloading ||
@@ -155,14 +156,14 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       child: Text(
-                        l.settingsUpdateSourceHint,
+                        '保存后会在启动时自动检查更新；清空后将停止自动检查。',
                         style: AppText.meta(context),
                       ),
                     ),
                   ],
                 ),
                 SettingsGroup(
-                  title: l.settingsCurrentVersion,
+                  title: '当前版本',
                   items: [
                     FutureBuilder<PackageInfo>(
                       future: ref.read(appPackageInfoProvider.future),
@@ -173,18 +174,18 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                                 snapshot.data!.buildNumber,
                               )
                             : snapshot.hasError
-                            ? l.commonReadFailed
-                            : l.commonLoading;
+                            ? '读取失败'
+                            : '读取中…';
                         return SettingsTile(
-                          title: l.settingsInstalledVersion,
+                          title: '已安装版本',
                           subtitle: version,
                           leadingIcon: Icons.phone_android_outlined,
                         );
                       },
                     ),
                     SettingsTile(
-                      title: l.settingsIncludeDevelopment,
-                      subtitle: l.settingsIncludeDevelopmentSub,
+                      title: '检测开发版',
+                      subtitle: '开启后同时检测标准版与开发版，并选择版本更高的安装包',
                       leadingIcon: Icons.developer_mode_outlined,
                       trailing: SettingsSwitch(
                         value: includeDevelopment,
@@ -197,11 +198,11 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                   ],
                 ),
                 SettingsGroup(
-                  title: l.settingsDebug,
+                  title: '调试',
                   items: [
                     SettingsTile(
-                      title: l.settingsPlayerDebugMode,
-                      subtitle: l.settingsPlayerDebugModeSub,
+                      title: '播放器 Debug 模式',
+                      subtitle: '在播放画面显示内核、编码、码率、帧率等信息',
                       leadingIcon: Icons.bug_report_outlined,
                       trailing: SettingsSwitch(
                         value: playerSettings.debugMode,
@@ -217,8 +218,10 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                       ),
                     ),
                     SettingsTile(
-                      title: l.settingsPerformanceMonitor,
-                      subtitle: l.settingsPerformanceMonitorSub,
+                      title: l?.settingsPerformanceMonitor ?? '性能监视器',
+                      subtitle:
+                          l?.settingsPerformanceMonitorSub ??
+                          '显示 FPS、应用 CPU 和 RAM 使用量',
                       leadingIcon: Icons.speed_outlined,
                       trailing: SettingsSwitch(
                         value: playerSettings.performanceMonitorEnabled,
@@ -238,8 +241,8 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                       ),
                     ),
                     SettingsTile(
-                      title: l.settingsViewPlaybackLogs,
-                      subtitle: l.settingsViewPlaybackLogsSub,
+                      title: '查看播放日志',
+                      subtitle: 'SMB / WebDAV 视频持续加载时，复制日志给开发者',
                       leadingIcon: Icons.receipt_long_outlined,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const AppLogPage()),
@@ -271,9 +274,8 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
 
   Widget _buildManualPlaybackGroup(BuildContext context) {
     final supportsKsPlayer = Platform.isIOS;
-    final l = AppL10n.of(context);
     return SettingsGroup(
-      title: l.settingsDevTools,
+      title: '开发接口',
       items: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
@@ -286,7 +288,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
             textInputAction: TextInputAction.done,
             decoration: settingsInputDecoration(
               context,
-              labelText: l.settingsM3u8UrlLabel,
+              labelText: 'm3u8 地址',
               hintText: 'https://example.com/video.m3u8',
               prefixIcon: const Icon(Icons.link_outlined),
             ),
@@ -296,10 +298,10 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         ),
         SettingsTile(
           key: const ValueKey('manual-player-engine'),
-          title: l.settingsPlayerEngine,
+          title: '播放器内核',
           subtitle: supportsKsPlayer
               ? _manualEngine.label
-              : '${_manualEngine.label} · ${l.settingsKsPlayerIosOnly}',
+              : '${_manualEngine.label} · KSPlayer 仅支持 iOS',
           leadingIcon: Icons.video_settings_outlined,
           onTap: () => unawaited(_pickManualEngine()),
         ),
@@ -313,14 +315,14 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                   ? null
                   : () => unawaited(_openManualM3u8()),
               icon: const Icon(Icons.play_arrow_rounded),
-              label: Text(l.settingsPlayM3u8),
+              label: const Text('播放 m3u8'),
             ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
           child: Text(
-            l.settingsM3u8Hint,
+            '用于开发排查 HLS 播放问题，不会保存地址。KSPlayer 选项仅在 iOS 可用。',
             style: AppText.meta(context),
           ),
         ),
@@ -329,11 +331,10 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   }
 
   Future<void> _pickManualEngine() async {
-    final l = AppL10n.of(context);
     final selected = await showDialog<PlaybackEngineSelection>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(l.settingsChoosePlayerEngine),
+        title: const Text('选择播放器内核'),
         contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -345,7 +346,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                 subtitle:
                     option.engineKind == PlaybackEngineKind.ksPlayer &&
                         !Platform.isIOS
-                    ? Text(l.commonIosOnly)
+                    ? const Text('仅 iOS 可用')
                     : null,
                 trailing: option == _manualEngine
                     ? const Icon(Icons.check)
@@ -364,7 +365,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
         ],
       ),
@@ -375,25 +376,24 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   }
 
   Future<void> _openManualM3u8() async {
-    final l = AppL10n.of(context);
     final value = _m3u8Controller.text.trim();
     final uri = Uri.tryParse(value);
     if (uri == null ||
         uri.host.isEmpty ||
         (uri.scheme != 'http' && uri.scheme != 'https')) {
-      setState(() => _error = l.settingsM3u8Invalid);
+      setState(() => _error = '请输入有效的 http/https m3u8 地址');
       return;
     }
     if (_manualEngine.engineKind == PlaybackEngineKind.ksPlayer &&
         !Platform.isIOS) {
-      setState(() => _error = l.settingsKsPlayerIosOnlyError);
+      setState(() => _error = 'KSPlayer 仅支持 iOS，请选择 libmpv');
       return;
     }
     setState(() => _error = null);
     AppHaptics.selection();
     await VideoPlayerPage.openDirect(
       context,
-      title: l.settingsDevM3u8Title,
+      title: '开发接口 · m3u8',
       directUrl: value,
       directFormatHint: 'm3u8',
       engineKind: _manualEngine.engineKind,
@@ -435,7 +435,6 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
 
   Widget _buildResult(BuildContext context, UpdateCheckResult result) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final candidate = result.candidate;
     final releaseTitle = candidate.release.name.isEmpty
         ? candidate.release.tagName
@@ -443,7 +442,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
     final hasAsset = candidate.asset.downloadUrl.isNotEmpty;
 
     return SettingsGroup(
-      title: l.settingsUpdateResult,
+      title: '检测结果',
       items: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -464,8 +463,8 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                   children: [
                     Text(
                       result.hasUpdate
-                          ? l.settingsUpdateFound(candidate.version.display)
-                          : l.settingsUpToDate,
+                          ? '发现新版本 ${candidate.version.display}'
+                          : '当前已是最新版本',
                       style: AppText.cardTitle(context),
                     ),
                     const SizedBox(height: 4),
@@ -495,7 +494,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: SelectableText(
-              '${l.settingsUpdateNotesTitle}\n\n${candidate.release.updateNotes}',
+              '本次构建包含以下更新：\n\n${candidate.release.updateNotes}',
               style: AppText.body(context),
             ),
           ),
@@ -510,7 +509,6 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
 
   Widget _buildDownloadButton(BuildContext context, UpdateCheckResult result) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final isIos = Platform.isIOS;
     final progress = _downloadProgress;
     return SizedBox(
@@ -535,13 +533,13 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         label: Text(
           _downloading
               ? isIos
-                    ? l.settingsOpeningInstaller
+                    ? '正在打开安装器…'
                     : progress == null
-                    ? l.commonDownloading
-                    : l.settingsDownloadingPercent((progress * 100).round())
+                    ? '下载中…'
+                    : '下载中 ${(progress * 100).round()}%'
               : isIos
-              ? l.settingsInstallUpdate
-              : l.settingsDownloadAndInstall,
+              ? '安装更新'
+              : '下载并安装',
         ),
       ),
     );
@@ -582,33 +580,28 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         _error = null;
       });
       AppHaptics.selection();
-      _showMessage(AppL10n.of(context).settingsUpdateSourceSaved);
+      _showMessage('更新源已保存');
     } on FormatException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = AppL10n.of(context).settingsSaveUpdateSourceFailed,
-        );
-      }
+      if (mounted) setState(() => _error = '保存更新源失败，请稍后重试');
     }
   }
 
   Future<void> _clearRepository() async {
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(l.settingsClearUpdateSourceTitle),
-        content: Text(l.settingsClearUpdateSourceBody),
+        title: const Text('清空更新源？'),
+        content: const Text('清空后，应用启动时将不再自动检查更新。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l.commonClearInput),
+            child: const Text('清空'),
           ),
         ],
       ),
@@ -623,7 +616,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
       _error = null;
     });
     AppHaptics.medium();
-    _showMessage(AppL10n.of(context).settingsUpdateSourceCleared);
+    _showMessage('更新源已清空');
   }
 
   Future<void> _checkForUpdates({bool silent = false}) async {
@@ -657,22 +650,14 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
       setState(() => _result = result);
       if (!silent) {
         AppHaptics.selection();
-        _showMessage(
-          result.hasUpdate
-              ? AppL10n.of(context).settingsNewVersionFound
-              : AppL10n.of(context).settingsUpToDate,
-        );
+        _showMessage(result.hasUpdate ? '发现新版本' : '当前已是最新版本');
       }
     } on FormatException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } on UpdateException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = AppL10n.of(context).settingsCheckUpdateFailed,
-        );
-      }
+      if (mounted) setState(() => _error = '检查更新失败，请稍后重试');
     } finally {
       if (mounted) setState(() => _checking = false);
     }
@@ -681,7 +666,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   Future<void> _download(UpdateCheckResult result) async {
     if (_downloading) return;
     if (!Platform.isIOS && !Platform.isAndroid) {
-      _showMessage(AppL10n.of(context).settingsPlatformNotSupported);
+      _showMessage('当前平台不支持安装此更新');
       return;
     }
 
@@ -704,18 +689,14 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         AppHaptics.medium();
         _showMessage(
           action == UpdateInstallAction.iosInstallerOpened
-              ? AppL10n.of(context).settingsIosInstallerOpened
-              : AppL10n.of(context).settingsInstallerOpened,
+              ? '已打开 iOS 安装器'
+              : '已打开系统安装器',
         );
       }
     } on UpdateException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = AppL10n.of(context).settingsDownloadUpdateFailed,
-        );
-      }
+      if (mounted) setState(() => _error = '下载更新失败，请稍后重试');
     } finally {
       if (mounted) {
         setState(() {
@@ -737,9 +718,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         _error = null;
       });
     } catch (_) {
-      if (mounted) {
-        _showMessage(AppL10n.of(context).settingsSaveDevPrefFailed);
-      }
+      if (mounted) _showMessage('保存开发版检测设置失败，请稍后重试');
     }
   }
 

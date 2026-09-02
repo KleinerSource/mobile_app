@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/providers.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// DBO 后台配置的状态：读取完整配置，保存时只提交当前编辑的顶层分区。
 final dbOnlineBackendConfigProvider =
@@ -42,7 +41,7 @@ class DboBackendConfigOption {
   const DboBackendConfigOption({required this.value, required this.label});
 
   final String value;
-  final String Function(AppL10n l) label;
+  final String label;
 }
 
 class DboBackendConfigField {
@@ -56,9 +55,9 @@ class DboBackendConfigField {
   });
 
   final String path;
-  final String Function(AppL10n l) label;
+  final String label;
   final DboBackendConfigFieldType type;
-  final String Function(AppL10n l)? hint;
+  final String? hint;
   final List<DboBackendConfigOption>? options;
   final bool Function(Map<String, dynamic> values)? visibleWhen;
 }
@@ -71,7 +70,7 @@ class DboBackendConfigSection {
     this.testName,
   });
 
-  final String Function(AppL10n l) title;
+  final String title;
   final String basePath;
   final List<DboBackendConfigField> fields;
   final String? testName;
@@ -80,19 +79,13 @@ class DboBackendConfigSection {
 class DboBackendConfigGroup {
   const DboBackendConfigGroup(this.title, this.sections);
 
-  final String Function(AppL10n l) title;
+  final String title;
   final List<DboBackendConfigSection> sections;
 }
 
-final _imageModes = <DboBackendConfigOption>[
-  DboBackendConfigOption(
-    value: 'replace',
-    label: (l) => l.dbOnlineImageModeReplace,
-  ),
-  DboBackendConfigOption(
-    value: 'decrypt',
-    label: (l) => l.dbOnlineImageModeDecrypt,
-  ),
+const _imageModes = <DboBackendConfigOption>[
+  DboBackendConfigOption(value: 'replace', label: '替换图片地址'),
+  DboBackendConfigOption(value: 'decrypt', label: '解密图片'),
 ];
 
 bool _isImageReplace(Map<String, dynamic> values) =>
@@ -101,367 +94,361 @@ bool _isImageReplace(Map<String, dynamic> values) =>
 bool _isRetryEnabled(Map<String, dynamic> values) =>
     values['enable_retry'] == true;
 
-final _javdbApiSection = DboBackendConfigSection(
-  title: (l) => 'JavDB API',
+const _javdbApiSection = DboBackendConfigSection(
+  title: 'JavDB API',
   basePath: 'javdb_api',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'host',
-      label: (l) => l.dbOnlineFieldApiUrl,
+      label: 'API 地址',
       type: DboBackendConfigFieldType.text,
-      hint: (l) => l.dbOnlineFieldApiUrlHint,
+      hint: '完整的 JavDB API 地址',
     ),
     DboBackendConfigField(
       path: 'authorization',
-      label: (l) => l.dbOnlineFieldAuthorization,
+      label: 'Authorization',
       type: DboBackendConfigFieldType.password,
-      hint: (l) => l.dbOnlineFieldOptionalMaskHint,
+      hint: '可选，留空或保持掩码表示不修改',
     ),
     DboBackendConfigField(
       path: 'timeout',
-      label: (l) => l.dbOnlineFieldRequestTimeoutSeconds,
+      label: '请求超时（秒）',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'image_mode',
-      label: (l) => l.dbOnlineFieldImageMode,
+      label: '图片处理',
       type: DboBackendConfigFieldType.select,
       options: _imageModes,
     ),
     DboBackendConfigField(
       path: 'url_replace_new',
-      label: (l) => l.dbOnlineFieldImageUrlReplacePrefix,
+      label: '图片 URL 替换前缀',
       type: DboBackendConfigFieldType.text,
-      hint: (l) => l.dbOnlineFieldImageUrlReplacePrefixHint,
+      hint: '图片模式为“替换图片地址”时必填',
       visibleWhen: _isImageReplace,
     ),
   ],
 );
 
-final _subscriptionSection = DboBackendConfigSection(
-  title: (l) => l.dbOnlineSectionSubscription,
+const _subscriptionSection = DboBackendConfigSection(
+  title: '订阅',
   basePath: 'subscription',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnableSubscription,
+      label: '启用订阅',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'check_interval',
-      label: (l) => l.dbOnlineFieldCheckIntervalMinutes,
+      label: '检查间隔（分钟）',
       type: DboBackendConfigFieldType.number,
-      hint: (l) => l.dbOnlineFieldCheckIntervalHint,
+      hint: '建议不小于 120 分钟',
     ),
     DboBackendConfigField(
       path: 'concurrency',
-      label: (l) => l.dbOnlineFieldConcurrency,
+      label: '并发数',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'request_timeout',
-      label: (l) => l.dbOnlineFieldRequestTimeoutSeconds,
+      label: '请求超时（秒）',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'interval_range',
-      label: (l) => l.dbOnlineFieldIntervalRangeSeconds,
+      label: '间隔范围（秒）',
       type: DboBackendConfigFieldType.text,
-      hint: (l) => l.dbOnlineFieldIntervalRangeHint,
+      hint: '例如 3-10',
     ),
     DboBackendConfigField(
       path: 'enable_retry',
-      label: (l) => l.dbOnlineFieldEnableRetry,
+      label: '失败重试',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'retry_count',
-      label: (l) => l.dbOnlineFieldRetryCount,
+      label: '重试次数',
       type: DboBackendConfigFieldType.number,
       visibleWhen: _isRetryEnabled,
     ),
     DboBackendConfigField(
       path: 'retry_interval',
-      label: (l) => l.dbOnlineFieldRetryIntervalSeconds,
+      label: '重试间隔（秒）',
       type: DboBackendConfigFieldType.number,
       visibleWhen: _isRetryEnabled,
     ),
   ],
 );
 
-final _proxySection = DboBackendConfigSection(
-  title: (l) => l.dbOnlineSectionProxy,
+const _proxySection = DboBackendConfigSection(
+  title: '代理',
   basePath: 'proxy.main',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnableProxy,
+      label: '启用代理',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'protocol',
-      label: (l) => l.dbOnlineFieldProtocol,
+      label: '协议',
       type: DboBackendConfigFieldType.select,
       options: <DboBackendConfigOption>[
-        DboBackendConfigOption(value: 'http', label: (l) => 'HTTP'),
-        DboBackendConfigOption(value: 'https', label: (l) => 'HTTPS'),
-        DboBackendConfigOption(value: 'socks5', label: (l) => 'SOCKS5'),
+        DboBackendConfigOption(value: 'http', label: 'HTTP'),
+        DboBackendConfigOption(value: 'https', label: 'HTTPS'),
+        DboBackendConfigOption(value: 'socks5', label: 'SOCKS5'),
       ],
     ),
     DboBackendConfigField(
       path: 'host',
-      label: (l) => l.dbOnlineFieldHost,
+      label: '主机',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'port',
-      label: (l) => l.dbOnlineFieldPort,
+      label: '端口',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'username',
-      label: (l) => l.dbOnlineFieldUsernameOptional,
+      label: '用户名（可选）',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'password',
-      label: (l) => l.dbOnlineFieldPasswordOptional,
+      label: '密码（可选）',
       type: DboBackendConfigFieldType.password,
-      hint: (l) => l.dbOnlineFieldMaskHint,
+      hint: '留空或保持掩码表示不修改',
     ),
   ],
 );
 
-final _aria2Section = DboBackendConfigSection(
-  title: (l) => 'Aria2',
+const _aria2Section = DboBackendConfigSection(
+  title: 'Aria2',
   basePath: 'downloader.aria2',
   testName: 'aria2',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnabled,
+      label: '启用',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'host',
-      label: (l) => l.dbOnlineFieldHost,
+      label: '主机',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'port',
-      label: (l) => l.dbOnlineFieldPort,
+      label: '端口',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'use_https',
-      label: (l) => l.dbOnlineFieldUseHttps,
+      label: '使用 HTTPS',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'secret',
-      label: (l) => l.dbOnlineFieldRpcSecret,
+      label: 'RPC Secret',
       type: DboBackendConfigFieldType.password,
-      hint: (l) => l.dbOnlineFieldMaskHint,
+      hint: '留空或保持掩码表示不修改',
     ),
     DboBackendConfigField(
       path: 'save_path',
-      label: (l) => l.dbOnlineFieldSavePath,
+      label: '保存路径',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'timeout',
-      label: (l) => l.dbOnlineFieldTimeoutSeconds,
+      label: '超时（秒）',
       type: DboBackendConfigFieldType.number,
     ),
   ],
 );
 
-final _qbittorrentSection = DboBackendConfigSection(
-  title: (l) => 'qBittorrent',
+const _qbittorrentSection = DboBackendConfigSection(
+  title: 'qBittorrent',
   basePath: 'downloader.qbittorrent',
   testName: 'qbittorrent',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnabled,
+      label: '启用',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'host',
-      label: (l) => l.dbOnlineFieldHost,
+      label: '主机',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'port',
-      label: (l) => l.dbOnlineFieldPort,
+      label: '端口',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'use_https',
-      label: (l) => l.dbOnlineFieldUseHttps,
+      label: '使用 HTTPS',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'username',
-      label: (l) => l.dbOnlineFieldUsername,
+      label: '用户名',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'password',
-      label: (l) => l.dbOnlineFieldPassword,
+      label: '密码',
       type: DboBackendConfigFieldType.password,
-      hint: (l) => l.dbOnlineFieldMaskHint,
+      hint: '留空或保持掩码表示不修改',
     ),
     DboBackendConfigField(
       path: 'category',
-      label: (l) => l.dbOnlineFieldCategoryOptional,
+      label: '分类（可选）',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'save_path',
-      label: (l) => l.dbOnlineFieldSavePath,
+      label: '保存路径',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'timeout',
-      label: (l) => l.dbOnlineFieldTimeoutSeconds,
+      label: '超时（秒）',
       type: DboBackendConfigFieldType.number,
     ),
   ],
 );
 
-final _pan115Section = DboBackendConfigSection(
-  title: (l) => l.dbOnlineSectionPan115,
+const _pan115Section = DboBackendConfigSection(
+  title: '115 网盘',
   basePath: 'downloader.pan115',
   testName: 'pan115',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnabled,
+      label: '启用',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'cookie',
-      label: (l) => l.dbOnlineFieldCookie,
+      label: 'Cookie',
       type: DboBackendConfigFieldType.password,
-      hint: (l) => l.dbOnlineFieldMaskHint,
+      hint: '留空或保持掩码表示不修改',
     ),
     DboBackendConfigField(
       path: 'cid',
-      label: (l) => l.dbOnlineFieldCategoryId,
+      label: '目录 ID',
       type: DboBackendConfigFieldType.text,
-      hint: (l) => l.dbOnlineFieldCategoryIdHint,
+      hint: '0 表示根目录',
     ),
     DboBackendConfigField(
       path: 'reserve_quota',
-      label: (l) => l.dbOnlineFieldReserveQuotaGb,
+      label: '保留配额（GB）',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'timeout',
-      label: (l) => l.dbOnlineFieldTimeoutSeconds,
+      label: '超时（秒）',
       type: DboBackendConfigFieldType.number,
     ),
   ],
 );
 
-final _thunderSection = DboBackendConfigSection(
-  title: (l) => l.dbOnlineSectionThunder,
+const _thunderSection = DboBackendConfigSection(
+  title: '迅雷',
   basePath: 'downloader.thunder',
   testName: 'thunder',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnabled,
+      label: '启用',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'host',
-      label: (l) => l.dbOnlineFieldHost,
+      label: '主机',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'port',
-      label: (l) => l.dbOnlineFieldPort,
+      label: '端口',
       type: DboBackendConfigFieldType.number,
     ),
     DboBackendConfigField(
       path: 'use_https',
-      label: (l) => l.dbOnlineFieldUseHttps,
+      label: '使用 HTTPS',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'device_target',
-      label: (l) => l.dbOnlineFieldDeviceId,
+      label: '设备标识',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'parent_folder_id',
-      label: (l) => l.dbOnlineFieldParentFolderId,
+      label: '父文件夹 ID',
       type: DboBackendConfigFieldType.text,
     ),
     DboBackendConfigField(
       path: 'timeout',
-      label: (l) => l.dbOnlineFieldTimeoutSeconds,
+      label: '超时（秒）',
       type: DboBackendConfigFieldType.number,
     ),
   ],
 );
 
-final _playerSection = DboBackendConfigSection(
-  title: (l) => l.dbOnlineSectionPlayer,
+const _playerSection = DboBackendConfigSection(
+  title: '播放器',
   basePath: 'mediaserver.player',
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
-      label: (l) => l.dbOnlineFieldEnablePlayer,
+      label: '启用播放器',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'autoplay',
-      label: (l) => l.dbOnlineFieldAutoplay,
+      label: '自动播放',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'captions',
-      label: (l) => l.dbOnlineFieldCaptions,
+      label: '字幕',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'pip',
-      label: (l) => l.dbOnlineFieldPip,
+      label: '画中画',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'fullscreen',
-      label: (l) => l.dbOnlineFieldFullscreen,
+      label: '全屏',
       type: DboBackendConfigFieldType.toggle,
     ),
     DboBackendConfigField(
       path: 'keyboard',
-      label: (l) => l.dbOnlineFieldKeyboard,
+      label: '键盘控制',
       type: DboBackendConfigFieldType.toggle,
     ),
   ],
 );
 
-final dboBackendConfigGroups = <DboBackendConfigGroup>[
-  DboBackendConfigGroup((l) => l.dbOnlineGroupSystem, <DboBackendConfigSection>[
+const dboBackendConfigGroups = <DboBackendConfigGroup>[
+  DboBackendConfigGroup('系统', <DboBackendConfigSection>[
     _javdbApiSection,
     _subscriptionSection,
     _proxySection,
   ]),
-  DboBackendConfigGroup(
-    (l) => l.dbOnlineGroupDownloader,
-    <DboBackendConfigSection>[
-      _aria2Section,
-      _qbittorrentSection,
-      _pan115Section,
-      _thunderSection,
-    ],
-  ),
-  DboBackendConfigGroup(
-    (l) => l.dbOnlineGroupMediaLibrary,
-    <DboBackendConfigSection>[_playerSection],
-  ),
+  DboBackendConfigGroup('下载器', <DboBackendConfigSection>[
+    _aria2Section,
+    _qbittorrentSection,
+    _pan115Section,
+    _thunderSection,
+  ]),
+  DboBackendConfigGroup('媒体库', <DboBackendConfigSection>[_playerSection]),
 ];

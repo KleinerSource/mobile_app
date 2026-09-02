@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
-import '../l10n/generated/app_localizations.dart';
 
-/// 通用任务/扫描状态胶囊: 状态码 → (标签, 主题色) 的统一映射。
+/// 通用任务/扫描状态胶囊: 状态码 → (中文标签, 主题色) 的统一映射。
 ///
 /// 覆盖任务中心、扫描进度、音频转译共用的状态词汇;
 /// 未识别的状态码原样展示并退化为 [AppColors.muted]。
-(String, Color) statusPillStyle(AppL10n l, AppColors colors, String status) {
+(String, Color) statusPillStyle(AppColors colors, String status) {
   return switch (status) {
-    'idle' => (l.statusIdle, colors.muted),
-    'pending' || 'queued' => (l.statusPending, colors.warning),
-    'running' => (l.statusRunning, colors.accent),
-    'paused' => (l.statusPaused, colors.warning),
-    'completed' => (l.statusCompleted, AppHues.top(AppHues.mint)),
-    'skipped' => (l.statusSkipped, colors.muted),
-    'cancelled' || 'canceled' => (l.statusCanceled, colors.muted),
-    'failed' || 'error' => (l.statusFailed, colors.danger),
-    _ => (status.isEmpty ? l.statusUnknown : status, colors.muted),
+    'idle' => ('准备中', colors.muted),
+    'pending' || 'queued' => ('排队中', colors.warning),
+    'running' => ('进行中', colors.accent),
+    'paused' => ('已暂停', colors.warning),
+    'completed' => ('已完成', AppHues.top(AppHues.mint)),
+    'skipped' => ('已跳过', colors.muted),
+    'cancelled' || 'canceled' => ('已取消', colors.muted),
+    'failed' || 'error' => ('失败', colors.danger),
+    _ => (status.isEmpty ? '未知' : status, colors.muted),
   };
 }
 
@@ -61,7 +60,7 @@ class StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final (resolvedLabel, resolvedColor) = status != null
-        ? statusPillStyle(AppL10n.of(context), colors, status!)
+        ? statusPillStyle(colors, status!)
         : (label!, color!);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 4),

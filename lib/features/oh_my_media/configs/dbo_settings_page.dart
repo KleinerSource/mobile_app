@@ -7,7 +7,6 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/features/settings/settings_common.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
 
 class DboSettingsPage extends ConsumerStatefulWidget {
@@ -18,12 +17,12 @@ class DboSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
-  List<(int, String)> _presets(AppL10n l) => [
-    (0, l.dboFilterNoFilter),
-    (12, l.dboFilterLastYear),
-    (24, l.dboFilterLast2Years),
-    (60, l.dboFilterLast5Years),
-    (120, l.dboFilterLast10Years),
+  static const _presets = [
+    (0, '不过滤'),
+    (12, '近 1 年'),
+    (24, '近 2 年'),
+    (60, '近 5 年'),
+    (120, '近 10 年'),
   ];
 
   final _baseUrl = TextEditingController();
@@ -57,15 +56,14 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   }
 
   Future<void> _save() async {
-    final l = AppL10n.of(context);
     final rawMonth = _minResourceMonth.text.trim();
     final minResourceMonth = _normalizeResourceMonth(rawMonth);
     if (rawMonth.isNotEmpty && minResourceMonth == null) {
-      setState(() => _error = l.dboErrMonthFormat);
+      setState(() => _error = '起始年月必须使用 YYYY-MM 格式');
       return;
     }
     if (_maxAge > 0 && minResourceMonth != null) {
-      setState(() => _error = l.dboErrBothSet);
+      setState(() => _error = '最近资源时间和起始年月只能二选一');
       return;
     }
 
@@ -93,10 +91,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
       }
       AppHaptics.medium();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(AppL10n.of(context).configSavedToast),
-          duration: const Duration(seconds: 1),
-        ),
+        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
       );
       // ignore: unused_result
       ref.refresh(dboConfigProvider);
@@ -121,10 +116,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             error: (e, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  '${AppL10n.of(context).loadFailed}: $e',
-                  style: AppText.body(context),
-                ),
+                child: Text('加载失败: $e', style: AppText.body(context)),
               ),
             ),
             data: (cfg) {
@@ -138,21 +130,17 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   }
 
   Widget _buildForm(AppColors c) {
-    final l = AppL10n.of(context);
     return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupTools,
-        title: l.settingsDbo,
-        subtitle: l.dboSubtitle,
+      header: const SettingsSubPageHeader(
+        eyebrow: '工具',
+        title: 'DB Online 数据源',
+        subtitle: 'Base URL + API Key,用于影片信息、资源和演员关联同步',
       ),
       body: ListView(
         primary: true,
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
         children: [
-          _label(
-            l.dboEnabledLabel.toUpperCase(),
-            _enabled ? l.dboEnabledHelpOn : l.dboEnabledHelpOff,
-          ),
+          _label('启用', _enabled ? '已启用 · 所有 DBO 功能可用' : '已停用 · 所有 DBO 功能将被屏蔽'),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: settingsCardDecoration(context),
@@ -160,7 +148,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               children: [
                 Expanded(
                   child: Text(
-                    l.dboEnableSwitchLabel,
+                    '启用 DB Online',
                     style: TextStyle(
                       color: c.text,
                       fontFamily: 'Inter',
@@ -177,13 +165,13 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             ),
           ),
           const SizedBox(height: 18),
-          _label('Base URL', l.dboBaseUrlExampleHint),
+          _label('Base URL', '例: http://10.0.0.50:9090'),
           _input(_baseUrl, hint: 'http://...', icon: Icons.link),
           const SizedBox(height: 18),
-          _label('API Key', _hasKey ? l.dboApiKeyConfiguredHint : l.configInputPrompt),
+          _label('API Key', _hasKey ? '已配置 · 留空则保留' : '请输入'),
           _passwordInput(c),
           const SizedBox(height: 18),
-          _label(l.dboResourceFilterLabel, l.dboResourceFilterHelp),
+          _label('资源过滤器', '按发布日期过滤 · 0 = 不过滤'),
           Container(
             decoration: settingsCardDecoration(context),
             child: Row(
@@ -220,7 +208,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                   ),
                 ),
                 Text(
-                  l.dboMonthsUnit,
+                  '个月',
                   style: TextStyle(
                     color: c.muted,
                     fontFamily: 'Inter',
@@ -233,10 +221,8 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                   padding: const EdgeInsets.only(right: 14),
                   child: Text(
                     _maxAge == 0
-                        ? l.dboFilterNoFilter
-                        : l.dboAgePreview(
-                            (_maxAge / 12).toStringAsFixed(1),
-                          ),
+                        ? '不过滤'
+                        : '约 ${(_maxAge / 12).toStringAsFixed(1)} 年',
                     style: TextStyle(
                       color: c.muted,
                       fontFamily: 'Inter',
@@ -252,7 +238,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           Wrap(
             spacing: 7,
             runSpacing: 7,
-            children: _presets(l).map((p) {
+            children: _presets.map((p) {
               final active = _maxAge == p.$1;
               return GestureDetector(
                 onTap: () {
@@ -286,7 +272,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             }).toList(),
           ),
           const SizedBox(height: 18),
-          _label(l.dboStartMonthLabel, l.dboStartMonthHelp),
+          _label('起始年月', '按发布日期保留该月份及之后的资源 · 格式 YYYY-MM'),
           Container(
             decoration: settingsCardDecoration(context),
             child: TextField(
@@ -301,7 +287,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               },
               decoration: settingsInputDecoration(
                 context,
-                hintText: l.dboStartMonthHint,
+                hintText: '例如 2024-01',
                 prefixIcon: const Icon(Icons.calendar_today_outlined),
                 borderless: true,
               ),
@@ -379,9 +365,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               textAlignVertical: TextAlignVertical.center,
               decoration: settingsInputDecoration(
                 context,
-                hintText: _hasKey
-                    ? AppL10n.of(context).dboNewApiKeyHint
-                    : AppL10n.of(context).configInputPrompt,
+                hintText: _hasKey ? '输入新的 API Key' : '请输入',
                 prefixIcon: const Icon(Icons.key_outlined),
                 borderless: true,
               ),

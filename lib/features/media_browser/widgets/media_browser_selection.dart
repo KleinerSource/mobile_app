@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/paged_selection.dart';
 
 /// MediaBrowser 条目的拖选控制器（选择键 = 条目 id）。
@@ -67,7 +66,6 @@ Future<void> runMediaBrowserSelectionBatch({
   final ids = selection.selectedIds.whereType<String>().toList();
   if (ids.isEmpty) return;
   final messenger = ScaffoldMessenger.of(context);
-  final l = AppL10n.of(context);
   onBusyChanged(true);
   var failed = 0;
   try {
@@ -97,8 +95,8 @@ Future<void> runMediaBrowserSelectionBatch({
     SnackBar(
       content: Text(
         failed == 0
-            ? l.mediaBrowserUpdatedNItems(ids.length)
-            : l.mediaBrowserUpdatedNItemsWithFailed(ids.length - failed, failed),
+            ? '已更新 ${ids.length} 个条目'
+            : '已更新 ${ids.length - failed} 个条目，$failed 个失败',
       ),
       duration: const Duration(seconds: 1),
     ),

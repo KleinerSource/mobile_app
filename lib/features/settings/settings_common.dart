@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 
@@ -219,13 +218,12 @@ class SettingsAddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     return FilledButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.add, size: 18),
-      label: Text(
-        l.commonAdd,
-        style: const TextStyle(
+      label: const Text(
+        '添加',
+        style: TextStyle(
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           fontSize: 13,
@@ -247,17 +245,16 @@ class SettingsSaveButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.saving = false,
-    this.label,
+    this.label = '保存设置',
   });
 
   final VoidCallback? onPressed;
   final bool saving;
-  final String? label;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
@@ -281,7 +278,7 @@ class SettingsSaveButton extends StatelessWidget {
               )
             : const Icon(Icons.save_outlined, size: 18),
         label: Text(
-          saving ? l.commonSaving : (label ?? l.commonSaveSettings),
+          saving ? '保存中...' : label,
           style: const TextStyle(
             fontFamily: 'Inter',
             fontWeight: FontWeight.w800,

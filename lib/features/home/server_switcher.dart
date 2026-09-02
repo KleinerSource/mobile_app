@@ -9,7 +9,6 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/server_avatar.dart';
 import 'server_switch_transition.dart';
@@ -115,7 +114,7 @@ class _HomeServerSwitcherMenuState
         return GlassMenuAnchor<String>(
           width: _serverMenuWidth(widget.servers),
           enabled: !transition.isActive,
-          tooltip: AppL10n.of(context).homeSwitchServer,
+          tooltip: '切换服务器',
           offset: const Offset(0, 4),
           placement: GlassMenuPlacement.below,
           onSelected: (serverId) => unawaited(_selectServer(serverId)),

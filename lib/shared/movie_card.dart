@@ -6,7 +6,6 @@ import '../core/platform/app_theme.dart';
 import '../features/i18n/badge_position_provider.dart';
 import '../features/privacy/privacy_mask.dart';
 import '../features/privacy/privacy_providers.dart';
-import '../l10n/generated/app_localizations.dart';
 import 'poster.dart';
 import 'stacked_badges.dart';
 
@@ -39,7 +38,6 @@ class MovieCard extends ConsumerWidget {
     final progress = movie.watchRecord?.progressRatio ?? 0.0;
     final completed = movie.watchRecord?.completed ?? false;
     final c = appColors(context);
-    final l = AppL10n.of(context);
     final hasRating = movie.rating != null && movie.rating! > 0;
     final privacyOn = ref.watch(privacyShieldProvider);
     final revealed = ref.watch(revealedMoviesProvider).contains(movie.id);
@@ -60,19 +58,19 @@ class MovieCard extends ConsumerWidget {
         // 多来源时合并为叠加堆,点按展开
         final subBadges = <Widget>[
           if (movie.hasExternalSubtitle)
-            _SubtitleBadge(color: const Color(0xFFFF9F1C), tooltip: l.movieCardSubExternal),
+            const _SubtitleBadge(color: Color(0xFFFF9F1C), tooltip: '外挂字幕'),
           if (movie.hasAiSubtitle)
-            _SubtitleBadge(color: const Color(0xFF8B5CF6), tooltip: l.movieCardSubAi),
+            const _SubtitleBadge(color: Color(0xFF8B5CF6), tooltip: 'AI 字幕'),
           if (movie.hasMuxedSubtitle)
-            _SubtitleBadge(color: const Color(0xFF16A34A), tooltip: l.movieCardSubMuxedTrack),
+            const _SubtitleBadge(color: Color(0xFF16A34A), tooltip: '内嵌字幕轨道'),
           if (movie.hasFilenameSubtitle)
-            _SubtitleBadge(color: const Color(0xFFFFD60A), tooltip: l.movieCardSubFilename),
+            const _SubtitleBadge(color: Color(0xFFFFD60A), tooltip: '内嵌字幕'),
         ];
         if (subBadges.length > 1) {
           final corner = positions.subtitle;
           byCorner[corner]!.add(
             StackedBadges(
-              tooltip: l.movieCardSubStack(subBadges.length),
+              tooltip: '字幕 ×${subBadges.length}（点按展开）',
               expandUpward:
                   corner == BadgeCorner.bottomLeft ||
                   corner == BadgeCorner.bottomRight,
@@ -191,9 +189,9 @@ class MovieCard extends ConsumerWidget {
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(
-                      l.watchedDone,
-                      style: const TextStyle(
+                    child: const Text(
+                      '已看完',
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
@@ -237,7 +235,7 @@ class MovieCard extends ConsumerWidget {
           // 标题: 隐私模式遮罩 · 固定 2 行高度避免溢出
           PrivacyText(
             movieId: movie.id,
-            text: restricted ? l.movieCardRestricted : movie.title,
+            text: restricted ? 'Restricted' : movie.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: AppText.movieCardTitle(context).copyWith(
@@ -328,14 +326,13 @@ class CatalogMovieCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final positions = ref.watch(badgePositionsProvider);
-    final displayTitle = title.trim().isEmpty ? l.movieCardUntitledTitle : title.trim();
+    final displayTitle = title.trim().isEmpty ? '未命名影片' : title.trim();
     // code 为 null 省略番号行；空串保留 DBO 原有的「未命名番号」回退。
     final displayCode = code == null
         ? null
-        : (code!.trim().isEmpty ? l.movieCardUntitledCode : code!.trim());
-    final displayMeta = meta.trim().isEmpty ? l.movieCardNoMeta : meta;
+        : (code!.trim().isEmpty ? '未命名番号' : code!.trim());
+    final displayMeta = meta.trim().isEmpty ? '暂无信息' : meta;
     final badgesByCorner = <BadgeCorner, List<Widget>>{
       for (final corner in BadgeCorner.values) corner: <Widget>[],
     };
@@ -346,7 +343,7 @@ class CatalogMovieCard extends ConsumerWidget {
     }
     if (hasSubtitle && positions.subtitleEnabled) {
       badgesByCorner[positions.subtitle]!.add(
-        _SubtitleBadge(color: const Color(0xFFFFD60A), tooltip: l.movieCardSubChinese),
+        const _SubtitleBadge(color: Color(0xFFFFD60A), tooltip: '中字'),
       );
     }
     if (rating != null && rating! > 0 && positions.ratingEnabled) {
@@ -373,9 +370,9 @@ class CatalogMovieCard extends ConsumerWidget {
                 color: Colors.black.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                l.watchedDone,
-                style: const TextStyle(
+              child: const Text(
+                '已看完',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
@@ -642,7 +639,7 @@ class NewResourcesIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: AppL10n.of(context).badgeNewResources,
+      label: '新资源',
       child: const Icon(
         Icons.auto_awesome_rounded,
         color: Color(0xFFFFD166),
@@ -659,7 +656,7 @@ class _CrackBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     const color = Color(0xFFE91E63);
     return Tooltip(
-      message: AppL10n.of(context).movieCardCrack,
+      message: '破解 / 无码',
       child: Container(
         width: 18,
         height: 18,

@@ -7,7 +7,6 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/filter_chip.dart';
@@ -119,16 +118,15 @@ class _ErrorBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l.loadFailed, style: AppText.sectionTitle(context)),
+          Text('加载失败', style: AppText.sectionTitle(context)),
           const SizedBox(height: 8),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: Text(l.dbOnlineRetry)),
+          FilledButton(onPressed: onRetry, child: const Text('重试')),
         ],
       ),
     );
@@ -199,20 +197,19 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         ? null
         : resolveServerUrl(config, image);
     final posterBadgeVisibility = ref.watch(posterBadgeVisibilityProvider);
-    final l = AppL10n.of(context);
     final heroBadges = <Widget>[
       if (movie.hasCnsub &&
           posterBadgeVisibility.isEnabled(PosterBadgeKind.subtitle))
-        CoverBadgePill(
+        const CoverBadgePill(
           icon: Icons.closed_caption_rounded,
-          label: l.dbOnlineBadgeSubtitle,
-          color: const Color(0xFFFFD60A),
-          tooltip: l.dbOnlineBadgeSubtitle,
+          label: '中字',
+          color: Color(0xFFFFD60A),
+          tooltip: '中字',
         ),
       if (movie.canPlay)
         CoverBadgePill(
           icon: Icons.play_arrow_rounded,
-          label: l.dbOnlinePlayOnline,
+          label: '在线播放',
           color: appColors(context).accent,
         ),
     ];
@@ -260,27 +257,24 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         if (movie.previews.isNotEmpty && config != null)
           SliverToBoxAdapter(
             child: MovieDetailFullBleedSection(
-              header: Text(
-                l.dbOnlinePreviewSection,
-                style: AppText.sectionTitle(context),
-              ),
+              header: Text('预览图', style: AppText.sectionTitle(context)),
               child: _DbOnlinePreviewRow(movie: movie, config: config),
             ),
           ),
         if (movie.actors.isNotEmpty)
           SliverToBoxAdapter(
             child: _DbOnlineChipSection(
-              title: l.detailCast,
+              title: '演员',
               labels: [
                 for (final actor in movie.actors)
-                  if (actor.name.trim().isNotEmpty) _actorLabel(l, actor),
+                  if (actor.name.trim().isNotEmpty) _actorLabel(actor),
               ],
             ),
           ),
         if (_hasPersonName(movie.series))
           SliverToBoxAdapter(
             child: _DbOnlineChipSection(
-              title: l.dbOnlineSeriesSection,
+              title: '系列',
               labels: [movie.series!.name],
               prefix: '◇ ',
             ),
@@ -288,7 +282,7 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         if (movie.categories.isNotEmpty)
           SliverToBoxAdapter(
             child: _DbOnlineChipSection(
-              title: l.dbOnlineCategorySection,
+              title: '分类',
               labels: [
                 for (final category in movie.categories)
                   if (category.name.trim().isNotEmpty) category.name,
@@ -298,7 +292,7 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         if (movie.relativeMovies.isNotEmpty && config != null)
           SliverToBoxAdapter(
             child: _RelatedMovieSection(
-              title: l.dbOnlineRelatedSection,
+              title: '相关推荐',
               movies: movie.relativeMovies,
               config: config,
             ),
@@ -306,7 +300,7 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         if (movie.actorMovies.isNotEmpty && config != null)
           SliverToBoxAdapter(
             child: _RelatedMovieSection(
-              title: l.dbOnlineSameActorSection,
+              title: '同演员作品',
               movies: movie.actorMovies,
               config: config,
             ),
@@ -314,18 +308,16 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         if (_hasDetails(movie))
           SliverToBoxAdapter(
             child: MovieDetailSection(
-              title: l.dbOnlineDetailsSection,
+              title: '详细信息',
               child: _DetailsTable(movie: movie),
             ),
           ),
         if (movie.library?.inLibrary == true)
           SliverToBoxAdapter(
             child: MovieDetailSection(
-              title: l.dbOnlineLibrarySection,
+              title: '媒体库',
               child: Text(
-                movie.library?.name ??
-                    movie.library?.source ??
-                    l.dbOnlineInLibrary,
+                movie.library?.name ?? movie.library?.source ?? '已入库',
                 style: AppText.body(context),
               ),
             ),
@@ -440,14 +432,14 @@ class _DbOnlineChipSection extends StatelessWidget {
   }
 }
 
-String _actorLabel(AppL10n l, DbOnlinePerson actor) {
+String _actorLabel(DbOnlinePerson actor) {
   final labels = <String>[actor.name];
   if (actor.nameZht?.isNotEmpty == true && actor.nameZht != actor.name) {
     labels.add(actor.nameZht!);
   }
   if (actor.otherName?.isNotEmpty == true) labels.add('(${actor.otherName})');
   if (actor.gender?.isNotEmpty == true) labels.add(actor.gender!);
-  if (actor.uncensored) labels.add(l.dbOnlineUncensored);
+  if (actor.uncensored) labels.add('无码');
   return labels.join(' ');
 }
 
@@ -464,7 +456,6 @@ class _RelatedMovieSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return MovieDetailFullBleedSection(
       header: Text(title, style: AppText.sectionTitle(context)),
       child: SizedBox(
@@ -475,7 +466,7 @@ class _RelatedMovieSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 22),
           itemCount: movies.length,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (context, index) {
+          itemBuilder: (_, index) {
             final movie = movies[index];
             final score = double.tryParse(movie.score ?? '');
             return DbOnlineMovieCard(
@@ -489,7 +480,7 @@ class _RelatedMovieSection extends StatelessWidget {
                 releaseDate: movie.releaseDate,
                 duration: movie.duration == null
                     ? null
-                    : l.dbOnlineDurationMinutes(movie.duration!),
+                    : '${movie.duration} 分钟',
                 score: score,
                 canPlay: movie.canPlay,
               ),
@@ -546,12 +537,9 @@ class _PlayButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
         icon: const Icon(Icons.play_arrow_rounded, size: 18),
-        label: Text(
-          AppL10n.of(context).dbOnlinePlayOnline,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w700,
-          ),
+        label: const Text(
+          '在线播放',
+          style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -584,9 +572,9 @@ Future<void> _openDbOnlinePlayback(
   }
   if (sources.isEmpty) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).dbOnlineNoPlaySources)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无有效在线播放源')));
     }
     return;
   }
@@ -612,13 +600,10 @@ class _DetailsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final rows = <(String, String)>[];
-    if (movie.date?.trim().isNotEmpty == true) {
-      rows.add((l.dbOnlineDetailDate, movie.date!));
-    }
+    if (movie.date?.trim().isNotEmpty == true) rows.add(('日期', movie.date!));
     if (movie.watchedCount != null && movie.watchedCount! > 0) {
-      rows.add((l.dbOnlineDetailRatingCount, '${movie.watchedCount}'));
+      rows.add(('评分人数', '${movie.watchedCount}'));
     }
     return Column(
       children: [
@@ -705,7 +690,6 @@ class _DbOnlinePlaybackSheetState
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     final request = DbOnlinePlayRequest(
       serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
       code: widget.code,
@@ -727,10 +711,10 @@ class _DbOnlinePlaybackSheetState
         children: [
           SheetHeader(
             icon: Icons.play_circle_outline,
-            title: l.dbOnlinePlayOnline,
+            title: '在线播放',
             subtitle: widget.code,
             trailing: IconButton(
-              tooltip: l.dbOnlineRefreshEpisodes,
+              tooltip: '刷新剧集',
               icon: const Icon(Icons.refresh_rounded),
               onPressed: _refreshEpisodes,
             ),
@@ -743,7 +727,7 @@ class _DbOnlinePlaybackSheetState
               children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(l.dbOnlinePlaySource, style: AppText.meta(context)),
+                  child: Text('播放源', style: AppText.meta(context)),
                 ),
                 SizedBox(
                   height: 42,
@@ -754,7 +738,7 @@ class _DbOnlinePlaybackSheetState
                     itemBuilder: (_, index) {
                       final source = validSources[index];
                       return ChoiceChip(
-                        label: Text(_playSourceLabel(l, source)),
+                        label: Text(_playSourceLabel(source)),
                         selected: source.id == _source.id,
                         onSelected: (_) {
                           if (source.id != _source.id) {
@@ -779,19 +763,14 @@ class _DbOnlinePlaybackSheetState
                     ),
                   ),
                   data: (episodes) => episodes.episodes.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 48),
-                          child: Center(
-                            child: Text(l.dbOnlineNoPlayableEpisodes),
-                          ),
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(child: Text('暂无可播放剧集')),
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              l.dbOnlineEpisodesSection,
-                              style: AppText.sectionTitle(context),
-                            ),
+                            Text('剧集', style: AppText.sectionTitle(context)),
                             const SizedBox(height: 10),
                             for (final episode in episodes.episodes)
                               _EpisodeTile(code: widget.code, episode: episode),
@@ -807,9 +786,9 @@ class _DbOnlinePlaybackSheetState
   }
 }
 
-String _playSourceLabel(AppL10n l, DbOnlinePlaySource source) {
+String _playSourceLabel(DbOnlinePlaySource source) {
   final name = source.name.trim();
-  return name.isEmpty ? l.dbOnlineDefaultPlaySource(source.id) : name;
+  return name.isEmpty ? '在线播放源 ${source.id}' : name;
 }
 
 class _EpisodeTile extends ConsumerWidget {
@@ -820,7 +799,6 @@ class _EpisodeTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppL10n.of(context);
     final qualities = episode.qualities;
     final fallbackUrl = episode.urlForQuality(null);
     return Padding(
@@ -846,9 +824,7 @@ class _EpisodeTile extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       episode.name.isEmpty
-                          ? l.dbOnlineEpisodeNumber(
-                              episode.index > 0 ? episode.index : 1,
-                            )
+                          ? '第 ${episode.index > 0 ? episode.index : 1} 集'
                           : episode.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -856,7 +832,7 @@ class _EpisodeTile extends ConsumerWidget {
                   ),
                   if (qualities.length <= 1)
                     IconButton(
-                      tooltip: l.dbOnlinePlayTooltip,
+                      tooltip: '播放 · 长按选择内核',
                       icon: const Icon(Icons.play_circle_fill_rounded),
                       onPressed: fallbackUrl.isEmpty
                           ? null
@@ -871,7 +847,7 @@ class _EpisodeTile extends ConsumerWidget {
                     )
                   else
                     PopupMenuButton<DbOnlinePlayQuality>(
-                      tooltip: l.dbOnlineQualityTooltip,
+                      tooltip: '选择清晰度 · 长按列表选择内核',
                       icon: const Icon(Icons.play_circle_fill_rounded),
                       onSelected: (quality) =>
                           _openPlayer(context, ref, quality.url),

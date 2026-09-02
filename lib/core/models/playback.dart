@@ -270,8 +270,6 @@ class SubtitleTrack {
         normalized.contains('pgs');
   }
 
-  /// 字幕容器格式缩写（SRT/ASS/...）。空 codec 返回空串，
-  /// “未知”等本地化文案由 UI 层（video_player_controls）负责。
   String get typeLabel {
     final normalized = codec.trim().toLowerCase();
     const labels = {
@@ -286,8 +284,14 @@ class SubtitleTrack {
       'dvd_subtitle': 'VobSub',
       'dvb_subtitle': 'DVB-SUB',
     };
-    if (normalized.isEmpty) return '';
+    if (normalized.isEmpty) return '未知';
     return labels[normalized] ?? codec.trim().toUpperCase();
+  }
+
+  String get sourceLabel {
+    if (isEmbedded) return '内嵌';
+    if (isExternal) return '外挂';
+    return source.trim().isEmpty ? '未知来源' : source.trim();
   }
 
   bool get canLoad => playable && (isEmbedded || url.trim().isNotEmpty);

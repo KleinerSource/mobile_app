@@ -37,17 +37,17 @@ class PlayerSettingsPage extends ConsumerWidget {
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppSettings,
-              title: l.settingsPlayerSettings,
+              title: '播放器设置',
             ),
             body: ListView(
               primary: true,
               children: [
                 SettingsGroup(
-                  title: l.settingsPlayerSettings,
+                  title: '播放器设置',
                   items: [
                     _PlayerSwitchTile(
-                      title: l.playerSettingResumeLast,
-                      subtitle: l.playerSettingResumeLastSub,
+                      title: '从上次进度播放',
+                      subtitle: '打开影片时自动恢复上次观看位置',
                       icon: Icons.restore,
                       value: settings.resumeFromLastPosition,
                       onChanged: (value) => update(
@@ -58,13 +58,12 @@ class PlayerSettingsPage extends ConsumerWidget {
                 ),
                 if (!kIsWeb && Platform.isIOS)
                   SettingsGroup(
-                    title: l.playerSettingIosEngineGroup,
+                    title: 'iOS 播放内核',
                     items: [
                       _PlayerOptionTile<PlaybackEngineKind>(
-                        title: l.playerSettingDefaultEngine,
-                        subtitle: l.playerSettingDefaultEngineSub(
-                          engineLabel(settings.iosEngine),
-                        ),
+                        title: '默认播放内核',
+                        subtitle:
+                            '${engineLabel(settings.iosEngine)} · 下次打开媒体生效',
                         icon: Icons.video_settings,
                         value: settings.iosEngine,
                         options: PlaybackEngineKind.values,
@@ -75,14 +74,12 @@ class PlayerSettingsPage extends ConsumerWidget {
                     ],
                   ),
                 SettingsGroup(
-                  title: l.playerSettingBufferGroup,
+                  title: '播放缓冲',
                   items: [
                     _PlayerOptionTile<PlayerPreloadSize>(
-                      title: l.playerSettingPreloadSize,
+                      title: '预载缓冲大小',
                       subtitle: settings.iosEngine != PlaybackEngineKind.libmpv
-                          ? l.playerSettingPreloadSizeSub(
-                              settings.preloadSize.label,
-                            )
+                          ? '${settings.preloadSize.label} · 仅 libmpv 内核生效'
                           : null,
                       icon: Icons.memory,
                       value: settings.preloadSize,
@@ -94,10 +91,10 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ],
                 ),
                 SettingsGroup(
-                  title: l.playerSettingOrientationGroup,
+                  title: '屏幕方向',
                   items: [
                     _PlayerOptionTile<PlayerLandscapeSide>(
-                      title: l.playerSettingLandscapeSide,
+                      title: '设备横屏方向',
                       icon: Icons.screen_rotation,
                       value: settings.landscapeSide,
                       options: PlayerLandscapeSide.values,
@@ -106,7 +103,7 @@ class PlayerSettingsPage extends ConsumerWidget {
                           update(settings.copyWith(landscapeSide: value)),
                     ),
                     _PlayerOptionTile<PlayerEntryOrientation>(
-                      title: l.playerSettingEntryOrientation,
+                      title: '进入播放器屏幕方向',
                       icon: Icons.stay_current_landscape,
                       value: settings.entryOrientation,
                       options: PlayerEntryOrientation.values,
@@ -117,19 +114,19 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ],
                 ),
                 SettingsGroup(
-                  title: l.playerSettingDoubleTapGroup,
+                  title: '双击手势',
                   items: [
                     _PlayerSwitchTile(
-                      title: l.playerSettingDoubleTapCenter,
-                      subtitle: l.playerSettingDoubleTapCenterSub,
+                      title: '双击屏幕中间',
+                      subtitle: '暂停 / 播放',
                       icon: Icons.touch_app,
                       value: settings.doubleTapCenter,
                       onChanged: (value) =>
                           update(settings.copyWith(doubleTapCenter: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingDoubleTapEdges,
-                      subtitle: l.playerSettingDoubleTapEdgesSub,
+                      title: '双击屏幕两边',
+                      subtitle: '左侧快退,右侧快进',
                       icon: Icons.fast_forward,
                       value: settings.doubleTapEdges,
                       onChanged: (value) =>
@@ -138,31 +135,31 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ],
                 ),
                 SettingsGroup(
-                  title: l.playerSettingHapticGroup,
+                  title: '震动反馈',
                   items: [
                     _PlayerSwitchTile(
-                      title: l.playerSettingHapticLongPress,
+                      title: '长按屏幕',
                       icon: Icons.pan_tool,
                       value: settings.hapticLongPress,
                       onChanged: (value) =>
                           update(settings.copyWith(hapticLongPress: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingHapticSeek,
+                      title: '滑动调节进度',
                       icon: Icons.swap_horiz,
                       value: settings.hapticSeek,
                       onChanged: (value) =>
                           update(settings.copyWith(hapticSeek: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingHapticRate,
+                      title: '滑动调节倍速',
                       icon: Icons.speed,
                       value: settings.hapticRate,
                       onChanged: (value) =>
                           update(settings.copyWith(hapticRate: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingHapticProgressBar,
+                      title: '拖动进度条',
                       icon: Icons.linear_scale,
                       value: settings.hapticProgressBar,
                       onChanged: (value) =>
@@ -171,35 +168,35 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ],
                 ),
                 SettingsGroup(
-                  title: l.playerSettingOsdGroup,
+                  title: 'OSD 信息',
                   items: [
                     _PlayerSwitchTile(
-                      title: l.playerSettingOsdClock,
-                      subtitle: l.playerSettingOsdClockSub,
+                      title: '系统时间',
+                      subtitle: '在播放器上显示当前时间',
                       icon: Icons.access_time,
                       value: settings.showSystemTime,
                       onChanged: (value) =>
                           update(settings.copyWith(showSystemTime: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingOsdNetwork,
-                      subtitle: l.playerSettingOsdNetworkSub,
+                      title: '设备网速',
+                      subtitle: '显示 Wi-Fi、4G/5G 网络类型和当前下载速度',
                       icon: Icons.network_check,
                       value: settings.showNetworkSpeed,
                       onChanged: (value) =>
                           update(settings.copyWith(showNetworkSpeed: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingOsdCpu,
-                      subtitle: l.playerSettingOsdCpuSub,
+                      title: 'CPU 占用率',
+                      subtitle: '显示设备实时 CPU 使用率',
                       icon: Icons.memory,
                       value: settings.showCpuUsage,
                       onChanged: (value) =>
                           update(settings.copyWith(showCpuUsage: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingOsdBattery,
-                      subtitle: l.playerSettingOsdBatterySub,
+                      title: '设备电量',
+                      subtitle: '显示当前电池电量',
                       icon: Icons.battery_full,
                       value: settings.showBattery,
                       onChanged: (value) =>
@@ -208,39 +205,38 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ],
                 ),
                 SettingsGroup(
-                  title: l.playerSettingButtonsGroup,
+                  title: '播放按钮',
                   items: [
                     _PlayerSwitchTile(
-                      title: l.playerSettingPlayPauseButton,
+                      title: '播放 / 暂停按钮',
                       icon: Icons.play_circle_outline,
                       value: settings.showPlayPauseButton,
-                      onChanged: (value) => update(
-                        settings.copyWith(showPlayPauseButton: value),
-                      ),
+                      onChanged: (value) =>
+                          update(settings.copyWith(showPlayPauseButton: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingSeekButtons,
+                      title: '快进 / 快退按钮',
                       icon: Icons.fast_forward,
                       value: settings.showSeekButtons,
                       onChanged: (value) =>
                           update(settings.copyWith(showSeekButtons: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingSpeedButton,
+                      title: '速度调节按钮',
                       icon: Icons.speed,
                       value: settings.showSpeedButton,
                       onChanged: (value) =>
                           update(settings.copyWith(showSpeedButton: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingPipButton,
+                      title: '画中画按钮',
                       icon: Icons.picture_in_picture_alt,
                       value: settings.showPipButton,
                       onChanged: (value) =>
                           update(settings.copyWith(showPipButton: value)),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingOrientationButton,
+                      title: '旋屏按钮',
                       icon: Icons.screen_rotation,
                       value: settings.showOrientationButton,
                       onChanged: (value) => update(
@@ -248,8 +244,8 @@ class PlayerSettingsPage extends ConsumerWidget {
                       ),
                     ),
                     _PlayerSwitchTile(
-                      title: l.playerSettingMediaSwitchButton,
-                      subtitle: l.playerSettingMediaSwitchButtonSub,
+                      title: '切换媒体按钮',
+                      subtitle: '上一部 / 下一部',
                       icon: Icons.skip_next,
                       value: settings.showMediaSwitchButton,
                       onChanged: (value) => update(

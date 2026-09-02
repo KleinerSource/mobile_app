@@ -21,16 +21,8 @@ import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
-
-/// 映射类型显示名：复用设置页的分类/标签/系列文案。
-String _mappingTypeLabel(AppL10n l, MappingType type) => switch (type) {
-  MappingType.tag => l.settingsTags,
-  MappingType.genre => l.settingsGenres,
-  MappingType.series => l.settingsSeries,
-};
 
 /// 通用映射规则管理页 (tags/genres/series 共用)
 class MappingRulesPage extends ConsumerStatefulWidget {
@@ -192,20 +184,19 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
 
   Future<void> _onBatchDelete() async {
     if (_selectedIds.isEmpty) return;
-    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.mappingBatchDeleteTitle),
-        content: Text(l.mappingBatchDeleteConfirm(_selectedIds.length)),
+        title: const Text('批量删除映射规则'),
+        content: Text('确定删除已选择的 ${_selectedIds.length} 条规则吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.delete),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -218,21 +209,15 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
           .delete(widget.type, _selectedIds.toList());
       if (!mounted) return;
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.mappingBatchDeleted(_selectedIds.length))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已删除 ${_selectedIds.length} 条规则')));
       _exitSelection();
       _reload(preserveScroll: true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(
-              context,
-            ).mappingBatchDeleteFailed(toApiException(error).message),
-          ),
-        ),
+        SnackBar(content: Text('批量删除失败: ${toApiException(error).message}')),
       );
     }
   }
@@ -246,7 +231,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -261,7 +245,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                 actions: [
                   EntityBatchAction(
                     icon: Icons.delete_outline,
-                    label: l.delete,
+                    label: '删除',
                     color: c.danger,
                     onTap: selected.isEmpty ? null : _onBatchDelete,
                   ),
@@ -279,8 +263,8 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
               header: SettingsSubPageHeader(
-                eyebrow: l.settingsGroupMappings,
-                title: l.mappingTypeTitle(_mappingTypeLabel(l, widget.type)),
+                eyebrow: '映射规则',
+                title: '${widget.type.label}映射',
                 titleTrailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -291,10 +275,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                       style: AppText.pageTitle(context),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      l.mappingCountSuffix,
-                      style: AppText.meta(context),
-                    ),
+                    Text('条规则', style: AppText.meta(context)),
                   ],
                 ),
                 trailing: Row(
@@ -338,7 +319,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                     textAlignVertical: TextAlignVertical.center,
                                     onChanged: _onSearch,
                                     decoration: InputDecoration(
-                                      hintText: l.mappingSearchHint,
+                                      hintText: '搜索原始值或映射值',
                                       hintStyle: TextStyle(
                                         color: c.muted,
                                         fontWeight: FontWeight.w500,
@@ -380,21 +361,21 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           child: Row(
                             children: [
                               CompactFilterButton(
-                                label: l.filterAll,
+                                label: '全部',
                                 icon: Icons.filter_list_rounded,
                                 active: _status == 'all',
                                 onTap: () => _setStatus('all'),
                               ),
                               const SizedBox(width: 7),
                               CompactFilterButton(
-                                label: l.mappingFilterConvert,
+                                label: '映射规则',
                                 icon: Icons.swap_horiz_rounded,
                                 active: _status == 'convert',
                                 onTap: () => _setStatus('convert'),
                               ),
                               const SizedBox(width: 7),
                               CompactFilterButton(
-                                label: l.mappingFilterDelete,
+                                label: '删除规则',
                                 icon: Icons.delete_outline_rounded,
                                 active: _status == 'delete',
                                 onTap: () => _setStatus('delete'),
@@ -447,14 +428,14 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                     actions: [
                                       SwipeActionData(
                                         icon: Icons.edit_outlined,
-                                        label: l.edit,
+                                        label: '编辑',
                                         color: c.accent,
                                         onPressed: () =>
                                             _showEditor(rule: rule),
                                       ),
                                       SwipeActionData(
                                         icon: Icons.delete_outline,
-                                        label: l.delete,
+                                        label: '删除',
                                         color: c.danger,
                                         onPressed: () => _confirmDelete(rule),
                                       ),
@@ -495,7 +476,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                     ErrorView(
                                       message:
                                           _controller.error?.toString() ??
-                                          l.loadFailed,
+                                          '加载失败',
                                       onRetry: _controller.refresh,
                                     ),
                                 newPageErrorIndicatorBuilder: (_) =>
@@ -532,13 +513,11 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     bool isDelete = rule?.isDelete ?? false;
 
     final c = appColors(context);
-    final typeLabel = _mappingTypeLabel(AppL10n.of(context), widget.type);
     final result =
         await showGlassSheet<({List<String> originals, String? mapped})>(
           context: context,
           isScrollControlled: true,
           builder: (ctx) {
-            final sheetL = AppL10n.of(ctx);
             return StatefulBuilder(
               builder: (sctx, setSt) {
                 return Padding(
@@ -555,20 +534,15 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                       SheetHeader(
                         icon: Icons.rule_outlined,
                         title: rule == null
-                            ? sheetL.mappingEditorTitleNew(typeLabel)
-                            : sheetL.mappingEditorTitleEdit(typeLabel),
+                            ? '新建${widget.type.label}映射'
+                            : '编辑${widget.type.label}映射',
                         padding: EdgeInsets.zero,
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        sheetL.mappingOriginalValuesEyebrow,
-                        style: AppText.eyebrow(ctx),
-                      ),
+                      Text('ORIGINAL VALUES', style: AppText.eyebrow(ctx)),
                       const SizedBox(height: 2),
                       Text(
-                        rule == null
-                            ? sheetL.mappingOriginalMultiHint
-                            : sheetL.mappingOriginalSingleHint,
+                        rule == null ? '多个值用换行分隔' : '单个原始值',
                         style: AppText.meta(ctx),
                       ),
                       const SizedBox(height: 6),
@@ -582,9 +556,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                             : TextAlignVertical.center,
                         decoration: sheetInputDecoration(
                           sctx,
-                          hintText: rule == null
-                              ? sheetL.mappingOriginalMultiPlaceholder
-                              : sheetL.mappingOriginalPlaceholder,
+                          hintText: rule == null ? '原始值1\n原始值2' : '原始值',
                           prefixIcon: const Icon(Icons.notes),
                         ),
                         style: TextStyle(
@@ -602,14 +574,12 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  sheetL.mappingMappedValueEyebrow,
+                                  'MAPPED VALUE',
                                   style: AppText.eyebrow(ctx),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  isDelete
-                                      ? sheetL.mappingMappedDeleteHint
-                                      : sheetL.mappingMappedHint,
+                                  isDelete ? '删除规则 · 扫描时丢弃这些值' : '映射为新值',
                                   style: AppText.meta(ctx),
                                 ),
                               ],
@@ -618,7 +588,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           Row(
                             children: [
                               Text(
-                                sheetL.mappingFilterDelete,
+                                '删除规则',
                                 style: TextStyle(
                                   color: c.muted,
                                   fontFamily: 'Inter',
@@ -646,7 +616,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           textAlignVertical: TextAlignVertical.center,
                           decoration: sheetInputDecoration(
                             sctx,
-                            hintText: AppL10n.of(sctx).mappingMappedPlaceholder,
+                            hintText: '目标值',
                             prefixIcon: const Icon(
                               Icons.drive_file_rename_outline,
                             ),
@@ -683,9 +653,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           },
                           style: sheetPrimaryButtonStyle(sctx),
                           child: Text(
-                            rule == null
-                                ? AppL10n.of(sctx).listCreate
-                                : AppL10n.of(sctx).save,
+                            rule == null ? '创建' : '保存',
                             style: const TextStyle(
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w700,
@@ -726,11 +694,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            rule == null
-                ? AppL10n.of(context).mappingCreatedToast
-                : AppL10n.of(context).configSavedToast,
-          ),
+          content: Text(rule == null ? '已创建' : '已保存'),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -738,30 +702,25 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       _reload(preserveScroll: rule != null);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(context).operationFailed(toApiException(e).message),
-          ),
-        ),
+        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
       );
     }
   }
 
   Future<void> _confirmDelete(MappingRule r) async {
-    final l = AppL10n.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.mappingDeleteRuleTitle),
-        content: Text(l.mappingDeleteRuleConfirm(r.originalDisplay)),
+        title: const Text('删除映射规则'),
+        content: Text('删除规则「${r.originalDisplay}」?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.cancel),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.delete),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -773,18 +732,13 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       await ref.read(mappingsRepositoryProvider).delete(widget.type, [r.id]);
       AppHaptics.medium();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l.mappingDeletedToast),
-          duration: const Duration(seconds: 1),
-        ),
+        const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
       );
       // ignore: unused_result
       _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l.mappingDeleteFailed(toApiException(e).message)),
-        ),
+        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
       );
     }
   }
@@ -798,7 +752,6 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -806,14 +759,11 @@ class _Empty extends StatelessWidget {
           Icon(Icons.swap_horiz, size: 40, color: c.muted),
           const SizedBox(height: 14),
           Text(
-            l.mappingEmptyTitle(_mappingTypeLabel(l, type)),
+            '还没有${type.label}映射规则',
             style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          Text(
-            l.mappingEmptyHint,
-            style: AppText.meta(context),
-          ),
+          Text('点击右上 + 添加按钮创建第一条规则', style: AppText.meta(context)),
         ],
       ),
     );
@@ -849,9 +799,7 @@ class _RuleTile extends StatelessWidget {
     final hue = isDelete ? AppHues.coral : AppHues.lavender;
     final firstLine = originals.join(' · ');
     // 摘要文字 (放第二行 muted)
-    final summary = isDelete
-        ? AppL10n.of(context).mappingSummaryDiscard
-        : (rule.mappedValue ?? '');
+    final summary = isDelete ? '丢弃' : (rule.mappedValue ?? '');
     return Material(
       // 连排行：无独立边框圆角，选中以整行背景提示。
       color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
@@ -943,9 +891,7 @@ class _RuleTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
-                  isDelete
-                      ? AppL10n.of(context).delete
-                      : AppL10n.of(context).mappingBadgeConvert,
+                  isDelete ? '删除' : '映射',
                   style: TextStyle(
                     color: isDelete ? c.danger : c.accent,
                     fontFamily: 'Inter',

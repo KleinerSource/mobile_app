@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 
 /// 播放器 Debug OSD。只读取统一播放状态，不参与控制栏和手势处理。
@@ -14,7 +13,7 @@ class PlayerDebugOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<PlaybackViewState>(
       valueListenable: stateListenable,
-      builder: (context, state, _) => DecoratedBox(
+      builder: (_, state, __) => DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(7),
@@ -25,7 +24,7 @@ class PlayerDebugOverlay extends StatelessWidget {
           child: Wrap(
             spacing: 10,
             runSpacing: 2,
-            children: _items(context, state)
+            children: _items(state)
                 .map(
                   (item) => Text(
                     item,
@@ -44,8 +43,7 @@ class PlayerDebugOverlay extends StatelessWidget {
     );
   }
 
-  List<String> _items(BuildContext context, PlaybackViewState state) {
-    final l = AppL10n.of(context);
+  List<String> _items(PlaybackViewState state) {
     final info = state.mediaInfo;
     final resolution = state.videoSize.width > 0 && state.videoSize.height > 0
         ? '${state.videoSize.width.round()}×${state.videoSize.height.round()}'
@@ -57,19 +55,17 @@ class PlayerDebugOverlay extends StatelessWidget {
     final internal = info?.internalPlayer;
 
     return [
-      l.playerDebugEngine(state.engineKind.label),
-      if (internal != null && internal.trim().isNotEmpty)
-        l.playerDebugInternalPlayer(internal),
-      l.playerDebugContainer(_value(info?.container)),
-      l.playerDebugVideoCodec(_value(info?.videoCodec)),
-      l.playerDebugVideoBitrate(formatPlaybackBitrate(info?.videoBitrate)),
-      l.playerDebugFps(fps),
-      l.playerDebugResolution(resolution),
-      if (decoder != '--') l.playerDebugDecoder(decoder),
-      if (_value(info?.audioCodec) != '--')
-        l.playerDebugAudioCodec(_value(info?.audioCodec)),
+      '内核 ${state.engineKind.label}',
+      if (internal != null && internal.trim().isNotEmpty) '内部 $internal',
+      '容器 ${_value(info?.container)}',
+      '视频 ${_value(info?.videoCodec)}',
+      '视频码率 ${formatPlaybackBitrate(info?.videoBitrate)}',
+      '帧率 $fps',
+      '分辨率 $resolution',
+      if (decoder != '--') '解码器 $decoder',
+      if (_value(info?.audioCodec) != '--') '音频 ${_value(info?.audioCodec)}',
       if (info?.audioBitrate != null)
-        l.playerDebugAudioBitrate(formatPlaybackBitrate(info?.audioBitrate)),
+        '音频码率 ${formatPlaybackBitrate(info?.audioBitrate)}',
     ];
   }
 
