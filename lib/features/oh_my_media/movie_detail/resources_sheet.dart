@@ -54,11 +54,63 @@ bool supportsEd2kDownloader(String name, bool? ed2kEnabled) {
       normalized.startsWith('openlist:');
 }
 
+DateTime? _epochToDate(double value) {
+  // 1e11 毫秒约等于 1973 年,小于该值视为秒级时间戳。
+  final millis = value >= 1e11 ? value : value * 1000;
+  return DateTime.fromMillisecondsSinceEpoch(millis.round());
+}
+
+/// 解析资源日期,兼容 date/publish_date 字段、ISO 字符串与 epoch 时间戳。
+DateTime? parseResourceDate(Map<String, dynamic> item) {
+  final raw = item['date'] ?? item['publish_date'];
+  if (raw == null) return null;
+  if (raw is DateTime) return raw;
+  if (raw is num) return _epochToDate(raw.toDouble());
+
+  final text = raw.toString().trim();
+  if (text.isEmpty) return null;
+  final parsed = DateTime.tryParse(text.replaceAll('/', '-'));
+  if (parsed != null) return parsed;
+  final epoch = double.tryParse(text);
+  return epoch == null ? null : _epochToDate(epoch);
+}
+
+/// 按日期降序返回新列表,无法解析日期的项排在最后并保持原有相对顺序。
+List<Map<String, dynamic>> sortResourcesByDateDesc(
+  List<Map<String, dynamic>> items,
+) {
+  final decorated = List.generate(
+    items.length,
+    (i) => (index: i, item: items[i], date: parseResourceDate(items[i])),
+  );
+  decorated.sort((a, b) {
+    if (a.date == null && b.date == null) return a.index.compareTo(b.index);
+    if (a.date == null) return 1;
+    if (b.date == null) return -1;
+    final result = b.date!.compareTo(a.date!);
+    return result != 0 ? result : a.index.compareTo(b.index);
+  });
+  return [for (final entry in decorated) entry.item];
+}
+
+/// 按固定渠道顺序合并再排序,保证最终列表与各渠道返回先后无关。
+List<Map<String, dynamic>> mergeResourcesBySource(
+  Map<String, List<Map<String, dynamic>>> bySource,
+) {
+  final merged = <Map<String, dynamic>>[];
+  for (final source in _kResourceSources) {
+    merged.addAll(bySource[source] ?? const []);
+  }
+  return sortResourcesByDateDesc(merged);
+}
+
 class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   bool _loadingResources = true;
   String? _error;
   List<Map<String, dynamic>> _magnets = const [];
   List<Map<String, dynamic>> _ed2ks = const [];
+  final Map<String, List<Map<String, dynamic>>> _sourceMagnets = {};
+  final Map<String, List<Map<String, dynamic>>> _sourceEd2ks = {};
   List<String> _warnings = const [];
   List<({String name, String displayName, bool? ed2kEnabled})> _downloaders =
       const [];
@@ -96,6 +148,8 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       _error = null;
       _magnets = const [];
       _ed2ks = const [];
+      _sourceMagnets.clear();
+      _sourceEd2ks.clear();
       _warnings = const [];
       _pendingSources = {..._kResourceSources};
       _sourceErrors.clear();
@@ -121,8 +175,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
           .timeout(const Duration(seconds: 20));
       if (!_isCurrentLoad(generation)) return;
       setState(() {
-        _magnets = [..._magnets, ...res.magnets];
-        _ed2ks = [..._ed2ks, ...res.ed2ks];
+        _sourceMagnets[source] = res.magnets;
+        _sourceEd2ks[source] = res.ed2ks;
+        _magnets = mergeResourcesBySource(_sourceMagnets);
+        _ed2ks = mergeResourcesBySource(_sourceEd2ks);
         _warnings = [..._warnings, ...res.warnings];
         _pendingSources.remove(source);
         _loadingResources = _pendingSources.isNotEmpty;

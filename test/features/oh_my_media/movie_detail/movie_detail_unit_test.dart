@@ -342,6 +342,75 @@ void _main_4() {
     expect(supportsEd2kDownloader('openlist:家庭盘', null), isTrue);
     expect(supportsEd2kDownloader('qbittorrent', null), isFalse);
   });
+
+  test('parseResourceDate 兼容多种日期格式', () {
+    expect(parseResourceDate({'date': '2024-01-02'}), DateTime(2024, 1, 2));
+    expect(parseResourceDate({'date': '2024/01/02'}), DateTime(2024, 1, 2));
+    expect(
+      parseResourceDate({'publish_date': '2024-01-02 15:30:00'}),
+      DateTime(2024, 1, 2, 15, 30),
+    );
+    expect(parseResourceDate({'date': 1719792000})!.toUtc().year, 2024);
+    expect(parseResourceDate({'date': '1719792000'}), isNotNull);
+    // 秒级与毫秒级 epoch 应解析到同一时刻。
+    expect(
+      parseResourceDate({'date': 1719792000}),
+      parseResourceDate({'date': 1719792000000}),
+    );
+    expect(parseResourceDate({'date': 'not-a-date'}), isNull);
+    expect(parseResourceDate({}), isNull);
+  });
+
+  test('资源列表按日期降序排序且无日期项排最后', () {
+    final items = [
+      {'title': 'old', 'date': '2023-01-01'},
+      {'title': 'no-date'},
+      {'title': 'newest', 'date': '2025-06-15'},
+      {'title': 'mid', 'publish_date': '2024-03-10'},
+    ];
+    final sorted = sortResourcesByDateDesc(items);
+    expect(
+      sorted.map((e) => e['title']).toList(),
+      ['newest', 'mid', 'old', 'no-date'],
+    );
+  });
+
+  test('无日期与相同日期的项保持原有相对顺序', () {
+    final items = [
+      {'title': 'a-no-date'},
+      {'title': 'b-same', 'date': '2024-01-01'},
+      {'title': 'b-no-date'},
+      {'title': 'a-same', 'date': '2024-01-01'},
+    ];
+    final sorted = sortResourcesByDateDesc(items);
+    expect(
+      sorted.map((e) => e['title']).toList(),
+      ['b-same', 'a-same', 'a-no-date', 'b-no-date'],
+    );
+  });
+
+  test('渠道合并结果与返回先后和 map 插入顺序无关', () {
+    final detail = [
+      {'title': 'detail-tie', 'date': '2024-01-01'},
+      {'title': 'detail-undated'},
+    ];
+    final nyaa = [
+      {'title': 'nyaa-tie', 'date': '2024-01-01'},
+      {'title': 'nyaa-new', 'date': '2025-01-01'},
+    ];
+    // detail 先返回、custom 已返回为空。
+    final orderA = {'detail': detail, 'custom': <Map<String, dynamic>>[], 'nyaa': nyaa};
+    // nyaa 先返回、custom 尚未返回(map 插入顺序也不同)。
+    final orderB = {'nyaa': nyaa, 'detail': detail};
+
+    final resultA = mergeResourcesBySource(orderA);
+    final resultB = mergeResourcesBySource(orderB);
+    expect(resultB, equals(resultA));
+    expect(
+      resultA.map((e) => e['title']).toList(),
+      ['nyaa-new', 'detail-tie', 'nyaa-tie', 'detail-undated'],
+    );
+  });
 }
 
 void main() {
