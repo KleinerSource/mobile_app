@@ -456,7 +456,78 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           : _ServerStatus.unavailable;
     }
 
-    return _ServerStatus.connected;
+    return _detectAuthentication(server, line, project);
+  }
+
+  Future<_ServerStatus> _detectAuthentication(
+    ServerProfile server,
+    ServerLine line,
+    ServerProject project,
+  ) async {
+    if (project.isFileSource) return _ServerStatus.connected;
+
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final sessionRepository = ref
+        .read(authSessionRepositoryProvider)
+        .forServer(server.id, allowLegacyMigration: false);
+    // DB Online 的鉴权是必选项，没有本地会话即可确定为“需要鉴权”，
+    // 避免为每张卡片额外发起一个必然返回 401 的请求。
+    if (project == ServerProject.dbOnline) {
+      final session = await sessionRepository.load();
+      if (session == null || !session.hasAccessToken) {
+        return _ServerStatus.authenticationRequired;
+      }
+    }
+    final client = ApiClient.fromConfig(
+      config,
+      sessionRepository: ref.read(authSessionRepositoryProvider),
+    );
+
+    try {
+      if (project == ServerProject.emby || project == ServerProject.jellyfin) {
+        final session = await sessionRepository.load();
+        if (session == null || !session.hasAccessToken) {
+          return _ServerStatus.authenticationRequired;
+        }
+        final mediaConfig = MediaBrowserConfig.byProject[project]!;
+        await client
+            .mediaBrowserFor(mediaConfig)
+            .validateSession(session.userId);
+        return _ServerStatus.connected;
+      }
+      if (project == ServerProject.feiniu) {
+        await client.feiniu.userInfo();
+        return _ServerStatus.connected;
+      }
+
+      final authStatus = await client.auth.status();
+      if (!authStatus.enabled || !authStatus.configured) {
+        return _ServerStatus.connected;
+      }
+      if (project == ServerProject.dbOnline) {
+        final session = await sessionRepository.load();
+        if (session == null ||
+            !session.hasAccessToken ||
+            !await client.auth.verify()) {
+          return _ServerStatus.authenticationRequired;
+        }
+        return _ServerStatus.connected;
+      }
+      final session = await sessionRepository.load();
+      return authStatus.authenticated && session?.isUsable == true
+          ? _ServerStatus.connected
+          : _ServerStatus.authenticationRequired;
+    } catch (error) {
+      final exception = toApiException(error);
+      return exception.status == 401 || exception.status == 403
+          ? _ServerStatus.authenticationRequired
+          : _ServerStatus.unavailable;
+    }
   }
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
