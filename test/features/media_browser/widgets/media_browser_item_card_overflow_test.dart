@@ -167,7 +167,7 @@ void main() {
       'ProductionYear': 2019,
       'EndDate': '2024-05-20T00:00:00Z',
       'Status': 'CONTINUING',
-      'ChildCount': 12,
+      'UserData': {'PlayCount': 0, 'UnplayedItemCount': 12},
     });
     final legacy = MediaBrowserItem.fromJson(const {
       'Id': 'series-3',

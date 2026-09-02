@@ -101,13 +101,13 @@ void main() {
       'PremiereDate': '2019-09-01T00:00:00Z',
       'EndDate': '2024-05-20T00:00:00Z',
       'Status': 'Ended',
-      'ChildCount': 24,
+      'UserData': {'PlayCount': 0, 'UnplayedItemCount': 24},
     });
 
     expect(item.productionYear, 2019);
     expect(item.endYear, 2024);
     expect(item.status, 'Ended');
-    expect(item.childCount, 24);
+    expect(item.userData.unplayedItemCount, 24);
     expect(item.totalEpisodeCount, 24);
   });
 
@@ -121,6 +121,17 @@ void main() {
     });
 
     expect(item.totalEpisodeCount, 12);
+  });
+
+  test('Emby 剧集总集数为已看与未看集数之和', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'series-2b',
+      'Name': '已部分观看剧集',
+      'Type': 'Series',
+      'UserData': {'PlayCount': 5, 'UnplayedItemCount': 19},
+    });
+
+    expect(item.totalEpisodeCount, 24);
   });
 
   test('剧集总集数忽略零值并回退到有效计数', () {

@@ -44,12 +44,14 @@ class MediaBrowserUserData {
   const MediaBrowserUserData({
     this.playbackPositionTicks = 0,
     this.playCount = 0,
+    this.unplayedItemCount = 0,
     this.isFavorite = false,
     this.played = false,
   });
 
   final int playbackPositionTicks;
   final int playCount;
+  final int unplayedItemCount;
   final bool isFavorite;
   final bool played;
 
@@ -60,6 +62,7 @@ class MediaBrowserUserData {
       MediaBrowserUserData(
         playbackPositionTicks: _intValue(json['PlaybackPositionTicks']) ?? 0,
         playCount: _intValue(json['PlayCount']) ?? 0,
+        unplayedItemCount: _intValue(json['UnplayedItemCount']) ?? 0,
         isFavorite: json['IsFavorite'] == true,
         played: json['Played'] == true,
       );
@@ -429,9 +432,11 @@ class MediaBrowserItem {
       (mediaBrowserTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
 
   /// 剧集总集数。Emby/Jellyfin 的剧集列表通常通过 [childCount] 返回，
-  /// 其它版本再回退到递归计数或显式的 [episodeCount]。
+  /// Emby 也可能只在 UserData 中返回已看与未看数量之和。
   int? get totalEpisodeCount {
     if (!isSeries) return null;
+    final userDataCount = userData.playCount + userData.unplayedItemCount;
+    if (userDataCount > 0) return userDataCount;
     for (final count in [childCount, recursiveItemCount, episodeCount]) {
       if (count != null && count > 0) return count;
     }
