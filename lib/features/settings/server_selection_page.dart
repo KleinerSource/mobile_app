@@ -196,17 +196,24 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
             bottom: false,
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                padding: const EdgeInsets.only(top: 24),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
+                  // 768 = 720 内容宽 + 两侧各 24 留白：ListView 按自身视口
+                  // 裁切，横向留白必须放进列表 padding，否则卡片阴影会在
+                  // 左右两侧被视口边缘切掉。顶部 12 与头部下方 10 合计保持
+                  // 原 22 的间距，同时给首行阴影留出绘制空间。
+                  constraints: const BoxConstraints(maxWidth: 768),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _ConnectionHeader(
-                        onChanged: _updateSearchQuery,
-                        showSearch: searchEnabled,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: _ConnectionHeader(
+                          onChanged: _updateSearchQuery,
+                          showSearch: searchEnabled,
+                        ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 10),
                       Expanded(
                         child: RefreshIndicator(
                           color: colors.accent,
@@ -214,7 +221,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                           child: ListView(
                             controller: _listScrollController,
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.only(bottom: 60 + safeBottom),
+                            padding: EdgeInsets.fromLTRB(
+                              24,
+                              12,
+                              24,
+                              60 + safeBottom,
+                            ),
                             children: [
                               if (servers.isEmpty)
                                 LayoutBuilder(
