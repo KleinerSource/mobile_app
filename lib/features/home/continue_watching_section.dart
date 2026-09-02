@@ -20,6 +20,7 @@ class ContinueWatchingEntry {
     required this.onOpen,
     required this.onResume,
     this.imageHeaders,
+    this.onLongPress,
   });
 
   /// 隐私遮罩键（条目 ID）。
@@ -34,19 +35,28 @@ class ContinueWatchingEntry {
   final VoidCallback onOpen;
   final VoidCallback onResume;
   final Map<String, String>? imageHeaders;
+  final VoidCallback? onLongPress;
 }
 
 /// 继续观看区块 · OMM 首页同款设计：
 /// 16:10 宽幅横滑卡，fanart 底图 + 底部渐变遮罩 + 播放按钮/剩余分钟
 /// + 进度条，下方两行标题与元信息。
 class ContinueWatchingSection extends StatelessWidget {
-  const ContinueWatchingSection({super.key, required this.entries, this.title});
+  const ContinueWatchingSection({
+    super.key,
+    required this.entries,
+    this.title,
+    this.showTitle = true,
+    this.topPadding = 26,
+  });
 
   final List<ContinueWatchingEntry> entries;
 
   /// 区块标题；缺省沿用 OMM 的「继续观看」文案。接下来观看等
   /// 同款宽幅卡片区块传入自己的标题复用本布局。
   final String? title;
+  final bool showTitle;
+  final double topPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -60,18 +70,20 @@ class ContinueWatchingSection extends StatelessWidget {
 
     return Padding(
       // 顶部间距与全出血 hero 衔接
-      padding: const EdgeInsets.only(top: 26),
+      padding: EdgeInsets.only(top: topPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Text(
-              title ?? AppL10n.of(context).homePickupTitle,
-              style: AppText.sectionTitle(context),
+          if (showTitle) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Text(
+                title ?? AppL10n.of(context).homePickupTitle,
+                style: AppText.sectionTitle(context),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
           SizedBox(
             height: coverHeight + 8 + titleAreaHeight,
             child: ListView.separated(
@@ -109,6 +121,7 @@ class _ContinueWatchingCard extends StatelessWidget {
       movieId: entry.privacyId,
       borderRadius: 22,
       onTap: () => entry.onOpen(),
+      onLongPress: entry.onLongPress,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
