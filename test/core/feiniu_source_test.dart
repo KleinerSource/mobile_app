@@ -70,6 +70,7 @@ void main() {
     expect(item.people.map((person) => person.name), ['导演一', '演员一']);
     expect(item.people.first.type, 'Director');
     expect(item.people.last.role, '主角');
+    expect(item.people.last.profilePath, '/person/p2.webp');
   });
 
   test('飞牛适配器通过原生季列表返回完整季条目', () async {
@@ -247,9 +248,22 @@ class _FeiniuMetadataAdapter implements HttpClientAdapter {
         'original_title': 'Example Movie',
         'overview': '影片简介',
         'genres': ['科幻', '动作'],
-        'people': [
-          {'id': 'p1', 'name': '导演一', 'type': 'Director'},
-          {'id': 'p2', 'name': '演员一', 'type': 'Actor', 'character': '主角'},
+      },
+      '/v/api/v1/person/list/item-1' => {
+        'list': [
+          {
+            'person_guid': 'p1',
+            'name': '导演一',
+            'job': 'Director',
+            'profile_path': '/person/p1.webp',
+          },
+          {
+            'person_guid': 'p2',
+            'name': '演员一',
+            'job': 'Actor',
+            'character': '主角',
+            'profile_path': '/person/p2.webp',
+          },
         ],
       },
       _ => <String, Object?>{},
@@ -301,10 +315,6 @@ class _FeiniuSourceAdapter implements HttpClientAdapter {
         'original_title': 'Example Movie',
         'overview': '影片简介',
         'genres': ['科幻', '动作'],
-        'people': [
-          {'id': 'p1', 'name': '导演一', 'type': 'Director'},
-          {'id': 'p2', 'name': '演员一', 'type': 'Actor', 'character': '主角'},
-        ],
         'can_play': true,
         'media_guid': 'media-1',
         'file_name': 'movie.mkv',
@@ -401,9 +411,6 @@ class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
         'media_guid': 'media-rich',
         'poster': '/mediadb/item-rich/poster.jpg',
         'can_play': true,
-        'people': [
-          {'person_guid': 'p1', 'name': '演员一', 'job': 'Actor', 'role': '主角'},
-        ],
       },
       '/v/api/v1/person/list/item-rich' => {
         'list': [
