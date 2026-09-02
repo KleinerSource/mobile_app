@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -44,16 +45,17 @@ class DboBackendSettingsContent extends ConsumerWidget {
     BuildContext context,
     Map<String, dynamic> config,
   ) {
+    final l = AppL10n.of(context);
     return Column(
       children: [
         for (final group in dboBackendConfigGroups)
           SettingsGroup(
-            title: group.title,
+            title: group.title(l),
             items: [
               for (final section in group.sections)
                 SettingsTile(
-                  title: section.title,
-                  subtitle: _sectionSubtitle(section),
+                  title: section.title(l),
+                  subtitle: _sectionSubtitle(l, section),
                   leadingIcon: _sectionIcon(section),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
@@ -70,9 +72,12 @@ class DboBackendSettingsContent extends ConsumerWidget {
     );
   }
 
-  static String _sectionSubtitle(DboBackendConfigSection section) {
-    final test = section.testName == null ? '' : ' · 支持测试连接';
-    return '${section.fields.length} 项配置$test';
+  static String _sectionSubtitle(
+    AppL10n l,
+    DboBackendConfigSection section,
+  ) {
+    final test = section.testName == null ? '' : l.dbOnlineSectionSupportsTest;
+    return '${l.dbOnlineSectionFieldCount(section.fields.length)}$test';
   }
 
   static IconData _sectionIcon(DboBackendConfigSection section) {
@@ -98,15 +103,15 @@ class DboBackendSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: appColors(context).bg,
-      body: const GlowBackground(
+      body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: 'DB ONLINE',
-              title: '后台配置',
-              subtitle: '配置 DBO 服务端的 API、订阅、代理、下载器和播放器。',
+              title: AppL10n.of(context).dbOnlineBackendConfigTitle,
+              subtitle: AppL10n.of(context).dbOnlineBackendConfigSubtitle,
             ),
-            body: DboBackendSettingsContent(scrollable: true),
+            body: const DboBackendSettingsContent(scrollable: true),
           ),
         ),
       ),
@@ -123,6 +128,7 @@ class _ConfigLoadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 80),
       child: Container(
@@ -140,7 +146,7 @@ class _ConfigLoadError extends StatelessWidget {
                 Icon(Icons.error_outline, color: c.danger),
                 const SizedBox(width: 8),
                 Text(
-                  '无法读取 DBO 配置',
+                  l.dbOnlineConfigLoadError,
                   style: TextStyle(
                     color: c.danger,
                     fontWeight: FontWeight.w800,
@@ -158,7 +164,7 @@ class _ConfigLoadError extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('重试'),
+              label: Text(l.dbOnlineRetry),
             ),
           ],
         ),
@@ -225,7 +231,7 @@ class _DboBackendConfigDetailPageState
       AppHaptics.medium();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已保存')));
+      ).showSnackBar(SnackBar(content: Text(AppL10n.of(context).dbOnlineSaved)));
       Navigator.of(context).pop();
     } catch (error) {
       if (mounted) {
@@ -241,14 +247,17 @@ class _DboBackendConfigDetailPageState
   Future<void> _testConnection() async {
     final name = widget.section.testName;
     if (_testing || name == null) return;
+    final l = AppL10n.of(context);
     setState(() => _testing = true);
     try {
       final result = await ref
           .read(dbOnlineBackendConfigProvider.notifier)
           .testConnection(name, _working);
       final success = result['success'] == true;
-      final message =
-          result['message'] ?? result['error'] ?? (success ? '连接正常' : '连接失败');
+      final fallback = success
+          ? l.dbOnlineConnectionOk
+          : l.dbOnlineConnectionFailed;
+      final message = result['message'] ?? result['error'] ?? fallback;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -270,15 +279,16 @@ class _DboBackendConfigDetailPageState
     final visibleFields = widget.section.fields
         .where((field) => field.visibleWhen?.call(_working) ?? true)
         .toList();
+    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: 'DB ONLINE · 后台配置',
-              title: widget.section.title,
-              subtitle: '修改后仅更新当前配置分区。',
+              eyebrow: 'DB ONLINE · ${l.dbOnlineBackendConfigTitle}',
+              title: widget.section.title(l),
+              subtitle: l.dbOnlineSectionScopeHint,
             ),
             body: ListView(
               primary: true,
@@ -302,7 +312,7 @@ class _DboBackendConfigDetailPageState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.wifi_tethering_outlined, size: 18),
-                      label: const Text('测试连接'),
+                      label: Text(l.dbOnlineTestConnection),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -317,6 +327,7 @@ class _DboBackendConfigDetailPageState
   }
 
   Widget _buildField(DboBackendConfigField field) {
+    final l = AppL10n.of(context);
     switch (field.type) {
       case DboBackendConfigFieldType.toggle:
         return Container(
@@ -329,10 +340,10 @@ class _DboBackendConfigDetailPageState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(field.label, style: AppText.cardTitle(context)),
+                    Text(field.label(l), style: AppText.cardTitle(context)),
                     if (field.hint != null) ...[
                       const SizedBox(height: 2),
-                      Text(field.hint!, style: AppText.meta(context)),
+                      Text(field.hint!(l), style: AppText.meta(context)),
                     ],
                   ],
                 ),
@@ -358,7 +369,7 @@ class _DboBackendConfigDetailPageState
         return InputDecorator(
           decoration: settingsInputDecoration(
             context,
-            labelText: field.label,
+            labelText: field.label(l),
             prefixIcon: icon == null ? null : Icon(icon),
           ),
           child: DropdownButtonHideUnderline(
@@ -377,7 +388,7 @@ class _DboBackendConfigDetailPageState
                 for (final option in options)
                   DropdownMenuItem(
                     value: option.value,
-                    child: Text(option.label),
+                    child: Text(option.label(l)),
                   ),
               ],
               onChanged: (value) {
@@ -410,13 +421,13 @@ class _DboBackendConfigDetailPageState
               enableSuggestions: !isPassword,
               decoration: settingsInputDecoration(
                 context,
-                hintText: isPassword ? '留空或保持掩码表示不修改' : null,
+                hintText: isPassword ? l.dbOnlineFieldMaskHint : null,
                 prefixIcon: icon == null ? null : Icon(icon),
                 suffixIcon: isPassword
                     ? IconButton(
                         tooltip: _visiblePasswords.contains(field.path)
-                            ? '隐藏'
-                            : '显示',
+                            ? l.dbOnlineHidePassword
+                            : l.dbOnlineShowPassword,
                         icon: Icon(
                           _visiblePasswords.contains(field.path)
                               ? Icons.visibility_off_outlined
@@ -451,16 +462,20 @@ class _DboBackendConfigDetailPageState
   }
 
   Widget _fieldLabel(DboBackendConfigField field) {
+    final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(field.label.toUpperCase(), style: AppText.eyebrow(context)),
+          Text(
+            field.label(l).toUpperCase(),
+            style: AppText.eyebrow(context),
+          ),
           if (field.hint != null) ...[
             const SizedBox(height: 2),
             Text(
-              field.hint!,
+              field.hint!(l),
               style: AppText.meta(context).copyWith(fontSize: 10.5),
             ),
           ],

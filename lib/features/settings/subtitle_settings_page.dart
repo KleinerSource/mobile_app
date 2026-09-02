@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
@@ -20,6 +21,7 @@ class SubtitleSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(subtitleSettingsProvider);
+    final l = AppL10n.of(context);
 
     void update(SubtitleSettings next) {
       unawaited(ref.read(subtitleSettingsProvider.notifier).update(next));
@@ -30,11 +32,14 @@ class SubtitleSettingsPage extends ConsumerWidget {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            header: const SettingsSubPageHeader(eyebrow: '应用设置', title: '字幕设置'),
+            header: SettingsSubPageHeader(
+              eyebrow: l.settingsAppSettings,
+              title: l.settingsSubtitleSettings,
+            ),
             body: Column(
               children: [
                 SettingsGroup(
-                  title: '样式预览',
+                  title: l.subtitleStylePreview,
                   items: [_SubtitleStylePreview(settings: settings)],
                 ),
                 Expanded(
@@ -42,11 +47,11 @@ class SubtitleSettingsPage extends ConsumerWidget {
                     primary: true,
                     children: [
                       SettingsGroup(
-                        title: '字幕行为',
+                        title: l.subtitleBehaviorGroup,
                         items: [
                           _SubtitleSwitchTile(
-                            title: '记住所选字幕',
-                            subtitle: '下次播放时自动恢复最近使用的字幕轨道',
+                            title: l.subtitleRememberSelection,
+                            subtitle: l.subtitleRememberSelectionSub,
                             icon: Icons.bookmark_outline,
                             value: settings.rememberSelectedSubtitle,
                             onChanged: (value) => update(
@@ -56,8 +61,8 @@ class SubtitleSettingsPage extends ConsumerWidget {
                             ),
                           ),
                           _SubtitleSwitchTile(
-                            title: '忽略 ASS 字幕样式',
-                            subtitle: '使用下面的客户端字体和颜色设置',
+                            title: l.subtitleIgnoreAssStyle,
+                            subtitle: l.subtitleIgnoreAssStyleSub,
                             icon: Icons.text_fields,
                             value: settings.ignoreAssStyle,
                             onChanged: (value) => update(
@@ -65,8 +70,8 @@ class SubtitleSettingsPage extends ConsumerWidget {
                             ),
                           ),
                           _SubtitleSwitchTile(
-                            title: '忽略 SRT 字幕样式',
-                            subtitle: '忽略字幕中的 HTML 样式标签',
+                            title: l.subtitleIgnoreSrtStyle,
+                            subtitle: l.subtitleIgnoreSrtStyleSub,
                             icon: Icons.code_off,
                             value: settings.ignoreSrtStyle,
                             onChanged: (value) => update(
@@ -76,41 +81,41 @@ class SubtitleSettingsPage extends ConsumerWidget {
                         ],
                       ),
                       SettingsGroup(
-                        title: '文字样式',
+                        title: l.subtitleTextStyleGroup,
                         items: [
                           _SubtitleOptionTile<String>(
-                            title: '字体',
-                            subtitle: _fontLabel(settings.fontFamily),
+                            title: l.subtitleFont,
+                            subtitle: _fontLabel(settings.fontFamily, l),
                             icon: Icons.font_download_outlined,
                             value: settings.fontFamily,
                             options: _fontOptions,
-                            labelOf: _fontLabel,
+                            labelOf: (value) => _fontLabel(value, l),
                             onChanged: (value) =>
                                 update(settings.copyWith(fontFamily: value)),
                           ),
                           _SubtitleSwitchTile(
-                            title: '加粗',
+                            title: l.subtitleBold,
                             icon: Icons.format_bold,
                             value: settings.bold,
                             onChanged: (value) =>
                                 update(settings.copyWith(bold: value)),
                           ),
                           _SubtitleSwitchTile(
-                            title: '斜体',
+                            title: l.subtitleItalic,
                             icon: Icons.format_italic,
                             value: settings.italic,
                             onChanged: (value) =>
                                 update(settings.copyWith(italic: value)),
                           ),
                           _SubtitleColorTile(
-                            title: '字体颜色',
+                            title: l.subtitleFontColor,
                             icon: Icons.format_color_text,
                             color: settings.fontColor,
                             onChanged: (value) =>
                                 update(settings.copyWith(fontColor: value)),
                           ),
                           _SubtitleColorTile(
-                            title: '背景颜色',
+                            title: l.subtitleBackgroundColor,
                             icon: Icons.format_color_fill,
                             color: settings.backgroundColor,
                             onChanged: (value) => update(
@@ -120,17 +125,17 @@ class SubtitleSettingsPage extends ConsumerWidget {
                         ],
                       ),
                       SettingsGroup(
-                        title: '描边与阴影',
+                        title: l.subtitleOutlineShadowGroup,
                         items: [
                           _SubtitleColorTile(
-                            title: '描边颜色',
+                            title: l.subtitleOutlineColor,
                             icon: Icons.border_color_outlined,
                             color: settings.outlineColor,
                             onChanged: (value) =>
                                 update(settings.copyWith(outlineColor: value)),
                           ),
                           _SubtitleSliderTile(
-                            title: '描边粗细',
+                            title: l.subtitleOutlineWidth,
                             subtitle:
                                 '${settings.outlineWidth.toStringAsFixed(1)} px',
                             icon: Icons.border_style,
@@ -142,14 +147,14 @@ class SubtitleSettingsPage extends ConsumerWidget {
                                 update(settings.copyWith(outlineWidth: value)),
                           ),
                           _SubtitleColorTile(
-                            title: '阴影颜色',
+                            title: l.subtitleShadowColor,
                             icon: Icons.blur_on_outlined,
                             color: settings.shadowColor,
                             onChanged: (value) =>
                                 update(settings.copyWith(shadowColor: value)),
                           ),
                           _SubtitleSliderTile(
-                            title: '阴影大小',
+                            title: l.subtitleShadowSize,
                             subtitle:
                                 '${settings.shadowSize.toStringAsFixed(1)} px',
                             icon: Icons.blur_on_outlined,
@@ -163,11 +168,11 @@ class SubtitleSettingsPage extends ConsumerWidget {
                         ],
                       ),
                       SettingsGroup(
-                        title: '恢复',
+                        title: l.subtitleResetGroup,
                         items: [
                           SettingsTile(
-                            title: '恢复默认',
-                            subtitle: '恢复字体、颜色、描边和字幕行为设置',
+                            title: l.subtitleResetDefaults,
+                            subtitle: l.subtitleResetDefaultsSub,
                             leadingIcon: Icons.restore,
                             destructive: true,
                             onTap: () => unawaited(_reset(context, ref)),
@@ -186,14 +191,14 @@ class SubtitleSettingsPage extends ConsumerWidget {
     );
   }
 
-  String _fontLabel(String value) {
+  String _fontLabel(String value, AppL10n l) {
     switch (value) {
       case 'System':
-        return '系统字体';
+        return l.subtitleFontSystem;
       case 'monospace':
-        return '等宽字体';
+        return l.subtitleFontMonospace;
       case 'serif':
-        return '衬线字体';
+        return l.subtitleFontSerif;
       default:
         return 'Inter';
     }
@@ -205,7 +210,9 @@ class SubtitleSettingsPage extends ConsumerWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('字幕设置已恢复默认')));
+      ).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).subtitleResetDone)),
+      );
     }
   }
 }
@@ -237,7 +244,7 @@ class _SubtitleStylePreview extends StatelessWidget {
         child: Opacity(
           opacity: settings.adjustments.opacity.clamp(0.1, 1.0).toDouble(),
           child: Text(
-            '这是一段字幕预览',
+            AppL10n.of(context).subtitlePreviewText,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -405,9 +412,10 @@ class _SubtitleColorTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return SettingsTile(
       title: title,
-      subtitle: _isTransparent(color) ? '透明' : _colorHex(color),
+      subtitle: _isTransparent(color) ? l.subtitleTransparent : _colorHex(color),
       leadingIcon: icon,
       trailing: SizedBox(
         width: 28,

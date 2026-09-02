@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../common/player_haptics.dart';
 
 /// 播放器统一退出按钮 · 固定在左上角。
@@ -20,7 +21,7 @@ class PlayerExitButton extends StatelessWidget {
       width: 46,
       height: 46,
       child: IconButton(
-        tooltip: '退出播放',
+        tooltip: AppL10n.of(context).playerExitPlayback,
         enableFeedback: false,
         padding: EdgeInsets.zero,
         icon: const Icon(Icons.close, color: Colors.white, size: 25),

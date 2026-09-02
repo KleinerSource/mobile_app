@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import 'player_device_stats.dart';
 
 /// 播放器顶部状态 OSD · 与控制栏分离, 不参与手势命中测试。
@@ -73,7 +74,7 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
                 _networkIcon(widget.stats.networkType),
                 formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
                 semanticLabel:
-                    '${widget.stats.networkType.label} '
+                    '${_networkTypeLabel(widget.stats.networkType)} '
                     '${formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond)}',
               ),
             Expanded(
@@ -140,6 +141,20 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
   String _batteryLabel() {
     final value = widget.stats.batteryPercent;
     return value == null ? '--' : '${value.clamp(0, 100)}%';
+  }
+
+  /// 网络类型的无障碍文案 · 枚举 label 不再承担界面本地化。
+  String _networkTypeLabel(PlayerNetworkType type) {
+    final l = AppL10n.of(context);
+    return switch (type) {
+      PlayerNetworkType.wifi => 'Wi-Fi',
+      PlayerNetworkType.cellular4G => '4G',
+      PlayerNetworkType.cellular5G => '5G',
+      PlayerNetworkType.mobile => l.playerNetworkCellular,
+      PlayerNetworkType.ethernet => l.playerNetworkEthernet,
+      PlayerNetworkType.offline => l.playerNetworkOffline,
+      PlayerNetworkType.unknown => l.playerNetworkUnknown,
+    };
   }
 
   IconData _batteryIcon(int? value) {

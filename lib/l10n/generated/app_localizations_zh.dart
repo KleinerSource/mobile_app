@@ -995,4 +995,129 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get playerClose => '关闭';
+
+  @override
+  String get commonRetry => '重试';
+
+  @override
+  String get commonNoData => '暂无数据';
+
+  @override
+  String get commonSelectAll => '全选';
+
+  @override
+  String get commonClearSelection => '清空';
+
+  @override
+  String get commonExitSelection => '退出多选';
+
+  @override
+  String get paginationNoMore => '没有更多内容';
+
+  @override
+  String get paginationLoadFailedRetry => '加载更多失败，点击重试';
+
+  @override
+  String get posterOnlinePlay => '在线播放';
+
+  @override
+  String get movieCardSubExternal => '外挂字幕';
+
+  @override
+  String get movieCardSubAi => 'AI 字幕';
+
+  @override
+  String get movieCardSubMuxedTrack => '内嵌字幕轨道';
+
+  @override
+  String get movieCardSubFilename => '内嵌字幕';
+
+  @override
+  String movieCardSubStack(int n) {
+    return '字幕 ×$n（点按展开）';
+  }
+
+  @override
+  String get movieCardSubChinese => '中字';
+
+  @override
+  String get movieCardRestricted => '受限影片';
+
+  @override
+  String get movieCardUntitledTitle => '未命名影片';
+
+  @override
+  String get movieCardUntitledCode => '未命名番号';
+
+  @override
+  String get movieCardNoMeta => '暂无信息';
+
+  @override
+  String get movieCardCrack => '破解 / 无码';
+
+  @override
+  String get statusIdle => '准备中';
+
+  @override
+  String get statusPending => '排队中';
+
+  @override
+  String get statusRunning => '进行中';
+
+  @override
+  String get statusPaused => '已暂停';
+
+  @override
+  String get statusCompleted => '已完成';
+
+  @override
+  String get statusSkipped => '已跳过';
+
+  @override
+  String get statusCanceled => '已取消';
+
+  @override
+  String get statusFailed => '失败';
+
+  @override
+  String get statusUnknown => '未知';
+
+  @override
+  String get commonClearInput => '清空';
+
+  @override
+  String get securityVerifyIncomplete => '验证未完成，请重试或使用其他解锁方式';
+
+  @override
+  String get securityPinIncorrect => '数字密码不正确';
+
+  @override
+  String get securityPatternIncorrect => '手势密码不正确';
+
+  @override
+  String get securityAppLocked => '应用已锁定';
+
+  @override
+  String get securityUnlockPrompt => '验证身份后继续使用 Oh My Media';
+
+  @override
+  String get securityBiometricUnlock => '使用面容/指纹解锁';
+
+  @override
+  String get securityVerifying => '验证中…';
+
+  @override
+  String get securityPasswordUnlock => '使用密码/滑动解锁';
+
+  @override
+  String get securityPinCode => '数字密码';
+
+  @override
+  String get securitySwipeUnlock => '滑动解锁';
+
+  @override
+  String get securityUnavailable => '安全验证不可用，请重试';
+
+  @override
+  String get securityBiometricReason => '请验证身份以进入 Oh My Media';
 }

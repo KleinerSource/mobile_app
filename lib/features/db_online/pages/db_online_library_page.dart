@@ -8,6 +8,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/glow_background.dart';
@@ -31,17 +32,19 @@ class DbOnlineLibraryPage extends ConsumerStatefulWidget {
 
 class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   static const _pageSize = 24;
-  static const _categoryOptions = <({String value, String label})>[
-    (value: '0', label: '有码'),
-    (value: '1', label: '无码'),
-    (value: '2', label: '欧美'),
-    (value: '3', label: 'FC2'),
-    (value: '4', label: '动漫'),
-  ];
-  static const _sortOptions = <({String value, String label})>[
-    (value: 'update', label: '最近更新'),
-    (value: 'release', label: '最新上架'),
-  ];
+  static final _categoryOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: '0', label: (l) => l.dbOnlineCategoryCensored),
+        (value: '1', label: (l) => l.dbOnlineCategoryUncensored),
+        (value: '2', label: (l) => l.dbOnlineCategoryWestern),
+        (value: '3', label: (l) => 'FC2'),
+        (value: '4', label: (l) => l.dbOnlineCategoryAnime),
+      ];
+  static final _sortOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: 'update', label: (l) => l.dbOnlineRecentUpdated),
+        (value: 'release', label: (l) => l.dbOnlineLatestReleased),
+      ];
 
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
@@ -147,6 +150,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
 
   Future<void> _openCategoryMenu(BuildContext context) async {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -155,16 +159,16 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SheetHeader(
+              SheetHeader(
                 icon: Icons.tune_rounded,
-                title: '筛选影片类型',
-                subtitle: '仅在线播',
-                padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
+                title: l.dbOnlineFilterMovieType,
+                subtitle: l.dbOnlineOnlineOnly,
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
               for (final option in _categoryOptions)
                 ListTile(
                   dense: true,
-                  title: Text(option.label),
+                  title: Text(option.label(l)),
                   trailing: option.value == _category
                       ? Icon(
                           Icons.check_rounded,
@@ -187,6 +191,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
 
   Future<void> _openSortMenu(BuildContext context) async {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -197,7 +202,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
             children: [
               SheetHeader(
                 icon: Icons.sort_rounded,
-                title: '排序',
+                title: l.dbOnlineSort,
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
                 trailing: _LibraryOrderButton(
                   ascending: _orderBy == 'asc',
@@ -210,7 +215,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
               for (final option in _sortOptions)
                 ListTile(
                   dense: true,
-                  title: Text(option.label),
+                  title: Text(option.label(l)),
                   trailing: option.value == _sortBy
                       ? Icon(
                           Icons.check_rounded,
@@ -265,7 +270,10 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                       children: [
                         Text('DBONLINE', style: AppText.eyebrow(context)),
                         const SizedBox(height: 3),
-                        Text('影片库', style: AppText.pageTitle(context)),
+                        Text(
+                          AppL10n.of(context).libraryTitle,
+                          style: AppText.pageTitle(context),
+                        ),
                       ],
                     ),
                   ),
@@ -338,7 +346,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                                     _LibraryListError(
                                       message:
                                           _controller.error?.toString() ??
-                                          '加载失败',
+                                          AppL10n.of(context).loadFailed,
                                       onRetry:
                                           _controller.retryLastFailedRequest,
                                     ),
@@ -389,7 +397,10 @@ class _LibraryListError extends StatelessWidget {
             style: TextStyle(color: colors.muted),
           ),
           const SizedBox(height: 12),
-          TextButton(onPressed: onRetry, child: const Text('重试')),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(AppL10n.of(context).dbOnlineRetry),
+          ),
         ],
       ),
     );
@@ -403,7 +414,12 @@ class _LibraryListEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 80),
-      child: Center(child: Text('暂无符合条件的影片', style: AppText.meta(context))),
+      child: Center(
+        child: Text(
+          AppL10n.of(context).noResultFound,
+          style: AppText.meta(context),
+        ),
+      ),
     );
   }
 }
@@ -507,7 +523,9 @@ class _LibraryOrderButton extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              ascending ? '升序' : '降序',
+              ascending
+                  ? AppL10n.of(context).dbOnlineAscending
+                  : AppL10n.of(context).dbOnlineDescending,
               style: TextStyle(
                 color: colors.accent,
                 fontFamily: 'Inter',

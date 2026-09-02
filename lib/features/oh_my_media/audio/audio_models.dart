@@ -42,29 +42,7 @@ class AudioTranscription {
   bool get isCanceled => status == 'canceled';
 
   int get clampedPercent => percent.clamp(0, 100).round();
-
-  static const stageLabels = <String, String>{
-    'queued': '排队中',
-    'starting': '启动中',
-    'connecting': '连接 Modal',
-    'sandbox': '创建云端环境',
-    'preparing': '准备模型',
-    'uploading': '上传音频',
-    'transcribing': '云端转译',
-    'downloading': '下载字幕',
-    'registering': '登记字幕',
-    'completed': '完成',
-    'failed': '失败',
-    'canceled': '已取消',
-    'skipped': '已跳过',
-  };
-
-  String get stageLabel {
-    if (stage.isNotEmpty) return stageLabels[stage] ?? stage;
-    return isActive ? '转译中' : status;
-  }
 }
-
 /// 已提取的音频资产。
 @immutable
 class AudioAsset {
@@ -128,9 +106,10 @@ class AudioAsset {
 
   bool get isTranscriptionActive => transcriptionView.isActive;
 
+  /// 标题兜底保持语言中立（#id），本地化文案由展示层补充。
   String get displayTitle => movieTitle.isNotEmpty
       ? movieTitle
-      : (movieFileName.isNotEmpty ? movieFileName : '影片 #$movieId');
+      : (movieFileName.isNotEmpty ? movieFileName : '#$movieId');
 
   String get formatLabel {
     final value = format.trim();

@@ -8,6 +8,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -121,7 +122,10 @@ class _DbOnlineLatestMoviesPageState
     final itemWidth =
         ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
         crossAxisCount;
-    final title = widget.sortBy == 'release' ? '最新上架' : '最近更新';
+    final l = AppL10n.of(context);
+    final title = widget.sortBy == 'release'
+        ? l.dbOnlineLatestReleased
+        : l.dbOnlineRecentUpdated;
 
     return Scaffold(
       backgroundColor: colors.bg,
@@ -132,7 +136,7 @@ class _DbOnlineLatestMoviesPageState
             header: SettingsSubPageHeader(
               eyebrow: 'dbonline',
               title: title,
-              subtitle: '滚动到底部自动加载更多。',
+              subtitle: l.dbOnlineAutoLoadMoreHint,
             ),
             body: RefreshIndicator(
               onRefresh: _refresh,
@@ -175,14 +179,16 @@ class _DbOnlineLatestMoviesPageState
                           child: Center(child: CircularProgressIndicator()),
                         ),
                         firstPageErrorIndicatorBuilder: (context) => _ListError(
-                          message: _controller.error?.toString() ?? '加载失败',
+                          message:
+                              _controller.error?.toString() ??
+                              AppL10n.of(context).loadFailed,
                           onRetry: _controller.retryLastFailedRequest,
                         ),
                         newPageErrorIndicatorBuilder: (_) => PaginationRetry(
                           onRetry: _controller.retryLastFailedRequest,
                         ),
                         noItemsFoundIndicatorBuilder: (_) =>
-                            const _ListEmpty(text: '暂无数据'),
+                            const _ListEmpty(),
                         noMoreItemsIndicatorBuilder: (_) =>
                             const NoMoreContent(),
                       ),
@@ -221,7 +227,10 @@ class _ListError extends StatelessWidget {
             style: TextStyle(color: colors.muted),
           ),
           const SizedBox(height: 12),
-          TextButton(onPressed: onRetry, child: const Text('重试')),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(AppL10n.of(context).dbOnlineRetry),
+          ),
         ],
       ),
     );
@@ -229,15 +238,18 @@ class _ListError extends StatelessWidget {
 }
 
 class _ListEmpty extends StatelessWidget {
-  const _ListEmpty({required this.text});
-
-  final String text;
+  const _ListEmpty();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 80),
-      child: Center(child: Text(text, style: AppText.meta(context))),
+      child: Center(
+        child: Text(
+          AppL10n.of(context).dbOnlineNoData,
+          style: AppText.meta(context),
+        ),
+      ),
     );
   }
 }

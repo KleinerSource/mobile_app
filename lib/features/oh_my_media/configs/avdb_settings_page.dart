@@ -7,6 +7,7 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
 
 class AvdbSettingsPage extends ConsumerStatefulWidget {
@@ -66,9 +67,9 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
       }
       ref.invalidate(avdbConfigProvider);
       AppHaptics.medium();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('AVDB 数据源配置已保存')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).avdbSavedToast)),
+      );
     } catch (e) {
       if (mounted) setState(() => _error = toApiException(e).message);
     } finally {
@@ -86,8 +87,11 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
         child: SafeArea(
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) =>
-                Center(child: Text('加载失败: ${toApiException(error).message}')),
+            error: (error, _) => Center(
+              child: Text(
+                '${AppL10n.of(context).loadFailed}: ${toApiException(error).message}',
+              ),
+            ),
             data: (cfg) {
               _hydrate(cfg);
               return _buildForm(c);
@@ -99,31 +103,32 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
   }
 
   Widget _buildForm(AppColors c) {
+    final l = AppL10n.of(context);
     return SettingsFixedHeaderLayout(
-      header: const SettingsSubPageHeader(
-        eyebrow: '工具',
-        title: 'AVDB 数据源',
-        subtitle: '用于演员关联同步。请先配置并启用 AVDB 数据源。',
+      header: SettingsSubPageHeader(
+        eyebrow: l.settingsGroupTools,
+        title: l.avdbTitle,
+        subtitle: l.avdbSubtitle,
       ),
       body: ListView(
         primary: true,
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
         children: [
-          _sectionLabel('启用状态'),
+          _sectionLabel(l.avdbStatusSection),
           _switchCard(
             c,
-            title: '启用 AVDB 数据源',
-            subtitle: _enabled ? '演员同步可选择 AVDB' : '已停用',
+            title: l.avdbEnableTitle,
+            subtitle: _enabled ? l.avdbEnableOn : l.avdbEnableOff,
             value: _enabled,
             onChanged: (value) => setState(() => _enabled = value),
           ),
           const SizedBox(height: 18),
-          _sectionLabel('服务地址'),
+          _sectionLabel(l.avdbServerSection),
           _field(_baseUrl, hint: 'https://example.com'),
           const SizedBox(height: 18),
           _sectionLabel('API Key'),
           Text(
-            _hasKey ? '已配置 · 留空则保留当前密钥' : '请输入 AVDB API Key',
+            _hasKey ? l.avdbKeyConfigured : l.avdbKeyPrompt,
             style: AppText.meta(context),
           ),
           const SizedBox(height: 6),
@@ -133,10 +138,10 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
             textAlignVertical: TextAlignVertical.center,
             decoration: settingsInputDecoration(
               context,
-              hintText: '留空保留当前密钥',
+              hintText: l.avdbKeyKeepHint,
               prefixIcon: const Icon(Icons.key_outlined),
               suffixIcon: IconButton(
-                tooltip: _showKey ? '隐藏密钥' : '显示密钥',
+                tooltip: _showKey ? l.avdbKeyHide : l.avdbKeyShow,
                 icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _showKey = !_showKey),
               ),

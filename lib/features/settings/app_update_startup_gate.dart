@@ -11,6 +11,7 @@ import '../../core/update/update_coordinator.dart';
 import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// 检查已经配置的更新源，并在有新版本时直接展示更新引导。
 ///
@@ -45,7 +46,7 @@ Future<bool> checkConfiguredAppUpdate({
 
     if (!result.hasUpdate) {
       if (showLatestMessage) {
-        _showUpdateMessage(context, '当前已是最新版本');
+        _showUpdateMessage(context, AppL10n.of(context).settingsUpToDate);
       }
       return true;
     }
@@ -70,7 +71,10 @@ Future<bool> checkConfiguredAppUpdate({
     return true;
   } catch (error) {
     if (showLatestMessage && context.mounted) {
-      _showUpdateMessage(context, _updateErrorMessage(error));
+      _showUpdateMessage(
+        context,
+        _updateErrorMessage(error, AppL10n.of(context)),
+      );
     }
     return false;
   }
@@ -112,10 +116,10 @@ void _showUpdateMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
-String _updateErrorMessage(Object error) {
+String _updateErrorMessage(Object error, AppL10n l) {
   if (error is FormatException) return error.message.toString();
   if (error is UpdateException) return error.message;
-  return '检查更新失败，请稍后重试';
+  return l.settingsCheckUpdateFailed;
 }
 
 typedef StartupUpdateCheck =
@@ -312,6 +316,7 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     final release = widget.result.candidate.release;
     final releaseTitle = release.name.isEmpty ? release.tagName : release.name;
     final updateNotes = release.updateNotes;
@@ -321,7 +326,7 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
         children: [
           Icon(Icons.system_update_alt_outlined, color: colors.accent),
           const SizedBox(width: 10),
-          const Expanded(child: Text('发现新版本')),
+          Expanded(child: Text(l.settingsNewVersionFound)),
         ],
       ),
       content: ConstrainedBox(
@@ -340,14 +345,14 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
                 Text(releaseTitle, style: AppText.body(context)),
                 const SizedBox(height: 14),
                 Text(
-                  '本次构建包含以下更新：',
+                  l.settingsUpdateNotesTitle,
                   style: AppText.body(
                     context,
                   ).copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  updateNotes.isEmpty ? '暂无更新说明' : updateNotes,
+                  updateNotes.isEmpty ? l.settingsNoUpdateNotes : updateNotes,
                   style: AppText.meta(context),
                 ),
                 if (_progress != null) ...[
@@ -355,7 +360,9 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
                   LinearProgressIndicator(value: _progress),
                   const SizedBox(height: 6),
                   Text(
-                    '正在下载更新 ${(100 * _progress!).round()}%',
+                    l.settingsDownloadingUpdatePercent(
+                      (100 * _progress!).round(),
+                    ),
                     style: AppText.meta(context),
                   ),
                 ],
@@ -369,10 +376,10 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _busy ? null : _ignore, child: const Text('忽略')),
+        TextButton(onPressed: _busy ? null : _ignore, child: Text(l.commonIgnore)),
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('稍后'),
+          child: Text(l.commonLater),
         ),
         FilledButton.icon(
           onPressed: _busy ? null : _update,
@@ -383,7 +390,7 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.download_outlined, size: 18),
-          label: const Text('更新'),
+          label: Text(l.settingsUpdateNow),
         ),
       ],
     );
@@ -407,7 +414,9 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = error is UpdateException ? error.message : '更新失败，请稍后重试';
+        _error = error is UpdateException
+            ? error.message
+            : AppL10n.of(context).settingsUpdateFailed;
       });
     }
   }
@@ -424,7 +433,7 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = '保存忽略设置失败';
+        _error = AppL10n.of(context).settingsSaveIgnoreFailed;
       });
     }
   }

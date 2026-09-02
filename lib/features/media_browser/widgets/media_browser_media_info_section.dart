@@ -5,6 +5,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Emby/Jellyfin/fnos 的「媒体信息」区块 · 复用 OMM 详情页的流卡片，
 /// 把 MediaSource.MediaStreams 映射成 MediaInfoDetail 后交给
@@ -22,7 +23,10 @@ class MediaBrowserMediaInfoSection extends StatelessWidget {
     final detail = mediaBrowserMediaInfoDetail(item);
     if (detail == null) return const SizedBox.shrink();
     return MovieDetailFullBleedSection(
-      header: Text('媒体信息', style: AppText.sectionTitle(context)),
+      header: Text(
+        AppL10n.of(context).mediaBrowserMediaInfo,
+        style: AppText.sectionTitle(context),
+      ),
       child: MediaStreamCards(
         detail: detail,
         padding: const EdgeInsets.symmetric(horizontal: 22),

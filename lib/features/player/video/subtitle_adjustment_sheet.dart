@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/platform/app_theme.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/glass.dart';
 import 'subtitle_settings.dart';
 
@@ -22,7 +23,7 @@ Future<void> showSubtitleAdjustmentDialog({
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: '字幕设置',
+    barrierLabel: AppL10n.of(context).settingsSubtitleSettings,
     barrierColor: Colors.black.withValues(alpha: 0.08),
     transitionDuration: const Duration(milliseconds: 180),
     pageBuilder: (ctx, _, __) {
@@ -162,10 +163,11 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   Future<void> _editDelay() async {
+    final l = AppL10n.of(context);
     final value = await _showNumericInput(
-      title: '延迟偏移',
+      title: l.subtitleDelayOffset,
       initialValue: (_adjustments.delayMs / 1000).toStringAsFixed(1),
-      unit: '秒',
+      unit: l.subtitleUnitSeconds,
     );
     if (!mounted || value == null) return;
     // 无上下限，但需饱和到 int 表示范围，避免极端输入溢出。
@@ -174,10 +176,12 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   Future<void> _editVerticalOffset() async {
+    final l = AppL10n.of(context);
     final value = await _showNumericInput(
-      title: '垂直偏移（${_landscape ? '横屏' : '竖屏'}）',
+      title:
+          '${l.subtitleVerticalOffset}（${_landscape ? l.subtitleLandscape : l.subtitlePortrait}）',
       initialValue: _verticalOffsetOf(_adjustments).round().toString(),
-      unit: '像素',
+      unit: l.subtitleUnitPixels,
       min: widget.verticalOffsetBounds.min,
       max: widget.verticalOffsetBounds.max,
     );
@@ -186,8 +190,10 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   Future<void> _editSize() async {
+    final l = AppL10n.of(context);
     final value = await _showNumericInput(
-      title: '大小缩放（${_landscape ? '横屏' : '竖屏'}）',
+      title:
+          '${l.subtitleSizeScale}（${_landscape ? l.subtitleLandscape : l.subtitlePortrait}）',
       initialValue: (_sizeScaleOf(_adjustments) * 100).round().toString(),
       unit: '%',
       min: subtitleSizeScaleMin * 100,
@@ -198,8 +204,9 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   Future<void> _editOpacity() async {
+    final l = AppL10n.of(context);
     final value = await _showNumericInput(
-      title: '不透明度',
+      title: l.subtitleOpacity,
       initialValue: (_adjustments.opacity * 100).round().toString(),
       unit: '%',
       min: subtitleOpacityMin * 100,
@@ -241,6 +248,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return DefaultTextStyle.merge(
       style: const TextStyle(decoration: TextDecoration.none),
       child: Padding(
@@ -266,19 +274,19 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '字幕设置',
+                    l.settingsSubtitleSettings,
                     style: AppText.sectionTitle(
                       context,
                     ).copyWith(decoration: TextDecoration.none),
                   ),
                 ),
                 IconButton(
-                  tooltip: '恢复本次播放默认',
+                  tooltip: l.subtitleResetForPlayback,
                   onPressed: _reset,
                   icon: Icon(Icons.restore, color: c.muted, size: 20),
                 ),
                 IconButton(
-                  tooltip: '关闭',
+                  tooltip: l.playerClose,
                   onPressed: () => Navigator.of(context).pop(),
                   icon: Icon(Icons.close, color: c.muted, size: 20),
                 ),
@@ -291,7 +299,9 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '垂直偏移与大小缩放按竖屏/横屏分别保存，当前调节：${_landscape ? '横屏' : '竖屏'}',
+                  l.subtitleOrientationHint(
+                    _landscape ? l.subtitleLandscape : l.subtitlePortrait,
+                  ),
                   style: TextStyle(
                     color: c.muted,
                     fontFamily: 'Inter',
@@ -302,14 +312,14 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               ),
             ),
             _AdjustmentRow(
-              title: '延迟偏移',
+              title: l.subtitleDelayOffset,
               value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
               onValueTap: _editDelay,
               onDecrease: () => _changeDelay(-100),
               onIncrease: () => _changeDelay(100),
             ),
             _AdjustmentRow(
-              title: '垂直偏移',
+              title: l.subtitleVerticalOffset,
               value: _verticalOffsetOf(_adjustments).round().toString(),
               onValueTap: _editVerticalOffset,
               onDecrease:
@@ -324,7 +334,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
                   : () => _changeVertical(5),
             ),
             _AdjustmentRow(
-              title: '大小缩放',
+              title: l.subtitleSizeScale,
               value: '${(_sizeScaleOf(_adjustments) * 100).round()}%',
               onValueTap: _editSize,
               onDecrease: _sizeScaleOf(_adjustments) <= subtitleSizeScaleMin
@@ -335,7 +345,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
                   : () => _changeSize(0.05),
             ),
             _AdjustmentRow(
-              title: '不透明度',
+              title: l.subtitleOpacity,
               value: '${(_adjustments.opacity * 100).round()}%',
               onValueTap: _editOpacity,
               onDecrease: _adjustments.opacity <= subtitleOpacityMin
@@ -387,7 +397,7 @@ class _AdjustmentRow extends StatelessWidget {
             ),
           ),
           Tooltip(
-            message: '编辑$title',
+            message: AppL10n.of(context).subtitleEditField(title),
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: onValueTap,
@@ -450,19 +460,20 @@ class _SubtitleNumericInputDialogState
   }
 
   void _submit() {
+    final l = AppL10n.of(context);
     final value = double.tryParse(_controller.text.trim());
     if (value == null || !value.isFinite) {
-      setState(() => _errorText = '请输入有效数字');
+      setState(() => _errorText = l.subtitleInvalidNumber);
       return;
     }
     final min = widget.min;
     final max = widget.max;
     if (min != null && value < min) {
-      setState(() => _errorText = '不能低于 ${_formatNumber(min)}');
+      setState(() => _errorText = l.subtitleTooLow(_formatNumber(min)));
       return;
     }
     if (max != null && value > max) {
-      setState(() => _errorText = '不能高于 ${_formatNumber(max)}');
+      setState(() => _errorText = l.subtitleTooHigh(_formatNumber(max)));
       return;
     }
     Navigator.of(context).pop(value);
@@ -519,7 +530,9 @@ class _SubtitleNumericInputDialogState
           ),
           const SizedBox(height: 8),
           Text(
-            '范围：${_rangeHint(widget.min, widget.max)}',
+            AppL10n.of(
+              context,
+            ).subtitleRange(_rangeHint(widget.min, widget.max, AppL10n.of(context).subtitleNoLimit)),
             style: TextStyle(
               color: c.muted,
               fontFamily: 'Inter',
@@ -532,18 +545,21 @@ class _SubtitleNumericInputDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(AppL10n.of(context).cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('确定')),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(AppL10n.of(context).confirm),
+        ),
       ],
     );
   }
 }
 
-String _rangeHint(double? min, double? max) {
-  if (min == null && max == null) return '无限制';
+String _rangeHint(double? min, double? max, String noLimit) {
+  if (min == null && max == null) return noLimit;
   if (min == null) return '~ ${_formatNumber(max!)}';
-  if (max == null) return '${_formatNumber(min)} ~ 无限制';
+  if (max == null) return '${_formatNumber(min)} ~ $noLimit';
   return '${_formatNumber(min)} ~ ${_formatNumber(max)}';
 }
 
@@ -580,7 +596,7 @@ class _Stepper extends StatelessWidget {
         children: [
           _StepperButton(
             icon: Icons.remove,
-            tooltip: '减少',
+            tooltip: AppL10n.of(context).subtitleDecrease,
             onPressed: onDecrease,
           ),
           Container(
@@ -588,7 +604,11 @@ class _Stepper extends StatelessWidget {
             height: 22,
             color: isDark ? Colors.white.withValues(alpha: 0.14) : c.divider,
           ),
-          _StepperButton(icon: Icons.add, tooltip: '增加', onPressed: onIncrease),
+          _StepperButton(
+            icon: Icons.add,
+            tooltip: AppL10n.of(context).subtitleIncrease,
+            onPressed: onIncrease,
+          ),
         ],
       ),
     );

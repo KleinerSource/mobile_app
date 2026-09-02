@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/translation_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
@@ -21,6 +22,8 @@ class TranslationSettingsPage extends ConsumerStatefulWidget {
 
 class _TranslationSettingsPageState
     extends ConsumerState<TranslationSettingsPage> {
+  /// 语言下拉的稳定取值（原样存进 TranslationConfig 并提交给后端提示词）。
+  /// 显示文案在 _langLabel 里本地化，存储值保持历史兼容不做迁移。
   static const _sourceLangs = [
     '自动检测',
     '中文',
@@ -42,6 +45,22 @@ class _TranslationSettingsPageState
     '西班牙文',
     '俄文',
   ];
+
+  /// 下拉显示文案 · 按稳定取值映射到本地化标签。
+  String _langLabel(AppL10n l, String value) {
+    return switch (value) {
+      '自动检测' => l.translationLangAutoDetect,
+      '中文' => l.translationLangChinese,
+      '英文' => l.translationLangEnglish,
+      '日文' => l.translationLangJapanese,
+      '韩文' => l.translationLangKorean,
+      '法文' => l.translationLangFrench,
+      '德文' => l.translationLangGerman,
+      '西班牙文' => l.translationLangSpanish,
+      '俄文' => l.translationLangRussian,
+      _ => value,
+    };
+  }
 
   late final TextEditingController _apiUrl = TextEditingController();
   late final TextEditingController _apiKey = TextEditingController();
@@ -82,18 +101,19 @@ class _TranslationSettingsPageState
   }
 
   Future<void> _loadModels() async {
+    final l = AppL10n.of(context);
     final url = _apiUrl.text.trim();
     final key = _apiKey.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请先填 API URL')));
+      ).showSnackBar(SnackBar(content: Text(l.translationNeedApiUrl)));
       return;
     }
     if (key.isEmpty && !_hasSavedKey) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请先填 API Key')));
+      ).showSnackBar(SnackBar(content: Text(l.translationNeedApiKey)));
       return;
     }
     setState(() => _loadingModels = true);
@@ -105,7 +125,9 @@ class _TranslationSettingsPageState
           .fetchModels(url, key);
       if (!mounted) return;
       if (models.isEmpty) {
-        messenger.showSnackBar(const SnackBar(content: Text('未拿到任何模型')));
+        messenger.showSnackBar(
+          SnackBar(content: Text(AppL10n.of(context).translationNoModels)),
+        );
         return;
       }
       final picked = await showGlassSheet<String>(
@@ -127,7 +149,9 @@ class _TranslationSettingsPageState
               children: [
                 SheetHeader(
                   icon: Icons.model_training_outlined,
-                  title: '选择模型 (${models.length})',
+                  title: AppL10n.of(
+                    ctx,
+                  ).translationSelectModel(models.length),
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
                 ),
                 Flexible(
@@ -166,7 +190,11 @@ class _TranslationSettingsPageState
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('加载模型失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            l.translationLoadModelsFailed(toApiException(e).message),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _loadingModels = false);
@@ -174,6 +202,7 @@ class _TranslationSettingsPageState
   }
 
   Future<void> _save() async {
+    final l = AppL10n.of(context);
     setState(() {
       _saving = true;
       _error = null;
@@ -195,7 +224,10 @@ class _TranslationSettingsPageState
           .saveConfig(cfg, keepApiKey: keepKey);
       AppHaptics.medium();
       messenger.showSnackBar(
-        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text(l.translationSaved),
+          duration: const Duration(seconds: 1),
+        ),
       );
       _apiKey.clear();
       // ignore: unused_result
@@ -208,6 +240,7 @@ class _TranslationSettingsPageState
   }
 
   Future<void> _test() async {
+    final l = AppL10n.of(context);
     setState(() {
       _testing = true;
       _testResult = null;
@@ -215,9 +248,11 @@ class _TranslationSettingsPageState
     });
     try {
       final res = await ref.read(translationRepositoryProvider).test();
-      setState(() => _testResult = res.isEmpty ? '测试通过' : res);
+      setState(() => _testResult = res.isEmpty ? l.translationTestPassed : res);
     } catch (e) {
-      setState(() => _error = '测试失败: ${toApiException(e).message}');
+      setState(
+        () => _error = l.translationTestFailed(toApiException(e).message),
+      );
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -237,7 +272,10 @@ class _TranslationSettingsPageState
             error: (e, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('加载失败: $e', style: AppText.body(context)),
+                child: Text(
+                  '${AppL10n.of(context).loadFailed}: $e',
+                  style: AppText.body(context),
+                ),
               ),
             ),
             data: (cfg) {
@@ -251,11 +289,12 @@ class _TranslationSettingsPageState
   }
 
   Widget _buildForm(AppColors c) {
+    final l = AppL10n.of(context);
     return SettingsFixedHeaderLayout(
-      header: const SettingsSubPageHeader(
-        eyebrow: '系统配置',
-        title: 'AI 翻译配置',
-        subtitle: '配置 ChatGPT API 翻译功能',
+      header: SettingsSubPageHeader(
+        eyebrow: l.settingsGroupSystem,
+        title: l.translationTitle,
+        subtitle: l.translationSubtitle,
       ),
       body: ListView(
         primary: true,
@@ -266,8 +305,10 @@ class _TranslationSettingsPageState
             child: Container(
               decoration: settingsCardDecoration(context),
               child: SettingsTile(
-                title: '启用翻译',
-                subtitle: _enabled ? '已启用 · 翻译功能可用' : '已禁用 · 保存后不调用翻译服务',
+                title: l.translationEnable,
+                subtitle: _enabled
+                    ? l.translationEnabledSubtitle
+                    : l.translationDisabledSubtitle,
                 leadingIcon: Icons.translate_outlined,
                 trailing: SettingsSwitch(
                   value: _enabled,
@@ -276,16 +317,24 @@ class _TranslationSettingsPageState
               ),
             ),
           ),
-          _label('API URL', '支持 OpenAI / OpenRouter 等兼容服务'),
+          _label('API URL', l.translationApiUrlHelp),
           _input(_apiUrl, hint: 'https://api.openai.com/v1', icon: Icons.link),
           const SizedBox(height: 18),
-          _label('API Key', _hasSavedKey ? '已配置 · 留空则保留' : 'sk-...'),
+          _label(
+            'API Key',
+            _hasSavedKey ? l.translationConfiguredKeepHint : 'sk-...',
+          ),
           _passwordInput(),
           const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(child: _label('模型名称', '例: gpt-3.5-turbo / gpt-4')),
+              Expanded(
+                child: _label(
+                  l.translationModelNameLabel,
+                  l.translationModelNameHelp,
+                ),
+              ),
               TextButton.icon(
                 icon: _loadingModels
                     ? const SizedBox(
@@ -294,9 +343,9 @@ class _TranslationSettingsPageState
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh, size: 16),
-                label: const Text(
-                  '加载模型',
-                  style: TextStyle(
+                label: Text(
+                  l.translationLoadModels,
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
@@ -310,9 +359,9 @@ class _TranslationSettingsPageState
           const SizedBox(height: 18),
           Row(
             children: [
-              Expanded(child: _label('源语言', '')),
+              Expanded(child: _label(l.translationSourceLanguage, '')),
               const SizedBox(width: 10),
-              Expanded(child: _label('目标语言', '')),
+              Expanded(child: _label(l.translationTargetLanguage, '')),
             ],
           ),
           Row(
@@ -335,7 +384,10 @@ class _TranslationSettingsPageState
             ],
           ),
           const SizedBox(height: 18),
-          _label('提示词模板', '需包含 {text} {target_language}'),
+          _label(
+            l.translationPromptTemplateLabel,
+            l.translationPromptTemplateHelp('{text} {target_language}'),
+          ),
           _input(
             _prompt,
             maxLines: 6,
@@ -369,7 +421,7 @@ class _TranslationSettingsPageState
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '测试结果',
+                        l.translationTestResult,
                         style: TextStyle(
                           color: AppHues.top(AppHues.mint),
                           fontFamily: 'Inter',
@@ -407,9 +459,9 @@ class _TranslationSettingsPageState
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.translate_outlined, size: 18),
-              label: const Text(
-                '测试翻译',
-                style: TextStyle(
+              label: Text(
+                l.translationTestButton,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -492,7 +544,9 @@ class _TranslationSettingsPageState
               obscureText: !_showKey,
               textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
-                hintText: _hasSavedKey ? '输入新的 API Key' : 'sk-...',
+                hintText: _hasSavedKey
+                    ? AppL10n.of(context).translationNewApiKeyHint
+                    : 'sk-...',
                 prefixIcon: const Icon(Icons.key_outlined),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -539,7 +593,12 @@ class _TranslationSettingsPageState
         isExpanded: true,
         underline: const SizedBox.shrink(),
         items: options
-            .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+            .map(
+              (v) => DropdownMenuItem(
+                value: v,
+                child: Text(_langLabel(AppL10n.of(context), v)),
+              ),
+            )
             .toList(),
         style: TextStyle(
           color: c.text,

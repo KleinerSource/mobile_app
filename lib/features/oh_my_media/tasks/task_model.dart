@@ -2,6 +2,21 @@ import 'package:flutter/foundation.dart';
 
 import 'package:omm/core/models/library.dart';
 
+/// 客户端生成的任务消息码。任务消息可能来自服务器原文，展示层仅对
+/// 已知码做本地化翻译（见 task_name_labels.dart），其余原样显示。
+const String kTaskMsgScanPreparing = '@task/msg/scan-preparing';
+const String kTaskMsgScanQueued = '@task/msg/scan-queued';
+const String kTaskMsgCanceled = '@task/msg/canceled';
+const String kTaskMsgRequeued = '@task/msg/requeued';
+
+/// '排队中（第 N 位）' 的参数化消息码，冒号后为十进制序号。
+const String kTaskMsgScanQueuedAtPrefix = '@task/msg/scan-queued-at:';
+
+/// 取消/重试失败时抛出的兜底错误码，由展示层翻译。
+const String kTaskErrCancelTranscribe = '@task/err/cancel-transcribe';
+const String kTaskErrCancelExtract = '@task/err/cancel-extract';
+const String kTaskErrRetryTranscribe = '@task/err/retry-transcribe';
+
 @immutable
 class TaskProgress {
   const TaskProgress({this.total = 0, this.completed = 0, this.percent = 0});
@@ -127,7 +142,7 @@ class TaskItem {
         completed: completed,
         percent: percent,
       ),
-      message: task?.currentFile ?? task?.message ?? '准备扫描',
+      message: task?.currentFile ?? task?.message ?? kTaskMsgScanPreparing,
       queuePosition: status == 'queued' ? 1 : 0,
       libraryIds: [libraryId],
       libraryName: libraryName,

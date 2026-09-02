@@ -88,7 +88,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         value: _YouQuickAction.tasks,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.task_alt_outlined,
-          label: '任务中心',
+          label: l.taskCenterTitle,
           selected: selected,
           onTap: onTap,
         ),
@@ -106,7 +106,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         value: _YouQuickAction.audios,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.graphic_eq_outlined,
-          label: '音频管理',
+          label: l.settingsAudioManagement,
           selected: selected,
           onTap: onTap,
         ),

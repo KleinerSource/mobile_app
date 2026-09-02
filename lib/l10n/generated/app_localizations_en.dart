@@ -1017,4 +1017,132 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get playerClose => 'Close';
+
+  @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get commonNoData => 'No data yet';
+
+  @override
+  String get commonSelectAll => 'Select all';
+
+  @override
+  String get commonClearSelection => 'Clear';
+
+  @override
+  String get commonExitSelection => 'Exit selection';
+
+  @override
+  String get paginationNoMore => 'No more content';
+
+  @override
+  String get paginationLoadFailedRetry => 'Failed to load more, tap to retry';
+
+  @override
+  String get posterOnlinePlay => 'Play online';
+
+  @override
+  String get movieCardSubExternal => 'External subtitle';
+
+  @override
+  String get movieCardSubAi => 'AI subtitle';
+
+  @override
+  String get movieCardSubMuxedTrack => 'Embedded subtitle track';
+
+  @override
+  String get movieCardSubFilename => 'Filename subtitle';
+
+  @override
+  String movieCardSubStack(int n) {
+    return 'Subtitles ×$n (tap to expand)';
+  }
+
+  @override
+  String get movieCardSubChinese => 'Chinese subs';
+
+  @override
+  String get movieCardRestricted => 'Restricted';
+
+  @override
+  String get movieCardUntitledTitle => 'Untitled title';
+
+  @override
+  String get movieCardUntitledCode => 'No ID';
+
+  @override
+  String get movieCardNoMeta => 'No info';
+
+  @override
+  String get movieCardCrack => 'Cracked / uncensored';
+
+  @override
+  String get statusIdle => 'Preparing';
+
+  @override
+  String get statusPending => 'Queued';
+
+  @override
+  String get statusRunning => 'Running';
+
+  @override
+  String get statusPaused => 'Paused';
+
+  @override
+  String get statusCompleted => 'Completed';
+
+  @override
+  String get statusSkipped => 'Skipped';
+
+  @override
+  String get statusCanceled => 'Canceled';
+
+  @override
+  String get statusFailed => 'Failed';
+
+  @override
+  String get statusUnknown => 'Unknown';
+
+  @override
+  String get commonClearInput => 'Clear';
+
+  @override
+  String get securityVerifyIncomplete =>
+      'Verification incomplete. Try again or use another unlock method';
+
+  @override
+  String get securityPinIncorrect => 'Incorrect PIN';
+
+  @override
+  String get securityPatternIncorrect => 'Incorrect pattern';
+
+  @override
+  String get securityAppLocked => 'App locked';
+
+  @override
+  String get securityUnlockPrompt =>
+      'Verify your identity to continue using Oh My Media';
+
+  @override
+  String get securityBiometricUnlock => 'Use Face ID / fingerprint';
+
+  @override
+  String get securityVerifying => 'Verifying…';
+
+  @override
+  String get securityPasswordUnlock => 'Use PIN or pattern';
+
+  @override
+  String get securityPinCode => 'PIN';
+
+  @override
+  String get securitySwipeUnlock => 'Pattern';
+
+  @override
+  String get securityUnavailable => 'Security check unavailable. Try again';
+
+  @override
+  String get securityBiometricReason =>
+      'Verify your identity to access Oh My Media';
 }

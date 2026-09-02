@@ -7,14 +7,13 @@ import '../../core/config/server_config_provider.dart';
 
 /// 海报上 badge 的目标角
 enum BadgeCorner {
-  topLeft(value: 'tl', label: '左上'),
-  topRight(value: 'tr', label: '右上'),
-  bottomLeft(value: 'bl', label: '左下'),
-  bottomRight(value: 'br', label: '右下');
+  topLeft(value: 'tl'),
+  topRight(value: 'tr'),
+  bottomLeft(value: 'bl'),
+  bottomRight(value: 'br');
 
-  const BadgeCorner({required this.value, required this.label});
+  const BadgeCorner({required this.value});
   final String value;
-  final String label;
 
   static BadgeCorner fromValue(String? v, BadgeCorner fallback) {
     return BadgeCorner.values.firstWhere(

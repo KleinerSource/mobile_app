@@ -6,6 +6,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Emby/Jellyfin 接下来观看区块：与继续观看同款的 16:10 宽幅横滑卡片。
 ///
@@ -19,7 +20,7 @@ class MediaBrowserNextUpSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
     return ContinueWatchingSection(
-      title: '接下来观看',
+      title: AppL10n.of(context).mediaBrowserNextUp,
       entries: [
         for (final item in items)
           ContinueWatchingEntry(

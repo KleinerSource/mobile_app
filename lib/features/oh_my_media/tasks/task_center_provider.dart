@@ -94,13 +94,18 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
               .read(audioRepositoryProvider)
               .cancelTranscriptionRaw(task.id)
         : await ref.read(audioRepositoryProvider).cancelExtractionRaw(task.id);
-    _ensureSuccess(raw, task.name == '字幕转译' ? '取消字幕转译失败' : '取消音频提取失败');
+    _ensureSuccess(
+      raw,
+      task.name == '字幕转译'
+          ? kTaskErrCancelTranscribe
+          : kTaskErrCancelExtract,
+    );
     _updateByKey(
       task.key,
       (current) => current.copyWith(
         status: task.name == '字幕转译' ? 'canceled' : 'canceled',
         isRunning: false,
-        message: '任务已取消',
+        message: kTaskMsgCanceled,
       ),
     );
   }
@@ -110,7 +115,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     final raw = await ref
         .read(audioRepositoryProvider)
         .retryTranscriptionRaw(task.id);
-    _ensureSuccess(raw, '重试字幕转译失败');
+    _ensureSuccess(raw, kTaskErrRetryTranscribe);
     final data = raw is Map ? raw['data'] : null;
     if (data is Map) {
       final retried = TaskItem.fromTranscription(
@@ -127,7 +132,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
         status: 'queued',
         isRunning: true,
         progress: const TaskProgress(total: 100),
-        message: '已重新排队',
+        message: kTaskMsgRequeued,
       ),
     );
   }

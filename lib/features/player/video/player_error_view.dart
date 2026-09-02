@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/platform/app_theme.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import 'player_exit_button.dart';
 
 String summarizePlayerError(String message, {int maxLength = 220}) {
@@ -28,12 +29,13 @@ class PlayerErrorView extends StatelessWidget {
   final VoidCallback onExit;
 
   Future<void> _showDetails(BuildContext context) async {
+    final l = AppL10n.of(context);
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         final size = MediaQuery.sizeOf(dialogContext);
         return AlertDialog(
-          title: const Text('完整错误详情'),
+          title: Text(l.playerErrorDetailsTitle),
           content: SizedBox(
             width: size.width > 720 ? 680 : size.width * 0.82,
             height: size.height * 0.58,
@@ -57,7 +59,7 @@ class PlayerErrorView extends StatelessWidget {
                 unawaited(onCopy());
               },
               icon: const Icon(Icons.copy, size: 18),
-              label: const Text('复制'),
+              label: Text(l.playerErrorCopy),
             ),
             TextButton.icon(
               onPressed: () {
@@ -65,11 +67,11 @@ class PlayerErrorView extends StatelessWidget {
                 unawaited(onExport());
               },
               icon: const Icon(Icons.ios_share, size: 18),
-              label: const Text('导出'),
+              label: Text(l.playerErrorExport),
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('关闭'),
+              child: Text(AppL10n.of(dialogContext).playerClose),
             ),
           ],
         );
@@ -79,6 +81,7 @@ class PlayerErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final colors = appColors(context);
     final summary = summarizePlayerError(message);
     return Stack(
@@ -103,9 +106,9 @@ class PlayerErrorView extends StatelessWidget {
                     children: [
                       Icon(Icons.error_outline, color: colors.danger, size: 34),
                       const SizedBox(height: 8),
-                      const Text(
-                        '播放失败',
-                        style: TextStyle(
+                      Text(
+                        l.playerErrorTitle,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
@@ -134,7 +137,7 @@ class PlayerErrorView extends StatelessWidget {
                           OutlinedButton.icon(
                             onPressed: onRetry,
                             icon: const Icon(Icons.refresh, size: 16),
-                            label: const Text('重试'),
+                            label: Text(l.fileRetry),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
                               side: const BorderSide(color: Colors.white54),
@@ -143,7 +146,7 @@ class PlayerErrorView extends StatelessWidget {
                           TextButton.icon(
                             onPressed: () => unawaited(_showDetails(context)),
                             icon: const Icon(Icons.article_outlined, size: 16),
-                            label: const Text('查看详情'),
+                            label: Text(l.playerErrorViewDetails),
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.white,
                             ),
@@ -151,7 +154,7 @@ class PlayerErrorView extends StatelessWidget {
                           TextButton.icon(
                             onPressed: () => unawaited(onCopy()),
                             icon: const Icon(Icons.copy, size: 16),
-                            label: const Text('复制完整错误'),
+                            label: Text(l.playerErrorCopyFull),
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.white,
                             ),
@@ -159,7 +162,7 @@ class PlayerErrorView extends StatelessWidget {
                           TextButton.icon(
                             onPressed: () => unawaited(onExport()),
                             icon: const Icon(Icons.ios_share, size: 16),
-                            label: const Text('导出错误'),
+                            label: Text(l.playerErrorExportFull),
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.white,
                             ),

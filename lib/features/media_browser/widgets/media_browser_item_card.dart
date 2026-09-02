@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 
 /// Emby/Jellyfin 条目卡片。
@@ -62,7 +63,7 @@ class MediaBrowserItemCard extends StatelessWidget {
                 ? null
                 : urls.poster(item.id, tag: item.primaryImageTag),
             imageHeaders: urls.imageHeaders,
-            meta: mediaBrowserItemMetaText(item),
+            meta: mediaBrowserItemMetaText(context, item),
             width: width,
             rating: item.communityRating,
             played: played,
@@ -106,7 +107,7 @@ double _progressOf(MediaBrowserItem item) {
 /// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」，
 /// 音乐条目为「年份 · 艺术家」（专辑）或「艺术家 · 时长」（歌曲）。
 /// 收藏夹页的列表行也复用这行 meta。
-String mediaBrowserItemMetaText(MediaBrowserItem item) {
+String mediaBrowserItemMetaText(BuildContext context, MediaBrowserItem item) {
   final parts = <String>[];
   if (item.isEpisode) {
     final season = item.parentIndexNumber ?? 0;
@@ -124,7 +125,9 @@ String mediaBrowserItemMetaText(MediaBrowserItem item) {
     final artist = item.displayArtist;
     if (artist != null) parts.add(artist);
     final trackCount = item.childCount;
-    if (trackCount != null && trackCount > 0) parts.add('$trackCount 首');
+    if (trackCount != null && trackCount > 0) {
+      parts.add(AppL10n.of(context).mediaBrowserTrackCount(trackCount));
+    }
     return parts.join(' · ');
   }
   if (item.isAudio) {
@@ -142,15 +145,21 @@ String mediaBrowserItemMetaText(MediaBrowserItem item) {
 
 /// 列表为空时的占位。
 class MediaBrowserEmptyPlaceholder extends StatelessWidget {
-  const MediaBrowserEmptyPlaceholder({super.key, this.text = '暂无内容'});
+  const MediaBrowserEmptyPlaceholder({super.key, this.text});
 
-  final String text;
+  /// 为 null 时使用默认文案「暂无内容」。
+  final String? text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 80),
-      child: Center(child: Text(text, style: AppText.meta(context))),
+      child: Center(
+        child: Text(
+          text ?? AppL10n.of(context).mediaBrowserEmptyDefault,
+          style: AppText.meta(context),
+        ),
+      ),
     );
   }
 }

@@ -146,7 +146,7 @@ class HomeMovieSection<D, I> extends StatelessWidget {
     this.trailing,
     this.itemWidth = 132,
     this.rowHeight = 268,
-    this.emptyText = '暂无数据',
+    this.emptyText,
     this.itemKeyBuilder,
   });
 
@@ -158,7 +158,9 @@ class HomeMovieSection<D, I> extends StatelessWidget {
   final Widget? trailing;
   final double itemWidth;
   final double rowHeight;
-  final String emptyText;
+
+  /// 空态文案；为空时使用本地化默认值（homeNoData）。
+  final String? emptyText;
   final Object Function(I item)? itemKeyBuilder;
 
   @override
@@ -210,7 +212,10 @@ class HomeMovieSection<D, I> extends StatelessWidget {
                         style: TextStyle(color: colors.muted),
                       ),
                     ),
-                    TextButton(onPressed: onRetry, child: const Text('重试')),
+                    TextButton(
+                      onPressed: onRetry,
+                      child: Text(AppL10n.of(context).fileRetry),
+                    ),
                   ],
                 ),
               ),
@@ -222,7 +227,7 @@ class HomeMovieSection<D, I> extends StatelessWidget {
                   height: 100,
                   child: Center(
                     child: Text(
-                      emptyText,
+                      emptyText ?? AppL10n.of(context).homeNoData,
                       style: TextStyle(color: colors.muted),
                     ),
                   ),

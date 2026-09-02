@@ -81,8 +81,8 @@ class ServerSettingsPage extends ConsumerWidget {
                     title: l.settingsGroupSystem,
                     items: [
                       SettingsTile(
-                        title: '访问控制',
-                        subtitle: '登录密码、会话策略与 TOTP',
+                        title: l.accessControlTitle,
+                        subtitle: l.serverSettingsAccessSub,
                         leadingIcon: Icons.shield_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -101,8 +101,8 @@ class ServerSettingsPage extends ConsumerWidget {
                         ),
                       ),
                       SettingsTile(
-                        title: '云端字幕转译',
-                        subtitle: 'Modal GPU 云端转译和任务并行配置',
+                        title: l.serverSettingsModalTranscription,
+                        subtitle: l.serverSettingsModalTranscriptionSub,
                         leadingIcon: Icons.cloud_sync_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -112,8 +112,8 @@ class ServerSettingsPage extends ConsumerWidget {
                         ),
                       ),
                       SettingsTile(
-                        title: '转码',
-                        subtitle: '硬件解码、后端选择和失败回退',
+                        title: l.serverSettingsTranscoding,
+                        subtitle: l.serverSettingsTranscodingSub,
                         leadingIcon: Icons.memory_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -148,8 +148,8 @@ class ServerSettingsPage extends ConsumerWidget {
                         ),
                       ),
                       SettingsTile(
-                        title: '音频管理',
-                        subtitle: '已提取音频资产与字幕转译进度',
+                        title: l.settingsAudioManagement,
+                        subtitle: l.serverSettingsAudioSub,
                         leadingIcon: Icons.graphic_eq_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -159,7 +159,7 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                       SettingsTile(
                         title: l.settingsTags,
-                        subtitle: 'Tags',
+                        subtitle: l.settingsTags,
                         leadingIcon: Icons.label_outline,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -170,7 +170,7 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                       SettingsTile(
                         title: l.settingsGenres,
-                        subtitle: 'Genres',
+                        subtitle: l.settingsGenres,
                         leadingIcon: Icons.category_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -182,7 +182,7 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                       SettingsTile(
                         title: l.settingsSeries,
-                        subtitle: 'Series',
+                        subtitle: l.settingsSeries,
                         leadingIcon: Icons.collections_bookmark_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -259,8 +259,8 @@ class ServerSettingsPage extends ConsumerWidget {
                     title: l.settingsGroupTools,
                     items: [
                       SettingsTile(
-                        title: 'DB Online 数据源',
-                        subtitle: '影片信息、资源和演员关联',
+                        title: l.settingsDbo,
+                        subtitle: l.serverSettingsDboSub,
                         leadingIcon: Icons.api_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -269,8 +269,8 @@ class ServerSettingsPage extends ConsumerWidget {
                         ),
                       ),
                       SettingsTile(
-                        title: 'AVDB 数据源',
-                        subtitle: '演员关联同步',
+                        title: l.serverSettingsAvdb,
+                        subtitle: l.serverSettingsAvdbSub,
                         leadingIcon: Icons.cloud_outlined,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(

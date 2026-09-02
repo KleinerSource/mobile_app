@@ -23,6 +23,7 @@ import '../../../core/sources/common/source_id.dart';
 import '../../../core/sources/files/file_playback_progress.dart';
 import '../../../core/sources/media/media_models.dart' as source_models;
 import '../../../core/sources/media/media_source_providers.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import '../common/engine_playback_route.dart';
 import '../common/playback_engine.dart';
@@ -45,7 +46,7 @@ const _directPlaybackDecision = playback_models.PlaybackDecision(
   streamUrl: '',
   directUrl: '',
   qualityOptions: <playback_models.QualityOption>[
-    playback_models.QualityOption(id: 'auto', label: '自动', kind: 'auto'),
+    playback_models.QualityOption(id: 'auto', label: 'auto', kind: 'auto'),
   ],
   mimeType: '',
   hwAccel: '',
@@ -68,7 +69,7 @@ playback_models.PlaybackDecision _directPlaybackDecisionForTracks({
   streamUrl: '',
   directUrl: '',
   qualityOptions: const <playback_models.QualityOption>[
-    playback_models.QualityOption(id: 'auto', label: '自动', kind: 'auto'),
+    playback_models.QualityOption(id: 'auto', label: 'auto', kind: 'auto'),
   ],
   mimeType: '',
   hwAccel: '',
@@ -1170,7 +1171,11 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       // 字幕拉取失败不影响主媒体播放，降级为提示并清空选中状态，
       // 避免字幕菜单停留在一条实际没有加载成功的轨道上。
       _setSelectedSubtitle(null);
-      _showError('字幕加载失败: ${toApiException(message).message}，视频将继续播放');
+      _showError(
+        AppL10n.of(
+          context,
+        ).playerSubtitleLoadFailedContinue(toApiException(message).message),
+      );
       return;
     }
     if (_rateChangeGraceTimer != null) {
@@ -1287,7 +1292,11 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       return true;
     } catch (error) {
       if (showError && mounted) {
-        _showError('字幕加载失败: ${toApiException(error).message}');
+        _showError(
+          AppL10n.of(
+            context,
+          ).playerSubtitleLoadFailed(toApiException(error).message),
+        );
       }
       return false;
     }
@@ -1367,7 +1376,13 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         );
       }
     } catch (error) {
-      if (mounted) _showError('字幕加载失败: ${toApiException(error).message}');
+      if (mounted) {
+        _showError(
+          AppL10n.of(
+            context,
+          ).playerSubtitleLoadFailed(toApiException(error).message),
+        );
+      }
     }
   }
 
@@ -1482,17 +1497,19 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   Future<void> _copyPlaybackError() async {
     final message = _error;
     if (message == null || message.isEmpty) return;
+    final l = AppL10n.of(context);
     try {
       await Clipboard.setData(ClipboardData(text: message));
-      if (mounted) _showError('完整播放错误已复制');
+      if (mounted) _showError(l.playerErrorCopied);
     } catch (_) {
-      if (mounted) _showError('复制播放错误失败');
+      if (mounted) _showError(l.playerErrorCopyFailed);
     }
   }
 
   Future<void> _exportPlaybackError() async {
     final message = _error;
     if (message == null || message.isEmpty) return;
+    final l = AppL10n.of(context);
     try {
       final stamp = DateTime.now().toIso8601String().replaceAll(
         RegExp(r'[^0-9]'),
@@ -1505,8 +1522,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           : null;
       final result = await SharePlus.instance.share(
         ShareParams(
-          subject: 'Oh My Media 播放错误',
-          text: 'Oh My Media 播放错误日志',
+          subject: l.playerErrorShareSubject,
+          text: l.playerErrorShareBody,
           sharePositionOrigin: sharePositionOrigin,
           files: [
             XFile.fromData(
@@ -1519,10 +1536,10 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       );
       if (!mounted) return;
       if (result.status == ShareResultStatus.unavailable) {
-        _showError('当前设备不支持导出，请复制完整错误');
+        _showError(l.playerErrorExportUnsupported);
       }
     } catch (_) {
-      if (mounted) _showError('导出播放错误失败，可尝试复制完整错误');
+      if (mounted) _showError(l.playerErrorExportFailed);
     }
   }
 
@@ -1835,7 +1852,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       final source = await _resolvePictureInPictureSource();
       if (source == null) {
         _pictureInPictureWasPlaying = false;
-        if (mounted) _showError('当前播放源暂不支持画中画');
+        if (mounted) {
+          _showError(AppL10n.of(context).playerPipSourceUnsupported);
+        }
         return;
       }
       if (wasPlaying) {
@@ -1855,7 +1874,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           await _host.play();
         }
         _pictureInPictureWasPlaying = false;
-        if (mounted) _showError('当前设备或播放内核不支持画中画');
+        if (mounted) {
+          _showError(AppL10n.of(context).playerPipEngineUnsupported);
+        }
         return;
       }
       _pictureInPictureActive = true;
@@ -1864,7 +1885,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         await _host.play();
       }
       _pictureInPictureWasPlaying = false;
-      if (mounted) _showError('画中画启动失败，请稍后重试');
+      if (mounted) {
+        _showError(AppL10n.of(context).playerPipStartFailed);
+      }
     } finally {
       _pictureInPictureRequesting = false;
     }
@@ -2142,7 +2165,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     final decision = _decision;
     if (decision == null) {
       return PlayerErrorView(
-        message: '播放决策为空',
+        message: AppL10n.of(context).playerDecisionMissing,
         onRetry: _load,
         onCopy: _copyPlaybackError,
         onExport: _exportPlaybackError,

@@ -8,6 +8,8 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'libraries_providers.dart';
 import 'library_editor_page.dart';
 import 'scan_progress_sheet.dart';
@@ -39,6 +41,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final async = ref.watch(librariesAllProvider);
 
     return Scaffold(
@@ -47,8 +50,8 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: '媒体库',
-              title: '媒体库管理',
+              eyebrow: l.settingsGroupLibrary,
+              title: l.libraryManageTitle,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -67,7 +70,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                           )
                         : const Icon(Icons.sync_rounded, size: 18),
                     label: Text(
-                      _batchScanStarting ? '提交中' : '扫描',
+                      _batchScanStarting ? l.librarySubmitting : l.libraryScan,
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w700,
@@ -118,7 +121,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Text(
-                              '加载失败: $e',
+                              '${AppL10n.of(context).loadFailed}: $e',
                               style: AppText.body(context),
                             ),
                           ),
@@ -177,11 +180,12 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
   /// 单个媒体库的左滑操作：停用的库不提供扫描入口。
   List<SwipeActionData> _librarySwipeActions(LibraryItem lib) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return [
       if (lib.enabled)
         SwipeActionData(
           icon: Icons.refresh,
-          label: '扫描',
+          label: l.libraryScan,
           color: AppHues.top(AppHues.mint),
           onPressed: () => _showScanActions(lib),
         ),
@@ -189,13 +193,13 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
         icon: lib.enabled
             ? Icons.toggle_off_outlined
             : Icons.toggle_on_outlined,
-        label: lib.enabled ? '停用' : '启用',
+        label: lib.enabled ? l.libraryDisable : l.libraryEnable,
         color: c.warning,
         onPressed: () => _toggleEnabled(context, ref, lib),
       ),
       SwipeActionData(
         icon: Icons.delete_outline_rounded,
-        label: '删除',
+        label: l.delete,
         color: c.danger,
         onPressed: () => _confirmDelete(context, ref, lib),
       ),
@@ -204,12 +208,13 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
 
   /// 左滑「扫描」后的方式选择：增量 / 全量。
   Future<void> _showScanActions(LibraryItem lib) async {
+    final l = AppL10n.of(context);
     final incremental = await showAppActionSheet<bool>(
       context: context,
-      title: '扫描「${lib.name}」',
-      actions: const [
-        AppActionSheetAction(label: '增量扫描', value: true),
-        AppActionSheetAction(label: '全量扫描（重新扫描所有文件）', value: false),
+      title: l.libraryScanSheetTitle(lib.name),
+      actions: [
+        AppActionSheetAction(label: l.libraryScanIncremental, value: true),
+        AppActionSheetAction(label: l.libraryScanFull, value: false),
       ],
     );
     if (!mounted || incremental == null) return;
@@ -234,13 +239,23 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
           .register(libraryId: lib.id, libraryName: lib.name, taskId: taskId);
       messenger.showSnackBar(
         SnackBar(
-          content: Text('${incremental ? '增量' : '全量'}扫描已启动 · 进度见底部'),
+          content: Text(
+            incremental
+                ? AppL10n.of(context).libraryScanIncrementalStarted
+                : AppL10n.of(context).libraryScanFullStarted,
+          ),
           duration: const Duration(seconds: 2),
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('扫描失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).libraryScanFailed(toApiException(e).message),
+          ),
+        ),
       );
     }
   }
@@ -257,7 +272,11 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
           .update(lib.id, enabled: !lib.enabled);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(lib.enabled ? '已停用' : '已启用'),
+          content: Text(
+            lib.enabled
+                ? AppL10n.of(context).libraryDisabledToast
+                : AppL10n.of(context).libraryEnabledToast,
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -265,7 +284,11 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       ref.refresh(librariesAllProvider);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(context).operationFailed(toApiException(e).message),
+          ),
+        ),
       );
     }
   }
@@ -278,16 +301,16 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除媒体库'),
-        content: Text('删除「${lib.name}」?\n库内的影片元数据将一并移除 (硬盘上的文件不会被删除)。'),
+        title: Text(AppL10n.of(ctx).libraryDeleteTitle),
+        content: Text(AppL10n.of(ctx).libraryDeleteConfirm(lib.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(AppL10n.of(ctx).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
+            child: Text(AppL10n.of(ctx).delete),
           ),
         ],
       ),
@@ -298,27 +321,40 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
     try {
       await ref.read(librariesRepositoryProvider).delete(lib.id);
       messenger.showSnackBar(
-        const SnackBar(content: Text('媒体库已删除'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text(AppL10n.of(context).libraryDeletedToast),
+          duration: const Duration(seconds: 1),
+        ),
       );
       // ignore: unused_result
       ref.refresh(librariesAllProvider);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).libraryDeleteFailed(toApiException(e).message),
+          ),
+        ),
       );
     }
   }
 
   Future<void> _showBatchScanActions() async {
+    final l = AppL10n.of(context);
     final action = await showAppActionSheet<_BatchScanAction>(
       context: context,
-      title: '批量扫描（仅启用媒体库）',
-      actions: const [
+      title: l.libraryBatchScanTitle,
+      actions: [
         AppActionSheetAction(
-          label: '一键增量扫描',
+          label: l.libraryBatchScanIncremental,
           value: _BatchScanAction.incremental,
         ),
-        AppActionSheetAction(label: '一键全量扫描', value: _BatchScanAction.full),
+        AppActionSheetAction(
+          label: l.libraryBatchScanFull,
+          value: _BatchScanAction.full,
+        ),
       ],
     );
     if (!mounted || action == null) return;
@@ -338,8 +374,8 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       final taskNotifier = ref.read(scanTasksProvider.notifier);
       for (final task in result.tasks) {
         final queueMessage = task.queuePosition > 0
-            ? '排队中（第 ${task.queuePosition} 位）'
-            : '排队中';
+            ? '$kTaskMsgScanQueuedAtPrefix${task.queuePosition}'
+            : kTaskMsgScanQueued;
         taskNotifier.register(
           libraryId: task.libraryId,
           libraryName: task.libraryName,
@@ -349,40 +385,50 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
             libraryId: task.libraryId,
             status: task.status,
             incremental: incremental,
-            currentFile: task.status == 'queued' ? queueMessage : '准备扫描',
+            currentFile:
+                task.status == 'queued' ? queueMessage : kTaskMsgScanPreparing,
           ),
         );
       }
 
+      final l = AppL10n.of(context);
       String message;
       if (result.acceptedCount == 0) {
         if (result.enabledCount == 0) {
-          message = result.message.isNotEmpty ? result.message : '没有已启用的媒体库可扫描';
+          message = result.message.isNotEmpty
+              ? result.message
+              : l.libraryBatchNoEnabled;
         } else {
           message = result.message.isNotEmpty
               ? result.message
-              : '没有可提交的${result.scanType}任务';
+              : l.libraryBatchNoTasks(result.scanType);
           if (result.failedCount > 0) {
-            message += '，${result.failedCount} 个媒体库提交失败';
+            message += '，${l.libraryBatchSubmitFailedCount(result.failedCount)}';
           }
         }
       } else {
-        message = '已提交 ${result.acceptedCount} 个媒体库的${result.scanType}';
+        message = l.libraryBatchAccepted(result.acceptedCount, result.scanType);
         if (result.reusedCount > 0) {
-          message += ' · ${result.reusedCount} 个复用现有任务';
+          message += ' · ${l.libraryBatchReused(result.reusedCount)}';
         }
         if (result.failedCount > 0) {
-          message += ' · ${result.failedCount} 个提交失败';
+          message += ' · ${l.libraryBatchFailedShort(result.failedCount)}';
         }
       }
       if (result.skippedDisabledCount > 0) {
-        message += ' · 已忽略 ${result.skippedDisabledCount} 个停用媒体库';
+        message += ' · ${l.libraryBatchSkippedDisabled(result.skippedDisabledCount)}';
       }
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('批量扫描失败: ${toApiException(e).message}')),
+          SnackBar(
+            content: Text(
+              AppL10n.of(
+                context,
+              ).libraryBatchScanFailed(toApiException(e).message),
+            ),
+          ),
         );
       }
     } finally {
@@ -402,11 +448,14 @@ class _Empty extends StatelessWidget {
           Icon(Icons.folder_outlined, size: 40, color: c.muted),
           const SizedBox(height: 14),
           Text(
-            '还没有媒体库',
+            AppL10n.of(context).libraryEmptyTitle,
             style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          Text('点击右上 + 添加按钮创建第一个', style: AppText.meta(context)),
+          Text(
+            AppL10n.of(context).libraryEmptyHint,
+            style: AppText.meta(context),
+          ),
         ],
       ),
     );
@@ -511,7 +560,7 @@ class _LibraryCard extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '已停用',
+                                AppL10n.of(context).libraryDisabledBadge,
                                 style: TextStyle(
                                   color: c.muted,
                                   fontFamily: 'Inter',
@@ -525,7 +574,10 @@ class _LibraryCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${library.fileCount} 个文件 · ${library.directories.length} 个目录',
+                        AppL10n.of(context).libraryCardMeta(
+                          library.fileCount,
+                          library.directories.length,
+                        ),
                         style: AppText.meta(context),
                       ),
                     ],

@@ -50,10 +50,10 @@ class SettingsPage extends ConsumerWidget {
                   title: l.settingsPreferences,
                   items: [
                     SettingsTile(
-                      title: '服务器列表',
+                      title: l.settingsServerList,
                       subtitle: serverConfig == null
                           ? l.settingsServerNotConfigured
-                          : '${serverConfig.servers.length} 台服务器 · 可分别配置线路',
+                          : l.settingsServerListSub(serverConfig.servers.length),
                       leadingIcon: Icons.dns_outlined,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -95,8 +95,8 @@ class SettingsPage extends ConsumerWidget {
                       subtitle: packageInfo.when(
                         data: (info) =>
                             formatAppVersion(info.version, info.buildNumber),
-                        loading: () => '读取中…',
-                        error: (_, __) => '未知',
+                        loading: () => l.commonLoading,
+                        error: (_, __) => l.commonUnknown,
                       ),
                       title: l.settingsVersion,
                       hasUpdateSource: updateRepository != null,
@@ -127,14 +127,12 @@ class SettingsPage extends ConsumerWidget {
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('确认退出登录'),
-                              content: const Text(
-                                '退出后将清理当前会话,下次启动需要重新登录;服务器地址会保留。',
-                              ),
+                              title: Text(l.settingsLogoutConfirmTitle),
+                              content: Text(l.settingsLogoutConfirmBody),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('取消'),
+                                  child: Text(l.cancel),
                                 ),
                                 FilledButton(
                                   onPressed: () => Navigator.pop(ctx, true),
@@ -142,7 +140,7 @@ class SettingsPage extends ConsumerWidget {
                                     backgroundColor: c.danger,
                                     foregroundColor: Colors.white,
                                   ),
-                                  child: const Text('退出登录'),
+                                  child: Text(l.settingsLogout),
                                 ),
                               ],
                             ),
@@ -205,6 +203,7 @@ class _VersionSettingsTileState extends State<_VersionSettingsTile> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return SettingsTile(
       title: widget.title,
       subtitle: widget.subtitle,
@@ -217,7 +216,7 @@ class _VersionSettingsTileState extends State<_VersionSettingsTile> {
                 widget.onCheckForUpdates();
               },
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('检测更新'),
+              label: Text(l.settingsCheckForUpdates),
               style: TextButton.styleFrom(
                 minimumSize: const Size(0, 40),
                 padding: const EdgeInsets.symmetric(horizontal: 8),

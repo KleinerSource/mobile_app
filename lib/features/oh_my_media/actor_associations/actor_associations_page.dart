@@ -17,6 +17,7 @@ import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'actor_associations_providers.dart';
 import 'widgets/actor_association_editor_sheet.dart';
 import 'widgets/actor_association_sync_sheet.dart';
@@ -138,17 +139,21 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
 
   Future<void> _delete(MappingRule r) async {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除关联'),
+        title: Text(l.actorAssocDeleteTitle),
         content: Text(
-          '确定删除「${r.mappedValue ?? ''}」及其 ${r.originalValues.length} 个别名?',
+          l.actorAssocDeleteMessage(
+            r.mappedValue ?? '',
+            r.originalValues.length,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -156,7 +161,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
               backgroundColor: c.danger,
               foregroundColor: Colors.white,
             ),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -166,11 +171,13 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(actorAssociationsRepositoryProvider).deleteById(r.id);
-      messenger.showSnackBar(const SnackBar(content: Text('已删除')));
+      messenger.showSnackBar(SnackBar(content: Text(l.actorAssocDeletedToast)));
       _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(l.actorAssocDeleteFailed(toApiException(e).message)),
+        ),
       );
     }
   }
@@ -178,6 +185,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
@@ -185,8 +193,8 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
-              eyebrow: '媒体库',
-              title: '演员关联管理',
+              eyebrow: l.settingsGroupLibrary,
+              title: l.actorAssocTitle,
               trailing: SettingsAddButton(onPressed: _create),
             ),
             body: Column(
@@ -233,25 +241,25 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
                           actions: [
                             SwipeActionData(
                               icon: Icons.cloud_download_outlined,
-                              label: '同步',
+                              label: l.actorAssocActionSync,
                               color: AppHues.top(AppHues.sky),
                               onPressed: () => _sync(item),
                             ),
                             SwipeActionData(
                               icon: Icons.add_rounded,
-                              label: '追加别名',
+                              label: l.actorAssocActionAppendAlias,
                               color: AppHues.top(AppHues.mint),
                               onPressed: () => _append(item),
                             ),
                             SwipeActionData(
                               icon: Icons.edit_outlined,
-                              label: '编辑',
+                              label: l.edit,
                               color: c.accent,
                               onPressed: () => _edit(item),
                             ),
                             SwipeActionData(
                               icon: Icons.delete_outline,
-                              label: '删除',
+                              label: l.delete,
                               color: c.danger,
                               onPressed: () => _delete(item),
                             ),
@@ -265,11 +273,13 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
                       firstPageProgressIndicatorBuilder: (_) =>
                           const Center(child: CupertinoActivityIndicator()),
                       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message: _controller.error?.toString() ?? '加载失败',
+                        message:
+                            _controller.error?.toString() ?? l.loadFailed,
                         onRetry: () => _controller.refresh(),
                       ),
-                      noItemsFoundIndicatorBuilder: (_) =>
-                          const EmptyView(message: '没有演员关联记录'),
+                      noItemsFoundIndicatorBuilder: (_) => EmptyView(
+                        message: l.actorAssocEmpty,
+                      ),
                       noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                     ),
                   ),
@@ -307,7 +317,7 @@ class _SearchBar extends StatelessWidget {
               controller: controller,
               textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
-                hintText: '搜索标准名 / 别名',
+                hintText: AppL10n.of(context).actorAssocSearchHint,
                 hintStyle: TextStyle(
                   color: c.muted,
                   fontWeight: FontWeight.w500,
