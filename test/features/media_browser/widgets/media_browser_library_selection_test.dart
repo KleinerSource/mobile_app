@@ -41,9 +41,16 @@ class _UnusedSource implements MediaBrowserMediaSource {
 }
 
 class _RecordingRepo extends MediaBrowserMediaRepository {
-  _RecordingRepo({required this.page}) : super(_UnusedSource());
+  _RecordingRepo({
+    required this.page,
+    this.libraryViews = const [],
+    this.itemPageDelay = Duration.zero,
+  }) : super(_UnusedSource());
 
   MediaBrowserItemPage page;
+  final List<MediaBrowserItem> libraryViews;
+  final Duration itemPageDelay;
+  final itemPageCalls = <(String?, String?)>[];
   final markFavoriteCalls = <(String, bool)>[];
   final markPlayedCalls = <(String, bool)>[];
 
@@ -59,11 +66,15 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
     int? limit,
     bool? isFavorite,
   }) async {
+    itemPageCalls.add((parentId, includeItemTypes));
+    if (itemPageDelay > Duration.zero) {
+      await Future<void>.delayed(itemPageDelay);
+    }
     return page;
   }
 
   @override
-  Future<List<MediaBrowserItem>> views() async => const [];
+  Future<List<MediaBrowserItem>> views() async => libraryViews;
 
   @override
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) async {
@@ -89,7 +100,11 @@ MediaBrowserItem _item(String id, String name) {
   });
 }
 
-Future<void> _pumpLibrary(WidgetTester tester, _RecordingRepo repo) async {
+Future<void> _pumpLibrary(
+  WidgetTester tester,
+  _RecordingRepo repo, {
+  String? initialViewId,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
 
@@ -115,15 +130,24 @@ Future<void> _pumpLibrary(WidgetTester tester, _RecordingRepo repo) async {
           () => _BadgePositionsState(const BadgePositions()),
         ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
-        locale: Locale('zh'),
-        home: MediaBrowserLibraryPage(),
+        locale: const Locale('zh'),
+        home: MediaBrowserLibraryPage(initialViewId: initialViewId),
       ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+MediaBrowserItem _libraryView(String id, {String collectionType = 'movies'}) {
+  return MediaBrowserItem.fromJson({
+    'Id': id,
+    'Name': '电影库',
+    'Type': 'CollectionFolder',
+    'CollectionType': collectionType,
+  });
 }
 
 Future<void> _longPress(WidgetTester tester, Finder target) async {
@@ -137,11 +161,7 @@ void main() {
   testWidgets('长按进入拖选，批量收藏调用 markFavorite', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(
-        items: [
-          _item('a', '影片甲'),
-          _item('b', '影片乙'),
-          _item('c', '影片丙'),
-        ],
+        items: [_item('a', '影片甲'), _item('b', '影片乙'), _item('c', '影片丙')],
         total: 3,
         startIndex: 0,
         limit: 24,
@@ -196,5 +216,38 @@ void main() {
 
     expect(repo.markPlayedCalls, [('a', true)]);
     expect(repo.markFavoriteCalls, isEmpty);
+  });
+
+  testWidgets('从指定媒体库进入后仍能加载首屏条目', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '影片甲')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      libraryViews: [_libraryView('library-1')],
+      itemPageDelay: const Duration(milliseconds: 50),
+    );
+    await _pumpLibrary(tester, repo, initialViewId: 'library-1');
+    expect(find.text('影片甲'), findsWidgets);
+    expect(repo.itemPageCalls, contains(('library-1', 'Movie,Series')));
+  });
+
+  testWidgets('从音乐媒体库进入后仍能加载首屏条目', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '专辑甲')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      libraryViews: [_libraryView('music-library', collectionType: 'music')],
+      itemPageDelay: const Duration(milliseconds: 50),
+    );
+    await _pumpLibrary(tester, repo, initialViewId: 'music-library');
+
+    expect(find.text('专辑甲'), findsWidgets);
+    expect(repo.itemPageCalls, contains(('music-library', 'MusicAlbum')));
   });
 }

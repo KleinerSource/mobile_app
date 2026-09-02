@@ -69,6 +69,7 @@ class _MediaBrowserLibraryPageState
   String _sortBy = 'DateCreated';
   String _sortOrder = 'Descending';
   int _requestSerial = 0;
+  bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
 
   /// 当前选中库的类型过滤选项；音乐库切到「专辑/歌曲」。
@@ -109,6 +110,9 @@ class _MediaBrowserLibraryPageState
   }
 
   Future<void> _fetchPage(int startIndex) async {
+    if (startIndex == _controller.firstPageKey) {
+      _pageRequestTriggeredByRefresh = true;
+    }
     final requestSerial = _requestSerial;
     try {
       final result = await readMediaBrowserItemPage(
@@ -153,8 +157,16 @@ class _MediaBrowserLibraryPageState
     final completer = Completer<void>();
     _refreshCompleter = completer;
     _requestSerial++;
-    _controller.refresh();
+    _refreshController();
     return completer.future;
+  }
+
+  void _refreshController() {
+    _pageRequestTriggeredByRefresh = false;
+    _controller.refresh();
+    if (!_pageRequestTriggeredByRefresh) {
+      unawaited(_fetchPage(_controller.firstPageKey));
+    }
   }
 
   void _completeRefresh() {
@@ -194,7 +206,7 @@ class _MediaBrowserLibraryPageState
     });
     _selection.exit();
     _requestSerial++;
-    _controller.refresh();
+    _refreshController();
   }
 
   /// 从已加载的 Views 里解析选中库的 collectionType；「全部库」为 null。
@@ -215,15 +227,19 @@ class _MediaBrowserLibraryPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || next != _collectionTypeOf(_parentId)) return;
       final options = _typeOptionsFor(next);
+      final typesChanged = !options.any(
+        (option) => option.value == _includeItemTypes,
+      );
       setState(() {
         _collectionType = next;
-        if (!options.any((option) => option.value == _includeItemTypes)) {
+        if (typesChanged) {
           _includeItemTypes = options.first.value;
         }
       });
+      if (!typesChanged) return;
       _selection.exit();
       _requestSerial++;
-      _controller.refresh();
+      _refreshController();
     });
   }
 
@@ -568,8 +584,7 @@ class _MediaBrowserLibraryPageState
                                     error: (error, _) => SliverFillRemaining(
                                       hasScrollBody: false,
                                       child: _LibraryListError(
-                                        message:
-                                            toApiException(error).message,
+                                        message: toApiException(error).message,
                                         onRetry: () => ref.invalidate(
                                           mediaBrowserServerUrlsProvider,
                                         ),
