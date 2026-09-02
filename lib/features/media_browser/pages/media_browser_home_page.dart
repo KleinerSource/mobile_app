@@ -43,7 +43,6 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     ref.invalidate(mediaBrowserLatestProvider);
     ref.invalidate(mediaBrowserResumeProvider);
     ref.invalidate(mediaBrowserNextUpProvider);
-    ref.invalidate(mediaBrowserLibraryStatsProvider);
     await Future.wait([
       ref
           .read(mediaBrowserLatestProvider.future)
@@ -54,16 +53,8 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
       ref
           .read(mediaBrowserNextUpProvider.future)
           .catchError((_) => const <MediaBrowserItem>[]),
-      ref
-          .read(mediaBrowserLibraryStatsProvider.future)
-          .catchError(
-            (_) => const MediaBrowserLibraryStats(
-              movieCount: 0,
-              seriesCount: 0,
-              episodeCount: 0,
-            ),
-          ),
     ]);
+    if (mounted) ref.invalidate(mediaBrowserLibraryStatsProvider);
   }
 
   void _syncHeroArts(
@@ -94,8 +85,11 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     final latest = ref.watch(mediaBrowserLatestProvider);
     final resume = ref.watch(mediaBrowserResumeProvider);
     final nextUp = ref.watch(mediaBrowserNextUpProvider);
-    final libraryStats = ref.watch(mediaBrowserLibraryStatsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    final coreHomeDataLoading =
+        _isHomeDataLoading(latest) ||
+        _isHomeDataLoading(resume) ||
+        _isHomeDataLoading(nextUp);
 
     final heroReady = latest.when(
       loading: () => false,
@@ -190,8 +184,8 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
         // -------- 每个媒体库的最近添加 + 媒体库入口卡片 --------
         const _MediaBrowserViewSections(),
         SliverToBoxAdapter(
-          child: _MediaBrowserLibraryStats(
-            value: libraryStats,
+          child: _MediaBrowserLibraryStatsLoader(
+            enabled: !coreHomeDataLoading,
             onRetry: () => ref.invalidate(mediaBrowserLibraryStatsProvider),
           ),
         ),
@@ -356,6 +350,28 @@ class _MediaBrowserViewLatestRow extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+bool _isHomeDataLoading<T>(AsyncValue<T> value) =>
+    value.isLoading || value.isRefreshing || value.isReloading;
+
+/// 首页统计独立于核心内容请求，待首页主要数据稳定后才启动。
+class _MediaBrowserLibraryStatsLoader extends ConsumerWidget {
+  const _MediaBrowserLibraryStatsLoader({
+    required this.enabled,
+    required this.onRetry,
+  });
+
+  final bool enabled;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = enabled
+        ? ref.watch(mediaBrowserLibraryStatsProvider)
+        : const AsyncValue<MediaBrowserLibraryStats>.loading();
+    return _MediaBrowserLibraryStats(value: value, onRetry: onRetry);
   }
 }
 
