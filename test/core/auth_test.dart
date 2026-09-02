@@ -241,6 +241,28 @@ void _main_1() {
     expect(store.values.keys, everyElement(startsWith('omm.auth.server.')));
   });
 
+  test('迁移旧版全局飞牛会话时保留用户 ID 和 Cookie', () async {
+    final store = _MemoryTokenStore();
+    final repository = AuthSessionRepository(store: store);
+    await repository.save(
+      const AuthSession(
+        accessToken: 'legacy-access',
+        refreshToken: '',
+        expiresIn: 0,
+        userId: 'user-1',
+        cookie: 'sid=session-1',
+      ),
+    );
+
+    repository.setActiveServerId('feiniu-server');
+    final session = await repository.current();
+
+    expect(session?.accessToken, 'legacy-access');
+    expect(session?.userId, 'user-1');
+    expect(session?.cookie, 'sid=session-1');
+    expect(store.values['omm.auth.cookie'], isNull);
+  });
+
   test('DBO 服务器不会迁移旧版全局会话', () async {
     final store = _MemoryTokenStore();
     final repository = AuthSessionRepository(store: store);

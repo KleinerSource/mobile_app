@@ -68,8 +68,7 @@ class ApiClient {
     final allowLegacyMigration =
         activeProject != ServerProject.dbOnline &&
         activeProject != ServerProject.emby &&
-        activeProject != ServerProject.jellyfin &&
-        activeProject != ServerProject.feiniu;
+        activeProject != ServerProject.jellyfin;
     sessionRepository?.setActiveServerId(
       config.activeServerId,
       allowLegacyMigration: allowLegacyMigration,

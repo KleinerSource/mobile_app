@@ -102,6 +102,8 @@ class AuthSessionRepository {
         accessKey: _accessKey,
         refreshKey: _refreshKey,
         expiresKey: _expiresKey,
+        userIdKey: _userIdKey,
+        cookieKey: _cookieKey,
       );
       if (session != null) {
         await _writeSession(session, scoped: true, serverId: serverId);

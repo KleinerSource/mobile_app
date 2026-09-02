@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
@@ -87,6 +88,41 @@ void main() {
     );
   });
 
+  test('ApiClient 飞牛启动时会迁移旧版全局会话并保留 Cookie', () async {
+    final store = _MemoryTokenStore();
+    final sessions = AuthSessionRepository(store: store);
+    await sessions.save(
+      const AuthSession(
+        accessToken: 'legacy-token',
+        refreshToken: '',
+        expiresIn: 0,
+        userId: 'user-1',
+        cookie: 'sid=session-1',
+      ),
+    );
+    const server = ServerProfile(
+      id: 'feiniu-server',
+      name: '飞牛影视',
+      projectName: 'feiniu',
+      lines: [ServerLine(id: 'main', name: '主线路', baseUrl: 'http://test:5666')],
+      activeLineId: 'main',
+    );
+
+    ApiClient.fromConfig(
+      const ServerConfig(
+        baseUrl: 'http://test:5666',
+        servers: [server],
+        activeServerId: 'feiniu-server',
+      ),
+      sessionRepository: sessions,
+    );
+
+    final session = await sessions.current();
+    expect(session?.accessToken, 'legacy-token');
+    expect(session?.cookie, 'sid=session-1');
+    expect(store.values['omm.auth.cookie'], isNull);
+  });
+
   test('配置仓库保存飞牛根地址时会持久化为 /v', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -141,10 +177,7 @@ class _RecordingAdapter implements HttpClientAdapter {
     final headers = <String, List<String>>{
       Headers.contentTypeHeader: ['application/json'],
       if (options.uri.path.endsWith('/login'))
-        'set-cookie': [
-          'sid=session-2; Path=/; HttpOnly',
-          'theme=dark; Path=/',
-        ],
+        'set-cookie': ['sid=session-2; Path=/; HttpOnly', 'theme=dark; Path=/'],
     };
     return ResponseBody.fromString(jsonEncode(response), 200, headers: headers);
   }
