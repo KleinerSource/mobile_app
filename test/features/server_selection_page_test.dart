@@ -37,7 +37,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.text('连接到媒体服务器'), findsOneWidget);
+    expect(find.text('连接到服务器'), findsOneWidget);
   });
 
   testWidgets('创建服务器保存后返回选择器且保留用户选择的类型', (tester) async {
@@ -113,7 +113,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('已存在相同连接'), findsOneWidget);
-    expect(find.text('连接到媒体服务器'), findsOneWidget);
+    expect(find.text('连接到服务器'), findsOneWidget);
     expect(
       (jsonDecode(prefs.getString('server.servers')!) as List),
       hasLength(1),
@@ -221,7 +221,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.text('连接到媒体服务器'), findsOneWidget);
+    expect(find.text('连接到服务器'), findsOneWidget);
     expect(find.text('Oh My Media'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(3));
     expect(
