@@ -730,7 +730,7 @@ class _ProjectSelector extends StatelessWidget {
                 value: project,
                 child: _ProjectMenuItem(
                   project: project,
-                  groupLabel: _projectGroupLabel(project),
+                  showDivider: project == ServerProject.smb,
                   colors: c,
                 ),
               ),
@@ -809,12 +809,12 @@ class _ProtocolSelector extends StatelessWidget {
 class _ProjectMenuItem extends StatelessWidget {
   const _ProjectMenuItem({
     required this.project,
-    required this.groupLabel,
+    required this.showDivider,
     required this.colors,
   });
 
   final ServerProject project;
-  final String? groupLabel;
+  final bool showDivider;
   final AppColors colors;
 
   @override
@@ -823,19 +823,10 @@ class _ProjectMenuItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (groupLabel != null)
+        if (showDivider)
           Padding(
-            padding: const EdgeInsets.fromLTRB(0, 3, 0, 1),
-            child: Row(
-              children: [
-                Expanded(child: Divider(height: 1, color: colors.divider)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(groupLabel!, style: AppText.meta(context)),
-                ),
-                Expanded(child: Divider(height: 1, color: colors.divider)),
-              ],
-            ),
+            padding: const EdgeInsets.only(bottom: 1),
+            child: Divider(height: 1, color: colors.divider),
           ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
@@ -858,14 +849,6 @@ class _ProjectMenuItem extends StatelessWidget {
       ],
     );
   }
-}
-
-String? _projectGroupLabel(ServerProject project) {
-  return switch (project) {
-    ServerProject.ohMyMedia => '媒体服务器',
-    ServerProject.smb => '文件服务器',
-    _ => null,
-  };
 }
 
 String _projectLabel(ServerProject project) {
