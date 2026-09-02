@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/features/cache/image_cache_manager.dart';
+
 import '../core/api/url_resolver.dart';
 import '../core/config/server_config.dart';
 import '../core/config/server_config_provider.dart';
@@ -66,6 +68,7 @@ class ActorAvatar extends ConsumerWidget {
             _ActorAvatarPlaceholder(name: name, hue: hue),
             if (imageUrl != null && shouldLoadImage)
               CachedNetworkImage(
+                cacheManager: AppImageCacheManager.instance,
                 key: ValueKey(imageUrl),
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,

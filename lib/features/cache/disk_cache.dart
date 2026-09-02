@@ -5,6 +5,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:omm/features/cache/image_cache_manager.dart';
+
 enum CacheCategory { image, other }
 
 extension CacheCategoryX on CacheCategory {
@@ -84,7 +86,8 @@ class DiskCacheService {
 
   Future<CacheUsage> usage() async {
     final root = await _rootDirectory();
-    // DefaultCacheManager 仍使用临时目录，图片统计要跟随它的实际位置。
+    // 图片缓存(AppImageCacheManager)复用 DefaultCacheManager 的目录与
+    // 索引，统计路径不变。
     final imageBase = _rootOverride ?? await getTemporaryDirectory();
     final image = Directory(
       '${imageBase.path}${Platform.pathSeparator}${DefaultCacheManager.key}',
@@ -100,7 +103,7 @@ class DiskCacheService {
   Future<void> clear(CacheCategory category) {
     return _enqueue(() async {
       if (category == CacheCategory.image) {
-        await DefaultCacheManager().emptyCache();
+        await AppImageCacheManager.instance.emptyCache();
         return;
       }
       final directory = await _categoryDirectory(_otherDirName);
@@ -111,7 +114,7 @@ class DiskCacheService {
 
   Future<void> clearAll() {
     return _enqueue(() async {
-      await DefaultCacheManager().emptyCache();
+      await AppImageCacheManager.instance.emptyCache();
       // 整棵删除可以顺带清掉旧版本持久化视频缓存留下的文件。
       final root = await _rootDirectory();
       if (await root.exists()) await root.delete(recursive: true);

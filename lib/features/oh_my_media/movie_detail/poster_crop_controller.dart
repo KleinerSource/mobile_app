@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 
@@ -71,7 +72,10 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
 
   void _attachImageStream() {
     final url = widget.fanartUrl;
-    final imgProvider = CachedNetworkImageProvider(url);
+    final imgProvider = CachedNetworkImageProvider(
+      url,
+      cacheManager: AppImageCacheManager.instance,
+    );
     final newStream = imgProvider.resolve(const ImageConfiguration());
     if (_imgStream?.key == newStream.key) return;
     _imgStream?.removeListener(_imgListener);
@@ -163,6 +167,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                 fit: StackFit.expand,
                 children: [
                   CachedNetworkImage(
+                    cacheManager: AppImageCacheManager.instance,
                     imageUrl: widget.fanartUrl,
                     fit: BoxFit.cover,
                     placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
@@ -192,6 +197,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                 children: [
                   Positioned.fill(
                     child: CachedNetworkImage(
+                      cacheManager: AppImageCacheManager.instance,
                       imageUrl: widget.fanartUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
@@ -282,6 +288,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                   // ---------- fanart 满铺 ----------
                   Positioned.fill(
                     child: CachedNetworkImage(
+                      cacheManager: AppImageCacheManager.instance,
                       imageUrl: widget.fanartUrl,
                       fit: BoxFit.cover,
                       alignment: Alignment.center,

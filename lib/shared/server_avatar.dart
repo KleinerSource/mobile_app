@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:omm/features/cache/image_cache_manager.dart';
+
 import '../core/api/server_compatibility.dart';
 import '../core/platform/app_theme.dart';
 
@@ -31,7 +33,7 @@ String? serverProjectAvatarAsset(ServerProject? project) {
 
 /// 服务器头像: 渐变圆底 + 远程头像(文件源用默认素材、其余用首字母
 /// 兜底) + 白色描边。[showBackground] 为 false 时不绘制紫色渐变底，
-/// 用于不需要紫色底的紧凑入口。
+/// [showBorder] 为 false 时不绘制头像外圈，用于不需要装饰的紧凑入口。
 ///
 /// 小尺寸(菜单行 ≤40)用细描边与大号首字母;大尺寸(>60)自动加投影、
 /// 更粗的描边并缩小首字母占比。[busy] 时轻微缩放;大尺寸把白色进度环
@@ -47,6 +49,7 @@ class ServerAvatar extends StatelessWidget {
     this.busy = false,
     this.project,
     this.showBackground = true,
+    this.showBorder = true,
   });
 
   final String displayName;
@@ -56,6 +59,7 @@ class ServerAvatar extends StatelessWidget {
   final bool busy;
   final ServerProject? project;
   final bool showBackground;
+  final bool showBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -68,9 +72,10 @@ class ServerAvatar extends StatelessWidget {
         ? Colors.white
         : colors.surface;
     final projectAvatarAsset = serverProjectAvatarAsset(project);
+    final contentInset = showBorder ? borderWidth : 0.0;
     final folderAvatarInset =
         project == ServerProject.smb || project == ServerProject.webDav
-        ? (size - borderWidth * 2) * 0.1
+        ? (size - contentInset * 2) * 0.1
         : 0.0;
     final fallback = Center(
       child: Text(
@@ -123,11 +128,12 @@ class ServerAvatar extends StatelessWidget {
             : null,
       ),
       child: Padding(
-        padding: EdgeInsets.all(borderWidth),
+        padding: EdgeInsets.all(contentInset),
         child: ClipOval(
           child: avatarUrl == null || avatarUrl!.isEmpty
               ? defaultAvatar
               : CachedNetworkImage(
+                  cacheManager: AppImageCacheManager.instance,
                   imageUrl: avatarUrl!,
                   fit: BoxFit.cover,
                   placeholder: (_, __) => fallback,
@@ -149,7 +155,7 @@ class ServerAvatar extends StatelessWidget {
             face,
             if (busy && !isHeroSize)
               Padding(
-                padding: EdgeInsets.all(borderWidth),
+                padding: EdgeInsets.all(contentInset),
                 child: ClipOval(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -164,24 +170,25 @@ class ServerAvatar extends StatelessWidget {
                   ),
                 ),
               ),
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    width: borderWidth,
+            if (showBorder)
+              IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      width: borderWidth,
+                    ),
                   ),
                 ),
               ),
-            ),
             if (project != null)
               Positioned(
                 right: 0,
                 bottom: 0,
                 child: _ServerProjectBadge(project: project!, size: size),
               ),
-            if (busy && isHeroSize)
+            if (busy && isHeroSize && showBorder)
               // 大尺寸时进度环叠在白色边框上，头像保持清晰不变暗。
               SizedBox(
                 width: size,

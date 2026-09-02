@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:omm/features/cache/image_cache_manager.dart';
+
 import '../core/platform/app_theme.dart';
 
 /// omm 海报组件 · 真图优先, 失败回退到极简占位符 (深色块 + 图标 + 番号/标题)。
@@ -65,6 +67,7 @@ class Poster extends StatelessWidget {
                             .round()
                       : null;
                   return CachedNetworkImage(
+                    cacheManager: AppImageCacheManager.instance,
                     imageUrl: url!,
                     fit: BoxFit.cover,
                     alignment: imageAlignment,

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
@@ -254,6 +255,7 @@ class _MovieExtraFanartSectionState
                             unawaited(_openViewer(context, urls, index));
                           },
                           child: CachedNetworkImage(
+                            cacheManager: AppImageCacheManager.instance,
                             imageUrl: url,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => const Center(
@@ -343,6 +345,7 @@ class _TrailerThumbnail extends StatelessWidget {
           children: [
             if (imageUrl.isNotEmpty)
               CachedNetworkImage(
+                cacheManager: AppImageCacheManager.instance,
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
                 errorWidget: (_, __, ___) => _trailerPlaceholder(context),
@@ -901,6 +904,8 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer>
                                     final loadBytes = widget.loadBytes;
                                     final image = loadBytes == null
                                         ? CachedNetworkImage(
+                                            cacheManager:
+                                                AppImageCacheManager.instance,
                                             imageUrl: widget.urls[imageIndex],
                                             fit: BoxFit.contain,
                                             placeholder: (_, __) => const Center(
@@ -1118,6 +1123,7 @@ class _TrailerViewerState extends State<_TrailerViewer> {
       children: [
         if (posterUrl.isNotEmpty)
           CachedNetworkImage(
+            cacheManager: AppImageCacheManager.instance,
             imageUrl: posterUrl,
             fit: BoxFit.contain,
             placeholder: (_, __) => _trailerBackdrop(context),

@@ -16,6 +16,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../features/cache/image_cache_manager.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
@@ -483,7 +484,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     }
   }
 
-  Future<ServerProfileData?> _loadEmbyOrJellyfinProfile(
+  Future<ServerProfileData?> _loadMediaBrowserProfile(
     ServerProfile server,
     ServerProfileData? cached,
     ServerProject project,
@@ -513,13 +514,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       if (mediaBrowserConfig == null) {
         return cached ?? _fallbackProfile(server);
       }
-      // Emby 没有持久化 userId 时 validateSession 会抛错，走 catch 分支
-      // 回退到缓存档案，与旧实现返回空名的行为一致。
-      final userName =
-          (await client
-                  .mediaBrowserFor(mediaBrowserConfig)
-                  .validateSession(session.userId))
-              .name;
+      final userName = project == ServerProject.feiniu
+          ? (await client.feiniu.userInfo()).name
+          : (await client
+                    .mediaBrowserFor(mediaBrowserConfig)
+                    .validateSession(session.userId))
+                .name;
       final normalizedName = userName.trim();
       if (normalizedName.isEmpty) {
         return cached ?? _fallbackProfile(server);
@@ -1582,6 +1582,7 @@ class _ServerCardLogo extends StatelessWidget {
       child: source == null || source.isEmpty
           ? assetImage()
           : CachedNetworkImage(
+              cacheManager: AppImageCacheManager.instance,
               imageUrl: source,
               fit: BoxFit.contain,
               placeholder: (_, __) => assetImage(),

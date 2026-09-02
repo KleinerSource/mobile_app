@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/features/cache/image_cache_manager.dart';
+
 import '../../shared/glow_background.dart';
 import '../privacy/privacy_providers.dart';
 
@@ -115,6 +117,7 @@ class _BackdropArtLayer extends StatelessWidget {
                 // 放大出血,避免模糊边缘出现半透明条纹
                 scale: 1.35,
                 child: CachedNetworkImage(
+                  cacheManager: AppImageCacheManager.instance,
                   imageUrl: art.url,
                   fit: BoxFit.cover,
                   width: double.infinity,

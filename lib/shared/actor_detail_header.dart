@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/features/cache/image_cache_manager.dart';
+
 import '../core/config/server_config_provider.dart';
 import '../core/platform/app_theme.dart';
 import 'actor_avatar.dart';
@@ -187,6 +189,7 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
     Widget coverImage(int index) {
       if (config == null) return const SizedBox.shrink();
       return CachedNetworkImage(
+        cacheManager: AppImageCacheManager.instance,
         imageUrl: actorAvatarUrl(
           config,
           widget.actorId,
