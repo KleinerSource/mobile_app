@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_compatibility.dart';
+import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
@@ -15,6 +16,8 @@ import 'package:omm/features/oh_my_media/actors/actor_management_page.dart';
 import 'package:omm/features/oh_my_media/audio/audio_management_page.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_page.dart';
 import '../home/home_page.dart';
+import '../home/server_switch_transition.dart';
+import '../home/server_switcher.dart';
 import 'package:omm/features/db_online/pages/db_online_home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
@@ -69,6 +72,13 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     setState(() => _index = index);
   }
 
+  void _switchServer(String serverId) {
+    if (ref.read(serverSwitchTransitionProvider).isActive) return;
+    unawaited(
+      ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId),
+    );
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -79,12 +89,10 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     _lastProject = project;
   }
 
-  List<GlassMenuEntry<_YouQuickAction>> _quickMenuEntries(
-    BuildContext context,
-  ) {
+  List<GlassMenuEntry<Object?>> _quickMenuEntries(BuildContext context) {
     final l = AppL10n.of(context);
     return [
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.tasks,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.task_alt_outlined,
@@ -93,7 +101,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           onTap: onTap,
         ),
       ),
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.libraries,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.video_library_outlined,
@@ -102,7 +110,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           onTap: onTap,
         ),
       ),
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.audios,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.graphic_eq_outlined,
@@ -111,7 +119,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           onTap: onTap,
         ),
       ),
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.tags,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.label_outline,
@@ -120,7 +128,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           onTap: onTap,
         ),
       ),
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.genres,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.category_outlined,
@@ -129,7 +137,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           onTap: onTap,
         ),
       ),
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.series,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.collections_bookmark_outlined,
@@ -138,7 +146,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           onTap: onTap,
         ),
       ),
-      GlassMenuEntry<_YouQuickAction>.action(
+      GlassMenuEntry<Object?>.action(
         value: _YouQuickAction.actors,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.people_outline,
@@ -170,18 +178,41 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  List<FloatingTabSpec<_YouQuickAction>> _tabsFor(
+  List<FloatingTabSpec<Object?>> _tabsFor(
     BuildContext context, {
     required bool dbOnline,
     required bool mediaBrowser,
+    required List<ServerProfile> servers,
+    required String? activeServerId,
+    required String? selectingServerId,
   }) {
     final l = AppL10n.of(context);
+    final homeTab = FloatingTabSpec<Object?>(
+      label: l.tabHome,
+      icon: Icons.home_rounded,
+      quickMenuEntries: buildServerQuickSwitchEntries<Object?>(
+        context: context,
+        servers: servers,
+        activeServerId: activeServerId,
+        selectingServerId: selectingServerId,
+        valueFor: (serverId) => serverId,
+      ),
+      onQuickMenuSelected: (value) {
+        if (value is String) _switchServer(value);
+      },
+    );
     if (dbOnline) {
       return [
-        FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
-        FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
-        FloatingTabSpec(label: l.tabSearch, icon: Icons.search_rounded),
-        FloatingTabSpec(
+        homeTab,
+        FloatingTabSpec<Object?>(
+          label: l.tabLibrary,
+          icon: Icons.video_library_rounded,
+        ),
+        FloatingTabSpec<Object?>(
+          label: l.tabSearch,
+          icon: Icons.search_rounded,
+        ),
+        FloatingTabSpec<Object?>(
           label: l.settingsTitle,
           icon: Icons.person_outline_rounded,
         ),
@@ -190,24 +221,37 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     if (mediaBrowser) {
       // Emby/Jellyfin 与 OMM 一致：第 4 Tab 是收藏夹，设置入口在页头。
       return [
-        FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
-        FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
-        FloatingTabSpec(label: l.tabSearch, icon: Icons.search_rounded),
-        FloatingTabSpec(
+        homeTab,
+        FloatingTabSpec<Object?>(
+          label: l.tabLibrary,
+          icon: Icons.video_library_rounded,
+        ),
+        FloatingTabSpec<Object?>(
+          label: l.tabSearch,
+          icon: Icons.search_rounded,
+        ),
+        FloatingTabSpec<Object?>(
           label: l.favoritesTitle,
           icon: Icons.favorite_outline_rounded,
         ),
       ];
     }
     return [
-      FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
-      FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
-      FloatingTabSpec(label: l.tabSearch, icon: Icons.search_rounded),
-      FloatingTabSpec(
+      homeTab,
+      FloatingTabSpec<Object?>(
+        label: l.tabLibrary,
+        icon: Icons.video_library_rounded,
+      ),
+      FloatingTabSpec<Object?>(label: l.tabSearch, icon: Icons.search_rounded),
+      FloatingTabSpec<Object?>(
         label: l.tabYou,
         icon: Icons.person_outline_rounded,
         quickMenuEntries: _quickMenuEntries(context),
-        onQuickMenuSelected: (action) => unawaited(_openYouQuickAction(action)),
+        onQuickMenuSelected: (action) {
+          if (action is _YouQuickAction) {
+            unawaited(_openYouQuickAction(action));
+          }
+        },
       ),
     ];
   }
@@ -237,9 +281,11 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final project = ref.watch(serverConfigProvider)?.activeServer?.project;
+    final config = ref.watch(serverConfigProvider);
+    final project = config?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
     final mediaBrowser = MediaBrowserConfig.byProject[project] != null;
+    final transition = ref.watch(serverSwitchTransitionProvider);
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
@@ -248,6 +294,9 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
       context,
       dbOnline: dbOnline,
       mediaBrowser: mediaBrowser,
+      servers: config?.servers ?? const <ServerProfile>[],
+      activeServerId: config?.activeServerId,
+      selectingServerId: transition.isActive ? transition.targetServerId : null,
     );
     return Scaffold(
       extendBody: true,
@@ -269,7 +318,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
             ),
         ],
       ),
-      bottomNavigationBar: FloatingTabBar<_YouQuickAction>(
+      bottomNavigationBar: FloatingTabBar<Object?>(
         tabs: tabs,
         active: _index,
         onTap: _selectTab,

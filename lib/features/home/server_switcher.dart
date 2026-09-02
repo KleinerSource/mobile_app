@@ -168,6 +168,55 @@ double _serverMenuWidth(List<ServerProfile> servers) {
   return (maxNameLength * 15.0 + 92.0).clamp(148.0, 224.0).toDouble();
 }
 
+/// 构建可挂载到底部导航 Tab 的服务器快捷菜单。
+///
+/// 底部导航只需要服务器配置中的静态头像信息；首页右上角仍可继续使用
+/// [HomeServerSwitcher] 的远程资料加载逻辑。
+List<GlassMenuEntry<T>> buildServerQuickSwitchEntries<T>({
+  required BuildContext context,
+  required List<ServerProfile> servers,
+  required String? activeServerId,
+  required String? selectingServerId,
+  required T Function(String serverId) valueFor,
+}) {
+  final colors = appColors(context);
+  return [
+    for (final server in servers)
+      GlassMenuEntry<T>.action(
+        value: valueFor(server.id),
+        builder: (context, selected, onTap) {
+          final displayName = server.name.trim().isEmpty
+              ? '服务器'
+              : server.name.trim();
+          final active = server.id == activeServerId;
+          final busy = server.id == selectingServerId;
+          return GlassMenuRow(
+            label: displayName,
+            leading: ServerAvatar(
+              displayName: displayName,
+              avatarUrl: server.avatarUrl,
+              size: 34,
+              colors: colors,
+              project: server.project,
+              showBackground: false,
+            ),
+            selected: selected,
+            onTap: active || busy ? null : onTap,
+            trailing: busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : active
+                ? Icon(Icons.check_rounded, color: colors.accent, size: 19)
+                : null,
+          );
+        },
+      ),
+  ];
+}
+
 class _ServerMenuRow extends StatelessWidget {
   const _ServerMenuRow({
     required this.server,

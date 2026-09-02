@@ -20,6 +20,7 @@ import 'package:omm/features/files/file_manager_shell.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
+import 'package:omm/shared/glass_menu.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,8 +28,8 @@ void main() {
   testWidgets('文件管理器悬浮导航包含文件管理、收藏与设置', (tester) async {
     await _pumpShell(tester);
 
-    final tabBar = tester.widget<FloatingTabBar<void>>(
-      find.byType(FloatingTabBar<void>),
+    final tabBar = tester.widget<FloatingTabBar<String>>(
+      find.byType(FloatingTabBar<String>),
     );
     expect(tabBar.tabs, hasLength(3));
     expect(tabBar.tabs.map((tab) => tab.label), ['文件管理', '收藏', '设置']);
@@ -37,6 +38,25 @@ void main() {
     await tester.tap(find.byIcon(Icons.settings_rounded));
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsNWidgets(2));
+  });
+
+  testWidgets('文件管理 Tab 长按可打开服务器快捷切换菜单', (tester) async {
+    await _pumpShell(tester);
+
+    final tabBar = tester.widget<FloatingTabBar<String>>(
+      find.byType(FloatingTabBar<String>),
+    );
+    expect(tabBar.tabs.first.quickMenuEntries, hasLength(1));
+
+    final anchor = find.byType(GlassMenuAnchor<String>);
+    expect(anchor, findsOneWidget);
+    final gesture = await tester.startGesture(tester.getCenter(anchor));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+
+    // 文件页标题和弹出的服务器菜单行都会显示当前服务器名。
+    expect(find.text('文件服务器'), findsNWidgets(2));
+    await gesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('收藏 Tab 展示独立收藏列表并可取消收藏', (tester) async {
@@ -314,7 +334,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('选择目标目录'), findsOneWidget);
-    expect(find.byType(FloatingTabBar<void>), findsOneWidget);
+    expect(find.byType(FloatingTabBar<String>), findsOneWidget);
   });
 
   testWidgets('进入多级目录后悬浮导航仍然显示', (tester) async {
@@ -326,7 +346,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('深层文件.txt'), findsOneWidget);
-    expect(find.byType(FloatingTabBar<void>), findsOneWidget);
+    expect(find.byType(FloatingTabBar<String>), findsOneWidget);
     expect(find.text('文件管理'), findsOneWidget);
   });
 
@@ -382,7 +402,7 @@ void main() {
 
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('文件详情'), findsOneWidget);
-    expect(find.byType(FloatingTabBar<void>), findsOneWidget);
+    expect(find.byType(FloatingTabBar<String>), findsOneWidget);
 
     await tester.tapAt(const Offset(12, 12));
     await tester.pumpAndSettle();

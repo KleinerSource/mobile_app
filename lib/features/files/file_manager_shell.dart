@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +17,8 @@ import 'file_navigation.dart';
 import 'file_sources_page.dart';
 import '../settings/server_selection_page.dart';
 import '../settings/settings_page.dart';
+import '../home/server_switch_transition.dart';
+import '../home/server_switcher.dart';
 
 /// 文件管理器 Shell · 文件管理 / 收藏 / 设置三项悬浮导航。
 ///
@@ -43,6 +47,13 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
     if (index == _index) return;
     AppHaptics.selection();
     setState(() => _index = index);
+  }
+
+  void _switchServer(String serverId) {
+    if (ref.read(serverSwitchTransitionProvider).isActive) return;
+    unawaited(
+      ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId),
+    );
   }
 
   void _returnToServerSelector() {
@@ -96,6 +107,8 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final config = ref.watch(serverConfigProvider);
+    final transition = ref.watch(serverSwitchTransitionProvider);
     final fileNavigator = NavigatorPopHandler<void>(
       enabled: _index == 0,
       onPopWithResult: (_) {
@@ -133,30 +146,40 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
             final isMoveTargetPicker = moveTab != null;
             final tabs = isMoveTargetPicker
                 ? [
-                    FloatingTabSpec<void>(
+                    FloatingTabSpec<String>(
                       label: l.tabFiles,
                       icon: Icons.folder_rounded,
                     ),
-                    FloatingTabSpec<void>(
+                    FloatingTabSpec<String>(
                       label: l.fileFavoritesSection,
                       icon: Icons.star_rounded,
                     ),
                   ]
                 : [
-                    FloatingTabSpec<void>(
+                    FloatingTabSpec<String>(
                       label: l.tabFiles,
                       icon: Icons.folder_rounded,
+                      quickMenuEntries: buildServerQuickSwitchEntries<String>(
+                        context: context,
+                        servers: config?.servers ?? const [],
+                        activeServerId: config?.activeServerId,
+                        selectingServerId: transition.isActive
+                            ? transition.targetServerId
+                            : null,
+                        valueFor: (serverId) => serverId,
+                      ),
+                      onQuickMenuSelected: _switchServer,
                     ),
-                    FloatingTabSpec<void>(
+                    FloatingTabSpec<String>(
                       label: l.fileFavoritesSection,
                       icon: Icons.star_rounded,
                     ),
-                    FloatingTabSpec<void>(
+                    FloatingTabSpec<String>(
                       label: l.settingsTitle,
                       icon: Icons.settings_rounded,
                     ),
                   ];
-            return FloatingTabBar<void>(
+            return FloatingTabBar<String>(
               tabs: tabs,
               active: isMoveTargetPicker ? moveTab : _index,
               onTap: (index) {
