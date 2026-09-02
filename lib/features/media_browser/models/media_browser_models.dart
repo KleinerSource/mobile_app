@@ -336,6 +336,7 @@ class MediaBrowserItem {
     this.originalTitle,
     this.productionYear,
     this.endYear,
+    this.status,
     this.communityRating,
     this.criticRating,
     this.runTimeTicks,
@@ -373,6 +374,7 @@ class MediaBrowserItem {
   final String? originalTitle;
   final int? productionYear;
   final int? endYear;
+  final String? status;
   final double? communityRating;
   final double? criticRating;
   final int? runTimeTicks;
@@ -426,11 +428,14 @@ class MediaBrowserItem {
   int get runtimeMinutes =>
       (mediaBrowserTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
 
-  /// 剧集总集数。Jellyfin 提供 [episodeCount]，Emby 及旧版本服务端可能只
-  /// 返回容器计数，因此按兼容字段回退。
+  /// 剧集总集数。Emby/Jellyfin 的剧集列表通常通过 [childCount] 返回，
+  /// 其它版本再回退到递归计数或显式的 [episodeCount]。
   int? get totalEpisodeCount {
     if (!isSeries) return null;
-    return episodeCount ?? childCount ?? recursiveItemCount;
+    for (final count in [childCount, recursiveItemCount, episodeCount]) {
+      if (count != null && count > 0) return count;
+    }
+    return null;
   }
 
   String? get seriesTitle => seriesName;
@@ -452,6 +457,7 @@ class MediaBrowserItem {
       productionYear:
           _intValue(json['ProductionYear']) ?? _yearValue(json['PremiereDate']),
       endYear: _yearValue(json['EndDate']),
+      status: _stringOrNull(json['Status']),
       communityRating: _doubleValue(json['CommunityRating']),
       criticRating: _doubleValue(json['CriticRating']),
       runTimeTicks: _intValue(json['RunTimeTicks']),

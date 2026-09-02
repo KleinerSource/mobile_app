@@ -100,12 +100,14 @@ void main() {
       'Type': 'Series',
       'PremiereDate': '2019-09-01T00:00:00Z',
       'EndDate': '2024-05-20T00:00:00Z',
-      'EpisodeCount': 24,
+      'Status': 'Ended',
+      'ChildCount': 24,
     });
 
     expect(item.productionYear, 2019);
     expect(item.endYear, 2024);
-    expect(item.episodeCount, 24);
+    expect(item.status, 'Ended');
+    expect(item.childCount, 24);
     expect(item.totalEpisodeCount, 24);
   });
 
@@ -119,6 +121,19 @@ void main() {
     });
 
     expect(item.totalEpisodeCount, 12);
+  });
+
+  test('剧集总集数忽略零值并回退到有效计数', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'series-3',
+      'Name': '部分计数剧集',
+      'Type': 'Series',
+      'ChildCount': 0,
+      'RecursiveItemCount': 18,
+      'EpisodeCount': 12,
+    });
+
+    expect(item.totalEpisodeCount, 18);
   });
 
   test('MediaBrowserItemPage.fromJson 过滤无 ID 条目并计算 hasMore', () {

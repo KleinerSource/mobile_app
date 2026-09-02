@@ -153,6 +153,18 @@ String mediaBrowserItemMetaText(MediaBrowserItem item) {
 String? _seriesYearText(MediaBrowserItem item) {
   final startYear = item.productionYear;
   final endYear = item.endYear;
+
+  switch (item.status?.trim().toLowerCase()) {
+    case 'ended':
+      if (startYear == null) return endYear?.toString();
+      if (endYear == null) return startYear.toString();
+      if (endYear == startYear) return '$startYear';
+      return '$startYear - $endYear';
+    case 'continuing':
+      if (startYear == null) return '现在';
+      return '$startYear - 现在';
+  }
+
   if (startYear == null) return endYear?.toString();
   if (endYear == null) return '$startYear - 现在';
   if (endYear == startYear) return '$startYear';
