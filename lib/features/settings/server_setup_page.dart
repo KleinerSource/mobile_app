@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_config.dart';
@@ -298,6 +299,19 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         name: '主线路',
         baseUrl: endpoint,
       );
+      ServerLineProbeResult? validatedProbe;
+      if (project == ServerProject.openList) {
+        final probe = await ref
+            .read(serverLineProbeCoordinatorProvider)
+            .probe(line, expectedProjectName: project.projectName);
+        if (!probe.success || probe.versionInfo == null) {
+          throw ServerCompatibilityException(
+            probe.message.isEmpty ? 'OpenList/AList 版本检测失败' : probe.message,
+          );
+        }
+        validatedProbe = probe;
+      }
+      final serverVersion = validatedProbe?.versionInfo?.version;
       final server = editingServer == null
           ? ServerProfile(
               id: serverId,
@@ -305,15 +319,18 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
               lines: [line],
               activeLineId: line.id,
               projectName: project.projectName,
+              serverVersion: serverVersion,
             )
           : editingServer.copyWith(
               name: config.name,
               lines: [line],
               activeLineId: line.id,
               projectName: project.projectName,
-              serverVersion: null,
+              serverVersion: serverVersion,
             );
-      await ref.read(serverConfigProvider.notifier).saveServer(server);
+      await ref
+          .read(serverConfigProvider.notifier)
+          .saveServer(server, validatedProbe: validatedProbe);
       ref.invalidate(fileSourceConfigsProvider);
       ref.invalidate(fileSourceRegistryProvider);
       AppHaptics.medium();

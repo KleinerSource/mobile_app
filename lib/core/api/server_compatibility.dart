@@ -116,7 +116,8 @@ String get serverCompatibilityRequirementMessage =>
     '${ServerProject.jellyfin.projectName} >= '
     '${ServerProject.jellyfin.minimumVersion} 或 '
     '${ServerProject.feiniu.projectName} >= '
-    '${ServerProject.feiniu.minimumVersion}';
+    '${ServerProject.feiniu.minimumVersion} 或 '
+    '${ServerProject.openList.displayName}（不限制最低版本）';
 
 @immutable
 class ServerVersionInfo {
@@ -173,13 +174,25 @@ bool isSupportedServerVersion(
   String minimumVersion = minimumSupportedServerVersion,
 ]) {
   final actual = _parseVersion(version);
+  if (actual == null) return false;
+  if (minimumVersion.trim().isEmpty) return true;
+
   final minimum = _parseVersion(minimumVersion);
-  if (actual == null || minimum == null) return false;
+  if (minimum == null) return false;
 
   for (var i = 0; i < actual.length; i++) {
     if (actual[i] != minimum[i]) return actual[i] > minimum[i];
   }
   return true;
+}
+
+/// 从服务器返回值中提取标准版本号，去掉 OpenList 附带的构建元数据。
+String? normalizeServerVersion(String value) {
+  final match = RegExp(
+    r'^(v?\d+\.\d+\.\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?:\s.*)?$',
+    caseSensitive: false,
+  ).firstMatch(value.trim());
+  return match?.group(1);
 }
 
 ServerVersionInfo _decodeServerVersion(Object? raw) {
@@ -195,16 +208,22 @@ ServerVersionInfo _decodeServerVersion(Object? raw) {
 }
 
 List<int>? _parseVersion(String value) {
-  // Emby 等外部服务器可能返回四段式版本（如 4.9.5.0），末段是 build 号，
-  // 不参与兼容性比较；只取语义化版本的前三段，与最低版本等长比较。
+  // Emby 等外部服务器可能返回四段式版本（如 4.9.5.0），末段是 build 号；
+  // OpenList 还可能在版本号后附带 Commit/Build 元数据。两者都只取前三段
+  // 参与兼容性比较。
   final match = RegExp(
-    r'^v?(\d+)\.(\d+)\.(\d+)(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$',
+    r'^(v?\d+\.\d+\.\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?:\s.*)?$',
     caseSensitive: false,
   ).firstMatch(value.trim());
   if (match == null) return null;
+  final parts = RegExp(
+    r'^v?(\d+)\.(\d+)\.(\d+)',
+    caseSensitive: false,
+  ).firstMatch(match.group(1)!);
+  if (parts == null) return null;
   return [
-    int.parse(match.group(1)!),
-    int.parse(match.group(2)!),
-    int.parse(match.group(3)!),
+    int.parse(parts.group(1)!),
+    int.parse(parts.group(2)!),
+    int.parse(parts.group(3)!),
   ];
 }

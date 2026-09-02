@@ -9,6 +9,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
 
 /// Emby / Jellyfin 管理端媒体库配置页。
@@ -26,6 +27,14 @@ class MediaBrowserLibrarySettingsPage extends ConsumerStatefulWidget {
 class _MediaBrowserLibrarySettingsPageState
     extends ConsumerState<MediaBrowserLibrarySettingsPage> {
   bool _refreshing = false;
+  String? _busyLibraryId;
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+
+  @override
+  void dispose() {
+    _openSwipe.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,33 +104,87 @@ class _MediaBrowserLibrarySettingsPageState
     return RefreshIndicator(
       color: appColors(context).accent,
       onRefresh: () => ref.refresh(mediaBrowserVirtualFoldersProvider.future),
-      child: async.when(
-        loading: () =>
-            _scrollableMessage(context, const CircularProgressIndicator()),
-        error: (error, _) => _errorState(
-          context,
-          message: _errorMessage(error),
-          onRetry: () => ref.invalidate(mediaBrowserVirtualFoldersProvider),
-        ),
-        data: (libraries) {
-          if (libraries.isEmpty) return const _EmptyLibraryState();
-          return ListView.separated(
-            primary: true,
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-            itemCount: libraries.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final library = libraries[index];
-              return _LibraryCard(
-                library: library,
-                onTap: () => _openEditor(library),
-                onDelete: () => _confirmDelete(library),
-              );
-            },
-          );
+      child: NotificationListener<ScrollUpdateNotification>(
+        // 与 OMM 媒体库页一致：列表开始滚动时收起已展开的左滑操作。
+        onNotification: (_) {
+          if (_openSwipe.value != null) _openSwipe.value = null;
+          return false;
         },
+        child: async.when(
+          loading: () =>
+              _scrollableMessage(context, const CircularProgressIndicator()),
+          error: (error, _) => _errorState(
+            context,
+            message: _errorMessage(error),
+            onRetry: () => ref.invalidate(mediaBrowserVirtualFoldersProvider),
+          ),
+          data: (libraries) {
+            if (libraries.isEmpty) return const _EmptyLibraryState();
+            return ListView(
+              primary: true,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+              children: [
+                Container(
+                  decoration: settingsCardDecoration(context),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < libraries.length; i++) ...[
+                          if (i > 0)
+                            Divider(
+                              height: 1,
+                              color: appColors(context).divider,
+                            ),
+                          SwipeActionCell(
+                            group: _openSwipe,
+                            cellKey: libraries[i].id,
+                            actions: _librarySwipeActions(libraries[i]),
+                            enabled: _busyLibraryId != libraries[i].id,
+                            child: _LibraryCard(
+                              library: libraries[i],
+                              busy: _busyLibraryId == libraries[i].id,
+                              onTap: () => _openEditor(libraries[i]),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
+  }
+
+  /// 与 OMM 媒体库页一致：点击行编辑，左滑提供刷新、启停和删除。
+  List<SwipeActionData> _librarySwipeActions(MediaBrowserLibrary library) {
+    final colors = appColors(context);
+    return [
+      SwipeActionData(
+        icon: Icons.refresh_rounded,
+        label: '刷新',
+        color: AppHues.top(AppHues.mint),
+        onPressed: () => _refreshLibrary(library),
+      ),
+      SwipeActionData(
+        icon: library.enabled
+            ? Icons.toggle_off_outlined
+            : Icons.toggle_on_outlined,
+        label: library.enabled ? '停用' : '启用',
+        color: colors.warning,
+        onPressed: () => _toggleLibrary(library),
+      ),
+      SwipeActionData(
+        icon: Icons.delete_outline_rounded,
+        label: '删除',
+        color: colors.danger,
+        onPressed: () => _confirmDelete(library),
+      ),
+    ];
   }
 
   Widget _scrollableMessage(BuildContext context, Widget child) {
@@ -208,6 +271,42 @@ class _MediaBrowserLibrarySettingsPageState
     }
   }
 
+  Future<void> _refreshLibrary(MediaBrowserLibrary library) async {
+    if (_busyLibraryId != null) return;
+    setState(() => _busyLibraryId = library.id);
+    try {
+      await ref.read(mediaBrowserMediaRepositoryProvider).refreshLibrary();
+      _invalidateMediaBrowserCaches();
+      _showMessage('已开始刷新「${library.name}」');
+    } catch (error) {
+      _showError('刷新失败：${_errorMessage(error)}');
+    } finally {
+      if (mounted) setState(() => _busyLibraryId = null);
+    }
+  }
+
+  Future<void> _toggleLibrary(MediaBrowserLibrary library) async {
+    if (_busyLibraryId != null) return;
+    final enabled = !library.enabled;
+    setState(() => _busyLibraryId = library.id);
+    try {
+      final repository = ref.read(mediaBrowserMediaRepositoryProvider);
+      await repository.updateVirtualFolderOptions(
+        id: library.id,
+        enabled: enabled,
+        // 保留服务器返回的高级 LibraryOptions，避免启停操作覆盖配置。
+        options: library.libraryOptions,
+      );
+      await repository.refreshLibrary();
+      _invalidateMediaBrowserCaches();
+      _showMessage(enabled ? '媒体库已启用' : '媒体库已停用');
+    } catch (error) {
+      _showError('操作失败：${_errorMessage(error)}');
+    } finally {
+      if (mounted) setState(() => _busyLibraryId = null);
+    }
+  }
+
   Future<void> _openEditor([MediaBrowserLibrary? library]) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -243,6 +342,7 @@ class _MediaBrowserLibrarySettingsPageState
     );
     if (!mounted || confirmed != true) return;
 
+    setState(() => _busyLibraryId = library.id);
     try {
       final repository = ref.read(mediaBrowserMediaRepositoryProvider);
       await repository.removeVirtualFolder(library.name);
@@ -251,6 +351,8 @@ class _MediaBrowserLibrarySettingsPageState
       _showMessage('媒体库已删除');
     } catch (error) {
       _showError('删除失败：${_errorMessage(error)}');
+    } finally {
+      if (mounted) setState(() => _busyLibraryId = null);
     }
   }
 
@@ -349,106 +451,87 @@ class _EmptyLibraryState extends StatelessWidget {
 class _LibraryCard extends StatelessWidget {
   const _LibraryCard({
     required this.library,
+    required this.busy,
     required this.onTap,
-    required this.onDelete,
   });
 
   final MediaBrowserLibrary library;
+  final bool busy;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    return Container(
-      decoration: settingsCardDecoration(context),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: colors.accent.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(Icons.video_library_outlined, color: colors.accent),
+    return InkWell(
+      onTap: busy ? null : onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.13),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            library.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: library.enabled
-                                  ? colors.text
-                                  : colors.muted,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                            ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.video_library_outlined,
+                color: colors.accent,
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          library.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: library.enabled ? colors.text : colors.muted,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _StatusPill(enabled: library.enabled),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _libraryTypeLabel(library.collectionType),
-                      style: AppText.meta(context),
-                    ),
-                    const SizedBox(height: 8),
-                    if (library.paths.isEmpty)
-                      Text('未配置媒体路径', style: AppText.meta(context))
-                    else
-                      for (final path in library.paths.take(3))
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            path,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: colors.muted, fontSize: 12),
-                          ),
-                        ),
-                    if (library.paths.length > 3)
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusPill(enabled: library.enabled),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
                       Text(
-                        '+${library.paths.length - 3} 个路径',
+                        _libraryTypeLabel(library.collectionType),
                         style: AppText.meta(context),
                       ),
-                  ],
-                ),
-              ),
-              Column(
-                children: [
-                  IconButton(
-                    tooltip: '编辑',
-                    onPressed: onTap,
-                    icon: const Icon(Icons.edit_outlined, size: 19),
-                  ),
-                  IconButton(
-                    tooltip: '删除',
-                    onPressed: onDelete,
-                    color: colors.danger,
-                    icon: const Icon(Icons.delete_outline_rounded, size: 19),
+                      if (busy) ...[
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.8,
+                            color: colors.accent,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

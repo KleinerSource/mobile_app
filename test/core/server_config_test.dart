@@ -1243,6 +1243,27 @@ void _main_3() {
     expect(isSupportedServerVersion('4.5.2', '4.6.0'), isFalse);
   });
 
+  test('OpenList/AList 版本只校验格式，不限制最低版本', () {
+    expect(
+      isSupportedServerVersion('0.1.0', ServerProject.openList.minimumVersion),
+      isTrue,
+    );
+    final info = requireCompatibleServerVersion({
+      'success': true,
+      'data': {'project_name': 'openlist', 'version': '0.1.0'},
+    });
+    expect(info.project, ServerProject.openList);
+  });
+
+  test('OpenList 版本号可从带构建元数据的返回值中提取', () {
+    expect(
+      normalizeServerVersion(
+        'v4.0.0 (Commit: abc123) - Frontend: 1.2.3 - Build at: now',
+      ),
+      'v4.0.0',
+    );
+  });
+
   test('dbonline 低于 1.14.0 时拒绝并提示实际版本', () {
     expect(
       () => requireCompatibleServerVersion({
@@ -1415,6 +1436,53 @@ void _main_4() {
 
     expect(selection.selected?.versionInfo?.project, ServerProject.ohMyMedia);
     expect(selection.selected?.versionInfo?.version, '2.1.0');
+  });
+
+  test('OpenList/AList 通过公开设置识别版本并支持 WebDAV 端点', () async {
+    var version = 'v4.0.0 (Commit: abc123) - Frontend: 1.2.3 - Build at: now';
+    final requests = <String>[];
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) {
+      requests.add(request.uri.path);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path == '/api/public/settings') {
+        request.response.write(
+          jsonEncode({
+            'code': 200,
+            'data': {'title': 'OpenList', 'version': version},
+          }),
+        );
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+      }
+      request.response.close();
+    });
+
+    try {
+      final baseUrl = 'http://127.0.0.1:${server.port}/dav';
+      var result = await probeServerLine(
+        ServerLine(id: 'openlist', name: 'OpenList', baseUrl: baseUrl),
+      );
+      expect(result.success, isTrue);
+      expect(result.versionInfo?.project, ServerProject.openList);
+      expect(result.versionInfo?.version, 'v4.0.0');
+
+      version = 'v3.39.4';
+      result = await probeServerLine(
+        ServerLine(id: 'alist', name: 'AList', baseUrl: baseUrl),
+      );
+      expect(result.success, isTrue);
+      expect(result.versionInfo?.project, ServerProject.openList);
+      expect(result.versionInfo?.version, 'v3.39.4');
+      expect(requests, [
+        '/dav/api/version',
+        '/api/public/settings',
+        '/dav/api/version',
+        '/api/public/settings',
+      ]);
+    } finally {
+      await server.close(force: true);
+    }
   });
 
   test('DBO 线路探测会校验健康状态', () async {

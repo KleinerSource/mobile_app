@@ -8,6 +8,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_settings_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
+import 'package:omm/shared/swipe_actions.dart';
 
 class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
   _FakeMediaBrowserSource({required this.user, required this.libraries});
@@ -187,7 +188,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('删除'));
+    await tester.timedDrag(
+      find.byType(SwipeActionCell),
+      const Offset(-120, 0),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('删除').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('删除').hitTestable());
     await tester.pumpAndSettle();
     expect(find.text('删除媒体库'), findsOneWidget);
     expect(find.textContaining('服务器上的媒体文件不会被删除'), findsOneWidget);
@@ -196,6 +204,65 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(source.calls, ['remove:旧库', 'refresh']);
+  });
+
+  testWidgets('媒体库卡片隐藏路径并通过左滑刷新服务器', (tester) async {
+    final source = _FakeMediaBrowserSource(
+      user: const MediaBrowserUser(id: 'admin-1', name: '管理员', isAdmin: true),
+      libraries: const [_library],
+    );
+    final repository = MediaBrowserMediaRepository(source);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mediaBrowserConfigProvider.overrideWithValue(
+            MediaBrowserConfig.jellyfin,
+          ),
+          mediaBrowserMediaRepositoryProvider.overrideWithValue(repository),
+          mediaBrowserCurrentUserProvider.overrideWith(
+            (_) async => const MediaBrowserUser(
+              id: 'admin-1',
+              name: '管理员',
+              isAdmin: true,
+            ),
+          ),
+          mediaBrowserVirtualFoldersProvider.overrideWith(
+            (_) async => const [_library],
+          ),
+        ],
+        child: const MaterialApp(home: MediaBrowserLibrarySettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('旧库'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑媒体库'), findsOneWidget);
+    Navigator.of(
+      tester.element(find.byType(MediaBrowserLibraryEditorPage)),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.text('/media/a'), findsNothing);
+    expect(find.text('/media/b'), findsNothing);
+    expect(find.byType(SwipeActionCell), findsOneWidget);
+
+    await tester.timedDrag(
+      find.byType(SwipeActionCell),
+      const Offset(-120, 0),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('刷新').hitTestable(), findsOneWidget);
+    expect(find.text('停用').hitTestable(), findsOneWidget);
+    expect(find.text('删除').hitTestable(), findsOneWidget);
+
+    await tester.tap(find.text('刷新').hitTestable());
+    await tester.pumpAndSettle();
+
+    expect(source.calls, ['refresh']);
+    expect(find.text('已开始刷新「旧库」'), findsOneWidget);
   });
 
   testWidgets('服务器返回 401/403 时显示明确的权限错误', (tester) async {

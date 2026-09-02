@@ -1,14 +1,20 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_repository.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/media_browser/api/feiniu_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -150,6 +156,79 @@ void main() {
       'http://host:5666/v',
     );
   });
+
+  test('飞牛登录后重新检查服务器不因缺少 Cookie 要求再次登录', () async {
+    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => httpServer.close(force: true));
+    httpServer.listen((request) async {
+      final isLogin = request.uri.path.endsWith('/login');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'code': 0,
+          'data': isLogin
+              ? {'token': 'token-1'}
+              : {'id': 'user-1', 'name': 'alice'},
+        }),
+      );
+      await request.response.close();
+    });
+
+    final store = _MemoryTokenStore();
+    final sessions = AuthSessionRepository(store: store);
+    final baseUrl = 'http://${httpServer.address.address}:${httpServer.port}';
+    final line = ServerLine(id: 'feiniu-line', name: '主线路', baseUrl: baseUrl);
+    final server = ServerProfile(
+      id: 'feiniu-server',
+      name: '飞牛影视',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'feiniu',
+    );
+    final config = ServerConfig(
+      baseUrl: baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final client = ApiClient.fromConfig(config, sessionRepository: sessions);
+    final container = ProviderContainer(
+      overrides: [
+        serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
+        serverSelectionReadyProvider.overrideWith((ref) => true),
+        authSessionRepositoryProvider.overrideWithValue(sessions),
+        requiredApiClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.needsLogin,
+    );
+    await container
+        .read(authControllerProvider.notifier)
+        .login(username: 'alice', password: 'password');
+
+    final stored = await sessions.forServer(server.id).load();
+    expect(stored?.accessToken, 'token-1');
+    expect(stored?.userId, 'user-1');
+    expect(stored?.cookie, isNull);
+
+    final restored = await container
+        .read(authControllerProvider.notifier)
+        .refreshCurrentServer();
+    expect(restored.phase, AuthPhase.authenticated);
+  });
+}
+
+class _ServerConfigState extends ServerConfigNotifier {
+  _ServerConfigState(this.config);
+
+  final ServerConfig config;
+
+  @override
+  ServerConfig build() => config;
 }
 
 class _RecordingAdapter implements HttpClientAdapter {

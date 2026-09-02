@@ -242,6 +242,7 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
         );
       }
     }
+
     final versionInfo = await _probeOmmVersion(line);
     if (versionInfo != null) {
       if (versionInfo.project == ServerProject.dbOnline) {
@@ -271,6 +272,18 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       );
     }
 
+    final openListInfo = _looksLikeOpenListDavEndpoint(line.baseUrl)
+        ? await _probeOpenListVersion(line)
+        : null;
+    if (openListInfo != null) {
+      stopwatch.stop();
+      return ServerLineProbeResult.success(
+        line,
+        stopwatch.elapsedMilliseconds,
+        versionInfo: openListInfo,
+      );
+    }
+
     // OMM 协议不通时回退尝试 Emby/Jellyfin：System/Info/Public 是免鉴权
     // 的标准入口，OMM/DBO 服务器对其返回 404，不会误判。
     final mediaServerInfo = await _probeEmbyLikeVersion(line);
@@ -291,6 +304,18 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
           line,
           stopwatch.elapsedMilliseconds,
           versionInfo: feiniuInfo,
+        );
+      }
+    }
+
+    if (!_looksLikeOpenListDavEndpoint(line.baseUrl)) {
+      final openListInfo = await _probeOpenListVersion(line);
+      if (openListInfo != null) {
+        stopwatch.stop();
+        return ServerLineProbeResult.success(
+          line,
+          stopwatch.elapsedMilliseconds,
+          versionInfo: openListInfo,
         );
       }
     }
@@ -353,6 +378,69 @@ Future<ServerVersionInfo?> _probeFeiniuVersion(ServerLine line) async {
     if (exception.status == 404 || exception.status == 405) return null;
     rethrow;
   }
+}
+
+/// 读取 OpenList/AList 的公开站点设置；两个项目都通过
+/// `/api/public/settings` 返回 `data.version`，无需登录。
+Future<ServerVersionInfo?> _probeOpenListVersion(ServerLine line) async {
+  final siteBaseUrl = _openListSiteBaseUrl(line.baseUrl);
+  final dio = buildDio(
+    ServerConfig(baseUrl: siteBaseUrl),
+    connectTimeout: const Duration(milliseconds: 1200),
+    sendTimeout: const Duration(milliseconds: 1200),
+    receiveTimeout: const Duration(milliseconds: 2200),
+  );
+  try {
+    final response = await dio.get<dynamic>(
+      '$siteBaseUrl/api/public/settings',
+      options: Options(
+        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
+      ),
+    );
+    final raw = response.data;
+    if (raw is! Map || raw['code'] != 200 || raw['data'] is! Map) {
+      return null;
+    }
+    final settings = Map<String, dynamic>.from(raw['data'] as Map);
+    final version = normalizeServerVersion(
+      settings['version']?.toString() ?? '',
+    );
+    if (version == null) return null;
+    return ServerVersionInfo(
+      projectName: ServerProject.openList.projectName,
+      version: version,
+    );
+  } on DioException catch (error) {
+    final exception = toApiException(error);
+    if (exception.status == 404 || exception.status == 405) return null;
+    rethrow;
+  }
+}
+
+String _openListSiteBaseUrl(String raw) {
+  final normalized = ServerConfig.normalize(raw);
+  final uri = Uri.tryParse(normalized);
+  if (uri == null || uri.host.isEmpty) return normalized;
+
+  final segments = uri.pathSegments;
+  final davIndex = segments.indexWhere(
+    (segment) => segment.toLowerCase() == 'dav',
+  );
+  if (davIndex < 0) return normalized;
+  final prefix = segments.take(davIndex).toList(growable: false);
+  return ServerConfig.normalize(
+    uri
+        .replace(
+          path: prefix.isEmpty ? '/' : '/${prefix.join('/')}',
+        )
+        .toString(),
+  );
+}
+
+bool _looksLikeOpenListDavEndpoint(String raw) {
+  final uri = Uri.tryParse(ServerConfig.normalize(raw));
+  if (uri == null) return false;
+  return uri.pathSegments.any((segment) => segment.toLowerCase() == 'dav');
 }
 
 bool _looksLikeFeiniuBasePath(String raw) {

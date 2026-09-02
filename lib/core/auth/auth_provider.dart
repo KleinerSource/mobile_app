@@ -15,6 +15,7 @@ import '../config/server_config.dart';
 import '../config/server_config_provider.dart';
 import '../config/server_line_probe.dart';
 import 'auth_session.dart';
+import 'auth_session_repository.dart';
 import 'auth_session_provider.dart';
 import '../platform/device_id.dart';
 
@@ -251,16 +252,25 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? totpCode,
   }) async {
     final client = ref.read(requiredApiClientProvider);
+    // 登录期间服务器列表仍可能在后台加载其他服务器资料；固定本次
+    // 客户端对应的会话作用域，避免 token/cookie 被写到其他服务器。
+    final sessionRepository = _sessionRepositoryForClient(client);
     final isDbOnline =
         client.config?.activeServer?.project == ServerProject.dbOnline;
     final mediaBrowserConfig =
         MediaBrowserConfig.byProject[client.config?.activeServer?.project];
     if (client.config?.activeServer?.project == ServerProject.feiniu) {
-      return _loginFeiniu(client, username: username, password: password);
+      return _loginFeiniu(
+        client,
+        sessionRepository: sessionRepository,
+        username: username,
+        password: password,
+      );
     }
     if (mediaBrowserConfig != null) {
       return _loginMediaBrowser(
         client,
+        sessionRepository: sessionRepository,
         config: mediaBrowserConfig,
         username: username,
         password: password,
@@ -277,14 +287,14 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (isDbOnline ? !session.hasAccessToken : !session.isUsable) {
         throw ApiException('登录响应缺少有效会话');
       }
-      await ref.read(authSessionRepositoryProvider).save(session);
+      await sessionRepository.save(session);
       if (isDbOnline) {
         try {
           if (!await client.auth.verify()) {
             throw ApiException('登录响应令牌无效');
           }
         } catch (_) {
-          await ref.read(authSessionRepositoryProvider).clear();
+          await sessionRepository.clear();
           rethrow;
         }
       }
@@ -328,13 +338,14 @@ class AuthController extends AsyncNotifier<AuthState> {
     ApiClient client,
     MediaBrowserConfig config,
   ) async {
-    final session = await ref.read(authSessionRepositoryProvider).load();
+    final sessionRepository = _sessionRepositoryForClient(client);
+    final session = await sessionRepository.load();
     final userId = session?.userId?.trim() ?? '';
     if (session == null ||
         !session.hasAccessToken ||
         (!config.supportsCurrentUser && userId.isEmpty)) {
       // Emby 没有用户 ID 就无法拼出任何用户端点，只能重新登录。
-      await ref.read(authSessionRepositoryProvider).clear();
+      await sessionRepository.clear();
       return const AuthState(phase: AuthPhase.needsLogin);
     }
     try {
@@ -344,23 +355,21 @@ class AuthController extends AsyncNotifier<AuthState> {
       // 极少数情况下令牌仍有效但绑定用户变化（服务端重建用户），同步本地
       // 记录的 userId，条目查询依赖它拼接 /Users/{uid} 路径。
       if (user.id.isNotEmpty && user.id != session.userId) {
-        await ref
-            .read(authSessionRepositoryProvider)
-            .save(
-              AuthSession(
-                accessToken: session.accessToken,
-                refreshToken: '',
-                expiresIn: 0,
-                userId: user.id,
-              ),
-            );
+        await sessionRepository.save(
+          AuthSession(
+            accessToken: session.accessToken,
+            refreshToken: '',
+            expiresIn: 0,
+            userId: user.id,
+          ),
+        );
       }
       return const AuthState(phase: AuthPhase.authenticated);
     } catch (error) {
       final exception = toApiException(error);
       if (exception.status == 401 ||
           (!config.supportsCurrentUser && exception.status == 404)) {
-        await ref.read(authSessionRepositoryProvider).clear();
+        await sessionRepository.clear();
         return const AuthState(phase: AuthPhase.needsLogin);
       }
       return AuthState(
@@ -371,36 +380,33 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   Future<AuthState> _bootstrapFeiniu(ApiClient client) async {
-    final session = await ref.read(authSessionRepositoryProvider).load();
-    // 飞牛图片与媒体资源使用独立请求，必须同时恢复登录令牌和网页会话
-    // Cookie；旧版本只保存 token 的会话需要重新登录一次。
-    if (session == null ||
-        !session.hasAccessToken ||
-        session.cookie?.trim().isNotEmpty != true) {
-      await ref.read(authSessionRepositoryProvider).clear();
+    final sessionRepository = _sessionRepositoryForClient(client);
+    final session = await sessionRepository.load();
+    // Cookie 只用于部分图片/媒体资源，飞牛 API 的登录态由 token 验证；
+    // 某些版本或网络环境不会在登录响应中暴露 Set-Cookie，不能因此要求重登。
+    if (session == null || !session.hasAccessToken) {
+      await sessionRepository.clear();
       return const AuthState(phase: AuthPhase.needsLogin);
     }
     try {
       final user = await client.feiniu.userInfo();
       if (user.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
       if (session.userId != user.id) {
-        await ref
-            .read(authSessionRepositoryProvider)
-            .save(
-              AuthSession(
-                accessToken: session.accessToken,
-                refreshToken: '',
-                expiresIn: 0,
-                userId: user.id,
-                cookie: session.cookie,
-              ),
-            );
+        await sessionRepository.save(
+          AuthSession(
+            accessToken: session.accessToken,
+            refreshToken: '',
+            expiresIn: 0,
+            userId: user.id,
+            cookie: session.cookie,
+          ),
+        );
       }
       return const AuthState(phase: AuthPhase.authenticated);
     } catch (error) {
       final exception = toApiException(error);
       if (exception.status == 401 || exception.status == 403) {
-        await ref.read(authSessionRepositoryProvider).clear();
+        await sessionRepository.clear();
         return const AuthState(phase: AuthPhase.needsLogin);
       }
       return AuthState(
@@ -410,8 +416,24 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
+  AuthSessionRepository _sessionRepositoryForClient(ApiClient client) {
+    final config = client.config;
+    final project = config?.activeServer?.project;
+    final allowLegacyMigration =
+        project != ServerProject.dbOnline &&
+        project != ServerProject.emby &&
+        project != ServerProject.jellyfin;
+    return ref
+        .read(authSessionRepositoryProvider)
+        .forServer(
+          config?.activeServerId,
+          allowLegacyMigration: allowLegacyMigration,
+        );
+  }
+
   Future<bool> _loginFeiniu(
     ApiClient client, {
+    required AuthSessionRepository sessionRepository,
     required String? username,
     required String password,
   }) async {
@@ -433,8 +455,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         password: password,
       );
       final cookie = client.feiniu.lastLoginCookie;
-      final repository = ref.read(authSessionRepositoryProvider);
-      await repository.save(
+      await sessionRepository.save(
         AuthSession(
           accessToken: token,
           refreshToken: '',
@@ -444,7 +465,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       );
       final profile = await client.feiniu.userInfo();
       if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
-      await repository.save(
+      await sessionRepository.save(
         AuthSession(
           accessToken: token,
           refreshToken: '',
@@ -456,7 +477,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
     } catch (error) {
-      await ref.read(authSessionRepositoryProvider).clear();
+      await sessionRepository.clear();
       final exception = toApiException(error);
       state = AsyncData(
         AuthState(
@@ -471,6 +492,7 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<bool> _loginMediaBrowser(
     ApiClient client, {
+    required AuthSessionRepository sessionRepository,
     required MediaBrowserConfig config,
     required String? username,
     required String password,
@@ -501,16 +523,14 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (result.accessToken.isEmpty || result.user.id.isEmpty) {
         throw ApiException('登录响应缺少有效会话');
       }
-      await ref
-          .read(authSessionRepositoryProvider)
-          .save(
-            AuthSession(
-              accessToken: result.accessToken,
-              refreshToken: '',
-              expiresIn: 0,
-              userId: result.user.id,
-            ),
-          );
+      await sessionRepository.save(
+        AuthSession(
+          accessToken: result.accessToken,
+          refreshToken: '',
+          expiresIn: 0,
+          userId: result.user.id,
+        ),
+      );
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
     } catch (error) {
