@@ -183,6 +183,21 @@ void main() {
     expect(mediaBrowserItemMetaText(legacy), '2019 - 2024 · 8集');
   });
 
+  test('Emby 原始剧集字段显示起始年份和连载状态', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Name': '侠探杰克',
+      'Id': '3292',
+      'ProductionYear': 2022,
+      'Type': 'Series',
+      'Status': 'Continuing',
+      'EndDate': '2025-03-26T16:00:00.0000000Z',
+      'UserData': {'UnplayedItemCount': 24, 'PlayCount': 0},
+    });
+
+    expect(item.productionYear, 2022);
+    expect(mediaBrowserItemMetaText(item), '2022 - 现在 · 24集');
+  });
+
   testWidgets('MediaBrowser 卡片在影视网格中完整显示 meta', (tester) async {
     await _pumpBoth(tester);
     expect(tester.takeException(), isNull);

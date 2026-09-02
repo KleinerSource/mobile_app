@@ -4,6 +4,9 @@ import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
+const _mediaBrowserCardFields =
+    'ItemCounts,ProductionYear,PremiereDate,EndDate,Status';
+
 /// MediaBrowser（Emby / Jellyfin）REST API 客户端。
 ///
 /// 两家服务器的接口同构，项目差异全部在 [config]（路径前缀 / 登录头 /
@@ -245,7 +248,13 @@ class MediaBrowserApi {
     List<String>? fields,
     String? personIds,
   }) {
-    final requestedFields = <String>{'ItemCounts'};
+    final requestedFields = <String>{
+      'ItemCounts',
+      'ProductionYear',
+      'PremiereDate',
+      'EndDate',
+      'Status',
+    };
     if (fields != null) requestedFields.addAll(fields);
     return _itemPage(_p('/Users/${_segment(userId)}/Items'), <String, dynamic>{
       if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
@@ -309,7 +318,7 @@ class MediaBrowserApi {
         if (includeItemTypes?.trim().isNotEmpty == true)
           'IncludeItemTypes': includeItemTypes!.trim(),
         'Limit': limit,
-        'Fields': 'ItemCounts',
+        'Fields': _mediaBrowserCardFields,
         'EnableImages': true,
       },
     );
@@ -354,7 +363,7 @@ class MediaBrowserApi {
       <String, dynamic>{
         'UserId': userId,
         'Limit': limit,
-        'Fields': 'ItemCounts',
+        'Fields': _mediaBrowserCardFields,
       },
     );
   }
