@@ -513,7 +513,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: '服务器',
-              title: widget.title ?? (editing ? '更换服务器' : '连接到媒体服务器'),
+              title: widget.title ?? (editing ? '更换服务器' : '连接到服务器'),
               subtitle: editing ? '修改连接信息后重新测试并保存。' : '选择服务器类型并填写连接信息。',
               showBackButton: Navigator.of(context).canPop(),
             ),
@@ -723,11 +723,16 @@ class _ProjectSelector extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
           items: [
-            for (final project in ServerProject.values)
+            for (final project in ServerProject.values) ...[
+              if (project == ServerProject.ohMyMedia)
+                _projectGroupDivider(context, '媒体服务器'),
+              if (project == ServerProject.smb)
+                _projectGroupDivider(context, '文件服务器'),
               DropdownMenuItem(
                 value: project,
                 child: Text(_projectLabel(project)),
               ),
+            ],
           ],
           onChanged: enabled
               ? (project) {
@@ -790,6 +795,26 @@ class _ProtocolSelector extends StatelessWidget {
       ),
     );
   }
+}
+
+DropdownMenuItem<ServerProject> _projectGroupDivider(
+  BuildContext context,
+  String label,
+) {
+  final c = appColors(context);
+  return DropdownMenuItem<ServerProject>(
+    enabled: false,
+    child: Row(
+      children: [
+        Expanded(child: Divider(height: 1, color: c.divider)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(label, style: AppText.meta(context)),
+        ),
+        Expanded(child: Divider(height: 1, color: c.divider)),
+      ],
+    ),
+  );
 }
 
 String _projectLabel(ServerProject project) {
