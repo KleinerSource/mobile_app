@@ -12,10 +12,10 @@ import 'package:omm/features/media_browser/widgets/media_browser_action_button.d
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/home/continue_watching_section.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/poster.dart';
 
 /// MediaBrowser 剧集详情页：季切换 + 集列表。
 ///
@@ -426,14 +426,22 @@ class _EpisodeList extends ConsumerWidget {
             ),
           );
         }
-        return Column(
-          children: [
+        return ContinueWatchingSection(
+          showTitle: false,
+          topPadding: 8,
+          entries: [
             for (final episode in page.items)
-              _EpisodeTile(
-                episode: episode,
-                imageUrl: urls.value?.thumbnail(episode),
+              ContinueWatchingEntry(
+                privacyId: episode.id,
+                title: episode.name,
+                meta: _episodeMeta(context, episode),
+                coverUrl: urls.value?.heroImage(episode),
                 imageHeaders: urls.value?.imageHeaders,
-                onTap: () =>
+                progress: _episodeProgress(episode),
+                minutesLeft: _episodeMinutesLeft(episode),
+                onOpen: () =>
+                    openMediaBrowserPlayback(context, ref, item: episode),
+                onResume: () =>
                     openMediaBrowserPlayback(context, ref, item: episode),
                 // 与 OMM/电影详情页一致：长按先选内核（libmpv / KSPlayer）。
                 onLongPress: playbackEnginePickerEnabled
@@ -451,133 +459,25 @@ class _EpisodeList extends ConsumerWidget {
   }
 }
 
-class _EpisodeTile extends StatelessWidget {
-  const _EpisodeTile({
-    required this.episode,
-    required this.imageUrl,
-    required this.imageHeaders,
-    required this.onTap,
-    this.onLongPress,
-  });
+String _episodeMeta(BuildContext context, MediaBrowserItem episode) {
+  final number = episode.indexNumber ?? 0;
+  final runtimeMinutes = episode.runtimeMinutes;
+  return runtimeMinutes > 0
+      ? AppL10n.of(
+          context,
+        ).mediaBrowserEpisodeWithRuntime(number, runtimeMinutes)
+      : AppL10n.of(context).mediaBrowserEpisodeNumber(number);
+}
 
-  final MediaBrowserItem episode;
-  final String? imageUrl;
-  final Map<String, String>? imageHeaders;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
+double _episodeProgress(MediaBrowserItem episode) {
+  if (episode.userData.played) return 1;
+  final runtime = mediaBrowserTicksToSeconds(episode.runTimeTicks);
+  if (runtime <= 0) return 0;
+  return (episode.userData.resumeSeconds / runtime).clamp(0.0, 1.0);
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final played = episode.userData.played;
-    final resumePct = _resumePct(episode);
-    final number = episode.indexNumber ?? 0;
-    final runtimeMinutes = episode.runtimeMinutes;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 112,
-                    height: 63,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Poster(
-                          url: imageUrl,
-                          title: episode.name,
-                          aspectRatio: 16 / 9,
-                          radius: 0,
-                          httpHeaders: imageHeaders,
-                        ),
-                        if (played)
-                          Container(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            child: const Icon(
-                              Icons.check_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        if (!played && resumePct > 0)
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: LinearProgressIndicator(
-                              value: resumePct,
-                              minHeight: 3,
-                              backgroundColor: Colors.black45,
-                              valueColor: AlwaysStoppedAnimation(colors.accent),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        runtimeMinutes > 0
-                            ? AppL10n.of(context).mediaBrowserEpisodeWithRuntime(
-                                number,
-                                runtimeMinutes,
-                              )
-                            : AppL10n.of(context).mediaBrowserEpisodeNumber(
-                                number,
-                              ),
-                        style: AppText.movieCardMeta(context).copyWith(
-                          color: played ? colors.muted : colors.accent,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        episode.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardTitle(
-                          context,
-                        ).copyWith(color: played ? colors.muted : colors.text),
-                      ),
-                      if (episode.overview?.trim().isNotEmpty == true) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          episode.overview!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.movieCardMeta(
-                            context,
-                          ).copyWith(color: colors.muted),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _resumePct(MediaBrowserItem episode) {
-    final runtime = mediaBrowserTicksToSeconds(episode.runTimeTicks);
-    if (runtime <= 0) return 0;
-    return (episode.userData.resumeSeconds / runtime).clamp(0.0, 1.0);
-  }
+int? _episodeMinutesLeft(MediaBrowserItem episode) {
+  final runtimeMinutes = episode.runtimeMinutes;
+  if (runtimeMinutes <= 0) return null;
+  return (runtimeMinutes * (1 - _episodeProgress(episode))).round();
 }
