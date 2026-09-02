@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:omm/core/api/server_compatibility.dart';
@@ -121,5 +122,40 @@ void main() {
       isFalse,
     );
     expect(find.byType(ClipOval), findsOneWidget);
+  });
+
+  testWidgets('项目 badge 不拦截头像点击和长按', (tester) async {
+    var tapped = false;
+    var longPressed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: GestureDetector(
+              onTap: () => tapped = true,
+              onLongPress: () => longPressed = true,
+              child: Builder(
+                builder: (context) => ServerAvatar(
+                  displayName: 'NAS',
+                  avatarUrl: null,
+                  size: 40,
+                  colors: appColors(context),
+                  project: ServerProject.smb,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final badgeCenter = tester.getCenter(find.text('SMB'));
+    await tester.tapAt(badgeCenter);
+    expect(tapped, isTrue);
+
+    final longPressGesture = await tester.startGesture(badgeCenter);
+    await tester.pump(kLongPressTimeout);
+    await longPressGesture.up();
+    expect(longPressed, isTrue);
   });
 }

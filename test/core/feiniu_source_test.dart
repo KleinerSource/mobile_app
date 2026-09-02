@@ -119,6 +119,7 @@ void main() {
 
     final item = await source.getItem('item-rich');
     final mediaSource = item.mediaSources.single;
+    expect(adapter.paths, contains('/v/api/v1/person/list/item-rich'));
     expect(item.genres, ['悬疑', '冒险']);
     expect(item.people.single.profilePath, '/person/p1.jpg');
     expect(mediaSource.path, '/movies/example.mkv');
@@ -374,6 +375,7 @@ class _FeiniuSeasonAdapter implements HttpClientAdapter {
 }
 
 class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
+  final paths = <String>[];
   Map<String, dynamic> playInfoBody = const {};
 
   @override
@@ -386,6 +388,7 @@ class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final path = options.uri.path;
+    paths.add(path);
     if (path == '/v/api/v1/play/info') {
       playInfoBody = Map<String, dynamic>.from(options.data as Map);
     }
@@ -398,6 +401,9 @@ class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
         'media_guid': 'media-rich',
         'poster': '/mediadb/item-rich/poster.jpg',
         'can_play': true,
+        'people': [
+          {'person_guid': 'p1', 'name': '演员一', 'job': 'Actor', 'role': '主角'},
+        ],
       },
       '/v/api/v1/person/list/item-rich' => {
         'list': [

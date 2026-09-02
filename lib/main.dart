@@ -231,16 +231,22 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     }
 
     if (!didPop) {
-      // didRemove 是 pop 动画完成后的第二个通知；正常 pop 已经在 didPop
-      // 中登记，不能在这里再次释放。没有 didPop 的强制移除才直接处理。
+      // 正常 pop 的 didRemove 是第二个通知，不能在这里再次释放。文件源
+      // 切换会很快结束 transition，旧内容页的 didRemove 可能在 didPop
+      // 之后才到达；这两种通知都必须识别为同一次服务器切换。
       if (_ignoredContentRoutes.remove(route) ||
           _observedContentRoutes.remove(route)) {
+        return;
+      }
+      if (_contentRemovalBelongsToServerSwitch) {
+        _contentRemovalBelongsToServerSwitch = false;
         return;
       }
       _releaseServerResources();
       return;
     }
 
+    if (_ignoredContentRoutes.remove(route)) return;
     if (!_observedContentRoutes.add(route)) return;
 
     final belongsToServerSwitch = _contentRemovalBelongsToServerSwitch;

@@ -577,9 +577,14 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final item = await api.item(itemId);
     final guid = item.guid.isEmpty ? itemId : item.guid;
     final needsStreams = item.isPlayable || item.mediaGuid.isNotEmpty;
+    final supportsPeople =
+        item.type == 'Movie' || item.type == 'Series' || item.isEpisode;
     final needsPeople =
-        item.people.isEmpty &&
-        (item.type == 'Movie' || item.type == 'Series' || item.isEpisode);
+        supportsPeople &&
+        (item.people.isEmpty ||
+            item.people.any(
+              (person) => person.profilePath?.trim().isNotEmpty != true,
+            ));
     final needsGenres = item.genres.any(
       (genre) => int.tryParse(genre.trim()) != null,
     );
@@ -601,11 +606,10 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final streams = values[0] as FeiniuStreamList;
     final people = values[1] as List<FeiniuPerson>;
     final genreNames = values[2] as Map<String, String>;
-    final resolvedPeople = item.people.isNotEmpty
-        ? item.people
-        : people
-              .map((person) => person.toMediaBrowserPerson())
-              .toList(growable: false);
+    final listedPeople = people
+        .map((person) => person.toMediaBrowserPerson())
+        .toList(growable: false);
+    final resolvedPeople = listedPeople.isNotEmpty ? listedPeople : item.people;
     final resolvedGenres = item.genres
         .map((genre) => genreNames[genre] ?? genre)
         .toList(growable: false);

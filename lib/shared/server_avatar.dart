@@ -187,7 +187,9 @@ class ServerAvatar extends StatelessWidget {
               Positioned(
                 right: 0,
                 bottom: 0,
-                child: _ServerProjectBadge(project: project!, size: size),
+                child: IgnorePointer(
+                  child: _ServerProjectBadge(project: project!, size: size),
+                ),
               ),
             if (busy && isHeroSize && showBorder)
               // 大尺寸时进度环叠在白色边框上，头像保持清晰不变暗。
