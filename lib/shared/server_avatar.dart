@@ -34,7 +34,7 @@ String? serverProjectAvatarAsset(ServerProject? project) {
 }
 
 /// 服务器头像: 渐变圆底 + 远程头像(文件源用默认素材、其余用首字母
-/// 兜底) + 白色描边。[showBackground] 为 false 时不绘制紫色渐变底，
+/// 兜底) + 白色描边。[showBackground] 为 false 时不绘制主题渐变底，
 /// [showBorder] 为 false 时不绘制头像外圈，用于不需要装饰的紧凑入口。
 ///
 /// 小尺寸(菜单行 ≤40)用细描边与大号首字母;大尺寸(>60)自动加投影、
@@ -221,15 +221,27 @@ class _ServerProjectBadge extends StatelessWidget {
     final (label, color, name) = switch (project) {
       ServerProject.ohMyMedia => (
         'OMM',
-        const Color(0xFF7C4DFF),
+        mediaManagerAccentForProject(project),
         'Oh My Media',
       ),
-      ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
-      ServerProject.emby => ('EMBY', const Color(0xFF52B54B), 'Emby'),
-      ServerProject.jellyfin => ('JFIN', const Color(0xFFAA5CC3), 'Jellyfin'),
+      ServerProject.dbOnline => (
+        'DBO',
+        mediaManagerAccentForProject(project),
+        'dbonline',
+      ),
+      ServerProject.emby => (
+        'EMBY',
+        mediaManagerAccentForProject(project),
+        'Emby',
+      ),
+      ServerProject.jellyfin => (
+        'JFIN',
+        mediaManagerAccentForProject(project),
+        'Jellyfin',
+      ),
       ServerProject.feiniu => (
         'FN',
-        const Color(0xFF2979FF),
+        mediaManagerAccentForProject(project),
         l?.serverProjectFeiniu ?? 'Feiniu',
       ),
       ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../api/server_compatibility.dart';
+
 /// omm 设计令牌 (Brand Spec v5)
 ///
 /// 双版本 · Light + Dark · 系统跟随
@@ -116,6 +118,80 @@ class AppColors {
   final Color sheetBorder;
   final Color sheetHandle;
   final Color sheetBarrier;
+
+  AppColors withAccent(Color accent) => AppColors._(
+    bg: bg,
+    surface: surface,
+    surfaceAlt: surfaceAlt,
+    text: text,
+    text2: text2,
+    muted: muted,
+    muted2: muted2,
+    accent: accent,
+    cardBorder: cardBorder,
+    chipBg: chipBg,
+    chipBgActive: chipBgActive,
+    chipTextActive: chipTextActive,
+    tabBg: tabBg,
+    tabBorder: tabBorder,
+    tabActiveBg: tabActiveBg,
+    tabActiveText: tabActiveText,
+    glow1: glow1,
+    glow2: glow2,
+    divider: divider,
+    danger: danger,
+    warning: warning,
+    sheetBackground: sheetBackground,
+    sheetBorder: sheetBorder,
+    sheetHandle: sheetHandle,
+    sheetBarrier: sheetBarrier,
+  );
+}
+
+/// 当前媒体管理器的主题强调色，复用服务器头像徽标使用的品牌色。
+Color mediaManagerAccentForProject(ServerProject? project) {
+  return switch (project) {
+    ServerProject.dbOnline => const Color(0xFF0E7490),
+    ServerProject.emby => const Color(0xFF52B54B),
+    ServerProject.jellyfin => const Color(0xFFAA5CC3),
+    ServerProject.feiniu => const Color(0xFF2979FF),
+    _ => AppColors.light.accent,
+  };
+}
+
+Color _accentForProject(ServerProject? project, Brightness brightness) {
+  if (project == null ||
+      project == ServerProject.ohMyMedia ||
+      project.isFileSource) {
+    return brightness == Brightness.dark
+        ? AppColors.dark.accent
+        : AppColors.light.accent;
+  }
+  return mediaManagerAccentForProject(project);
+}
+
+Color _onAccent(Color accent) {
+  return ThemeData.estimateBrightnessForColor(accent) == Brightness.light
+      ? const Color(0xFF1A1A22)
+      : Colors.white;
+}
+
+@immutable
+class AppThemeAccent extends ThemeExtension<AppThemeAccent> {
+  const AppThemeAccent(this.color);
+
+  final Color color;
+
+  @override
+  AppThemeAccent copyWith({Color? color}) {
+    return AppThemeAccent(color ?? this.color);
+  }
+
+  @override
+  AppThemeAccent lerp(covariant AppThemeAccent? other, double t) {
+    if (other == null) return this;
+    return AppThemeAccent(Color.lerp(color, other.color, t) ?? color);
+  }
 }
 
 /// 一个 brightness 配套的 6 个 collection hue —— 用于多彩 collection 卡片 / genre chips。
@@ -161,13 +237,17 @@ class AppHues {
 
 /// 取当前 brightness 对应的色板。
 AppColors appColors(BuildContext context) {
-  return Theme.of(context).brightness == Brightness.dark
+  final theme = Theme.of(context);
+  final colors = theme.brightness == Brightness.dark
       ? AppColors.dark
       : AppColors.light;
+  final accent = theme.extension<AppThemeAccent>()?.color;
+  return accent == null ? colors : colors.withAccent(accent);
 }
 
-ThemeData buildAppTheme(Brightness brightness) {
+ThemeData buildAppTheme(Brightness brightness, {ServerProject? project}) {
   final c = brightness == Brightness.dark ? AppColors.dark : AppColors.light;
+  final accent = _accentForProject(project, brightness);
   final base = brightness == Brightness.dark
       ? ThemeData.dark()
       : ThemeData.light();
@@ -191,12 +271,10 @@ ThemeData buildAppTheme(Brightness brightness) {
     canvasColor: c.bg,
     colorScheme: ColorScheme(
       brightness: brightness,
-      primary: c.accent,
-      onPrimary: brightness == Brightness.dark
-          ? const Color(0xFF1A1A22)
-          : Colors.white,
-      secondary: c.accent,
-      onSecondary: Colors.white,
+      primary: accent,
+      onPrimary: _onAccent(accent),
+      secondary: accent,
+      onSecondary: _onAccent(accent),
       error: c.danger,
       onError: Colors.white,
       surface: c.surface,
@@ -206,6 +284,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     textTheme: textTheme,
     primaryTextTheme: textTheme,
+    extensions: [AppThemeAccent(accent)],
     dividerColor: c.divider,
     iconTheme: IconThemeData(color: c.text),
     appBarTheme: AppBarTheme(
@@ -284,7 +363,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      actionTextColor: c.accent,
+      actionTextColor: accent,
     ),
     visualDensity: VisualDensity.adaptivePlatformDensity,
   );

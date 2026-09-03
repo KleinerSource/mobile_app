@@ -97,6 +97,10 @@ class OmmApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final activeProject = ref
+        .watch(serverConfigProvider)
+        ?.activeServer
+        ?.project;
     final playerSettings = ref.watch(playerSettingsProvider);
     final showPerformanceMonitor =
         playerSettings.debugMode && playerSettings.performanceMonitorEnabled;
@@ -105,8 +109,8 @@ class OmmApp extends ConsumerWidget {
       title: 'Oh My Media',
       debugShowCheckedModeBanner: false,
       navigatorKey: _rootNavigatorKey,
-      theme: buildAppTheme(Brightness.light),
-      darkTheme: buildAppTheme(Brightness.dark),
+      theme: buildAppTheme(Brightness.light, project: activeProject),
+      darkTheme: buildAppTheme(Brightness.dark, project: activeProject),
       themeMode: themeMode.toMaterial(),
       locale: appLocale.toLocale(),
       localizationsDelegates: AppL10n.localizationsDelegates,
