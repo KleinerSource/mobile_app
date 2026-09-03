@@ -190,6 +190,75 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     );
   }
 
+  /// 为历史上未保存版本号的 OpenList/AList 配置补充版本信息。
+  ///
+  /// 版本探测在后台进行，不影响服务器列表的首次渲染；探测成功后合并
+  /// 到当前配置，避免覆盖用户在探测期间对其他服务器做出的修改。
+  Future<void> refreshOpenListVersions() async {
+    final current = state ?? ref.read(serverConfigRepoProvider).load();
+    if (current == null) return;
+
+    final candidates = <String, ServerLine>{};
+    for (final server in current.servers) {
+      if (server.project != ServerProject.openList ||
+          server.serverVersion?.trim().isNotEmpty == true) {
+        continue;
+      }
+      final line = server.activeLine;
+      if (line != null) candidates[server.id] = line;
+    }
+    if (candidates.isEmpty) return;
+
+    final coordinator = ref.read(serverLineProbeCoordinatorProvider);
+    final probed = await Future.wait(
+      candidates.entries.map((entry) async {
+        try {
+          final result = await coordinator.probe(
+            entry.value,
+            expectedProjectName: ServerProject.openList.projectName,
+          );
+          final version = result.success
+              ? result.versionInfo?.version.trim()
+              : null;
+          return version?.isNotEmpty == true
+              ? MapEntry(entry.key, version!)
+              : null;
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+    final versions = <String, String>{
+      for (final item in probed.whereType<MapEntry<String, String>>())
+        item.key: item.value,
+    };
+    if (versions.isEmpty) return;
+
+    await _enqueueConfigWrite(() async {
+      final latest = state ?? ref.read(serverConfigRepoProvider).load();
+      if (latest == null) return;
+      final servers = latest.servers
+          .map(
+            (server) =>
+                versions.containsKey(server.id) &&
+                    server.serverVersion?.trim().isNotEmpty != true
+                ? server.copyWith(serverVersion: versions[server.id])
+                : server,
+          )
+          .toList();
+      final activeServer = latest.activeServer ?? servers.first;
+      final activeLine = activeServer.activeLine ?? activeServer.lines.first;
+      await _saveNow(
+        ServerConfig(
+          baseUrl: activeLine.baseUrl,
+          lines: activeServer.lines,
+          servers: servers,
+          activeServerId: activeServer.id,
+        ),
+      );
+    });
+  }
+
   Future<void> _saveServerNow(
     ServerProfile server, {
     required bool select,

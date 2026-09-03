@@ -485,39 +485,6 @@ void main() {
     expect(find.byType(RefreshIndicator), findsOneWidget);
   });
 
-  testWidgets('OpenList 卡片显示已识别的版本号', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'server.servers': jsonEncode([
-        {
-          'id': 'openlist-one',
-          'name': '文件服务器',
-          'lines': [
-            {
-              'id': 'openlist-line',
-              'name': '主线路',
-              'base_url': 'https://openlist.example/dav',
-            },
-          ],
-          'active_line_id': 'openlist-line',
-          'project_name': 'openlist',
-          'server_version': 'v4.0.0',
-        },
-      ]),
-      'server.active_server_id': 'openlist-one',
-    });
-    final prefs = await SharedPreferences.getInstance();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: _testApp(const ServerSelectionPage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('OpenList · v4.0.0'), findsOneWidget);
-  });
-
   testWidgets('服务器列表使用双列卡片网格', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([

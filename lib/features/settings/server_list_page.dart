@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,6 +39,12 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_closeSwipeOnScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(serverConfigProvider.notifier).refreshOpenListVersions(),
+      );
+    });
   }
 
   @override

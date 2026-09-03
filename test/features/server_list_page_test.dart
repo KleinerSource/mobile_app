@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_config_repository.dart';
+import 'package:omm/core/config/server_line_probe.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/features/settings/server_list_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -135,11 +137,59 @@ void main() {
     final persisted = ServerConfigRepository(prefs).load();
     expect(persisted?.servers.map((server) => server.id), ['home', 'remote']);
   });
+
+  testWidgets('OpenList 服务器列表会补充并显示版本号', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'openlist',
+          'name': '文件服务器',
+          'lines': [
+            {
+              'id': 'openlist-line',
+              'name': '主线路',
+              'base_url': 'https://openlist.example/dav',
+            },
+          ],
+          'active_line_id': 'openlist-line',
+          'project_name': 'openlist',
+        },
+      ]),
+      'server.active_server_id': 'openlist',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final coordinator = ServerLineProbeCoordinator(
+      probe: (line) async => ServerLineProbeResult.success(
+        line,
+        8,
+        versionInfo: const ServerVersionInfo(
+          projectName: 'openlist',
+          version: 'v4.0.0',
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(_app(prefs, coordinator: coordinator));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('v4.0.0'), findsOneWidget);
+    expect(
+      ServerConfigRepository(prefs).load()?.activeServer?.serverVersion,
+      'v4.0.0',
+    );
+  });
 }
 
-Widget _app(SharedPreferences prefs) {
+Widget _app(
+  SharedPreferences prefs, {
+  ServerLineProbeCoordinator? coordinator,
+}) {
   return ProviderScope(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      if (coordinator != null)
+        serverLineProbeCoordinatorProvider.overrideWithValue(coordinator),
+    ],
     child: const MaterialApp(
       locale: Locale('zh'),
       localizationsDelegates: AppL10n.localizationsDelegates,
