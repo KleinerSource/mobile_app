@@ -187,7 +187,7 @@ class MovieDetailPlot extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           child: Text(l.close),
         ),
       ],
