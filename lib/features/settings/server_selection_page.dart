@@ -448,13 +448,24 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     if (line == null || !line.enabled || project == null) {
       return _ServerStatus.unavailable;
     }
-    // 文件来源的连接由文件浏览页在挂载来源时完成验证；选择器这里只反映
-    // 线路是否被启用，避免在卡片列表中重复创建 SMB/WebDAV 连接。
-    if (project.isFileSource) return _ServerStatus.connected;
 
     final probe = await ref
         .read(serverLineProbeCoordinatorProvider)
         .probe(line, expectedProjectName: server.projectName);
+    final version = probe.versionInfo?.version.trim();
+    if (probe.success && version?.isNotEmpty == true) {
+      await ref
+          .read(serverConfigProvider.notifier)
+          .saveServerVersion(server.id, version!);
+    }
+
+    // SMB/WebDAV 的连接由文件浏览页在挂载来源时完成验证；选择器这里只
+    // 反映线路是否被启用，避免在卡片列表中重复创建文件源连接。
+    // OpenList/AList 例外：版本接口是公开接口，需要在这里探测并保存。
+    if (project.isFileSource && project != ServerProject.openList) {
+      return _ServerStatus.connected;
+    }
+
     if (!probe.success) {
       return probe.requiresAuthentication
           ? _ServerStatus.authenticationRequired

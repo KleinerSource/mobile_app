@@ -8,6 +8,7 @@ import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_config_repository.dart';
 import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
@@ -483,6 +484,56 @@ void main() {
     expect(find.text('Jellyfin 用户配置名称'), findsNothing);
     expect(find.text('未鉴权的 Emby'), findsOneWidget);
     expect(find.byType(RefreshIndicator), findsOneWidget);
+  });
+
+  testWidgets('连接页检查服务器后保存版本号但不显示版本号', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'openlist-one',
+          'name': '文件服务器',
+          'lines': [
+            {
+              'id': 'openlist-line',
+              'name': '主线路',
+              'base_url': 'https://openlist.example/dav',
+            },
+          ],
+          'active_line_id': 'openlist-line',
+          'project_name': 'openlist',
+        },
+      ]),
+      'server.active_server_id': 'openlist-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) async => ServerLineProbeResult.success(
+                line,
+                8,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'openlist',
+                  version: 'v4.0.0',
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('v4.0.0'), findsNothing);
+    expect(
+      ServerConfigRepository(prefs).load()?.activeServer?.serverVersion,
+      'v4.0.0',
+    );
   });
 
   testWidgets('服务器列表使用双列卡片网格', (tester) async {

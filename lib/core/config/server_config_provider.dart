@@ -259,6 +259,44 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     });
   }
 
+  /// 保存一次服务器版本探测结果，不改变当前服务器或线路选择。
+  Future<void> saveServerVersion(String serverId, String version) {
+    final normalizedVersion = version.trim();
+    if (normalizedVersion.isEmpty) return Future.value();
+
+    return _enqueueConfigWrite(() async {
+      final current = state ?? ref.read(serverConfigRepoProvider).load();
+      if (current == null) return;
+      ServerProfile? server;
+      for (final item in current.servers) {
+        if (item.id == serverId) {
+          server = item;
+          break;
+        }
+      }
+      if (server == null || server.serverVersion?.trim() == normalizedVersion) {
+        return;
+      }
+      final servers = current.servers
+          .map(
+            (item) => item.id == serverId
+                ? item.copyWith(serverVersion: normalizedVersion)
+                : item,
+          )
+          .toList();
+      final activeServer = current.activeServer ?? servers.first;
+      final activeLine = activeServer.activeLine ?? activeServer.lines.first;
+      await _saveNow(
+        ServerConfig(
+          baseUrl: activeLine.baseUrl,
+          lines: activeServer.lines,
+          servers: servers,
+          activeServerId: activeServer.id,
+        ),
+      );
+    });
+  }
+
   Future<void> _saveServerNow(
     ServerProfile server, {
     required bool select,
