@@ -5,14 +5,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/server_compatibility.dart';
+import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
+import '../../features/media_browser/api/media_browser_api.dart';
+import '../../features/media_browser/api/media_browser_config.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/server_avatar.dart';
+import '../settings/server_selection_display_settings.dart';
 import 'server_switch_transition.dart';
+
+/// 首页右上角入口的头像地址。下拉列表不使用此函数，保持服务器配置中的
+/// 图标与名称不变。
+String? homeServerSwitcherAvatarUrl({
+  required ServerProfile server,
+  required ServerProfileData? profile,
+  required bool showUserAvatar,
+}) {
+  final isMediaBrowser =
+      server.project == ServerProject.emby ||
+      server.project == ServerProject.jellyfin;
+  final userAvatarUrl = profile?.userAvatarUrl?.trim() ?? '';
+  if (showUserAvatar && isMediaBrowser && userAvatarUrl.isNotEmpty) {
+    return userAvatarUrl;
+  }
+  final serverAvatarUrl = profile?.avatarUrl?.trim() ?? '';
+  return serverAvatarUrl.isNotEmpty ? serverAvatarUrl : server.avatarUrl;
+}
 
 /// 首页右上角的服务器切换入口，只显示服务器头像，不暴露线路地址。
 class HomeServerSwitcher extends ConsumerWidget {
@@ -49,6 +71,7 @@ class _HomeServerSwitcherMenu extends ConsumerStatefulWidget {
 class _HomeServerSwitcherMenuState
     extends ConsumerState<_HomeServerSwitcherMenu> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
+  final _activeProfileFutures = <String, Future<ServerProfileData?>>{};
   final _avatarKey = GlobalKey();
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
@@ -74,12 +97,72 @@ class _HomeServerSwitcherMenuState
     }
   }
 
+  Future<ServerProfileData?> _loadActiveProfile(ServerProfile server) async {
+    final profile = await _profileFor(server);
+    final userAvatarUrl = await _loadUserAvatarUrl(server);
+    if (userAvatarUrl == null) return profile;
+    return ServerProfileData(
+      name: profile?.name ?? server.name,
+      avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+      userAvatarUrl: userAvatarUrl,
+    );
+  }
+
+  Future<String?> _loadUserAvatarUrl(ServerProfile server) async {
+    final project = server.project;
+    if (project != ServerProject.emby && project != ServerProject.jellyfin) {
+      return null;
+    }
+    final line = server.activeLine;
+    if (line == null) return null;
+    final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+    if (mediaBrowserConfig == null) return null;
+
+    try {
+      final sessionRepository = ref
+          .read(authSessionRepositoryProvider)
+          .forServer(server.id, allowLegacyMigration: false);
+      final session = await sessionRepository.load();
+      if (session == null || !session.hasAccessToken) return null;
+
+      final client = ApiClient.fromConfig(
+        ServerConfig(
+          baseUrl: line.baseUrl,
+          lines: [line],
+          servers: [server],
+          activeServerId: server.id,
+        ),
+        sessionRepository: sessionRepository,
+      );
+      final user = await client
+          .mediaBrowserFor(mediaBrowserConfig)
+          .validateSession(session.userId);
+      final userId = user.id.trim();
+      if (userId.isEmpty) return null;
+      return MediaBrowserApi.userImageUrl(
+        config: mediaBrowserConfig,
+        baseUrl: line.baseUrl,
+        userId: userId,
+        token: session.accessToken,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {
     return _profileFutures.putIfAbsent(server.id, () => _loadProfile(server));
+  }
+
+  Future<ServerProfileData?> _activeProfileFor(ServerProfile server) {
+    return _activeProfileFutures.putIfAbsent(
+      server.id,
+      () => _loadActiveProfile(server),
+    );
   }
 
   Future<void> _selectServer(String serverId) async {
@@ -101,17 +184,22 @@ class _HomeServerSwitcherMenuState
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final showUserAvatar = ref.watch(serverSelectionShowAvatarProvider);
     final transition = ref.watch(serverSwitchTransitionProvider);
     final selectingId = transition.isActive ? transition.targetServerId : null;
     return FutureBuilder<ServerProfileData?>(
-      future: _profileFor(widget.activeServer),
+      future: _activeProfileFor(widget.activeServer),
       initialData: _cachedProfileFor(widget.activeServer),
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final displayName = profile?.name.trim().isNotEmpty == true
             ? profile!.name.trim()
             : widget.activeServer.name;
-        final avatarUrl = profile?.avatarUrl ?? widget.activeServer.avatarUrl;
+        final avatarUrl = homeServerSwitcherAvatarUrl(
+          server: widget.activeServer,
+          profile: profile,
+          showUserAvatar: showUserAvatar,
+        );
         return GlassMenuAnchor<String>(
           width: _serverMenuWidth(widget.servers),
           enabled: !transition.isActive,

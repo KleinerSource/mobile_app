@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/system.dart';
+import 'package:omm/features/home/server_switcher.dart';
 import 'package:omm/features/settings/app_settings_page.dart';
 import 'package:omm/features/settings/server_selection_display_settings.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -61,6 +63,74 @@ void main() {
       'name': 'Alice',
       'avatar_url': 'https://server.example/logo.png',
     });
+  });
+
+  test('首页右上角仅在开启时使用 Emby/Jellyfin 用户头像', () {
+    const line = ServerLine(
+      id: 'jellyfin-line',
+      name: '主线路',
+      baseUrl: 'https://jellyfin.example',
+    );
+    const jellyfin = ServerProfile(
+      id: 'jellyfin',
+      name: '家庭影音',
+      lines: [line],
+      projectName: 'jellyfin',
+      avatarUrl: 'https://jellyfin.example/logo.png',
+    );
+    const profile = ServerProfileData(
+      name: 'Alice',
+      avatarUrl: 'https://jellyfin.example/logo.png',
+      userAvatarUrl: 'https://jellyfin.example/user.png',
+    );
+
+    expect(
+      homeServerSwitcherAvatarUrl(
+        server: jellyfin,
+        profile: profile,
+        showUserAvatar: true,
+      ),
+      'https://jellyfin.example/user.png',
+    );
+    expect(
+      homeServerSwitcherAvatarUrl(
+        server: jellyfin,
+        profile: profile,
+        showUserAvatar: false,
+      ),
+      'https://jellyfin.example/logo.png',
+    );
+    expect(
+      homeServerSwitcherAvatarUrl(
+        server: jellyfin,
+        profile: const ServerProfileData(
+          name: 'Alice',
+          avatarUrl: 'https://jellyfin.example/logo.png',
+        ),
+        showUserAvatar: true,
+      ),
+      'https://jellyfin.example/logo.png',
+    );
+
+    const omm = ServerProfile(
+      id: 'omm',
+      name: 'OMM',
+      lines: [line],
+      projectName: 'oh-my-media',
+      avatarUrl: 'https://omm.example/logo.png',
+    );
+    expect(
+      homeServerSwitcherAvatarUrl(
+        server: omm,
+        profile: const ServerProfileData(
+          name: 'OMM',
+          avatarUrl: 'https://omm.example/logo.png',
+          userAvatarUrl: 'https://omm.example/user.png',
+        ),
+        showUserAvatar: true,
+      ),
+      'https://omm.example/logo.png',
+    );
   });
 
   testWidgets('应用设置通用分组显示并可分别切换两个开关', (tester) async {
