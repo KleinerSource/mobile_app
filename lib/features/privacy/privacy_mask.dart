@@ -126,7 +126,10 @@ class PrivacyText extends ConsumerWidget {
     final masked = '▆▆▆▆▆';
     return Text(
       masked,
-      style: style.copyWith(color: appColors(context).muted2),
+      style: style.copyWith(
+        color: appColors(context).muted2,
+        shadows: const <Shadow>[],
+      ),
       maxLines: maxLines,
       overflow: overflow,
     );

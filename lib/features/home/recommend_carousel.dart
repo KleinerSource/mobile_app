@@ -583,9 +583,6 @@ class _HeroTitle extends StatelessWidget {
     fontSize: 24,
     height: 1.12,
     letterSpacing: -0.5,
-    shadows: [
-      Shadow(offset: Offset(0, 1), blurRadius: 8, color: Color(0xB3000000)),
-    ],
   );
 
   @override

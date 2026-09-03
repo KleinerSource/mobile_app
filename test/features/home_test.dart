@@ -283,6 +283,10 @@ void _main_2() {
     await tester.pumpWidget(buildCarousel(items));
     await tester.pumpAndSettle();
     expect(position.value, 0.0);
+    expect(
+      tester.widget<Text>(find.text('A')).style?.shadows ?? const <Shadow>[],
+      isEmpty,
+    );
 
     // 拖到下一页: 从页面标题处发起手势(命中链完整),页位同步到 1
     await tester.fling(find.text('A'), const Offset(-600, 0), 1000);
@@ -409,6 +413,11 @@ void _main_2() {
 
     expect(find.byIcon(Icons.visibility_off_outlined), findsNWidgets(2));
     expect(find.text('▆▆▆▆▆'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('▆▆▆▆▆')).style?.shadows ??
+          const <Shadow>[],
+      isEmpty,
+    );
 
     await tester.tapAt(tester.getCenter(find.byType(PageView)));
     await tester.pump();
