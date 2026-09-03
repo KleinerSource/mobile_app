@@ -243,6 +243,22 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       }
     }
 
+    // /dav 端点是 OpenList 的强特征：其 WebDAV 入口挂在 Basic Auth 墙后，
+    // 未认证请求对未知路径也返回 401 而非 404，OMM 探测会把它当作鉴权
+    // 失败中断整条回退链，因此先读免鉴权的公开设置。
+    final openListDavLike = _looksLikeOpenListDavEndpoint(line.baseUrl);
+    if (openListDavLike) {
+      final openListInfo = await _probeOpenListVersion(line);
+      if (openListInfo != null) {
+        stopwatch.stop();
+        return ServerLineProbeResult.success(
+          line,
+          stopwatch.elapsedMilliseconds,
+          versionInfo: openListInfo,
+        );
+      }
+    }
+
     final versionInfo = await _probeOmmVersion(line);
     if (versionInfo != null) {
       if (versionInfo.project == ServerProject.dbOnline) {
@@ -272,18 +288,6 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       );
     }
 
-    final openListInfo = _looksLikeOpenListDavEndpoint(line.baseUrl)
-        ? await _probeOpenListVersion(line)
-        : null;
-    if (openListInfo != null) {
-      stopwatch.stop();
-      return ServerLineProbeResult.success(
-        line,
-        stopwatch.elapsedMilliseconds,
-        versionInfo: openListInfo,
-      );
-    }
-
     // OMM 协议不通时回退尝试 Emby/Jellyfin：System/Info/Public 是免鉴权
     // 的标准入口，OMM/DBO 服务器对其返回 404，不会误判。
     final mediaServerInfo = await _probeEmbyLikeVersion(line);
@@ -308,7 +312,7 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       }
     }
 
-    if (!_looksLikeOpenListDavEndpoint(line.baseUrl)) {
+    if (!openListDavLike) {
       final openListInfo = await _probeOpenListVersion(line);
       if (openListInfo != null) {
         stopwatch.stop();

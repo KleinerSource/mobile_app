@@ -1475,11 +1475,44 @@ void _main_4() {
       expect(result.versionInfo?.project, ServerProject.openList);
       expect(result.versionInfo?.version, 'v3.39.4');
       expect(requests, [
-        '/dav/api/version',
         '/api/public/settings',
-        '/dav/api/version',
         '/api/public/settings',
       ]);
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test('OpenList DAV 鉴权墙返回 401 时不阻断公开设置探测', () async {
+    // 真实 OpenList 的 /dav/* 挂在 Basic Auth 墙后，探测请求未携带凭据，
+    // 未知路径同样返回 401 而非 404。
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) {
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path == '/api/public/settings') {
+        request.response.write(
+          jsonEncode({
+            'code': 200,
+            'data': {'version': 'v4.2.1 (Commit: 8d39d63) - Frontend: v4.2.1'},
+          }),
+        );
+      } else {
+        request.response.statusCode = HttpStatus.unauthorized;
+      }
+      request.response.close();
+    });
+
+    try {
+      final result = await probeServerLine(
+        ServerLine(
+          id: 'openlist',
+          name: 'OpenList',
+          baseUrl: 'http://127.0.0.1:${server.port}/dav',
+        ),
+      );
+      expect(result.success, isTrue);
+      expect(result.versionInfo?.project, ServerProject.openList);
+      expect(result.versionInfo?.version, 'v4.2.1');
     } finally {
       await server.close(force: true);
     }
