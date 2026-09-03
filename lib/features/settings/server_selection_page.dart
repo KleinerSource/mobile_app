@@ -22,7 +22,9 @@ import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import '../home/server_switch_transition.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'server_selection_display_settings.dart';
 import 'server_setup_page.dart';
 
 /// 启动和鉴权前的服务器选择页。
@@ -183,6 +185,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final config = ref.watch(serverSelectionConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     final transition = ref.watch(serverSwitchTransitionProvider);
+    final showUsername = ref.watch(serverSelectionShowUsernameProvider);
+    final showAvatar = ref.watch(serverSelectionShowAvatarProvider);
     final searchEnabled = servers.length > 20;
     final visibleServers = searchEnabled ? _filterServers(servers, l) : servers;
     // 列表底部穿透安全区滚动；安全区高度并入列表内边距，停靠时保持
@@ -264,6 +268,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                   transition: transition,
                                   profileFor: _profileFor,
                                   cachedProfileFor: _cachedProfileFor,
+                                  showUsername: showUsername,
+                                  showAvatar: showAvatar,
                                   statusFor: _statusFor,
                                   avatarKeyFor: _avatarKeyFor,
                                   scrollController: _listScrollController,
@@ -595,11 +601,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         .forServer(server.id, allowLegacyMigration: false);
     final session = await sessionRepository.load();
     if (session == null || !session.hasAccessToken) {
-      return cached ?? _fallbackProfile(server);
+      return _fallbackProfile(server);
     }
 
     final line = server.activeLine;
-    if (line == null) return cached ?? _fallbackProfile(server);
+    if (line == null) return _fallbackProfile(server);
 
     try {
       final client = ApiClient.fromConfig(
@@ -613,26 +619,39 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       );
       final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
       if (mediaBrowserConfig == null) {
-        return cached ?? _fallbackProfile(server);
+        return _fallbackProfile(server);
       }
-      final userName = project == ServerProject.feiniu
-          ? (await client.feiniu.userInfo()).name
-          : (await client
-                    .mediaBrowserFor(mediaBrowserConfig)
-                    .validateSession(session.userId))
-                .name;
-      final normalizedName = userName.trim();
+      String normalizedName;
+      String? userAvatarUrl;
+      if (project == ServerProject.feiniu) {
+        normalizedName = (await client.feiniu.userInfo()).name.trim();
+      } else {
+        final user = await client
+            .mediaBrowserFor(mediaBrowserConfig)
+            .validateSession(session.userId);
+        normalizedName = user.name.trim();
+        final userId = user.id.trim();
+        if (userId.isNotEmpty) {
+          userAvatarUrl = MediaBrowserApi.userImageUrl(
+            config: mediaBrowserConfig,
+            baseUrl: line.baseUrl,
+            userId: userId,
+            token: session.accessToken,
+          );
+        }
+      }
       if (normalizedName.isEmpty) {
-        return cached ?? _fallbackProfile(server);
+        return _fallbackProfile(server);
       }
       final profile = ServerProfileData(
         name: normalizedName,
         avatarUrl: server.avatarUrl ?? cached?.avatarUrl,
+        userAvatarUrl: userAvatarUrl,
       );
       await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
       return profile;
     } catch (_) {
-      return cached ?? _fallbackProfile(server);
+      return _fallbackProfile(server);
     }
   }
 
@@ -752,6 +771,8 @@ class _ServerStrip extends StatefulWidget {
     required this.transition,
     required this.profileFor,
     required this.cachedProfileFor,
+    required this.showUsername,
+    required this.showAvatar,
     required this.statusFor,
     required this.avatarKeyFor,
     required this.scrollController,
@@ -767,6 +788,8 @@ class _ServerStrip extends StatefulWidget {
   final ServerSwitchState transition;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
   final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
+  final bool showUsername;
+  final bool showAvatar;
   final Future<_ServerStatus> Function(ServerProfile server) statusFor;
   final GlobalKey Function(String serverId) avatarKeyFor;
   final ScrollController scrollController;
@@ -1001,6 +1024,8 @@ class _ServerStripState extends State<_ServerStrip> {
       server: server,
       profileFuture: widget.profileFor(server),
       cachedProfile: widget.cachedProfileFor(server),
+      showUsername: widget.showUsername,
+      showAvatar: widget.showAvatar,
       statusFuture: widget.statusFor(server),
       avatarKey: feedback ? null : widget.avatarKeyFor(server.id),
       busy: busy,
@@ -1364,6 +1389,8 @@ class _ServerAvatarCard extends StatelessWidget {
     required this.server,
     required this.profileFuture,
     required this.cachedProfile,
+    required this.showUsername,
+    required this.showAvatar,
     required this.statusFuture,
     required this.avatarKey,
     required this.busy,
@@ -1374,6 +1401,8 @@ class _ServerAvatarCard extends StatelessWidget {
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
+  final bool showUsername;
+  final bool showAvatar;
   final Future<_ServerStatus> statusFuture;
   final GlobalKey? avatarKey;
   final bool busy;
@@ -1397,10 +1426,21 @@ class _ServerAvatarCard extends StatelessWidget {
             server.project == ServerProject.jellyfin ||
             server.project == ServerProject.feiniu;
         final profileName = profile?.name.trim() ?? '';
-        final displayName = supportsRemoteName && profileName.isNotEmpty
+        final isMediaBrowserIdentity =
+            server.project == ServerProject.emby ||
+            server.project == ServerProject.jellyfin;
+        final displayName =
+            supportsRemoteName &&
+                profileName.isNotEmpty &&
+                (!isMediaBrowserIdentity || showUsername)
             ? profileName
             : server.name;
-        final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
+        final configuredAvatarUrl = isMediaBrowserIdentity
+            ? server.avatarUrl
+            : (profile?.avatarUrl ?? server.avatarUrl);
+        final avatarUrl = isMediaBrowserIdentity && showAvatar
+            ? profile?.userAvatarUrl ?? configuredAvatarUrl
+            : configuredAvatarUrl;
         final line = server.activeLine;
         final lineName = _serverLineLabel(l, line);
         final projectLabel = _serverProjectLabel(l, server.project);
@@ -1410,6 +1450,7 @@ class _ServerAvatarCard extends StatelessWidget {
           child: _ServerCardShell(
             project: server.project,
             avatarUrl: avatarUrl,
+            fallbackAvatarUrl: configuredAvatarUrl,
             busy: busy,
             onTap: busy ? null : onTap,
             dropTarget: dropTarget,
@@ -1537,6 +1578,7 @@ class _ServerCardShell extends StatelessWidget {
     required this.child,
     this.project,
     this.avatarUrl,
+    this.fallbackAvatarUrl,
     this.busy = false,
     this.dropTarget = false,
     this.onTap,
@@ -1545,6 +1587,7 @@ class _ServerCardShell extends StatelessWidget {
   final Widget child;
   final ServerProject? project;
   final String? avatarUrl;
+  final String? fallbackAvatarUrl;
   final bool busy;
   final bool dropTarget;
   final VoidCallback? onTap;
@@ -1602,6 +1645,7 @@ class _ServerCardShell extends StatelessWidget {
                         avatarUrl: backgroundLogo.startsWith('http')
                             ? backgroundLogo
                             : null,
+                        fallbackAvatarUrl: fallbackAvatarUrl,
                         assetPath: backgroundLogo.startsWith('http')
                             ? null
                             : backgroundLogo,
@@ -1660,6 +1704,7 @@ class _ServerCardLogo extends StatelessWidget {
     required this.colors,
     required this.size,
     this.assetPath,
+    this.fallbackAvatarUrl,
   });
 
   final String displayName;
@@ -1668,6 +1713,7 @@ class _ServerCardLogo extends StatelessWidget {
   final AppColors colors;
   final double size;
   final String? assetPath;
+  final String? fallbackAvatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -1703,6 +1749,20 @@ class _ServerCardLogo extends StatelessWidget {
       );
     }
 
+    Widget configuredImage() {
+      final configured = fallbackAvatarUrl?.trim();
+      if (configured == null || configured.isEmpty || configured == source) {
+        return assetImage();
+      }
+      return CachedNetworkImage(
+        cacheManager: AppImageCacheManager.instance,
+        imageUrl: configured,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => assetImage(),
+        errorWidget: (_, __, ___) => assetImage(),
+      );
+    }
+
     return SizedBox(
       width: size,
       height: size,
@@ -1712,8 +1772,8 @@ class _ServerCardLogo extends StatelessWidget {
               cacheManager: AppImageCacheManager.instance,
               imageUrl: source,
               fit: BoxFit.contain,
-              placeholder: (_, __) => assetImage(),
-              errorWidget: (_, __, ___) => assetImage(),
+              placeholder: (_, __) => configuredImage(),
+              errorWidget: (_, __, ___) => configuredImage(),
             ),
     );
   }

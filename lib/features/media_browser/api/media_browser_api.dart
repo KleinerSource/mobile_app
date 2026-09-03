@@ -692,6 +692,29 @@ class MediaBrowserApi {
     );
   }
 
+  /// 当前 Emby/Jellyfin 用户头像地址。
+  ///
+  /// 头像端点需要用户 ID；令牌只作为运行时查询参数传入，调用方不得将
+  /// 返回地址写入持久化配置或资料缓存。
+  static String userImageUrl({
+    required MediaBrowserConfig config,
+    required String baseUrl,
+    required String userId,
+    String? token,
+  }) {
+    final query = <String, String>{
+      if (token?.trim().isNotEmpty == true)
+        config.tokenQueryParam: token!.trim(),
+    };
+    return _buildUrl(
+      baseUrl,
+      config.path(
+        '/Users/${Uri.encodeComponent(userId.trim())}/Images/Primary',
+      ),
+      query,
+    );
+  }
+
   /// 服务器返回的 TranscodingUrl 是相对路径，转成可播放的绝对地址。
   static String resolveUrl(String baseUrl, String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());

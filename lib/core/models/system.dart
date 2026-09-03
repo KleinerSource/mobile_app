@@ -2,10 +2,17 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class ServerProfileData {
-  const ServerProfileData({required this.name, this.avatarUrl});
+  const ServerProfileData({
+    required this.name,
+    this.avatarUrl,
+    this.userAvatarUrl,
+  });
 
   final String name;
   final String? avatarUrl;
+
+  /// 当前登录的 Emby/Jellyfin 用户头像，仅保留在运行时，不写入资料缓存。
+  final String? userAvatarUrl;
 
   factory ServerProfileData.fromJson(Map<String, dynamic> json) {
     final name = json['name']?.toString().trim() ?? '';

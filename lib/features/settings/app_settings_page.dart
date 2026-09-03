@@ -21,6 +21,7 @@ import 'haptic_settings.dart';
 import 'player_settings_page.dart';
 import 'poster_badge_display_page.dart';
 import 'settings_common.dart';
+import 'server_selection_display_settings.dart';
 import 'subtitle_settings_page.dart';
 
 /// 应用设置子页 · 仅本地客户端偏好
@@ -66,6 +67,8 @@ class AppSettingsPage extends ConsumerWidget {
                     const _LanguageTile(),
                     const _ThemeTile(),
                     const _HapticIntensityTile(),
+                    const _ServerSelectionShowUsernameTile(),
+                    const _ServerSelectionShowAvatarTile(),
                     SettingsTile(
                       title: l.settingsBadgePositions,
                       subtitle: l.settingsBadgePositionsSub,
@@ -353,6 +356,48 @@ class _HapticIntensityTile extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _ServerSelectionShowUsernameTile extends ConsumerWidget {
+  const _ServerSelectionShowUsernameTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    final enabled = ref.watch(serverSelectionShowUsernameProvider);
+    return SettingsTile(
+      title: l.settingsServerSelectionShowUsername,
+      subtitle: l.settingsServerSelectionShowUsernameSub,
+      leadingIcon: Icons.person_outline,
+      trailing: SettingsSwitch(
+        value: enabled,
+        onChanged: (value) => ref
+            .read(serverSelectionShowUsernameProvider.notifier)
+            .setEnabled(value),
+      ),
+    );
+  }
+}
+
+class _ServerSelectionShowAvatarTile extends ConsumerWidget {
+  const _ServerSelectionShowAvatarTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    final enabled = ref.watch(serverSelectionShowAvatarProvider);
+    return SettingsTile(
+      title: l.settingsServerSelectionShowAvatar,
+      subtitle: l.settingsServerSelectionShowAvatarSub,
+      leadingIcon: Icons.account_circle_outlined,
+      trailing: SettingsSwitch(
+        value: enabled,
+        onChanged: (value) => ref
+            .read(serverSelectionShowAvatarProvider.notifier)
+            .setEnabled(value),
       ),
     );
   }

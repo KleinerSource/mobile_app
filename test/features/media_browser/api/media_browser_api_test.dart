@@ -604,6 +604,30 @@ void main() {
         );
       });
 
+      test('用户头像 URL 使用项目路径、编码用户 ID 和对应令牌参数', () {
+        final embyUrl = MediaBrowserApi.userImageUrl(
+          config: MediaBrowserConfig.emby,
+          baseUrl: 'http://test/',
+          userId: 'user/id 1',
+          token: 'emby-token',
+        );
+        expect(
+          embyUrl,
+          'http://test/emby/Users/user%2Fid%201/Images/Primary?api_key=emby-token',
+        );
+
+        final jellyfinUrl = MediaBrowserApi.userImageUrl(
+          config: MediaBrowserConfig.jellyfin,
+          baseUrl: 'http://test',
+          userId: 'user/id 1',
+          token: 'jellyfin-token',
+        );
+        expect(
+          jellyfinUrl,
+          'http://test/Users/user%2Fid%201/Images/Primary?ApiKey=jellyfin-token',
+        );
+      });
+
       test('音频直链使用 /Audio/{id}/stream 并拼接 token 参数', () {
         final audioUrl = MediaBrowserApi.audioStreamUrl(
           config: config,
