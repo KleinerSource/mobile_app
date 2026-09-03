@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,10 +16,13 @@ import 'package:omm/features/media_browser/widgets/media_browser_media_info_sect
 import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
+import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/filter_chip.dart';
+import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/sheet_controls.dart';
 
 /// MediaBrowser 条目详情页（电影 / 单集等可播条目）。
 ///
@@ -353,17 +358,13 @@ class _MediaBrowserDetailBodyState
               ),
             ),
           ),
-        if (item.mediaSources.isNotEmpty)
+        if (item.mediaSources.length > 1 && selectedVideoPart == null)
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-              child: selectedVideoPart == null
-                  ? _MediaSourceSelector(
-                      sources: item.mediaSources,
-                      selectedId: selectedMediaSource?.id ?? '',
-                      onChanged: _selectMediaSource,
-                    )
-                  : const SizedBox.shrink(),
+            child: _MediaSourceSelector(
+              item: item,
+              sources: item.mediaSources,
+              selectedId: selectedMediaSource?.id ?? '',
+              onChanged: _selectMediaSource,
             ),
           ),
         if (item.overview?.trim().isNotEmpty == true)
@@ -438,11 +439,13 @@ class _MediaBrowserDetailBodyState
 
 class _MediaSourceSelector extends StatelessWidget {
   const _MediaSourceSelector({
+    required this.item,
     required this.sources,
     required this.selectedId,
     required this.onChanged,
   });
 
+  final MediaBrowserItem item;
   final List<MediaBrowserMediaSourceDto> sources;
   final String selectedId;
   final ValueChanged<String> onChanged;
@@ -451,47 +454,259 @@ class _MediaSourceSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
-    return MovieDetailSection(
-      title: l.mediaBrowserMediaSources,
-      child: RadioGroup<String>(
-        groupValue: selectedId,
-        onChanged: (id) {
-          if (id != null) onChanged(id);
-        },
+    return MovieDetailFullBleedSection(
+      header: Text(
+        l.mediaBrowserMediaSources,
+        style: AppText.sectionTitle(context),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < sources.length; index++) ...[
+                if (index > 0) const SizedBox(width: 10),
+                _MediaSourceCard(
+                  summary: _mediaSourceSummary(
+                    sources[index],
+                    unknown: l.commonUnknown,
+                  ),
+                  selected: sources[index].id == selectedId,
+                  onTap: () => onChanged(sources[index].id),
+                  onLongPress: () => unawaited(
+                    _showMediaSourceDetails(context, item, sources[index]),
+                  ),
+                  colors: colors,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaSourceCard extends StatelessWidget {
+  const _MediaSourceCard({
+    required this.summary,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+    required this.colors,
+  });
+
+  final String summary;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      width: 176,
+      height: 92,
+      decoration: BoxDecoration(
+        color: selected
+            ? colors.accent.withValues(alpha: 0.14)
+            : colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected ? colors.accent : colors.cardBorder,
+          width: selected ? 1.8 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(
+                  Icons.movie_outlined,
+                  size: 18,
+                  color: selected ? colors.accent : colors.muted,
+                ),
+                Text(
+                  summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.cardTitle(context).copyWith(
+                    color: selected ? colors.accent : colors.text,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _mediaSourceSummary(
+  MediaBrowserMediaSourceDto source, {
+  required String unknown,
+}) {
+  final video = _mediaSourceVideoStream(source);
+  if (video == null) return unknown;
+  final resolution = _mediaSourceResolution(video, unknown);
+  final range = _mediaSourceRange(video, unknown);
+  return '$resolution $range';
+}
+
+MediaBrowserMediaStream? _mediaSourceVideoStream(
+  MediaBrowserMediaSourceDto source,
+) {
+  for (final stream in source.mediaStreams) {
+    if (stream.type.trim().toLowerCase() == 'video') return stream;
+  }
+  return null;
+}
+
+String _mediaSourceResolution(MediaBrowserMediaStream stream, String unknown) {
+  final height = stream.height;
+  if (height != null && height >= 2160) return '4K';
+  if (height != null && height > 0) return '$height';
+  return unknown;
+}
+
+String _mediaSourceRange(MediaBrowserMediaStream stream, String unknown) {
+  final declared = (stream.videoRangeType ?? '').trim().toLowerCase();
+  if (declared.contains('dovi') || declared.contains('dolby')) {
+    return 'Dolby Vision';
+  }
+  if (declared.contains('hdr10') || declared.contains('hdr10+')) {
+    return 'HDR10';
+  }
+  if (declared.contains('hlg')) return 'HLG';
+  if (declared == 'sdr') return 'SDR';
+
+  final transfer = (stream.colorTransfer ?? '').trim().toLowerCase();
+  if (transfer == 'smpte2084' || transfer.contains('pq')) return 'HDR10';
+  if (transfer == 'arib-std-b67' || transfer.contains('hlg')) return 'HLG';
+  return unknown;
+}
+
+String _mediaSourceFileName(MediaBrowserMediaSourceDto source, String unknown) {
+  final name = source.name?.trim() ?? '';
+  if (name.isNotEmpty) return name;
+  final path = source.path?.trim() ?? '';
+  if (path.isEmpty) return unknown;
+  final normalized = path.replaceAll('\\', '/');
+  final fileName = normalized.split('/').last.trim();
+  return fileName.isEmpty ? unknown : fileName;
+}
+
+Future<void> _showMediaSourceDetails(
+  BuildContext context,
+  MediaBrowserItem item,
+  MediaBrowserMediaSourceDto source,
+) {
+  return showGlassSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _MediaSourceDetailsSheet(item: item, source: source),
+  );
+}
+
+class _MediaSourceDetailsSheet extends StatelessWidget {
+  const _MediaSourceDetailsSheet({required this.item, required this.source});
+
+  final MediaBrowserItem item;
+  final MediaBrowserMediaSourceDto source;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final detail = mediaBrowserMediaInfoDetail(item, source: source);
+    final fileName = _mediaSourceFileName(source, l.commonUnknown);
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (var index = 0; index < sources.length; index++)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: index == sources.length - 1 ? 0 : 8,
-                ),
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  color: colors.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: sources[index].id == selectedId
-                          ? colors.text
-                          : colors.cardBorder,
-                    ),
-                  ),
-                  child: RadioListTile<String>(
-                    value: sources[index].id,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                    title: Text(
-                      sources[index].name?.trim().isNotEmpty == true
-                          ? sources[index].name!.trim()
-                          : l.mediaBrowserMediaSourceNumber(index + 1),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: _MediaSourceSubtitle(source: sources[index]),
-                  ),
-                ),
+            SheetHeader(
+              icon: Icons.movie_outlined,
+              title: l.mediaBrowserDetails,
+              subtitle: fileName,
+              padding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 14),
+            _MediaSourceDetailRow(
+              label: l.mediaBrowserFilePath,
+              value: source.path?.trim().isNotEmpty == true
+                  ? source.path!.trim()
+                  : l.commonUnknown,
+            ),
+            if (source.container?.trim().isNotEmpty == true)
+              _MediaSourceDetailRow(
+                label: l.mediaBrowserContainer,
+                value: source.container!.trim(),
               ),
+            if (source.sizeInBytes != null && source.sizeInBytes! > 0)
+              _MediaSourceDetailRow(
+                label: l.mediaBrowserFileSize,
+                value: formatFileSize(source.sizeInBytes!),
+              ),
+            const SizedBox(height: 12),
+            if (detail != null)
+              MediaStreamCards(detail: detail)
+            else
+              Text(l.commonUnknown, style: AppText.meta(context)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MediaSourceDetailRow extends StatelessWidget {
+  const _MediaSourceDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 76,
+            child: Text(
+              label,
+              style: AppText.movieCardMeta(
+                context,
+              ).copyWith(color: colors.muted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppText.movieCardMeta(
+                context,
+              ).copyWith(color: colors.text, height: 1.4),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -604,30 +819,6 @@ class _MediaPartSubtitle extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           );
-  }
-}
-
-class _MediaSourceSubtitle extends StatelessWidget {
-  const _MediaSourceSubtitle({required this.source});
-
-  final MediaBrowserMediaSourceDto source;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    final details = <String>[
-      if (source.path?.trim().isNotEmpty == true) source.path!.trim(),
-      if (source.container?.trim().isNotEmpty == true)
-        '${l.mediaBrowserContainer}: ${source.container!.trim()}',
-      if (source.sizeInBytes != null && source.sizeInBytes! > 0)
-        '${l.mediaBrowserFileSize}: ${formatFileSize(source.sizeInBytes!)}',
-    ];
-    if (details.isEmpty) return const SizedBox.shrink();
-    return Text(
-      details.join(' · '),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
   }
 }
 

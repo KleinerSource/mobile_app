@@ -53,6 +53,16 @@ MediaBrowserItem _multiSourceItem() {
         'Path': '/movies/first.mkv',
         'Container': 'mkv',
         'Size': 4096,
+        'MediaStreams': [
+          {
+            'Index': 0,
+            'Type': 'Video',
+            'Width': 1920,
+            'Height': 1080,
+            'VideoRangeType': 'SDR',
+            'Codec': 'h264',
+          },
+        ],
       },
       {
         'Id': 'media-2',
@@ -60,6 +70,16 @@ MediaBrowserItem _multiSourceItem() {
         'Path': '/movies/second.mp4',
         'Container': 'mp4',
         'Size': 2048,
+        'MediaStreams': [
+          {
+            'Index': 0,
+            'Type': 'Video',
+            'Width': 3840,
+            'Height': 2160,
+            'VideoRangeType': 'HDR10',
+            'Codec': 'hevc',
+          },
+        ],
       },
     ],
   });
@@ -192,19 +212,191 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('片源'), findsOneWidget);
-    expect(find.text('first.mkv'), findsOneWidget);
-    expect(find.text('second.mp4'), findsOneWidget);
-    expect(find.textContaining('/movies/second.mp4'), findsOneWidget);
+    expect(find.text('1080 SDR'), findsOneWidget);
+    expect(find.text('4K HDR10'), findsOneWidget);
+    expect(find.byType(RadioGroup<String>), findsNothing);
+    expect(find.byType(RadioListTile<String>), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
 
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('second.mp4'));
+    await tester.tap(find.text('4K HDR10'));
     await tester.pump();
 
-    final group = tester.widget<RadioGroup<String>>(
-      find.byType(RadioGroup<String>),
+    expect(find.text('H.265 (HEVC)'), findsWidgets);
+  });
+
+  testWidgets('长按片源卡片显示文件详情', (tester) async {
+    const serverId = 'server-1';
+    final movie = _multiSourceItem();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://mb.test',
+                activeServerId: serverId,
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.emby,
+              baseUrl: 'http://mb.test',
+              token: 'test-token',
+            ),
+          ),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'movie-multi'),
+        ),
+      ),
     );
-    expect(group.groupValue, 'media-2');
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('4K HDR10'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('second.mp4'), findsOneWidget);
+    expect(find.text('/movies/second.mp4'), findsOneWidget);
+    expect(find.text('H.265 (HEVC)'), findsOneWidget);
+  });
+
+  testWidgets('单片源不显示片源选择器', (tester) async {
+    const serverId = 'server-1';
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-single',
+      'Name': '单片源电影',
+      'Type': 'Movie',
+      'MediaSources': [
+        {
+          'Id': 'media-single',
+          'Name': 'single.mkv',
+          'Path': '/movies/single.mkv',
+          'Container': 'mkv',
+          'MediaStreams': [
+            {
+              'Index': 0,
+              'Type': 'Video',
+              'Width': 1920,
+              'Height': 1080,
+              'VideoRangeType': 'SDR',
+              'Codec': 'h264',
+            },
+          ],
+        },
+      ],
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://mb.test',
+                activeServerId: serverId,
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.emby,
+              baseUrl: 'http://mb.test',
+              token: 'test-token',
+            ),
+          ),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'movie-single'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('片源'), findsNothing);
+    expect(find.text('1080 SDR'), findsNothing);
+  });
+
+  testWidgets('没有视频流信息时片源摘要显示未知', (tester) async {
+    const serverId = 'server-1';
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-unknown-source',
+      'Name': '未知片源电影',
+      'Type': 'Movie',
+      'MediaSources': [
+        {'Id': 'media-unknown-1', 'Name': 'unknown-1.mkv'},
+        {'Id': 'media-unknown-2', 'Name': 'unknown-2.mkv'},
+      ],
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://mb.test',
+                activeServerId: serverId,
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.emby,
+              baseUrl: 'http://mb.test',
+              token: 'test-token',
+            ),
+          ),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'movie-unknown-source'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('未知'), findsNWidgets(2));
   });
 
   testWidgets('电影详情页默认连续播放全部分集并可切换单独分集', (tester) async {
