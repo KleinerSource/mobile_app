@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
+import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_library_refresh_indicator.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -29,6 +32,7 @@ class _MediaBrowserLibrarySettingsPageState
     extends ConsumerState<MediaBrowserLibrarySettingsPage> {
   bool _refreshing = false;
   String? _busyLibraryId;
+  double? _busyLibraryProgress;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
 
   @override
@@ -147,6 +151,7 @@ class _MediaBrowserLibrarySettingsPageState
                             child: _LibraryCard(
                               library: libraries[i],
                               busy: _busyLibraryId == libraries[i].id,
+                              refreshProgress: _busyLibraryProgress,
                               onTap: () => _openEditor(libraries[i]),
                             ),
                           ),
@@ -286,15 +291,43 @@ class _MediaBrowserLibrarySettingsPageState
   Future<void> _refreshLibrary(MediaBrowserLibrary library) async {
     if (_busyLibraryId != null) return;
     final l = AppL10n.of(context);
-    setState(() => _busyLibraryId = library.id);
+    setState(() {
+      _busyLibraryId = library.id;
+      _busyLibraryProgress = null;
+    });
+    final target = MediaBrowserLibraryRefreshTarget(
+      id: library.id,
+      name: library.name,
+      category: library.refreshCategory ?? library.collectionType ?? '',
+    );
     try {
-      await ref.read(mediaBrowserMediaRepositoryProvider).refreshLibrary();
-      _invalidateMediaBrowserCaches();
-      _showMessage(l.mediaBrowserLibraryRefreshStarted(library.name));
+      final progress = await ref
+          .read(mediaBrowserMediaRepositoryProvider)
+          .refreshLibraryAndWait(
+            target: target,
+            onStarted: () =>
+                _showMessage(l.mediaBrowserLibraryRefreshStarted(library.name)),
+            onProgress: (progress) {
+              if (!mounted || _busyLibraryId != library.id) return;
+              setState(() => _busyLibraryProgress = progress.ratio);
+            },
+            shouldContinue: () => mounted && _busyLibraryId == library.id,
+          );
+      if (!mounted) return;
+      if (progress.failed) {
+        _showError(l.mediaBrowserRefreshFailed(l.scanActionFailed));
+      } else if (!progress.isRunning) {
+        _invalidateLibraryData(library);
+      }
     } catch (error) {
       _showError(l.mediaBrowserRefreshFailed(_errorMessage(error)));
     } finally {
-      if (mounted) setState(() => _busyLibraryId = null);
+      if (mounted) {
+        setState(() {
+          _busyLibraryId = null;
+          _busyLibraryProgress = null;
+        });
+      }
     }
   }
 
@@ -381,6 +414,23 @@ class _MediaBrowserLibrarySettingsPageState
     ref.invalidate(mediaBrowserVirtualFoldersProvider);
     ref.invalidate(mediaBrowserViewsProvider);
     ref.invalidate(mediaBrowserLibraryStatsProvider);
+  }
+
+  void _invalidateLibraryData(MediaBrowserLibrary library) {
+    _invalidateMediaBrowserCaches();
+    ref.invalidate(mediaBrowserLatestProvider);
+    ref.invalidate(mediaBrowserResumeProvider);
+    ref.invalidate(mediaBrowserNextUpProvider);
+    final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+    ref.invalidate(
+      mediaBrowserViewLatestProvider(
+        MediaBrowserViewLatestRequest(
+          serverId: activeServerId,
+          viewId: library.id,
+          includeItemTypes: includeItemTypesForView(library.collectionType),
+        ),
+      ),
+    );
   }
 
   void _showMessage(String message) {
@@ -482,11 +532,13 @@ class _LibraryCard extends StatelessWidget {
   const _LibraryCard({
     required this.library,
     required this.busy,
+    required this.refreshProgress,
     required this.onTap,
   });
 
   final MediaBrowserLibrary library;
   final bool busy;
+  final double? refreshProgress;
   final VoidCallback onTap;
 
   @override
@@ -550,13 +602,9 @@ class _LibraryCard extends StatelessWidget {
                       ),
                       if (busy) ...[
                         const SizedBox(width: 8),
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.8,
-                            color: colors.accent,
-                          ),
+                        MediaBrowserLibraryRefreshIndicator(
+                          ratio: refreshProgress,
+                          size: 28,
                         ),
                       ],
                     ],

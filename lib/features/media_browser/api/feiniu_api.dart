@@ -182,6 +182,8 @@ class FeiniuApi {
     }
     final response = await _dio.post<dynamic>(
       '/mdb/scan/${Uri.encodeComponent(normalizedGuid)}',
+      // 飞牛网页端以空 JSON 对象触发扫描；省略 body 会被部分版本判为未实现。
+      data: const <String, dynamic>{},
     );
     _unwrap(response.data, (_) {});
   }

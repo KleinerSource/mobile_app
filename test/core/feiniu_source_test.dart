@@ -252,6 +252,7 @@ void main() {
 
     expect(user.isAdmin, isTrue);
     expect(libraries.single.collectionType, 'movies');
+    expect(libraries.single.refreshCategory, 'Movie');
     expect(libraries.single.paths, ['/media/movies', '/media/4k']);
     expect(libraries.single.enabled, isTrue);
     expect(adapter.requests, contains('PUT /v/api/v1/mdb/create'));
@@ -336,7 +337,7 @@ void main() {
     final completed = await source.libraryRefreshProgress(target);
 
     expect(adapter.requests.first, 'POST /v/api/v1/mdb/scan/mdb-1');
-    expect(adapter.bodies.first, isNull);
+    expect(adapter.bodies.first, isEmpty);
     expect(aggregated.isRunning, isTrue);
     expect(aggregated.ratio, closeTo(960 / 1000, 0.0001));
     expect(unknown.isRunning, isTrue);

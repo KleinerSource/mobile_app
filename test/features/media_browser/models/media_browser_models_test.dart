@@ -384,6 +384,7 @@ void main() {
       'ItemId': 'library-1',
       'Name': '电影库',
       'CollectionType': 'movies',
+      'RefreshCategory': 'Movie',
       'Locations': ['/media/movies', '/media/movies'],
       'LibraryOptions': {
         'Enabled': false,
@@ -395,6 +396,7 @@ void main() {
     expect(library.id, 'library-1');
     expect(library.name, '电影库');
     expect(library.collectionType, 'movies');
+    expect(library.refreshCategory, 'Movie');
     expect(library.paths, ['/media/movies']);
     expect(library.enabled, isFalse);
     expect(library.libraryOptions['EnableRealtimeMonitor'], isTrue);

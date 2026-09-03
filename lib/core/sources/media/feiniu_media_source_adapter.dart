@@ -894,6 +894,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         ...library.managementOptions,
         'enabled': library.enabled,
       },
+      refreshCategory: library.category,
     );
   }
 

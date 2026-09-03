@@ -221,7 +221,7 @@ void main() {
       'DELETE /v/api/v1/mdb/mdb-1',
       'POST /v/api/v1/mdb/scan/mdb-1',
     ]);
-    expect(adapter.requestData[4], isNull);
+    expect(adapter.requestData[4], isEmpty);
     expect(adapter.bodies[0], {
       'name': '剧集库',
       'category': 'TV',
@@ -247,10 +247,10 @@ void main() {
       'auto_scrap_subtitle': 1,
       'guid': 'mdb-1',
     });
-    expect(adapter.bodies, hasLength(2));
+    expect(adapter.bodies, hasLength(3));
   });
 
-  test('飞牛扫描不带请求体且任务查询携带四个媒体库字段', () async {
+  test('飞牛扫描使用空 JSON 请求体且任务查询携带四个媒体库字段', () async {
     final adapter = _FeiniuAdapter((options) {
       if (options.uri.path.endsWith('/task/running')) {
         return {
@@ -287,7 +287,7 @@ void main() {
       'POST /v/api/v1/mdb/scan/mdb-1',
       'POST /v/api/v1/task/running',
     ]);
-    expect(adapter.requestData[0], isNull);
+    expect(adapter.requestData[0], isEmpty);
     expect(adapter.requestData[1], {
       'guid': 'mdb-1',
       'ancestor': 'mdb-1',

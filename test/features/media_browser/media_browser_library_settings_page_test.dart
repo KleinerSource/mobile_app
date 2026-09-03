@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
+import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_settings_page.dart';
@@ -17,6 +18,7 @@ class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
   final MediaBrowserUser user;
   final List<MediaBrowserLibrary> libraries;
   final calls = <String>[];
+  final refreshProgresses = <MediaBrowserLibraryRefreshProgress>[];
   Map<String, dynamic>? options;
 
   @override
@@ -76,6 +78,16 @@ class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
   @override
   Future<void> refreshLibrary({String? libraryId}) async {
     calls.add('refresh:${libraryId ?? 'all'}');
+  }
+
+  @override
+  Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
+    MediaBrowserLibraryRefreshTarget target,
+  ) async {
+    if (refreshProgresses.isEmpty) {
+      return const MediaBrowserLibraryRefreshProgress(isRunning: false);
+    }
+    return refreshProgresses.removeAt(0);
   }
 
   @override
@@ -225,6 +237,10 @@ void main() {
       user: const MediaBrowserUser(id: 'admin-1', name: '管理员', isAdmin: true),
       libraries: const [_library],
     );
+    source.refreshProgresses.addAll([
+      const MediaBrowserLibraryRefreshProgress(isRunning: true, ratio: 0.42),
+      const MediaBrowserLibraryRefreshProgress(isRunning: false),
+    ]);
     final repository = MediaBrowserMediaRepository(source);
 
     await tester.pumpWidget(
@@ -278,10 +294,15 @@ void main() {
     expect(find.text('删除').hitTestable(), findsOneWidget);
 
     await tester.tap(find.text('刷新').hitTestable());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('42%'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    expect(source.calls, ['refresh:all']);
+    expect(source.calls, ['refresh:library-1']);
     expect(find.text('已开始刷新「旧库」'), findsOneWidget);
+    expect(find.text('42%'), findsNothing);
   });
 
   testWidgets('服务器返回 401/403 时显示明确的权限错误', (tester) async {

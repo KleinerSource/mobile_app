@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_library_refresh_indicator.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/collection_card_layout.dart';
 import 'package:omm/shared/poster.dart';
@@ -219,7 +220,7 @@ class _HomeLibraryCardState extends State<_HomeLibraryCard> {
                       Positioned(
                         top: 10,
                         right: 10,
-                        child: _LibraryRefreshProgress(
+                        child: MediaBrowserLibraryRefreshIndicator(
                           ratio: entry.refreshProgress,
                         ),
                       ),
@@ -308,56 +309,6 @@ class _HomeLibraryActionList extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LibraryRefreshProgress extends StatelessWidget {
-  const _LibraryRefreshProgress({required this.ratio});
-
-  final double? ratio;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final value = ratio?.clamp(0.0, 1.0).toDouble();
-    return Semantics(
-      container: true,
-      label: AppL10n.of(context).mediaBrowserRefresh,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-        ),
-        alignment: Alignment.center,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox.square(
-              dimension: 27,
-              child: CircularProgressIndicator(
-                value: value,
-                strokeWidth: 2.5,
-                color: colors.accent,
-                backgroundColor: Colors.white.withValues(alpha: 0.22),
-              ),
-            ),
-            if (value != null)
-              Text(
-                '${(value * 100).round()}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-          ],
         ),
       ),
     );

@@ -710,6 +710,7 @@ class MediaBrowserLibrary {
     required this.paths,
     required this.enabled,
     required this.libraryOptions,
+    this.refreshCategory,
   });
 
   final String id;
@@ -718,6 +719,9 @@ class MediaBrowserLibrary {
   final List<String> paths;
   final bool enabled;
   final Map<String, dynamic> libraryOptions;
+
+  /// 任务接口使用的原始媒体库分类；fnOS 与展示用的规范化分类不同。
+  final String? refreshCategory;
 
   factory MediaBrowserLibrary.fromJson(Map<String, dynamic> json) {
     final options = json['LibraryOptions'] is Map
@@ -742,6 +746,9 @@ class MediaBrowserLibrary {
       paths: paths,
       enabled: options['Enabled'] is bool ? options['Enabled'] as bool : true,
       libraryOptions: options,
+      refreshCategory: _stringOrNull(
+        json['RefreshCategory'] ?? json['refreshCategory'],
+      ),
     );
   }
 }

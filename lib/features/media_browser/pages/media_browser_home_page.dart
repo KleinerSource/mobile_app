@@ -336,24 +336,25 @@ class _MediaBrowserViewSectionsState
     );
     var completed = false;
     try {
-      await repository.refreshLibrary(libraryId: libraryId);
+      final progress = await repository.refreshLibraryAndWait(
+        target: target,
+        onStarted: () {
+          if (mounted) {
+            _showRefreshMessage(l.mediaBrowserLibraryRefreshStarted(view.name));
+          }
+        },
+        onProgress: (progress) {
+          if (!mounted || !_refreshingLibraryIds.contains(libraryId)) return;
+          setState(() => _refreshProgress[libraryId] = progress.ratio);
+        },
+        shouldContinue: () =>
+            mounted && _refreshingLibraryIds.contains(libraryId),
+      );
       if (!mounted) return;
-      _showRefreshMessage(l.mediaBrowserLibraryRefreshStarted(view.name));
-
-      while (mounted && _refreshingLibraryIds.contains(libraryId)) {
-        await Future<void>.delayed(const Duration(seconds: 1));
-        if (!mounted) return;
-        final progress = await repository.libraryRefreshProgress(target);
-        if (!mounted) return;
-        if (progress.failed) {
-          _showRefreshError(l.mediaBrowserRefreshFailed(l.scanActionFailed));
-          return;
-        }
-        if (!progress.isRunning) {
-          completed = true;
-          break;
-        }
-        setState(() => _refreshProgress[libraryId] = progress.ratio);
+      if (progress.failed) {
+        _showRefreshError(l.mediaBrowserRefreshFailed(l.scanActionFailed));
+      } else if (!progress.isRunning) {
+        completed = true;
       }
 
       if (completed && mounted) _invalidateLibraryData(view, libraryId);
@@ -374,6 +375,8 @@ class _MediaBrowserViewSectionsState
   }
 
   void _invalidateLibraryData(MediaBrowserItem view, String libraryId) {
+    ref.invalidate(mediaBrowserVirtualFoldersProvider);
+    ref.invalidate(mediaBrowserViewsProvider);
     ref.invalidate(mediaBrowserLatestProvider);
     ref.invalidate(mediaBrowserResumeProvider);
     ref.invalidate(mediaBrowserNextUpProvider);

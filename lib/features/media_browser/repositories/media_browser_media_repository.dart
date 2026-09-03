@@ -59,6 +59,32 @@ class MediaBrowserMediaRepository {
   Future<void> refreshLibrary({String? libraryId}) =>
       _source.refreshLibrary(libraryId: libraryId);
 
+  /// 刷新指定媒体库，并等待服务器任务进入终态。
+  ///
+  /// [onStarted] 在刷新请求成功后调用；[onProgress] 会收到每次轮询结果。
+  /// 页面卸载或主动结束等待时，让 [shouldContinue] 返回 false。
+  Future<MediaBrowserLibraryRefreshProgress> refreshLibraryAndWait({
+    required MediaBrowserLibraryRefreshTarget target,
+    void Function()? onStarted,
+    void Function(MediaBrowserLibraryRefreshProgress progress)? onProgress,
+    bool Function()? shouldContinue,
+    Duration pollInterval = const Duration(seconds: 1),
+  }) async {
+    await refreshLibrary(libraryId: target.id);
+    onStarted?.call();
+
+    while (shouldContinue?.call() ?? true) {
+      await Future<void>.delayed(pollInterval);
+      if (!(shouldContinue?.call() ?? true)) break;
+      final progress = await libraryRefreshProgress(target);
+      onProgress?.call(progress);
+      if (progress.failed || !progress.isRunning) return progress;
+    }
+
+    // 停止等待不代表服务器任务已完成，调用方不应在此状态失效数据。
+    return const MediaBrowserLibraryRefreshProgress(isRunning: true);
+  }
+
   Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
     MediaBrowserLibraryRefreshTarget target,
   ) => _source.libraryRefreshProgress(target);
