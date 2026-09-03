@@ -242,40 +242,11 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
 
   @override
   Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
-    MediaBrowserLibraryRefreshTarget target,
-  ) => _call(() async {
-    final tasks = await api.runningTasks(
-      guid: target.id,
-      ancestor: target.id,
-      ancestorName: target.name,
-      ancestorCategory: target.category,
-    );
-    final matched = tasks
-        .where((task) => task.guid == target.id || task.ancestor == target.id)
-        .toList(growable: false);
-    if (matched.isEmpty) {
-      return const MediaBrowserLibraryRefreshProgress(isRunning: false);
-    }
-
-    var total = 0;
-    var finished = 0;
-    var running = false;
-    var failed = false;
-    for (final task in matched) {
-      total += task.totalCount;
-      finished += task.finishedCount;
-      running = running || task.status == 2 || task.status == 3;
-      failed = failed || task.status == 0;
-    }
-    final ratio = total <= 0
-        ? null
-        : (finished / total).clamp(0.0, 1.0).toDouble();
-    return MediaBrowserLibraryRefreshProgress(
-      isRunning: running && !failed,
-      failed: failed,
-      ratio: ratio,
-    );
-  });
+    MediaBrowserLibraryRefreshTarget _,
+  ) async {
+    // fnOS 没有可用的媒体库刷新进度接口；扫描任务由服务器继续执行。
+    return const MediaBrowserLibraryRefreshProgress(isRunning: false);
+  }
 
   @override
   Future<List<MediaBrowserItem>> views() async => _call(() async {
@@ -364,11 +335,26 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         limit: pageSize,
       );
     }
+    final normalizedSearchTerm = searchTerm?.trim() ?? '';
+    if (normalizedSearchTerm.isNotEmpty) {
+      final searchResults = await api.searchList(normalizedSearchTerm);
+      final filteredItems = includeItemTypes == null
+          ? searchResults
+          : searchResults
+                .where((item) => _typeMatches(item.type, includeItemTypes))
+                .toList(growable: false);
+      final pageItems = filteredItems.skip(offset).take(pageSize);
+      return _pageFromItems(
+        pageItems.map((item) => item.toMediaBrowserItem()),
+        total: filteredItems.length,
+        startIndex: offset,
+        limit: pageSize,
+      );
+    }
     final page = await api.itemList(
       parentGuid: parentId ?? '',
       excludeFolder: includeItemTypes != null,
       typeTags: _typeTags(includeItemTypes),
-      searchTerm: searchTerm,
       startIndex: offset,
       limit: pageSize,
       sortColumn: _sortColumn(sortBy),

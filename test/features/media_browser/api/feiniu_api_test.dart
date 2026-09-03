@@ -71,6 +71,52 @@ void main() {
     });
   });
 
+  test('飞牛搜索使用 search/list 的 q 参数并解析数组响应', () async {
+    Uri? requestUri;
+    final adapter = _FeiniuAdapter((options) {
+      requestUri = options.uri;
+      return {
+        'code': 0,
+        'msg': '',
+        'data': [
+          {
+            'guid': 'movie-1',
+            'lan': 'zh-CN',
+            'title': '冰雪奇缘',
+            'type': 'Movie',
+            'genres': [2, 3],
+            'poster': '/2c/08/poster.webp',
+            'runtime': 102,
+            'is_favorite': 0,
+            'watched': 0,
+            'vote_average': '8.72',
+            'release_date': '2013-11-20',
+            'media_stream': {
+              'resolutions': ['4k', '1080p'],
+            },
+          },
+        ],
+      };
+    });
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = adapter,
+    );
+
+    final items = await api.searchList('  冰雪奇缘  ');
+
+    expect(requestUri?.path, '/v/api/v1/search/list');
+    expect(requestUri?.queryParameters, {'q': '冰雪奇缘'});
+    expect(items, hasLength(1));
+    expect(items.single.guid, 'movie-1');
+    expect(items.single.title, '冰雪奇缘');
+    expect(items.single.type, 'Movie');
+    expect(items.single.poster, '/2c/08/poster.webp');
+    expect(items.single.runtimeMinutes, 102);
+    expect(items.single.genres, ['2', '3']);
+    expect(items.single.voteAverage, 8.72);
+  });
+
   test('飞牛 API 非零 code 转换为可读异常', () async {
     final api = FeiniuApi(
       Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
@@ -250,53 +296,32 @@ void main() {
     expect(adapter.bodies, hasLength(3));
   });
 
-  test('飞牛扫描使用空 JSON 请求体且任务查询携带四个媒体库字段', () async {
-    final adapter = _FeiniuAdapter((options) {
-      if (options.uri.path.endsWith('/task/running')) {
-        return {
-          'code': 0,
-          'msg': '',
-          'data': [
-            {
-              'guid': 'task-1',
-              'type': 'TaskItemScrap',
-              'ancestor': 'mdb-1',
-              'status': 2,
-              'total_count': 352,
-              'finished_count': 342,
-            },
-          ],
-        };
-      }
-      return {'code': 0, 'msg': '', 'data': true};
-    });
+  test('飞牛重复扫描按幂等成功处理', () async {
+    final adapter = _FeiniuAdapter(
+      (_) => {'code': 1, 'msg': 'Task duplicate', 'data': null},
+    );
     final api = FeiniuApi(
       Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
         ..httpClientAdapter = adapter,
     );
 
     await api.mdbRefresh('mdb-1');
-    final tasks = await api.runningTasks(
-      guid: 'mdb-1',
-      ancestor: 'mdb-1',
-      ancestorName: '本地动漫',
-      ancestorCategory: 'TV',
+
+    expect(adapter.requests, ['POST /v/api/v1/mdb/scan/mdb-1']);
+    expect(adapter.requestData[0], isEmpty);
+  });
+
+  test('飞牛扫描返回 501 时按任务已发起处理', () async {
+    final adapter = _FeiniuStatusAdapter(statusCode: 501);
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = adapter,
     );
 
-    expect(adapter.requests, [
-      'POST /v/api/v1/mdb/scan/mdb-1',
-      'POST /v/api/v1/task/running',
-    ]);
-    expect(adapter.requestData[0], isEmpty);
-    expect(adapter.requestData[1], {
-      'guid': 'mdb-1',
-      'ancestor': 'mdb-1',
-      'ancestor_name': '本地动漫',
-      'ancestor_category': 'TV',
-    });
-    expect(tasks.single.totalCount, 352);
-    expect(tasks.single.finishedCount, 342);
-    expect(tasks.single.status, 2);
+    await api.mdbRefresh('mdb-1');
+
+    expect(adapter.requestUri?.path, '/v/api/v1/mdb/scan/mdb-1');
+    expect(adapter.requestData, isEmpty);
   });
 
   test('飞牛用户信息解析管理员字段', () async {
@@ -512,6 +537,34 @@ class _FeiniuAdapter implements HttpClientAdapter {
       jsonEncode(respond(options)),
       200,
       headers: responseHeaders,
+    );
+  }
+}
+
+class _FeiniuStatusAdapter implements HttpClientAdapter {
+  _FeiniuStatusAdapter({required this.statusCode});
+
+  final int statusCode;
+  Uri? requestUri;
+  Object? requestData;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestUri = options.uri;
+    requestData = options.data;
+    return ResponseBody.fromString(
+      'Not Implemented, please update',
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: ['text/plain'],
+      },
     );
   }
 }

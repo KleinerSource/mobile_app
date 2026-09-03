@@ -45,6 +45,37 @@ void main() {
     });
     expect(descriptor.mimeType, 'video/x-matroska');
   });
+
+  test('飞牛适配器搜索使用原生搜索接口并保留结果分页', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuSearchAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    final page = await source.itemPage(
+      includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
+      searchTerm: '冰雪奇缘',
+      startIndex: 0,
+      limit: 24,
+    );
+
+    expect(adapter.requestUri.path, '/v/api/v1/search/list');
+    expect(adapter.requestUri.queryParameters, {'q': '冰雪奇缘'});
+    expect(page.items.map((item) => item.name), ['冰雪奇缘', '冰雪奇缘2']);
+    expect(page.total, 2);
+    expect(page.hasMore, isFalse);
+  });
+
   test('飞牛媒体库与详情映射封面、背景、简介和人员', () async {
     final sessions = AuthSessionRepository(store: _MemoryTokenStore())
       ..setActiveServerId('feiniu');
@@ -276,47 +307,13 @@ void main() {
     );
   });
 
-  test('飞牛媒体库刷新聚合任务进度并处理零总数和任务结束', () async {
+  test('飞牛媒体库刷新不查询任务进度', () async {
     final sessions = AuthSessionRepository(store: _MemoryTokenStore())
       ..setActiveServerId('feiniu');
     await sessions.save(
       const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
     );
-    final adapter = _FeiniuRefreshAdapter([
-      [
-        {
-          'guid': 'task-1',
-          'ancestor': 'mdb-1',
-          'status': 2,
-          'total_count': 352,
-          'finished_count': 342,
-        },
-        {
-          'guid': 'mdb-1',
-          'ancestor': 'mdb-1',
-          'status': 3,
-          'total_count': 648,
-          'finished_count': 618,
-        },
-        {
-          'guid': 'other',
-          'ancestor': 'other',
-          'status': 2,
-          'total_count': 100,
-          'finished_count': 99,
-        },
-      ],
-      [
-        {
-          'guid': 'mdb-1',
-          'ancestor': 'mdb-1',
-          'status': 2,
-          'total_count': 0,
-          'finished_count': 0,
-        },
-      ],
-      const [],
-    ]);
+    final adapter = _FeiniuLibraryAdapter();
     final source = FeiniuMediaSourceAdapter(
       FeiniuApi(
         Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
@@ -325,35 +322,61 @@ void main() {
       sessionRepository: sessions,
       endpoint: 'http://test',
     );
-    const target = MediaBrowserLibraryRefreshTarget(
-      id: 'mdb-1',
-      name: '本地动漫',
-      category: 'TV',
-    );
 
     await source.refreshLibrary(libraryId: 'mdb-1');
-    final aggregated = await source.libraryRefreshProgress(target);
-    final unknown = await source.libraryRefreshProgress(target);
-    final completed = await source.libraryRefreshProgress(target);
-
-    expect(adapter.requests.first, 'POST /v/api/v1/mdb/scan/mdb-1');
-    expect(adapter.bodies.first, isEmpty);
-    expect(aggregated.isRunning, isTrue);
-    expect(aggregated.ratio, closeTo(960 / 1000, 0.0001));
-    expect(unknown.isRunning, isTrue);
-    expect(unknown.ratio, isNull);
-    expect(completed.isRunning, isFalse);
-    expect(completed.failed, isFalse);
-    expect(
-      adapter.taskRequestBodies,
-      everyElement({
-        'guid': 'mdb-1',
-        'ancestor': 'mdb-1',
-        'ancestor_name': '本地动漫',
-        'ancestor_category': 'TV',
-      }),
+    final progress = await source.libraryRefreshProgress(
+      const MediaBrowserLibraryRefreshTarget(
+        id: 'mdb-1',
+        name: '本地动漫',
+        category: 'TV',
+      ),
     );
+
+    expect(adapter.requests, ['POST /v/api/v1/mdb/scan/mdb-1']);
+    expect(adapter.bodies.single, isEmpty);
+    expect(progress.isRunning, isFalse);
+    expect(progress.failed, isFalse);
+    expect(progress.ratio, isNull);
   });
+}
+
+class _FeiniuSearchAdapter implements HttpClientAdapter {
+  late Uri requestUri;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestUri = options.uri;
+    final data = options.uri.path == '/v/api/v1/search/list'
+        ? [
+            {
+              'guid': 'movie-1',
+              'title': '冰雪奇缘',
+              'type': 'Movie',
+              'poster': '/2c/08/poster.webp',
+            },
+            {
+              'guid': 'movie-2',
+              'title': '冰雪奇缘2',
+              'type': 'Movie',
+              'poster': '/7c/11/poster.webp',
+            },
+          ]
+        : null;
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
 }
 
 class _FeiniuMetadataAdapter implements HttpClientAdapter {
@@ -744,51 +767,6 @@ class _FeiniuLibraryAdapter implements HttpClientAdapter {
     };
     return ResponseBody.fromString(
       jsonEncode({'code': 0, 'data': data}),
-      200,
-      headers: {
-        Headers.contentTypeHeader: ['application/json'],
-      },
-    );
-  }
-}
-
-class _FeiniuRefreshAdapter implements HttpClientAdapter {
-  _FeiniuRefreshAdapter(this.taskResponses);
-
-  final List<List<Map<String, dynamic>>> taskResponses;
-  final requests = <String>[];
-  final bodies = <Object?>[];
-  final taskRequestBodies = <Map<String, dynamic>>[];
-  var _taskCall = 0;
-
-  @override
-  void close({bool force = false}) {}
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<List<int>>? requestStream,
-    Future<void>? cancelFuture,
-  ) async {
-    requests.add('${options.method} ${options.uri.path}');
-    bodies.add(options.data);
-    final path = options.uri.path;
-    if (path == '/v/api/v1/task/running') {
-      taskRequestBodies.add(Map<String, dynamic>.from(options.data as Map));
-      final index = _taskCall++;
-      final tasks = index < taskResponses.length
-          ? taskResponses[index]
-          : const <Map<String, dynamic>>[];
-      return ResponseBody.fromString(
-        jsonEncode({'code': 0, 'data': tasks}),
-        200,
-        headers: {
-          Headers.contentTypeHeader: ['application/json'],
-        },
-      );
-    }
-    return ResponseBody.fromString(
-      jsonEncode({'code': 0, 'data': true}),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],

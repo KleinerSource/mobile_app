@@ -180,40 +180,34 @@ class FeiniuApi {
     if (normalizedGuid.isEmpty) {
       throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
     }
-    final response = await _dio.post<dynamic>(
-      '/mdb/scan/${Uri.encodeComponent(normalizedGuid)}',
-      // 飞牛网页端以空 JSON 对象触发扫描；省略 body 会被部分版本判为未实现。
-      data: const <String, dynamic>{},
-    );
-    _unwrap(response.data, (_) {});
-  }
-
-  /// 查询飞牛影视媒体库扫描任务。
-  Future<List<FeiniuRunningTask>> runningTasks({
-    required String guid,
-    required String ancestor,
-    required String ancestorName,
-    required String ancestorCategory,
-  }) async {
-    final response = await _dio.post<dynamic>(
-      '/task/running',
-      data: {
-        'guid': guid,
-        'ancestor': ancestor,
-        'ancestor_name': ancestorName,
-        'ancestor_category': ancestorCategory,
-      },
-    );
-    return _unwrap(response.data, (data) {
-      if (data is! List) return const <FeiniuRunningTask>[];
-      return data
-          .whereType<Map>()
-          .map(
-            (item) =>
-                FeiniuRunningTask.fromJson(Map<String, dynamic>.from(item)),
-          )
-          .toList(growable: false);
-    });
+    try {
+      final response = await _dio.post<dynamic>(
+        '/mdb/scan/${Uri.encodeComponent(normalizedGuid)}',
+        options: Options(
+          // 部分 fnOS 版本会返回 501，但后台扫描任务已经成功创建。
+          validateStatus: (status) =>
+              status == 501 ||
+              (status != null && status >= 200 && status < 300),
+        ),
+        // 飞牛网页端以空 JSON 对象触发扫描；省略 body 会被部分版本判为未实现。
+        data: const <String, dynamic>{},
+      );
+      if (response.statusCode == 501) return;
+      _unwrap(response.data, (_) {});
+    } on ApiException catch (error) {
+      // 重复点击刷新只说明该媒体库已有扫描任务，按幂等成功处理。
+      if (error.message.toLowerCase().contains('task duplicate')) return;
+      rethrow;
+    } on DioException catch (error) {
+      // 某些 Dio 拦截器会在 validateStatus 之前把 501 转成异常。
+      if (error.response?.statusCode == 501) return;
+      final apiError = error.error;
+      if (apiError is ApiException &&
+          apiError.message.toLowerCase().contains('task duplicate')) {
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<int> mediaDbSum() async {
@@ -261,6 +255,22 @@ class FeiniuApi {
       (data) =>
           FeiniuItemPage.fromData(data, startIndex: startIndex, limit: limit),
     );
+  }
+
+  /// 使用飞牛网页端的全局搜索接口。
+  ///
+  /// 该接口不是 `/item/list` 的筛选变体，搜索词必须通过 GET 查询参数
+  /// `q` 传递，响应 data 直接是条目数组。
+  Future<List<FeiniuItem>> searchList(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) {
+      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+    }
+    final response = await _dio.get<dynamic>(
+      '/search/list',
+      queryParameters: {'q': normalizedQuery},
+    );
+    return _unwrap(response.data, (data) => _items(data));
   }
 
   Future<FeiniuItem> item(String guid) async {

@@ -76,7 +76,7 @@ abstract interface class MediaBrowserMediaOperationsSource {
   /// 刷新全部媒体库；传入 [libraryId] 时只刷新指定媒体库。
   Future<void> refreshLibrary({String? libraryId});
 
-  /// 查询指定媒体库的刷新任务；无匹配任务时返回已完成状态。
+  /// 查询指定媒体库的刷新状态；来源无法提供进度时返回已完成状态。
   Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
     MediaBrowserLibraryRefreshTarget target,
   );
