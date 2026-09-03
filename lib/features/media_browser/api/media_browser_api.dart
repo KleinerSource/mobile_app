@@ -319,6 +319,44 @@ class MediaBrowserApi {
     return MediaBrowserItem.fromJson(data);
   }
 
+  /// 视频条目的连续分集（例如 CD1 / CD2）。
+  ///
+  /// Jellyfin 原生提供该接口，部分 Emby 版本没有实现；对明确的“不支持”
+  /// 状态返回空列表，调用方即可继续按单片播放。
+  Future<List<MediaBrowserItem>> additionalParts(
+    String userId,
+    String itemId,
+  ) async {
+    final normalized = itemId.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(itemId, 'itemId', '条目 ID 不能为空');
+    }
+    final response = await _dio.get<Object?>(
+      _p('/Videos/${_segment(normalized)}/AdditionalParts'),
+      queryParameters: {'UserId': userId},
+      options: Options(
+        extra: const {'skipRefresh': true, 'skipRetry': true},
+        // 保留 501 响应以便将未实现接口降级为空分集列表。
+        validateStatus: (status) => status != null && status < 600,
+      ),
+    );
+    final status = response.statusCode ?? 200;
+    if (status == 404 || status == 405 || status == 410 || status == 501) {
+      return const <MediaBrowserItem>[];
+    }
+    if (status >= 400) {
+      throw ApiException('分集信息请求失败（HTTP $status）');
+    }
+    final data = response.data;
+    final rawItems = data is Map ? (data['Items'] ?? data['items']) : data;
+    if (rawItems is! List) return const <MediaBrowserItem>[];
+    return rawItems
+        .whereType<Map>()
+        .map((raw) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(raw)))
+        .where((item) => item.id.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
   /// 首页「最新入库」。该接口直接返回数组，不带分页包装。
   Future<List<MediaBrowserItem>> latestMedia(
     String userId, {

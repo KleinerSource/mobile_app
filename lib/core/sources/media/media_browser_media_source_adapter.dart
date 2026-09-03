@@ -197,7 +197,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   Future<MediaDetails> getMovie(MediaRef ref) => _call(() async {
     _checkRef(ref);
     final uid = await _requireUserId();
-    final item = await api.item(uid, ref.value);
+    final item = await _itemWithAdditionalParts(uid, ref.value);
     return _detailsFromItem(item);
   });
 
@@ -355,7 +355,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   @override
   Future<MediaBrowserItem> getItem(String itemId) => _call(() async {
     final uid = await _requireUserId();
-    return api.item(uid, itemId);
+    return _itemWithAdditionalParts(uid, itemId);
   });
 
   @override
@@ -497,6 +497,22 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       },
       payload: item,
     );
+  }
+
+  Future<MediaBrowserItem> _itemWithAdditionalParts(
+    String userId,
+    String itemId,
+  ) async {
+    final item = await api.item(userId, itemId);
+    if (!item.isMovie && !item.isEpisode) return item;
+    // 某些服务器会把 AdditionalParts 直接嵌在详情响应中；已经有结果时
+    // 保持响应顺序，不再重复请求接口。
+    if (item.additionalParts.isNotEmpty) return item;
+    final parts = await api.additionalParts(userId, item.id);
+    if (parts.isEmpty) return item;
+    return item.copyWithAdditionalParts([
+      for (final part in parts) MediaBrowserVideoPart.fromItem(part),
+    ], partCount: item.partCount ?? parts.length + 1);
   }
 
   Future<MediaDetails> _detailsFromItem(MediaBrowserItem item) async {

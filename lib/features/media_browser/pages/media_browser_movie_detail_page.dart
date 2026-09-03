@@ -101,6 +101,7 @@ class _MediaBrowserDetailBodyState
   final _heroPosition = ValueNotifier(0.0);
   bool _actionBusy = false;
   String? _selectedMediaSourceId;
+  String? _selectedVideoPartId;
 
   @override
   void initState() {
@@ -120,6 +121,11 @@ class _MediaBrowserDetailBodyState
       _selectedMediaSourceId = widget.item.mediaSources.isEmpty
           ? null
           : widget.item.mediaSources.first.id;
+    }
+    final partIds = widget.item.videoParts.map((part) => part.id).toSet();
+    if (_selectedVideoPartId != null &&
+        !partIds.contains(_selectedVideoPartId)) {
+      _selectedVideoPartId = null;
     }
   }
 
@@ -200,6 +206,20 @@ class _MediaBrowserDetailBodyState
   }
 
   MediaBrowserMediaSourceDto? get _selectedMediaSource {
+    final selectedPart = _selectedVideoPart;
+    if (selectedPart != null) {
+      final id = selectedPart.mediaSourceId ?? selectedPart.id;
+      return MediaBrowserMediaSourceDto(
+        id: id,
+        name: selectedPart.name,
+        path: selectedPart.path,
+        container: selectedPart.container,
+        sizeInBytes: selectedPart.sizeInBytes,
+        supportsDirectPlay: true,
+        supportsDirectStream: true,
+        mediaStreams: selectedPart.mediaStreams,
+      );
+    }
     final sources = widget.item.mediaSources;
     if (sources.isEmpty) return null;
     for (final source in sources) {
@@ -213,6 +233,21 @@ class _MediaBrowserDetailBodyState
     setState(() => _selectedMediaSourceId = id);
   }
 
+  MediaBrowserVideoPart? get _selectedVideoPart {
+    final selectedId = _selectedVideoPartId;
+    if (selectedId == null) return null;
+    for (final part in widget.item.videoParts) {
+      if (part.id == selectedId) return part;
+    }
+    return null;
+  }
+
+  void _selectVideoPart(String id) {
+    final next = id.trim().isEmpty ? null : id;
+    if (_selectedVideoPartId == next) return;
+    setState(() => _selectedVideoPartId = next);
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -222,7 +257,12 @@ class _MediaBrowserDetailBodyState
         ? null
         : urls.value?.poster(item.id, tag: item.primaryImageTag);
     final runtimeMinutes = item.runtimeMinutes;
+    final videoParts = item.videoParts;
+    final selectedVideoPart = _selectedVideoPart;
     final selectedMediaSource = _selectedMediaSource;
+    final playbackMediaSourceId = selectedVideoPart == null
+        ? selectedMediaSource?.id
+        : selectedVideoPart.mediaSourceId;
     final castPeople = [
       for (final person in item.people)
         if (person.type == 'Actor' && person.name.trim().isNotEmpty) person,
@@ -273,7 +313,9 @@ class _MediaBrowserDetailBodyState
                 context,
                 ref,
                 item: item,
-                mediaSourceId: selectedMediaSource?.id,
+                part: selectedVideoPart,
+                playAllParts: selectedVideoPart == null,
+                mediaSourceId: playbackMediaSourceId,
               ),
               // 与 OMM 详情页一致：长按播放先选内核（libmpv / KSPlayer）。
               onLongPressPlay: playbackEnginePickerEnabled
@@ -281,7 +323,9 @@ class _MediaBrowserDetailBodyState
                       context,
                       ref,
                       item: item,
-                      mediaSourceId: selectedMediaSource?.id,
+                      part: selectedVideoPart,
+                      playAllParts: selectedVideoPart == null,
+                      mediaSourceId: playbackMediaSourceId,
                     )
                   : null,
               onTranscodePlay: () => openMediaBrowserPlayback(
@@ -289,22 +333,37 @@ class _MediaBrowserDetailBodyState
                 ref,
                 item: item,
                 transcode: true,
-                mediaSourceId: selectedMediaSource?.id,
+                part: selectedVideoPart,
+                playAllParts: selectedVideoPart == null,
+                mediaSourceId: playbackMediaSourceId,
               ),
               onToggleFavorite: _toggleFavorite,
               onTogglePlayed: _togglePlayed,
             ),
           ),
         ),
+        if (videoParts.length > 1)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              child: _MediaPartSelector(
+                parts: videoParts,
+                selectedId: _selectedVideoPartId,
+                onChanged: _selectVideoPart,
+              ),
+            ),
+          ),
         if (item.mediaSources.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-              child: _MediaSourceSelector(
-                sources: item.mediaSources,
-                selectedId: selectedMediaSource?.id ?? '',
-                onChanged: _selectMediaSource,
-              ),
+              child: selectedVideoPart == null
+                  ? _MediaSourceSelector(
+                      sources: item.mediaSources,
+                      selectedId: selectedMediaSource?.id ?? '',
+                      onChanged: _selectMediaSource,
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
         if (item.overview?.trim().isNotEmpty == true)
@@ -351,6 +410,7 @@ class _MediaBrowserDetailBodyState
           child: MediaBrowserMediaInfoSection(
             item: item,
             source: selectedMediaSource,
+            runTimeTicks: selectedVideoPart?.runTimeTicks,
           ),
         ),
         if (_hasDetails(item, selectedMediaSource))
@@ -434,6 +494,116 @@ class _MediaSourceSelector extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _MediaPartSelector extends StatelessWidget {
+  const _MediaPartSelector({
+    required this.parts,
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  final List<MediaBrowserVideoPart> parts;
+  final String? selectedId;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final l = AppL10n.of(context);
+    return MovieDetailSection(
+      title: l.mediaBrowserVideoParts,
+      child: RadioGroup<String>(
+        groupValue: selectedId ?? '',
+        onChanged: (id) {
+          if (id != null) onChanged(id);
+        },
+        child: Column(
+          children: [
+            _MediaPartCard(
+              title: l.mediaBrowserPlayAllParts,
+              subtitle: Text('${parts.length} ${l.mediaBrowserVideoParts}'),
+              selected: selectedId == null,
+              value: '',
+              colors: colors,
+            ),
+            for (var index = 0; index < parts.length; index++)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _MediaPartCard(
+                  title: parts[index].name?.trim().isNotEmpty == true
+                      ? parts[index].name!.trim()
+                      : l.mediaBrowserVideoPartNumber(index + 1),
+                  subtitle: _MediaPartSubtitle(part: parts[index]),
+                  selected: parts[index].id == selectedId,
+                  value: parts[index].id,
+                  colors: colors,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaPartCard extends StatelessWidget {
+  const _MediaPartCard({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.value,
+    required this.colors,
+  });
+
+  final String title;
+  final Widget subtitle;
+  final bool selected;
+  final String value;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: selected ? colors.text : colors.cardBorder),
+      ),
+      child: RadioListTile<String>(
+        value: value,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: subtitle,
+      ),
+    );
+  }
+}
+
+class _MediaPartSubtitle extends StatelessWidget {
+  const _MediaPartSubtitle({required this.part});
+
+  final MediaBrowserVideoPart part;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final details = <String>[
+      if (part.path?.trim().isNotEmpty == true) part.path!.trim(),
+      if (part.container?.trim().isNotEmpty == true)
+        '${l.mediaBrowserContainer}: ${part.container!.trim()}',
+      if (part.sizeInBytes != null && part.sizeInBytes! > 0)
+        '${l.mediaBrowserFileSize}: ${formatFileSize(part.sizeInBytes!)}',
+    ];
+    return details.isEmpty
+        ? const SizedBox.shrink()
+        : Text(
+            details.join(' · '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          );
   }
 }
 

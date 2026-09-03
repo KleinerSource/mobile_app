@@ -7,10 +7,15 @@ import 'package:omm/features/media_browser/api/media_browser_config.dart';
 
 /// 记录 `METHOD uri` 的通用 fake adapter，响应由构造函数注入。
 class _MediaBrowserTestAdapter implements HttpClientAdapter {
-  _MediaBrowserTestAdapter(this.respond, this.authHeaderName);
+  _MediaBrowserTestAdapter(
+    this.respond,
+    this.authHeaderName, {
+    this.statusCode = 200,
+  });
 
   final Object? Function(RequestOptions options) respond;
   final String authHeaderName;
+  final int statusCode;
 
   final requests = <String>[];
   final requestBodies = <Map<String, dynamic>>[];
@@ -35,7 +40,7 @@ class _MediaBrowserTestAdapter implements HttpClientAdapter {
     final body = respond(options);
     return ResponseBody.fromString(
       jsonEncode(body),
-      200,
+      statusCode,
       headers: {
         Headers.contentTypeHeader: ['application/json'],
       },
@@ -205,6 +210,50 @@ void main() {
               '&SortBy=ParentIndexNumber%2CIndexNumber',
           'GET $base/Users/user-1/Items/item-1',
         ]);
+      });
+
+      test('AdditionalParts 解析分集并按服务端顺序返回', () async {
+        final adapter = _MediaBrowserTestAdapter((options) {
+          expect(options.uri.queryParameters['UserId'], 'user-1');
+          return [
+            {
+              'Id': 'part-2',
+              'Name': 'CD2',
+              'MediaSources': [
+                {'Id': 'source-2', 'Container': 'mp4'},
+              ],
+            },
+            {
+              'Id': 'part-3',
+              'Name': 'CD3',
+              'MediaSources': [
+                {'Id': 'source-3', 'Container': 'mkv'},
+              ],
+            },
+          ];
+        }, config.authHeaderName);
+        final api = apiFor(config, adapter);
+
+        final parts = await api.additionalParts('user-1', 'movie-1');
+
+        expect(parts.map((part) => part.id), ['part-2', 'part-3']);
+        expect(parts.first.mediaSources.single.id, 'source-2');
+        expect(
+          adapter.requests.single,
+          'GET http://test${config.pathPrefix}/Videos/movie-1/AdditionalParts'
+          '?UserId=user-1',
+        );
+      });
+
+      test('AdditionalParts 接口返回不支持状态时兼容为空列表', () async {
+        final adapter = _MediaBrowserTestAdapter(
+          (_) => {'Message': 'not supported'},
+          config.authHeaderName,
+          statusCode: 404,
+        );
+        final api = apiFor(config, adapter);
+
+        expect(await api.additionalParts('user-1', 'movie-1'), isEmpty);
       });
 
       test('authenticateByName 携带客户端身份头并解析令牌与用户', () async {

@@ -33,9 +33,11 @@ void main() {
     final detail = mediaBrowserMediaInfoDetail(
       item,
       source: item.mediaSources[1],
+      runTimeTicks: 1200000000,
     );
 
     expect(detail?.container, 'mp4');
+    expect(detail?.durationSec, 120);
     expect(detail?.fileSize, 2048);
     expect(detail?.streams.video?.codec, 'h264');
     expect(detail?.streams.audioStreams.single.codec, 'aac');

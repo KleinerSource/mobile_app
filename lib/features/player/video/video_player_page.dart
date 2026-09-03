@@ -100,11 +100,13 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     this.directAudioTracks = const <playback_models.AudioTrack>[],
     this.directSubtitleTracks = const <playback_models.SubtitleTrack>[],
     this.directProgressReporter,
+    this.directPlaybackResolver,
     this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
     this.onQueueDispose,
+    this.autoAdvanceQueue = false,
   });
 
   /// 打开外部/第三方直连媒体。该模式不需要 OMM 的整数影片 ID，
@@ -120,11 +122,13 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     this.directAudioTracks = const <playback_models.AudioTrack>[],
     this.directSubtitleTracks = const <playback_models.SubtitleTrack>[],
     this.directProgressReporter,
+    this.directPlaybackResolver,
     this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
     this.onQueueDispose,
+    this.autoAdvanceQueue = false,
   }) : movieId = null;
 
   final int? movieId;
@@ -141,6 +145,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
   /// Sessions/Playing/Stopped）。与本地文件续播记录互不影响。
   final Future<void> Function(int positionSec, int durationSec, bool completed)?
   directProgressReporter;
+  final Future<PlayerQueuePlayback> Function()? directPlaybackResolver;
 
   /// 直链 HLS 是否优先使用 KSPlayer 的 FFmpeg 内核。仅文件源
   /// （WebDAV/SMB）使用；OMM 转码流与 DBO 在线流保持默认 AVPlayer。
@@ -152,6 +157,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
   /// 由队列创建者持有的资源清理回调，例如文件播放代理。
   /// 切换队列项时会传递给 replacement 页面，最终退出时才执行。
   final Future<void> Function()? onQueueDispose;
+  final bool autoAdvanceQueue;
 
   static Future<void> open(
     BuildContext context, {
@@ -198,11 +204,13 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
         const <playback_models.SubtitleTrack>[],
     Future<void> Function(int positionSec, int durationSec, bool completed)?
     directProgressReporter,
+    Future<PlayerQueuePlayback> Function()? directPlaybackResolver,
     bool directPreferFfmpegForHls = false,
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
     int queueIndex = 0,
     Future<void> Function()? onQueueDispose,
+    bool autoAdvanceQueue = false,
     bool useRootNavigator = false,
   }) {
     appLog(
@@ -221,11 +229,13 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
           directAudioTracks: directAudioTracks,
           directSubtitleTracks: directSubtitleTracks,
           directProgressReporter: directProgressReporter,
+          directPlaybackResolver: directPlaybackResolver,
           directPreferFfmpegForHls: directPreferFfmpegForHls,
           startPositionSec: startPositionSec,
           queue: queue,
           queueIndex: queueIndex,
           onQueueDispose: onQueueDispose,
+          autoAdvanceQueue: autoAdvanceQueue,
         ),
       ),
     );
@@ -304,13 +314,20 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   bool _isLeaving = false;
   bool _queueOwnershipTransferred = false;
   bool _queueResourcesDisposed = false;
+  bool _completionHandled = false;
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
   // 每个播放页的 Host 都是新建的。首次打开没有旧媒体可清理，尤其是
   // iOS Pigeon stop 在尚未 attach 原生视图时可能等待较久，不能阻塞直链起播。
   bool _playerHasBeenOpened = false;
 
-  bool get _isDirectPlayback => widget.directUrl?.trim().isNotEmpty == true;
+  String? _activeDirectPlaybackFileName;
+  Future<void> Function(int positionSec, int durationSec, bool completed)?
+  _activeDirectProgressReporter;
+
+  bool get _isDirectPlayback =>
+      widget.directUrl?.trim().isNotEmpty == true ||
+      widget.directPlaybackResolver != null;
 
   @override
   void initState() {
@@ -528,8 +545,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   Future<void> _reportFileProgress() {
-    final fileName = widget.directPlaybackFileName?.trim();
-    final serverReporter = widget.directProgressReporter;
+    final fileName = _activeDirectPlaybackFileName?.trim();
+    final serverReporter = _activeDirectProgressReporter;
     if ((fileName == null || fileName.isEmpty) && serverReporter == null) {
       return Future<void>.value();
     }
@@ -673,10 +690,30 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     if (!mounted || generation != _loadGeneration) return;
 
     try {
-      final trailerUrl = widget.directUrl?.trim();
+      var trailerUrl = widget.directUrl?.trim();
+      var directHeaders = widget.directHeaders;
+      var directFormatHint = widget.directFormatHint;
+      var directPlaybackFileName = widget.directPlaybackFileName;
+      var directAudioTracks = widget.directAudioTracks;
+      var directSubtitleTracks = widget.directSubtitleTracks;
+      var directProgressReporter = widget.directProgressReporter;
+      var directStartPositionSec = widget.startPositionSec;
+      final resolver = widget.directPlaybackResolver;
+      if (resolver != null) {
+        final resolved = await resolver();
+        trailerUrl = resolved.url.trim();
+        directHeaders = resolved.headers;
+        directFormatHint = resolved.formatHint;
+        directPlaybackFileName = resolved.fileName;
+        directAudioTracks = resolved.audioTracks;
+        directSubtitleTracks = resolved.subtitleTracks;
+        directProgressReporter = resolved.progressReporter;
+        directStartPositionSec = resolved.startPositionSec;
+        if (trailerUrl.isEmpty) throw StateError('懒加载播放信息未返回地址');
+      }
       if (trailerUrl != null && trailerUrl.isNotEmpty) {
         if (ref.read(playerSettingsProvider).resumeFromLastPosition) {
-          final fileName = widget.directPlaybackFileName?.trim();
+          final fileName = directPlaybackFileName?.trim();
           if (fileName != null && fileName.isNotEmpty) {
             final savedProgress = _filePlaybackProgress.load(fileName);
             if (savedProgress != null) {
@@ -684,16 +721,19 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
             }
           }
         }
+        if (fallbackResume == null && directStartPositionSec > 0) {
+          fallbackResume = Duration(seconds: directStartPositionSec);
+        }
+        _activeDirectPlaybackFileName = directPlaybackFileName;
+        _activeDirectProgressReporter = directProgressReporter;
         // 文件源的回环代理是按需取流的，内核 open 可能会等待远端首段
         // 数据或容器探测。先展示播放器表面和控件，让播放器自己的 buffering
         // 状态接管等待过程，避免整个页面一直被“正在加载影片”覆盖。
-        _decision =
-            widget.directAudioTracks.isEmpty &&
-                widget.directSubtitleTracks.isEmpty
+        _decision = directAudioTracks.isEmpty && directSubtitleTracks.isEmpty
             ? _directPlaybackDecision
             : _directPlaybackDecisionForTracks(
-                audioTracks: widget.directAudioTracks,
-                subtitleTracks: widget.directSubtitleTracks,
+                audioTracks: directAudioTracks,
+                subtitleTracks: directSubtitleTracks,
               );
         _bindProgress();
         setState(() => _loading = false);
@@ -715,13 +755,13 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           trailerUrl,
           fallbackResume,
           play: shouldPlay,
-          headers: widget.directHeaders,
-          formatHint: widget.directFormatHint,
+          headers: directHeaders,
+          formatHint: directFormatHint,
           preferFfmpegForHls: widget.directPreferFfmpegForHls,
         ).timeout(const Duration(seconds: 45));
         _playerHasBeenOpened = true;
         _playerLog('播放器 open 已返回');
-        if (widget.directPlaybackFileName?.trim().isNotEmpty == true) {
+        if (directPlaybackFileName?.trim().isNotEmpty == true) {
           await _waitForFirstFrame();
         }
         if (!mounted || generation != _loadGeneration) {
@@ -775,7 +815,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       final usesManagedTranscode = engineRoute.usesManagedTranscode;
       _transcodeSessionActive = usesManagedTranscode;
       String? directUrl;
-      Map<String, String>? directHeaders;
+      Map<String, String>? ommDirectHeaders;
       if (useBackendStream) {
         final rawDecisionUrl = decision.streamUrl.trim();
         if (rawDecisionUrl.isEmpty) {
@@ -790,7 +830,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           throw StateError('服务器版本不兼容：播放决策缺少 direct_url');
         }
         directUrl = _protectedUrl(cfg, rawDirectUrl, token);
-        directHeaders = !isExternalUrl(cfg, rawDirectUrl)
+        ommDirectHeaders = !isExternalUrl(cfg, rawDirectUrl)
             ? _authorizationHeaders(token)
             : null;
       }
@@ -844,7 +884,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           startAt,
           play: shouldPlay,
           formatHint: decision.container,
-          headers: directHeaders,
+          headers: ommDirectHeaders,
           mediaInfo: playbackMediaInfoForDecision(decision),
         );
       }
@@ -1121,6 +1161,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
 
   void _bindProgress() {
     _unbindProgress();
+    _completionHandled = false;
     _lastPositionSec = _host.position.inSeconds;
     _lastDurationSec = _host.duration.inSeconds;
     _posSub = _host.positionStream.listen((position) {
@@ -1130,19 +1171,30 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       _lastDurationSec = duration.inSeconds;
     });
     _completedSub = _host.completedStream.listen((completed) {
-      if (!_isLeaving && completed) {
-        final duration = _host.duration.inSeconds;
-        if (duration > 0) _lastDurationSec = duration;
-        if (_lastDurationSec > 0) _lastPositionSec = _lastDurationSec;
-        unawaited(_reportProgress());
-        // ignore: discarded_futures
-        _stopTranscodeSession();
+      if (!_isLeaving && completed && !_completionHandled) {
+        _completionHandled = true;
+        unawaited(_handlePlaybackCompleted());
       }
     });
     _errorSub = _host.errorStream.listen(_onPlayerError);
     _progressReportTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!_isLeaving) unawaited(_reportProgress());
     });
+  }
+
+  Future<void> _handlePlaybackCompleted() async {
+    final duration = _host.duration.inSeconds;
+    if (duration > 0) _lastDurationSec = duration;
+    if (_lastDurationSec > 0) _lastPositionSec = _lastDurationSec;
+    await _reportProgress();
+    await _stopTranscodeSession();
+    if (!mounted ||
+        _isLeaving ||
+        !widget.autoAdvanceQueue ||
+        widget.queueIndex >= widget.queue.length - 1) {
+      return;
+    }
+    await _switchMedia(widget.queueIndex + 1);
   }
 
   void _unbindProgress() {
@@ -1941,7 +1993,10 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     if (_isLeaving || index < 0 || index >= widget.queue.length) return;
     final item = widget.queue[index];
     final directUrl = item.directUrl?.trim();
-    if ((directUrl == null || directUrl.isEmpty) && item.movieId == null) {
+    final hasDirectPlayback =
+        (directUrl != null && directUrl.isNotEmpty) ||
+        item.directPlaybackResolver != null;
+    if (!hasDirectPlayback && item.movieId == null) {
       return;
     }
     _isLeaving = true;
@@ -1959,19 +2014,24 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         try {
           await Navigator.of(context).pushReplacement<void, void>(
             MaterialPageRoute(
-              builder: (_) => directUrl != null && directUrl.isNotEmpty
+              builder: (_) => hasDirectPlayback
                   ? VideoPlayerPage.direct(
                       title: item.title,
-                      directUrl: directUrl,
+                      directUrl: directUrl ?? '',
                       directHeaders: item.directHeaders,
                       directFormatHint: item.directFormatHint,
                       engineKind: widget.engineKind,
                       directPlaybackFileName: item.directPlaybackFileName,
+                      directAudioTracks: item.directAudioTracks,
+                      directSubtitleTracks: item.directSubtitleTracks,
+                      directProgressReporter: item.directProgressReporter,
+                      directPlaybackResolver: item.directPlaybackResolver,
                       directPreferFfmpegForHls: item.directPreferFfmpegForHls,
                       startPositionSec: item.startPositionSec,
                       queue: widget.queue,
                       queueIndex: index,
                       onQueueDispose: widget.onQueueDispose,
+                      autoAdvanceQueue: widget.autoAdvanceQueue,
                     )
                   : VideoPlayerPage(
                       movieId: item.movieId!,
@@ -1981,6 +2041,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
                       queue: widget.queue,
                       queueIndex: index,
                       onQueueDispose: widget.onQueueDispose,
+                      autoAdvanceQueue: widget.autoAdvanceQueue,
                     ),
             ),
           );

@@ -9,9 +9,12 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
+import 'package:omm/features/player/common/player_queue.dart';
 import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
@@ -27,6 +30,8 @@ Future<void> openMediaBrowserPlayback(
   required MediaBrowserItem item,
   bool transcode = false,
   String? mediaSourceId,
+  MediaBrowserVideoPart? part,
+  bool playAllParts = false,
   PlaybackEngineKind? engineKind,
 }) async {
   final config = ref.read(mediaBrowserConfigProvider);
@@ -39,47 +44,48 @@ Future<void> openMediaBrowserPlayback(
   final itemId = item.id.trim();
   if (itemId.isEmpty) return;
   try {
-    final descriptor = await source.resolvePlayback(
-      MediaRef(sourceId: SourceId(config.sourceId), value: itemId),
-      PlaybackRequest(
-        forceVideoTranscode: transcode,
-        mediaSourceId: mediaSourceId,
-      ),
+    final allParts = item.videoParts;
+    final firstPart = (part ?? allParts.first).copyWith(
+      mediaSourceId: part == null ? mediaSourceId : part.mediaSourceId,
     );
-    final payload = descriptor.payload;
-    final playSessionId = payload is MediaBrowserPlaybackInfo
-        ? payload.playSessionId
-        : null;
-    final resumeSec = descriptor.startAt.round();
-    // 开播报告不阻塞播放；失败只影响服务端会话列表，不影响本地播放。
-    unawaited(
-      repo
-          .reportPlaybackStart(
-            itemId: itemId,
-            positionTicks: secondsToMediaBrowserTicks(resumeSec),
-            playSessionId: playSessionId,
-          )
-          .catchError((_) {}),
+    final queueParts = playAllParts && part == null && allParts.length > 1
+        ? <MediaBrowserVideoPart>[firstPart, ...allParts.skip(1)]
+        : <MediaBrowserVideoPart>[firstPart];
+    final firstPlayback = await _resolveMediaBrowserPart(
+      source: source,
+      repo: repo,
+      config: config,
+      part: queueParts.first,
+      transcode: transcode,
     );
+    final queue = [
+      for (var index = 0; index < queueParts.length; index++)
+        _queueItemForPart(
+          source: source,
+          repo: repo,
+          config: config,
+          item: item,
+          part: queueParts[index],
+          partNumber: index + 1,
+          transcode: transcode,
+          resolved: index == 0 ? firstPlayback : null,
+        ),
+    ];
     if (!context.mounted) return;
     await VideoPlayerPage.openDirect(
       context,
-      title: _playbackTitle(item),
-      directUrl: descriptor.uri.toString(),
-      directHeaders: descriptor.headers,
-      directFormatHint: descriptor.mimeType,
-      directAudioTracks: _audioTracks(descriptor.audioTracks),
-      directSubtitleTracks: _subtitleTracks(descriptor.subtitleTracks),
-      startPositionSec: resumeSec,
+      title: queue.first.title,
+      directUrl: firstPlayback.url,
+      directHeaders: firstPlayback.headers,
+      directFormatHint: firstPlayback.formatHint,
+      directAudioTracks: firstPlayback.audioTracks,
+      directSubtitleTracks: firstPlayback.subtitleTracks,
+      directProgressReporter: firstPlayback.progressReporter,
+      startPositionSec: firstPlayback.startPositionSec,
       engineKind: engineKind,
-      directProgressReporter: (positionSec, durationSec, completed) =>
-          repo.reportPlaybackStopped(
-            itemId: itemId,
-            positionTicks: secondsToMediaBrowserTicks(
-              completed ? durationSec : positionSec,
-            ),
-            playSessionId: playSessionId,
-          ),
+      queue: queue,
+      queueIndex: 0,
+      autoAdvanceQueue: queue.length > 1,
     );
     // 播放结束同步详情与首页的进度/已看状态。
     ref.invalidate(mediaBrowserItemDetailProvider);
@@ -91,6 +97,86 @@ Future<void> openMediaBrowserPlayback(
       ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
     }
   }
+}
+
+PlayerQueueItem _queueItemForPart({
+  required MediaBrowserMediaSource source,
+  required MediaBrowserMediaRepository repo,
+  required MediaBrowserConfig config,
+  required MediaBrowserItem item,
+  required MediaBrowserVideoPart part,
+  required int partNumber,
+  required bool transcode,
+  required PlayerQueuePlayback? resolved,
+}) {
+  final title = _partPlaybackTitle(item, partNumber);
+  return PlayerQueueItem(
+    title: title,
+    mediaId:
+        '${config.sourceId}:${item.id}:${part.itemId}:${part.mediaSourceId ?? part.id}',
+    directUrl: resolved?.url,
+    directHeaders: resolved?.headers,
+    directFormatHint: resolved?.formatHint,
+    directAudioTracks: resolved?.audioTracks ?? const [],
+    directSubtitleTracks: resolved?.subtitleTracks ?? const [],
+    directProgressReporter: resolved?.progressReporter,
+    startPositionSec: resolved?.startPositionSec ?? 0,
+    directPlaybackResolver: () => _resolveMediaBrowserPart(
+      source: source,
+      repo: repo,
+      config: config,
+      part: part,
+      transcode: transcode,
+    ),
+  );
+}
+
+Future<PlayerQueuePlayback> _resolveMediaBrowserPart({
+  required MediaBrowserMediaSource source,
+  required MediaBrowserMediaRepository repo,
+  required MediaBrowserConfig config,
+  required MediaBrowserVideoPart part,
+  required bool transcode,
+}) async {
+  final itemId = part.itemId.trim();
+  final descriptor = await source.resolvePlayback(
+    MediaRef(sourceId: SourceId(config.sourceId), value: itemId),
+    PlaybackRequest(
+      forceVideoTranscode: transcode,
+      mediaSourceId: part.mediaSourceId,
+    ),
+  );
+  final payload = descriptor.payload;
+  final playSessionId = payload is MediaBrowserPlaybackInfo
+      ? payload.playSessionId
+      : null;
+  final resumeSec = descriptor.startAt.round();
+  // 每个分集都使用自己的 ItemId 和播放会话，不能把第二分集的进度记到父条目。
+  unawaited(
+    repo
+        .reportPlaybackStart(
+          itemId: itemId,
+          positionTicks: secondsToMediaBrowserTicks(resumeSec),
+          playSessionId: playSessionId,
+        )
+        .catchError((_) {}),
+  );
+  return PlayerQueuePlayback(
+    url: descriptor.uri.toString(),
+    headers: descriptor.headers,
+    formatHint: descriptor.mimeType,
+    audioTracks: _audioTracks(descriptor.audioTracks),
+    subtitleTracks: _subtitleTracks(descriptor.subtitleTracks),
+    startPositionSec: resumeSec,
+    progressReporter: (positionSec, durationSec, completed) =>
+        repo.reportPlaybackStopped(
+          itemId: itemId,
+          positionTicks: secondsToMediaBrowserTicks(
+            completed ? durationSec : positionSec,
+          ),
+          playSessionId: playSessionId,
+        ),
+  );
 }
 
 List<playback_models.AudioTrack> _audioTracks(List<PlaybackTrack> tracks) =>
@@ -146,6 +232,8 @@ Future<void> openMediaBrowserPlaybackWithEnginePicker(
   required MediaBrowserItem item,
   bool transcode = false,
   String? mediaSourceId,
+  MediaBrowserVideoPart? part,
+  bool playAllParts = false,
 }) async {
   if (!playbackEnginePickerEnabled) return;
   final engineKind = await pickPlaybackEngine(
@@ -159,8 +247,15 @@ Future<void> openMediaBrowserPlaybackWithEnginePicker(
     item: item,
     transcode: transcode,
     mediaSourceId: mediaSourceId,
+    part: part,
+    playAllParts: playAllParts,
     engineKind: engineKind,
   );
+}
+
+String _partPlaybackTitle(MediaBrowserItem item, int partNumber) {
+  final title = _playbackTitle(item);
+  return partNumber <= 1 ? title : '$title · Part $partNumber';
 }
 
 String _playbackTitle(MediaBrowserItem item) {

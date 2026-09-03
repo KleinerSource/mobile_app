@@ -353,6 +353,63 @@ void main() {
         expect(details.payload, isA<MediaBrowserItem>());
       });
 
+      test('getMovie 读取 AdditionalParts 并保留分集条目与片源顺序', () async {
+        final httpAdapter = _RecordingAdapter((options) {
+          if (options.uri.path.endsWith('/AdditionalParts')) {
+            return [
+              {
+                'Id': 'part-2',
+                'Name': '电影 CD2',
+                'RunTimeTicks': 5000000000,
+                'MediaSources': [
+                  {
+                    'Id': 'source-2',
+                    'Path': '/movies/part-2.mp4',
+                    'Container': 'mp4',
+                  },
+                ],
+              },
+            ];
+          }
+          return {
+            'Id': 'part-1',
+            'Name': '电影 CD1',
+            'Type': 'Movie',
+            'PartCount': 2,
+            'RunTimeTicks': 6000000000,
+            'MediaSources': [
+              {
+                'Id': 'source-1',
+                'Path': '/movies/part-1.mkv',
+                'Container': 'mkv',
+              },
+            ],
+          };
+        });
+        final adapter = buildAdapter(httpAdapter);
+
+        final details = await adapter.getMovie(
+          MediaRef(sourceId: sourceId, value: 'part-1'),
+        );
+        final item = details.payload! as MediaBrowserItem;
+
+        expect(item.partCount, 2);
+        expect(item.videoParts.map((part) => part.itemId), [
+          'part-1',
+          'part-2',
+        ]);
+        expect(item.videoParts[1].mediaSourceId, 'source-2');
+        expect(item.videoParts[1].durationSeconds, 500);
+        expect(
+          httpAdapter.requests,
+          contains('GET $base/Users/user-1/Items/part-1'),
+        );
+        expect(
+          httpAdapter.requests,
+          contains('GET $base/Videos/part-1/AdditionalParts?UserId=user-1'),
+        );
+      });
+
       test('resolvePlayback 默认返回 static 直链并携带恢复位置', () async {
         final httpAdapter = _RecordingAdapter((options) {
           if (options.uri.path.endsWith('/PlaybackInfo')) {
@@ -575,6 +632,73 @@ void main() {
             const PlaybackRequest(mediaSourceId: 'missing'),
           ),
           throwsA(isA<SourceException>()),
+        );
+      });
+
+      test('resolvePlayback 使用分集条目 ID和片源信息，不回退到父分集', () async {
+        final httpAdapter = _RecordingAdapter((options) {
+          if (options.uri.path.endsWith('/PlaybackInfo')) {
+            return {
+              'MediaSources': [
+                {
+                  'Id': 'source-cd2',
+                  'Path': '/movies/cd2.mp4',
+                  'Container': 'mp4',
+                  'MediaStreams': [
+                    {'Index': 0, 'Type': 'Video', 'Codec': 'h264'},
+                    {
+                      'Index': 1,
+                      'Type': 'Audio',
+                      'DisplayTitle': 'CD2 音轨',
+                      'IsDefault': true,
+                    },
+                    {
+                      'Index': 2,
+                      'Type': 'Subtitle',
+                      'Codec': 'srt',
+                      'IsExternal': true,
+                      'Language': 'chi',
+                    },
+                  ],
+                },
+              ],
+            };
+          }
+          return {
+            'Id': 'part-cd2',
+            'Name': '电影 CD2',
+            'Type': 'Movie',
+            'RunTimeTicks': 5000000000,
+          };
+        });
+        final adapter = buildAdapter(httpAdapter);
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'part-cd2'),
+          const PlaybackRequest(mediaSourceId: 'source-cd2'),
+        );
+
+        expect(
+          descriptor.uri.path,
+          '${config.pathPrefix}/Videos/part-cd2/stream',
+        );
+        expect(descriptor.uri.queryParameters['MediaSourceId'], 'source-cd2');
+        expect(descriptor.mimeType, 'video/mp4');
+        expect(descriptor.audioTracks.single.label, 'CD2 音轨');
+        expect(
+          descriptor.subtitleTracks.single.url,
+          contains('/Videos/part-cd2/'),
+        );
+        expect(
+          httpAdapter.requests,
+          contains('GET $base/Users/user-1/Items/part-cd2'),
+        );
+        expect(
+          httpAdapter.requests,
+          contains(
+            'POST $base/Items/part-cd2/PlaybackInfo'
+            '?UserId=user-1&MediaSourceId=source-cd2&AutoOpenLiveStream=true',
+          ),
         );
       });
 

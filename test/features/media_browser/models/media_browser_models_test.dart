@@ -109,6 +109,69 @@ void main() {
     expect(item.mediaSources.map((source) => source.container), ['mkv', 'mp4']);
   });
 
+  test('MediaBrowserItem.fromJson 解析 PartCount 和 AdditionalParts 并保持顺序', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-cd1',
+      'Name': '分集电影',
+      'Type': 'Movie',
+      'PartCount': 3,
+      'RunTimeTicks': 6000000000,
+      'MediaSources': [
+        {
+          'Id': 'source-cd1',
+          'Name': 'CD1.mkv',
+          'Path': '/movies/CD1.mkv',
+          'Container': 'mkv',
+        },
+      ],
+      'AdditionalParts': [
+        {
+          'Id': 'movie-cd2',
+          'Name': '分集电影 CD2',
+          'RunTimeTicks': 5000000000,
+          'MediaSources': [
+            {
+              'Id': 'source-cd2',
+              'Name': 'CD2.mp4',
+              'Path': '/movies/CD2.mp4',
+              'Container': 'mp4',
+              'Size': 2048,
+              'MediaStreams': [
+                {'Index': 1, 'Type': 'Audio', 'Codec': 'aac'},
+              ],
+            },
+          ],
+        },
+        {
+          'Id': 'movie-cd3',
+          'Name': '分集电影 CD3',
+          'MediaSources': [
+            {'Id': 'source-cd3', 'Path': '/movies/CD3.mkv'},
+          ],
+        },
+      ],
+    });
+
+    expect(item.partCount, 3);
+    expect(item.additionalParts.map((part) => part.itemId), [
+      'movie-cd2',
+      'movie-cd3',
+    ]);
+    expect(item.videoParts.map((part) => part.itemId), [
+      'movie-cd1',
+      'movie-cd2',
+      'movie-cd3',
+    ]);
+    expect(item.videoParts.map((part) => part.mediaSourceId), [
+      'source-cd1',
+      'source-cd2',
+      'source-cd3',
+    ]);
+    expect(item.videoParts[1].name, 'CD2.mp4');
+    expect(item.videoParts[1].durationSeconds, 500);
+    expect(item.videoParts[1].mediaStreams.single.codec, 'aac');
+  });
+
   test('飞牛文件列表按条目 mediaGuid 优先映射多个片源并去重', () {
     final item = FeiniuItem.fromJson(const {
       'guid': 'movie-1',

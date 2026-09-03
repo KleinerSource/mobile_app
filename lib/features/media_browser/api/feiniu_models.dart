@@ -446,6 +446,24 @@ class FeiniuItem {
       ])
         stream.toMediaBrowserStream(),
     ];
+    final additionalParts = orderedFiles.length <= 1
+        ? const <MediaBrowserVideoPart>[]
+        : [
+            for (final file in orderedFiles.skip(1))
+              MediaBrowserVideoPart(
+                id: file.mediaGuid.trim(),
+                itemId: guid,
+                mediaSourceId: file.mediaGuid.trim(),
+                name: file.name.trim().isEmpty ? null : file.name.trim(),
+                path: file.path.trim().isEmpty ? null : file.path,
+                container: file.container?.trim().isNotEmpty == true
+                    ? file.container!.trim()
+                    : _extension(file.path),
+                sizeInBytes: file.sizeInBytes,
+                runTimeTicks: secondsToMediaBrowserTicks(seconds),
+                mediaStreams: mediaStreams,
+              ),
+          ];
     final mediaSource = orderedFiles.isNotEmpty
         ? [
             for (final file in orderedFiles)
@@ -500,6 +518,8 @@ class FeiniuItem {
       backdropImageTags: imageBackdrops,
       thumbImageTag: thumbPath,
       childCount: numberOfEpisodes ?? localNumberOfEpisodes,
+      partCount: orderedFiles.isEmpty ? null : orderedFiles.length,
+      additionalParts: additionalParts,
       mediaSources: mediaSource,
     );
   }

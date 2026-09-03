@@ -184,6 +184,16 @@ void main() {
     expect(item.mediaSources[1].path, '/movies/second.mp4');
     expect(item.mediaSources[1].container, 'mp4');
     expect(item.mediaSources[1].sizeInBytes, 2048);
+    expect(item.partCount, 2);
+    expect(item.videoParts.map((part) => part.itemId), [
+      'item-multi',
+      'item-multi',
+    ]);
+    expect(item.videoParts.map((part) => part.mediaSourceId), [
+      'media-1',
+      'media-2',
+    ]);
+    expect(item.videoParts[1].name, 'second.mp4');
 
     final descriptor = await source.resolvePlayback(
       const MediaRef(sourceId: SourceId('feiniu'), value: 'item-multi'),

@@ -4037,6 +4037,17 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get mediaBrowserVideoParts => '分集';
+
+  @override
+  String get mediaBrowserPlayAllParts => '连续播放全部分集';
+
+  @override
+  String mediaBrowserVideoPartNumber(int number) {
+    return '第 $number 分集';
+  }
+
+  @override
   String get mediaBrowserNextUp => '接下来播放';
 
   @override

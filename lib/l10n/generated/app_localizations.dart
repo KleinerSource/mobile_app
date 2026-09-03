@@ -7512,6 +7512,24 @@ abstract class AppL10n {
   /// **'片源 {number}'**
   String mediaBrowserMediaSourceNumber(int number);
 
+  /// No description provided for @mediaBrowserVideoParts.
+  ///
+  /// In zh, this message translates to:
+  /// **'分集'**
+  String get mediaBrowserVideoParts;
+
+  /// No description provided for @mediaBrowserPlayAllParts.
+  ///
+  /// In zh, this message translates to:
+  /// **'连续播放全部分集'**
+  String get mediaBrowserPlayAllParts;
+
+  /// No description provided for @mediaBrowserVideoPartNumber.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {number} 分集'**
+  String mediaBrowserVideoPartNumber(int number);
+
   /// No description provided for @mediaBrowserNextUp.
   ///
   /// In zh, this message translates to:

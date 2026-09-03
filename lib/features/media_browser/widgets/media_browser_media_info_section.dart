@@ -18,14 +18,20 @@ class MediaBrowserMediaInfoSection extends StatelessWidget {
     super.key,
     required this.item,
     this.source,
+    this.runTimeTicks,
   });
 
   final MediaBrowserItem item;
   final MediaBrowserMediaSourceDto? source;
+  final int? runTimeTicks;
 
   @override
   Widget build(BuildContext context) {
-    final detail = mediaBrowserMediaInfoDetail(item, source: source);
+    final detail = mediaBrowserMediaInfoDetail(
+      item,
+      source: source,
+      runTimeTicks: runTimeTicks,
+    );
     if (detail == null) return const SizedBox.shrink();
     return MovieDetailFullBleedSection(
       header: Text(
@@ -44,6 +50,7 @@ class MediaBrowserMediaInfoSection extends StatelessWidget {
 MediaInfoDetail? mediaBrowserMediaInfoDetail(
   MediaBrowserItem item, {
   MediaBrowserMediaSourceDto? source,
+  int? runTimeTicks,
 }) {
   final selectedSource =
       source ?? (item.mediaSources.isEmpty ? null : item.mediaSources.first);
@@ -63,7 +70,9 @@ MediaInfoDetail? mediaBrowserMediaInfoDetail(
     container: selectedSource.container?.trim().isEmpty == true
         ? null
         : selectedSource.container,
-    durationSec: mediaBrowserTicksToSeconds(item.runTimeTicks).toDouble(),
+    durationSec: mediaBrowserTicksToSeconds(
+      runTimeTicks ?? item.runTimeTicks,
+    ).toDouble(),
     bitRate: video?.bitRate,
     fileSize: selectedSource.sizeInBytes,
     streams: MediaStreams(

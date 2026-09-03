@@ -304,6 +304,128 @@ class MediaBrowserMediaSourceDto {
   }
 }
 
+/// 视频条目的一个连续分集（例如 CD1 / CD2）。
+///
+/// Emby/Jellyfin 的分集是独立 Item，fnOS 的分集则共享父 Item、通过
+/// [mediaSourceId] 指向 `stream/list.files` 中的文件。
+@immutable
+class MediaBrowserVideoPart {
+  const MediaBrowserVideoPart({
+    required this.id,
+    required this.itemId,
+    this.mediaSourceId,
+    this.name,
+    this.path,
+    this.container,
+    this.sizeInBytes,
+    this.runTimeTicks,
+    this.mediaStreams = const <MediaBrowserMediaStream>[],
+  });
+
+  final String id;
+  final String itemId;
+  final String? mediaSourceId;
+  final String? name;
+  final String? path;
+  final String? container;
+  final int? sizeInBytes;
+  final int? runTimeTicks;
+  final List<MediaBrowserMediaStream> mediaStreams;
+
+  int get durationSeconds => mediaBrowserTicksToSeconds(runTimeTicks);
+
+  factory MediaBrowserVideoPart.fromJson(Object? raw) {
+    if (raw is! Map) {
+      return const MediaBrowserVideoPart(id: '', itemId: '');
+    }
+    final json = Map<String, dynamic>.from(raw);
+    final rawSources = json['MediaSources'] ?? json['mediaSources'];
+    final sources = rawSources is List
+        ? rawSources
+              .map(MediaBrowserMediaSourceDto.fromJson)
+              .where((source) => source.id.trim().isNotEmpty)
+              .toList(growable: false)
+        : const <MediaBrowserMediaSourceDto>[];
+    final source = sources.isEmpty ? null : sources.first;
+    final rawStreams = json['MediaStreams'] ?? json['mediaStreams'];
+    final streams = rawStreams is List
+        ? rawStreams
+              .map(MediaBrowserMediaStream.fromJson)
+              .toList(growable: false)
+        : const <MediaBrowserMediaStream>[];
+    final itemId =
+        (json['Id'] ?? json['id'] ?? json['ItemId'] ?? json['itemId'])
+            ?.toString() ??
+        '';
+    return MediaBrowserVideoPart(
+      id: itemId,
+      itemId: itemId,
+      mediaSourceId:
+          source?.id ??
+          _stringOrNull(json['MediaSourceId'] ?? json['mediaSourceId']),
+      name: source?.name ?? _stringOrNull(json['Name'] ?? json['name']),
+      path: source?.path ?? _stringOrNull(json['Path'] ?? json['path']),
+      container:
+          source?.container ??
+          _stringOrNull(json['Container'] ?? json['container']),
+      sizeInBytes:
+          source?.sizeInBytes ??
+          _intValue(json['Size'] ?? json['size'] ?? json['SizeInBytes']),
+      runTimeTicks: _intValue(
+        json['RunTimeTicks'] ?? json['runTimeTicks'] ?? json['DurationTicks'],
+      ),
+      mediaStreams: source?.mediaStreams.isNotEmpty == true
+          ? source!.mediaStreams
+          : streams,
+    );
+  }
+
+  factory MediaBrowserVideoPart.fromItem(
+    MediaBrowserItem item, {
+    String? mediaSourceId,
+  }) {
+    final source = item.mediaSources.isEmpty
+        ? null
+        : mediaSourceId == null
+        ? item.mediaSources.first
+        : item.mediaSources.firstWhere(
+            (candidate) => candidate.id == mediaSourceId,
+            orElse: () => item.mediaSources.first,
+          );
+    return MediaBrowserVideoPart(
+      id: item.id,
+      itemId: item.id,
+      mediaSourceId: mediaSourceId ?? source?.id,
+      name: source?.name ?? item.name,
+      path: source?.path,
+      container: source?.container,
+      sizeInBytes: source?.sizeInBytes,
+      runTimeTicks: item.runTimeTicks,
+      mediaStreams: source?.mediaStreams ?? const <MediaBrowserMediaStream>[],
+    );
+  }
+
+  MediaBrowserVideoPart copyWith({
+    String? mediaSourceId,
+    String? name,
+    String? path,
+    String? container,
+    int? sizeInBytes,
+    int? runTimeTicks,
+    List<MediaBrowserMediaStream>? mediaStreams,
+  }) => MediaBrowserVideoPart(
+    id: id,
+    itemId: itemId,
+    mediaSourceId: mediaSourceId ?? this.mediaSourceId,
+    name: name ?? this.name,
+    path: path ?? this.path,
+    container: container ?? this.container,
+    sizeInBytes: sizeInBytes ?? this.sizeInBytes,
+    runTimeTicks: runTimeTicks ?? this.runTimeTicks,
+    mediaStreams: mediaStreams ?? this.mediaStreams,
+  );
+}
+
 @immutable
 class MediaBrowserPlaybackInfo {
   const MediaBrowserPlaybackInfo({
@@ -362,6 +484,8 @@ class MediaBrowserItem {
     this.childCount,
     this.recursiveItemCount,
     this.episodeCount,
+    this.partCount,
+    this.additionalParts = const <MediaBrowserVideoPart>[],
     this.mediaSources = const <MediaBrowserMediaSourceDto>[],
   });
 
@@ -408,6 +532,8 @@ class MediaBrowserItem {
   final int? childCount;
   final int? recursiveItemCount;
   final int? episodeCount;
+  final int? partCount;
+  final List<MediaBrowserVideoPart> additionalParts;
   final List<MediaBrowserMediaSourceDto> mediaSources;
 
   bool get isMovie => type == 'Movie';
@@ -417,6 +543,61 @@ class MediaBrowserItem {
   bool get isMusicAlbum => type == 'MusicAlbum';
   bool get isAudio => type == 'Audio';
   bool get isPlayable => isMovie || isEpisode;
+
+  /// 当前条目及服务器返回的额外分集，顺序与服务器保持一致。
+  List<MediaBrowserVideoPart> get videoParts {
+    final primary = MediaBrowserVideoPart.fromItem(this);
+    final parts = <MediaBrowserVideoPart>[primary, ...additionalParts];
+    final seen = <String>{};
+    return parts
+        .where((part) {
+          final key = '${part.itemId}\u0000${part.mediaSourceId ?? ''}';
+          return part.itemId.trim().isNotEmpty && seen.add(key);
+        })
+        .toList(growable: false);
+  }
+
+  bool get hasAdditionalParts => additionalParts.isNotEmpty;
+
+  MediaBrowserItem copyWithAdditionalParts(
+    List<MediaBrowserVideoPart> parts, {
+    int? partCount,
+  }) => MediaBrowserItem(
+    id: id,
+    name: name,
+    type: type,
+    serverId: serverId,
+    collectionType: collectionType,
+    originalTitle: originalTitle,
+    productionYear: productionYear,
+    endYear: endYear,
+    status: status,
+    communityRating: communityRating,
+    criticRating: criticRating,
+    runTimeTicks: runTimeTicks,
+    overview: overview,
+    genres: genres,
+    people: people,
+    userData: userData,
+    seriesId: seriesId,
+    seriesName: seriesName,
+    seasonId: seasonId,
+    parentIndexNumber: parentIndexNumber,
+    indexNumber: indexNumber,
+    album: album,
+    albumId: albumId,
+    albumArtist: albumArtist,
+    artistNames: artistNames,
+    primaryImageTag: primaryImageTag,
+    backdropImageTags: backdropImageTags,
+    thumbImageTag: thumbImageTag,
+    childCount: childCount,
+    recursiveItemCount: recursiveItemCount,
+    episodeCount: episodeCount,
+    partCount: partCount ?? this.partCount,
+    additionalParts: parts,
+    mediaSources: mediaSources,
+  );
 
   /// 音乐条目的展示艺术家：专辑艺术家优先，缺省时合并参与艺术家。
   String? get displayArtist {
@@ -501,6 +682,12 @@ class MediaBrowserItem {
       childCount: _intValue(json['ChildCount']),
       recursiveItemCount: _intValue(json['RecursiveItemCount']),
       episodeCount: _intValue(json['EpisodeCount']),
+      partCount: _intValue(json['PartCount'] ?? json['partCount']),
+      additionalParts: _videoParts(
+        json['AdditionalParts'] ??
+            json['additionalParts'] ??
+            json['additional_parts'],
+      ),
       mediaSources: sources is List
           ? sources
                 .map(MediaBrowserMediaSourceDto.fromJson)
@@ -639,6 +826,14 @@ class MediaBrowserAuthResult {
 String? _stringOrNull(Object? value) {
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? null : text;
+}
+
+List<MediaBrowserVideoPart> _videoParts(Object? value) {
+  if (value is! List) return const <MediaBrowserVideoPart>[];
+  return value
+      .map(MediaBrowserVideoPart.fromJson)
+      .where((part) => part.itemId.trim().isNotEmpty)
+      .toList(growable: false);
 }
 
 int? _intValue(Object? value) {

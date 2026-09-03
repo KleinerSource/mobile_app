@@ -4095,6 +4095,17 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get mediaBrowserVideoParts => 'Parts';
+
+  @override
+  String get mediaBrowserPlayAllParts => 'Play all parts';
+
+  @override
+  String mediaBrowserVideoPartNumber(int number) {
+    return 'Part $number';
+  }
+
+  @override
   String get mediaBrowserNextUp => 'Next up';
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:omm/core/models/playback.dart' as playback_models;
 import 'package:omm/features/player/video/video_player_page.dart';
 import 'package:omm/features/player/common/player_queue.dart';
 
@@ -47,6 +48,59 @@ void main() {
     expect(page.queue, same(queue));
     expect(page.queueIndex, 1);
     expect(page.directUrl, 'https://example.test/two.mp4');
+  });
+
+  test('媒体浏览分集队列项支持懒加载播放信息和独立媒体轨道', () async {
+    final item = PlayerQueueItem(
+      title: '电影 · Part 2',
+      mediaId: 'emby:movie:part-2:source-2',
+      directPlaybackResolver: () async => const PlayerQueuePlayback(
+        url: 'https://example.test/part-2.mp4',
+        formatHint: 'mp4',
+        audioTracks: [
+          playback_models.AudioTrack(
+            index: 1,
+            codec: 'aac',
+            language: 'zh',
+            title: '中文音轨',
+            channels: 2,
+            isDefault: true,
+          ),
+        ],
+        subtitleTracks: [
+          playback_models.SubtitleTrack(
+            id: 'subtitle-2',
+            index: 2,
+            source: 'embedded',
+            language: 'zh',
+            title: '中文字幕',
+            codec: 'srt',
+            url: '',
+            isDefault: false,
+          ),
+        ],
+        startPositionSec: 12,
+      ),
+    );
+
+    final playback = await item.directPlaybackResolver!();
+
+    expect(item.directUrl, isNull);
+    expect(item.directPlaybackResolver, isNotNull);
+    expect(playback.url, 'https://example.test/part-2.mp4');
+    expect(playback.audioTracks.single.title, '中文音轨');
+    expect(playback.subtitleTracks.single.id, 'subtitle-2');
+    expect(playback.startPositionSec, 12);
+  });
+
+  test('媒体浏览分集播放页允许自动切换队列', () {
+    const page = VideoPlayerPage.direct(
+      title: '电影 · Part 1',
+      directUrl: 'https://example.test/part-1.mp4',
+      autoAdvanceQueue: true,
+    );
+
+    expect(page.autoAdvanceQueue, isTrue);
   });
 
   test('音频队列按安全媒体 ID 传递运行时地址', () {
