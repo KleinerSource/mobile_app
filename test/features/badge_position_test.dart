@@ -74,6 +74,9 @@ void main() {
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Center(
               child: SizedBox(

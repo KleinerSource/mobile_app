@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/server_avatar.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 Widget _wrap({
   required ServerProject? project,
@@ -12,6 +13,9 @@ Widget _wrap({
   bool showBackground = true,
 }) {
   return MaterialApp(
+    localizationsDelegates: AppL10n.localizationsDelegates,
+    supportedLocales: AppL10n.supportedLocales,
+    locale: const Locale('zh'),
     home: Scaffold(
       body: Center(
         child: Builder(
@@ -129,6 +133,9 @@ void main() {
     var longPressed = false;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: Center(
             child: GestureDetector(

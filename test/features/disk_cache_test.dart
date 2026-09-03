@@ -5,7 +5,9 @@ import 'package:omm/features/cache/disk_cache.dart';
 
 void main() {
   test('缓存服务能统计并清理其他缓存目录', () async {
-    final root = await Directory.systemTemp.createTemp('oh-my-media-cache-test-');
+    final root = await Directory.systemTemp.createTemp(
+      'oh-my-media-cache-test-',
+    );
     addTearDown(() => root.delete(recursive: true));
     final service = DiskCacheService(rootDirectory: root);
     final other = Directory(

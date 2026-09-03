@@ -14,6 +14,7 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
@@ -52,21 +53,24 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
 class _MediaBrowserLibraryPageState
     extends ConsumerState<MediaBrowserLibraryPage> {
   static const _pageSize = 24;
-  static const _videoTypeOptions = <({String value, String label})>[
-    (value: 'Movie,Series', label: '全部'),
-    (value: 'Movie', label: '电影'),
-    (value: 'Series', label: '剧集'),
-  ];
-  static const _musicTypeOptions = <({String value, String label})>[
-    (value: 'MusicAlbum', label: '专辑'),
-    (value: 'Audio', label: '歌曲'),
-  ];
-  static const _sortOptions = <({String value, String label})>[
-    (value: 'DateCreated', label: '最近添加'),
-    (value: 'SortName', label: '名称'),
-    (value: 'ProductionYear', label: '年份'),
-    (value: 'CommunityRating', label: '评分'),
-  ];
+  static final _videoTypeOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: 'Movie,Series', label: (l) => l.filterAll),
+        (value: 'Movie', label: (l) => l.mediaBrowserTypeMovies),
+        (value: 'Series', label: (l) => l.mediaBrowserTypeTvShows),
+      ];
+  static final _musicTypeOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: 'MusicAlbum', label: (l) => l.mediaBrowserTypeAlbums),
+        (value: 'Audio', label: (l) => l.mediaBrowserTypeSongs),
+      ];
+  static final _sortOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: 'DateCreated', label: (l) => l.mediaBrowserSortRecent),
+        (value: 'SortName', label: (l) => l.mediaBrowserSortName),
+        (value: 'ProductionYear', label: (l) => l.mediaBrowserSortYear),
+        (value: 'CommunityRating', label: (l) => l.mediaBrowserSortRating),
+      ];
 
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
@@ -82,12 +86,12 @@ class _MediaBrowserLibraryPageState
   bool _batchBusy = false;
 
   /// 当前选中库的类型过滤选项；音乐库切到「专辑/歌曲」。
-  List<({String value, String label})> get _typeOptions =>
+  List<({String value, String Function(AppL10n l) label})> get _typeOptions =>
       _typeOptionsFor(_collectionType);
 
-  static List<({String value, String label})> _typeOptionsFor(
-    String? collectionType,
-  ) => _isMusicCollectionType(collectionType)
+  static List<({String value, String Function(AppL10n l) label})>
+  _typeOptionsFor(String? collectionType) =>
+      _isMusicCollectionType(collectionType)
       ? _musicTypeOptions
       : _videoTypeOptions;
 
@@ -315,6 +319,7 @@ class _MediaBrowserLibraryPageState
 
   Future<void> _openSortMenu(BuildContext context) async {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -325,7 +330,7 @@ class _MediaBrowserLibraryPageState
             children: [
               SheetHeader(
                 icon: Icons.sort_rounded,
-                title: '排序',
+                title: l.mediaBrowserSort,
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
                 trailing: _LibraryOrderButton(
                   ascending: _sortOrder == 'Ascending',
@@ -342,7 +347,7 @@ class _MediaBrowserLibraryPageState
               for (final option in _sortOptions)
                 ListTile(
                   dense: true,
-                  title: Text(option.label),
+                  title: Text(option.label(l)),
                   trailing: option.value == _sortBy
                       ? Icon(
                           Icons.check_rounded,
@@ -365,6 +370,7 @@ class _MediaBrowserLibraryPageState
 
   Future<void> _openTypeMenu(BuildContext context) async {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -373,15 +379,15 @@ class _MediaBrowserLibraryPageState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SheetHeader(
+              SheetHeader(
                 icon: Icons.tune_rounded,
-                title: '筛选内容类型',
-                padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
+                title: l.mediaBrowserFilterContentType,
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
               for (final option in _typeOptions)
                 ListTile(
                   dense: true,
-                  title: Text(option.label),
+                  title: Text(option.label(l)),
                   trailing: option.value == _includeItemTypes
                       ? Icon(
                           Icons.check_rounded,
@@ -459,8 +465,12 @@ class _MediaBrowserLibraryPageState
                                       ? (widget.personName?.trim().isNotEmpty ==
                                                 true
                                             ? widget.personName!.trim()
-                                            : '演员作品')
-                                      : '媒体库',
+                                            : AppL10n.of(
+                                                context,
+                                              ).mediaBrowserActorWorks)
+                                      : AppL10n.of(
+                                          context,
+                                        ).mediaBrowserLibrariesTitle,
                                   style: AppText.pageTitle(context),
                                 ),
                               ],
@@ -480,8 +490,7 @@ class _MediaBrowserLibraryPageState
                       ),
                     ),
                     views.maybeWhen(
-                      data: (list) =>
-                          _isPersonMode || list.length <= 1
+                      data: (list) => _isPersonMode || list.length <= 1
                           ? const SizedBox.shrink()
                           : SizedBox(
                               height: 38,
@@ -533,7 +542,8 @@ class _MediaBrowserLibraryPageState
                                       pagingController: _controller,
                                       // 与 OMM 影片库一致：尾部提示整行跨列渲染，
                                       // 否则「没有更多内容」会被塞进单个网格单元。
-                                      showNoMoreItemsIndicatorAsGridChild: false,
+                                      showNoMoreItemsIndicatorAsGridChild:
+                                          false,
                                       gridDelegate:
                                           SliverGridDelegateWithFixedCrossAxisCount(
                                             crossAxisCount: crossAxisCount,
@@ -584,7 +594,9 @@ class _MediaBrowserLibraryPageState
                                                   message:
                                                       _controller.error
                                                           ?.toString() ??
-                                                      '加载失败',
+                                                      AppL10n.of(
+                                                        context,
+                                                      ).loadFailed,
                                                   onRetry: _controller
                                                       .retryLastFailedRequest,
                                                 ),
@@ -594,8 +606,10 @@ class _MediaBrowserLibraryPageState
                                                       .retryLastFailedRequest,
                                                 ),
                                             noItemsFoundIndicatorBuilder: (_) =>
-                                                const MediaBrowserEmptyPlaceholder(
-                                                  text: '暂无符合条件的条目',
+                                                MediaBrowserEmptyPlaceholder(
+                                                  text: AppL10n.of(
+                                                    context,
+                                                  ).mediaBrowserNoMatchingItems,
                                                 ),
                                             noMoreItemsIndicatorBuilder: (_) =>
                                                 const NoMoreContent(),
@@ -640,14 +654,14 @@ class _MediaBrowserLibraryPageState
                   actionsBuilder: (selected) => [
                     EntityBatchAction(
                       icon: Icons.favorite_rounded,
-                      label: '收藏',
+                      label: AppL10n.of(context).mediaBrowserFavoriteAction,
                       onTap: selected.isEmpty || _batchBusy
                           ? null
                           : () => unawaited(_applySelection(favorite: true)),
                     ),
                     EntityBatchAction(
                       icon: Icons.favorite_border_rounded,
-                      label: '取消收藏',
+                      label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
                       color: colors.danger,
                       onTap: selected.isEmpty || _batchBusy
                           ? null
@@ -655,14 +669,14 @@ class _MediaBrowserLibraryPageState
                     ),
                     EntityBatchAction(
                       icon: Icons.task_alt_rounded,
-                      label: '标记已看',
+                      label: AppL10n.of(context).mediaBrowserMarkWatched,
                       onTap: selected.isEmpty || _batchBusy
                           ? null
                           : () => unawaited(_applySelection(played: true)),
                     ),
                     EntityBatchAction(
                       icon: Icons.check_circle_outline_rounded,
-                      label: '取消已看',
+                      label: AppL10n.of(context).mediaBrowserUnmarkWatched,
                       onTap: selected.isEmpty || _batchBusy
                           ? null
                           : () => unawaited(_applySelection(played: false)),
@@ -750,7 +764,10 @@ class _LibraryListError extends StatelessWidget {
             style: TextStyle(color: colors.muted),
           ),
           const SizedBox(height: 12),
-          TextButton(onPressed: onRetry, child: const Text('重试')),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(AppL10n.of(context).mediaBrowserRetry),
+          ),
         ],
       ),
     );
@@ -856,7 +873,9 @@ class _LibraryOrderButton extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              ascending ? '升序' : '降序',
+              ascending
+                  ? AppL10n.of(context).mediaBrowserAscending
+                  : AppL10n.of(context).mediaBrowserDescending,
               style: TextStyle(
                 color: colors.accent,
                 fontFamily: 'Inter',

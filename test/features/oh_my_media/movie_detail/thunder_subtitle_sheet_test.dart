@@ -10,6 +10,7 @@ import 'package:omm/core/sources/media/omm_media_operations_source.dart';
 import 'package:omm/features/oh_my_media/movie_detail/thunder_subtitle_sheet.dart';
 import 'package:omm/features/oh_my_media/movies/media_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('同名字幕下载失败时确认覆盖并重试', (tester) async {
@@ -29,6 +30,9 @@ void main() {
           ).overrideWith((ref) async => const MovieDetail(id: 1)),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           theme: ThemeData(brightness: Brightness.dark),
           home: const Scaffold(body: ThunderSubtitleSheet(movieId: 1)),
         ),

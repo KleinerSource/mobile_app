@@ -7,6 +7,7 @@ import 'package:omm/features/media_browser/navigation/media_browser_navigation.d
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// MediaBrowser 条目详情页的「更多类似」横向海报列表。
 class MediaBrowserSimilarSection extends ConsumerWidget {
@@ -19,7 +20,10 @@ class MediaBrowserSimilarSection extends ConsumerWidget {
     final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
     if (urls == null || items.isEmpty) return const SizedBox.shrink();
     return MovieDetailFullBleedSection(
-      header: Text('更多类似', style: AppText.sectionTitle(context)),
+      header: Text(
+        AppL10n.of(context).mediaBrowserSimilar,
+        style: AppText.sectionTitle(context),
+      ),
       child: SizedBox(
         height: 250,
         child: ListView.separated(

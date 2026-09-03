@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
 import 'package:omm/features/files/file_entry_icons.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   FileEntry entry(
@@ -176,6 +177,9 @@ void main() {
   testWidgets('does not add an outer shell around file icons', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: FileEntryIconBadge(
           entry: entry('settings.json'),
           child: const SizedBox(),

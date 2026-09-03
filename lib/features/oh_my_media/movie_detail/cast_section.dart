@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/actor_avatar.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 import 'movie_detail_scaffold.dart';
 
@@ -29,10 +30,10 @@ class CastEntry {
 /// 横向滚动的大圆头像(色相发光 + 名字首字渐变兜底)+ 名字与角色。
 /// 有任一条目带角色时预留角色行高度。
 class CastSection extends StatelessWidget {
-  const CastSection({super.key, required this.entries, this.title = '演员'});
+  const CastSection({super.key, required this.entries, this.title});
 
   final List<CastEntry> entries;
-  final String title;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +42,10 @@ class CastSection extends StatelessWidget {
       (entry) => (entry.role ?? '').trim().isNotEmpty,
     );
     return MovieDetailFullBleedSection(
-      header: Text(title, style: AppText.sectionTitle(context)),
+      header: Text(
+        title ?? AppL10n.of(context).detailCast,
+        style: AppText.sectionTitle(context),
+      ),
       child: SizedBox(
         height: hasRole ? 150 : 132,
         // 不用 ListView：虚拟化会回收滚动出缓存区的头像，回滚重建时
@@ -109,7 +113,7 @@ class _CastTile extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          name.isEmpty ? '—' : name,
+          name.isEmpty ? AppL10n.of(context).commonUnknown : name,
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,

@@ -13,6 +13,7 @@ import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('无服务器时显示加号入口并打开创建页', (tester) async {
@@ -1115,6 +1116,9 @@ void main() {
 
 Widget _testApp(Widget home) {
   return MaterialApp(
+    localizationsDelegates: AppL10n.localizationsDelegates,
+    supportedLocales: AppL10n.supportedLocales,
+    locale: const Locale('zh'),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(disableAnimations: true),
       child: child ?? const SizedBox.shrink(),

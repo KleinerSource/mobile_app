@@ -58,7 +58,8 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     final favorites = serverId == null
         ? const <FileFavorite>[]
         : ref.watch(fileFavoritesProvider(serverId));
-    final manualOrder = serverId != null &&
+    final manualOrder =
+        serverId != null &&
         ref.watch(fileFavoritesManualOrderProvider(serverId));
     final visible = _sorted(favorites, manualOrder: manualOrder)
         .where(
@@ -163,9 +164,7 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
         final ordered = [...visible];
         final moved = ordered.removeAt(oldIndex);
         ordered.insert(newIndex, moved);
-        ref
-            .read(fileFavoritesProvider(serverId).notifier)
-            .reorder(ordered);
+        ref.read(fileFavoritesProvider(serverId).notifier).reorder(ordered);
       },
       itemBuilder: (context, index) => ReorderableRowGeometry(
         key: ValueKey<String>(visible[index].stableKey),
@@ -192,12 +191,9 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
         bottom: floatingTabBarContentBottomInset(context),
       ),
       itemCount: visible.length,
-      itemBuilder: (context, index) =>
-          _favoriteTile(visible[index], serverId),
-      separatorBuilder: (_, __) => Divider(
-        height: 1,
-        color: Theme.of(context).dividerColor,
-      ),
+      itemBuilder: (context, index) => _favoriteTile(visible[index], serverId),
+      separatorBuilder: (_, __) =>
+          Divider(height: 1, color: Theme.of(context).dividerColor),
     );
   }
 

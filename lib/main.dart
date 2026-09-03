@@ -39,7 +39,11 @@ Future<void> main() async {
   MediaKit.ensureInitialized();
   unawaited(FileAudioMetadataSession.cleanupStaleCache());
   unawaited(MusicCacheService().cleanupStaleCache());
-  await AudioPlaybackService.initialize();
+  final startupPreferences = await SharedPreferences.getInstance();
+  final startupLocale = AppLocale.fromValue(
+    startupPreferences.getString('app.locale'),
+  ).toLocale();
+  await AudioPlaybackService.initialize(locale: startupLocale);
   runApp(const _AppBootstrap());
 }
 

@@ -9,6 +9,7 @@ import 'package:omm/core/config/server_config_provider.dart'
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/audio/audio_providers.dart';
@@ -99,7 +100,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
       });
       final taskId = data['task_id']?.toString().trim() ?? '';
       if (taskId.isEmpty) {
-        throw ApiException('音频提取任务创建失败');
+        throw ApiException(AppL10n.of(context).audioExtractFailed);
       }
       await _rememberSelection();
       if (mounted) Navigator.of(context).pop(taskId);
@@ -115,6 +116,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
@@ -124,7 +126,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
           children: [
             SheetHeader(
               icon: Icons.audiotrack_outlined,
-              title: '提取音频',
+              title: l.audioExtractTitle,
               subtitle: widget.movie.title,
               padding: EdgeInsets.zero,
             ),
@@ -134,7 +136,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
               isExpanded: true,
               decoration: settingsInputDecoration(
                 context,
-                labelText: '输出格式',
+                labelText: l.audioExtractFormat,
                 prefixIcon: const Icon(Icons.audio_file_outlined),
               ),
               items: [
@@ -158,7 +160,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
               isExpanded: true,
               decoration: settingsInputDecoration(
                 context,
-                labelText: '目标码率',
+                labelText: l.audioExtractBitrate,
                 prefixIcon: const Icon(Icons.speed_outlined),
               ),
               items: [
@@ -200,7 +202,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
                           ? null
                           : () => Navigator.pop(context),
                       style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
+                      child: Text(l.cancel),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -215,7 +217,11 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.playlist_add, size: 18),
-                      label: Text(_submitting ? '提交中...' : '提交任务'),
+                      label: Text(
+                        _submitting
+                            ? l.audioExtractSubmitting
+                            : l.audioExtractSubmit,
+                      ),
                     ),
                   ),
                 ],

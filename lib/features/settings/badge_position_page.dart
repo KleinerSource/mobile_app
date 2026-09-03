@@ -14,9 +14,9 @@ import 'settings_common.dart';
 class BadgePositionPage extends ConsumerWidget {
   const BadgePositionPage({super.key});
 
-  static const _previewMovie = MovieListItem(
+  static MovieListItem previewMovie(AppL10n l) => MovieListItem(
     id: 0,
-    title: '示例影片 / Preview',
+    title: l.badgePreviewMovieTitle,
     num: 'ABC-123',
     year: 2024,
     rating: 8.7,
@@ -32,6 +32,7 @@ class BadgePositionPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final previewMovie = BadgePositionPage.previewMovie(l);
     final pos = ref.watch(badgePositionsProvider);
 
     return Scaffold(
@@ -64,7 +65,7 @@ class BadgePositionPage extends ConsumerWidget {
                           child: SizedBox(
                             width: 160,
                             child: MovieCard(
-                              movie: _previewMovie,
+                              movie: previewMovie,
                               posterUrlBuilder: (_) => '',
                             ),
                           ),

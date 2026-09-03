@@ -16,6 +16,7 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/app_update_startup_gate_test.dart ====================
 void _main_0() {
@@ -38,6 +39,9 @@ void _main_0() {
     Widget app(bool enabled) => UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: StartupUpdateGate(
           enabled: enabled,
           startDelay: Duration.zero,
@@ -73,6 +77,9 @@ void _main_0() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: StartupUpdateGate(
             enabled: true,
             startDelay: Duration.zero,
@@ -123,7 +130,12 @@ void _main_1() {
               ),
             ),
           ],
-          child: const MaterialApp(home: AppUpdateSettingsPage()),
+          child: const MaterialApp(
+            localizationsDelegates: AppL10n.localizationsDelegates,
+            supportedLocales: AppL10n.supportedLocales,
+            locale: const Locale('zh'),
+            home: AppUpdateSettingsPage(),
+          ),
         ),
       );
     }
@@ -168,7 +180,12 @@ void _main_1() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: AppUpdateSettingsPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: AppUpdateSettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -181,7 +198,12 @@ void _main_1() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: AppUpdateSettingsPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: AppUpdateSettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -223,7 +245,14 @@ void _main_1() {
 
   testWidgets('播放日志页显示当前运行日志', (tester) async {
     appLog('[FilePlaybackProxy] 测试日志');
-    await tester.pumpWidget(const MaterialApp(home: AppLogPage()));
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
+        home: AppLogPage(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(AppLogPage), findsOneWidget);

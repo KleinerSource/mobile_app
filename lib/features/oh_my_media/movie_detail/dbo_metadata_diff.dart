@@ -62,14 +62,14 @@ DboMetadataDiff buildDboMetadataDiff(
   _appendTextDiff(
     items,
     field: 'title',
-    label: '标题',
+    label: 'title',
     current: movie.title,
     remote: metadata['title'],
   );
   _appendNumberDiff(
     items,
     field: 'rating',
-    label: '评分',
+    label: 'rating',
     current: movie.rating,
     remote: score,
     decimals: 1,
@@ -77,21 +77,21 @@ DboMetadataDiff buildDboMetadataDiff(
   _appendNumberDiff(
     items,
     field: 'year',
-    label: '年份',
+    label: 'year',
     current: movie.year,
     remote: year,
   );
   _appendNumberDiff(
     items,
     field: 'runtime',
-    label: '时长',
+    label: 'runtime',
     current: movie.runtime,
     remote: duration,
   );
   _appendTextDiff(
     items,
     field: 'plot',
-    label: '剧情简介',
+    label: 'plot',
     current: movie.plot,
     remote: overview,
   );
@@ -101,7 +101,7 @@ DboMetadataDiff buildDboMetadataDiff(
     items,
     section: DboMetadataDiffSection.genres,
     prefix: 'genre',
-    label: '分类',
+    label: 'genres',
     current: movie.genres,
     remote: metadata['categories'] ?? metadata['genres'],
   );
@@ -109,7 +109,7 @@ DboMetadataDiff buildDboMetadataDiff(
     items,
     section: DboMetadataDiffSection.actors,
     prefix: 'actor',
-    label: '演员',
+    label: 'actors',
     current: movie.actors,
     remote: metadata['actors'],
   );
@@ -197,7 +197,7 @@ void _appendSeriesDiff(
         id: 'series-add',
         section: DboMetadataDiffSection.series,
         action: DboMetadataDiffAction.add,
-        label: '系列',
+        label: 'series',
         remoteText: remoteName,
         remoteName: remoteName,
         gender: _text(remoteItem?['gender']),
@@ -209,9 +209,9 @@ void _appendSeriesDiff(
         id: 'series-remove',
         section: DboMetadataDiffSection.series,
         action: DboMetadataDiffAction.remove,
-        label: '系列',
+        label: 'series',
         currentText: currentName,
-        remoteText: '移除',
+        remoteText: 'remove',
         localId: current?.id,
       ),
     );
@@ -223,7 +223,7 @@ void _appendSeriesDiff(
         id: 'series-replace',
         section: DboMetadataDiffSection.series,
         action: DboMetadataDiffAction.replace,
-        label: '系列',
+        label: 'series',
         currentText: currentName,
         remoteText: remoteName,
         localId: current?.id,
@@ -288,7 +288,7 @@ void _appendCollectionDiff(
         action: DboMetadataDiffAction.remove,
         label: label,
         currentText: entry.value.name,
-        remoteText: '移除',
+        remoteText: 'remove',
         localId: entry.value.id,
       ),
     );

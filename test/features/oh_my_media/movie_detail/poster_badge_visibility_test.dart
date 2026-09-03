@@ -6,6 +6,7 @@ import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/settings/poster_badge_display_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   setUp(() {
@@ -48,7 +49,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: PosterBadgeDisplayPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: PosterBadgeDisplayPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -73,6 +79,9 @@ void main() {
     );
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: Center(child: CoverBadgeRow(badges: [badge])),
         ),

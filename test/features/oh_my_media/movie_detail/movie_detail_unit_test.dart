@@ -25,8 +25,8 @@ void _main_0() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.label, '字幕');
-    expect(subtitleBadges.single.tooltip, '外挂字幕');
+    expect(subtitleBadges.single.label, 'subtitle');
+    expect(subtitleBadges.single.tooltip, 'externalSubtitle');
     expect(subtitleBadges.single.color.toARGB32(), 0xFFFF9F1C);
   });
 
@@ -40,7 +40,10 @@ void _main_0() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(2));
-    expect(subtitleBadges.map((badge) => badge.tooltip), ['外挂字幕', '内嵌字幕']);
+    expect(subtitleBadges.map((badge) => badge.tooltip), [
+      'externalSubtitle',
+      'embeddedSubtitle',
+    ]);
   });
 
   test('媒体探测到内嵌字幕流时生成内嵌字幕轨道 badge', () {
@@ -50,7 +53,7 @@ void _main_0() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.tooltip, '内嵌字幕轨道');
+    expect(subtitleBadges.single.tooltip, 'muxedSubtitle');
     expect(subtitleBadges.single.color.toARGB32(), 0xFF16A34A);
   });
 
@@ -66,9 +69,9 @@ void _main_0() {
         .toList();
     expect(subtitleBadges, hasLength(3));
     expect(subtitleBadges.map((badge) => badge.tooltip), [
-      '外挂字幕',
-      '内嵌字幕轨道',
-      '内嵌字幕',
+      'externalSubtitle',
+      'muxedSubtitle',
+      'embeddedSubtitle',
     ]);
   });
 
@@ -78,7 +81,7 @@ void _main_0() {
       muxOnly
           .where((badge) => badge.kind == PosterBadgeKind.subtitle)
           .map((badge) => badge.tooltip),
-      ['内嵌字幕轨道'],
+      ['muxedSubtitle'],
     );
 
     final filenameOnly = buildCoverBadges(filePath: '/movies/ABCD-001-C.mp4');
@@ -86,7 +89,7 @@ void _main_0() {
       filenameOnly
           .where((badge) => badge.kind == PosterBadgeKind.subtitle)
           .map((badge) => badge.tooltip),
-      ['内嵌字幕'],
+      ['embeddedSubtitle'],
     );
   });
 
@@ -106,8 +109,8 @@ void _main_0() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.label, '字幕');
-    expect(subtitleBadges.single.tooltip, 'AI 字幕');
+    expect(subtitleBadges.single.label, 'subtitle');
+    expect(subtitleBadges.single.tooltip, 'aiSubtitle');
     expect(subtitleBadges.single.color.toARGB32(), 0xFF8B5CF6);
   });
 
@@ -121,7 +124,10 @@ void _main_0() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(2));
-    expect(subtitleBadges.map((badge) => badge.tooltip), ['外挂字幕', 'AI 字幕']);
+    expect(subtitleBadges.map((badge) => badge.tooltip), [
+      'externalSubtitle',
+      'aiSubtitle',
+    ]);
   });
 
   test('四种字幕来源相互独立可同时显示', () {
@@ -137,10 +143,10 @@ void _main_0() {
         .toList();
     expect(subtitleBadges, hasLength(4));
     expect(subtitleBadges.map((badge) => badge.tooltip), [
-      '外挂字幕',
-      'AI 字幕',
-      '内嵌字幕轨道',
-      '内嵌字幕',
+      'externalSubtitle',
+      'aiSubtitle',
+      'muxedSubtitle',
+      'embeddedSubtitle',
     ]);
   });
 }
@@ -369,10 +375,12 @@ void _main_4() {
       {'title': 'mid', 'publish_date': '2024-03-10'},
     ];
     final sorted = sortResourcesByDateDesc(items);
-    expect(
-      sorted.map((e) => e['title']).toList(),
-      ['newest', 'mid', 'old', 'no-date'],
-    );
+    expect(sorted.map((e) => e['title']).toList(), [
+      'newest',
+      'mid',
+      'old',
+      'no-date',
+    ]);
   });
 
   test('无日期与相同日期的项保持原有相对顺序', () {
@@ -383,10 +391,12 @@ void _main_4() {
       {'title': 'a-same', 'date': '2024-01-01'},
     ];
     final sorted = sortResourcesByDateDesc(items);
-    expect(
-      sorted.map((e) => e['title']).toList(),
-      ['b-same', 'a-same', 'a-no-date', 'b-no-date'],
-    );
+    expect(sorted.map((e) => e['title']).toList(), [
+      'b-same',
+      'a-same',
+      'a-no-date',
+      'b-no-date',
+    ]);
   });
 
   test('渠道合并结果与返回先后和 map 插入顺序无关', () {
@@ -399,17 +409,23 @@ void _main_4() {
       {'title': 'nyaa-new', 'date': '2025-01-01'},
     ];
     // detail 先返回、custom 已返回为空。
-    final orderA = {'detail': detail, 'custom': <Map<String, dynamic>>[], 'nyaa': nyaa};
+    final orderA = {
+      'detail': detail,
+      'custom': <Map<String, dynamic>>[],
+      'nyaa': nyaa,
+    };
     // nyaa 先返回、custom 尚未返回(map 插入顺序也不同)。
     final orderB = {'nyaa': nyaa, 'detail': detail};
 
     final resultA = mergeResourcesBySource(orderA);
     final resultB = mergeResourcesBySource(orderB);
     expect(resultB, equals(resultA));
-    expect(
-      resultA.map((e) => e['title']).toList(),
-      ['nyaa-new', 'detail-tie', 'nyaa-tie', 'detail-undated'],
-    );
+    expect(resultA.map((e) => e['title']).toList(), [
+      'nyaa-new',
+      'detail-tie',
+      'nyaa-tie',
+      'detail-undated',
+    ]);
   });
 }
 

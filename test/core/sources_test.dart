@@ -504,17 +504,19 @@ void _main_0() {
     await container.read(fileDirectoryProvider(request).future);
     expect(source.refreshFlags, [false]);
 
-    container.read(
-      fileDirectoryForceRefreshProvider('refresh-fake').notifier,
-    ).state = true;
+    container
+            .read(fileDirectoryForceRefreshProvider('refresh-fake').notifier)
+            .state =
+        true;
     container.invalidate(fileDirectoryProvider(request));
     await container.read(fileDirectoryProvider(request).future);
     expect(source.refreshFlags, [false, true]);
 
     // 页面在刷新完成后复位标志，后续普通失效不再强制。
-    container.read(
-      fileDirectoryForceRefreshProvider('refresh-fake').notifier,
-    ).state = false;
+    container
+            .read(fileDirectoryForceRefreshProvider('refresh-fake').notifier)
+            .state =
+        false;
     container.invalidate(fileDirectoryProvider(request));
     await container.read(fileDirectoryProvider(request).future);
     expect(source.refreshFlags, [false, true, false]);
@@ -697,9 +699,9 @@ class _FakeFileSource
     FilePath path, {
     bool refresh = false,
   }) async => const DirectoryListing(
-        currentPath: FilePath(sourceId: SourceId('fake-files'), value: ''),
-        entries: <FileEntry>[],
-      );
+    currentPath: FilePath(sourceId: SourceId('fake-files'), value: ''),
+    entries: <FileEntry>[],
+  );
 
   @override
   Future<FileEntry> stat(FilePath path) => throw UnimplementedError();
@@ -769,10 +771,7 @@ void _main_1() {
       final access = await source.resolveAccess(
         FilePath(sourceId: sourceId, value: '/movie.mp4'),
       );
-      expect(
-        access.uri,
-        fixture.baseUri.replace(path: '/dav/movie.mp4'),
-      );
+      expect(access.uri, fixture.baseUri.replace(path: '/dav/movie.mp4'));
       expect(access.size, bytes.length);
       expect(access.mimeType, 'video/mp4');
       expect(access.headers['Authorization'], 'Basic YWxpY2U6c2VjcmV0');

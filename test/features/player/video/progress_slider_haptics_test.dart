@@ -9,6 +9,7 @@ import 'package:omm/features/player/video/video_player_controls.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
 
 import '../common/fake_playback_engine.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// 进度条触觉反馈节奏：
 /// - 按下确认一次，松手不震；
@@ -65,6 +66,9 @@ void main() {
   ) {
     return tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           backgroundColor: Colors.black,
           body: SizedBox.expand(

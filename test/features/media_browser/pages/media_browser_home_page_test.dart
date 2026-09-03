@@ -61,6 +61,7 @@ Future<void> _pumpHome(
       child: const MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
+        locale: Locale('zh'),
         home: MediaBrowserHomePage(),
       ),
     ),
@@ -110,7 +111,7 @@ void main() {
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -1600));
     await tester.pump();
-    expect(find.text('总电影'), findsOneWidget);
+    expect(find.text('影片数'), findsOneWidget);
     expect(find.text('12'), findsOneWidget);
     expect(find.text('34'), findsOneWidget);
     expect(find.text('567'), findsOneWidget);

@@ -1,11 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
+
+import '../../../l10n/generated/app_localizations.dart';
+import '../../../l10n/generated/app_localizations_en.dart';
+import '../../../l10n/generated/app_localizations_zh.dart';
 
 /// 后台音频服务的自定义动作名。
 const audioOpenQueueAction = 'omm.openAudioQueue';
@@ -66,6 +71,14 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   static audio_service.AudioHandler? _handler;
+  static Locale? _localeOverride;
+
+  static AppL10n _l10n() {
+    final locale = _localeOverride ?? PlatformDispatcher.instance.locale;
+    return locale.languageCode.toLowerCase() == 'zh'
+        ? AppL10nZh(locale.languageCode)
+        : AppL10nEn(locale.languageCode);
+  }
 
   @visibleForTesting
   static bool shouldAutoAdvanceScratchTrack({
@@ -89,18 +102,21 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   static StreamSubscription<Object?>? _resourceEventsSubscription;
 
   /// 应用启动时调用一次。返回的 handler 是 UI isolate 使用的代理。
-  static Future<audio_service.AudioHandler> initialize() async {
+  static Future<audio_service.AudioHandler> initialize({Locale? locale}) async {
+    _localeOverride = locale;
     final current = _handler;
     if (current != null) return current;
 
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
+    final l = _l10n();
     final handler = await audio_service.AudioService.init<AudioPlaybackService>(
       builder: AudioPlaybackService.new,
-      config: const audio_service.AudioServiceConfig(
+      config: audio_service.AudioServiceConfig(
         androidNotificationChannelId: 'com.ohmymedia.audio',
-        androidNotificationChannelName: '音乐播放',
-        androidNotificationChannelDescription: '文件管理器音乐播放控制',
+        androidNotificationChannelName: l.audioNotificationChannelName,
+        androidNotificationChannelDescription:
+            l.audioNotificationChannelDescription,
         androidNotificationOngoing: true,
         fastForwardInterval: Duration(seconds: 10),
         rewindInterval: Duration(seconds: 10),
@@ -345,9 +361,9 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     final headers = payload['headers']?.toString() ?? '{}';
     return audio_service.MediaItem(
       id: safeId.isEmpty ? 'item:${title.hashCode.abs()}' : safeId,
-      title: title.isEmpty ? '未知音频' : title,
+      title: title.isEmpty ? _l10n().audioUnknownTitle : title,
       artist: 'Oh My Media',
-      album: '文件管理器',
+      album: _l10n().audioFileManagerAlbum,
       playable: true,
       extras: <String, dynamic>{
         'audioUrl': payload['url']?.toString() ?? '',
@@ -703,7 +719,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   Future<void> _handlePlayerError(just_audio.PlayerException error) async {
-    final errorMessage = error.message ?? '音频播放失败';
+    final errorMessage = error.message ?? _l10n().audioPlaybackFailedGeneric;
     final failedIndex = error.index ?? _player.currentIndex;
     if (failedIndex != null) _failedIndices.add(failedIndex);
     if (_player.hasNext && !_failedIndices.contains(_player.nextIndex)) {

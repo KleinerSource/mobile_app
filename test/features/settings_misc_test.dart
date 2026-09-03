@@ -12,6 +12,7 @@ import 'package:omm/features/files/file_image_preview_settings.dart';
 import 'package:omm/features/settings/haptic_settings.dart';
 import 'package:omm/shared/shake_error_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/haptic_settings_test.dart ====================
 void _main_0() {
@@ -62,13 +63,15 @@ void _main_2() {
 
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(body: ShakeErrorText(errorText)),
       ),
     );
     await tester.pump();
 
-    expect(tester.widget<Text>(find.text(errorText)).style?.color,
-        isNotNull);
+    expect(tester.widget<Text>(find.text(errorText)).style?.color, isNotNull);
   });
 }
 

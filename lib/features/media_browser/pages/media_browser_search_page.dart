@@ -115,7 +115,7 @@ class _MediaBrowserSearchPageState
                           textInputAction: TextInputAction.search,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
-                            hintText: '搜索电影、剧集、音乐…',
+                            hintText: l.mediaBrowserSearchHint,
                             hintStyle: TextStyle(
                               color: colors.muted,
                               fontWeight: FontWeight.w500,
@@ -150,7 +150,7 @@ class _MediaBrowserSearchPageState
                           },
                         ),
                       IconButton(
-                        tooltip: '搜索',
+                        tooltip: l.searchTitle,
                         icon: Icon(Icons.search, size: 18, color: colors.muted),
                         onPressed: _submitSearch,
                       ),
@@ -334,7 +334,6 @@ class _MediaBrowserSearchResultsState
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
-
     return PagedSelectionPopScope<MediaBrowserItem>(
       selection: _selection,
       child: Stack(
@@ -377,7 +376,8 @@ class _MediaBrowserSearchResultsState
                               const Center(child: CircularProgressIndicator()),
                           firstPageErrorIndicatorBuilder: (_) => ErrorView(
                             message:
-                                _pagingController.error?.toString() ?? '加载失败',
+                                _pagingController.error?.toString() ??
+                                AppL10n.of(context).loadFailed,
                             onRetry: _pagingController.refresh,
                           ),
                           newPageErrorIndicatorBuilder: (_) => PaginationRetry(
@@ -387,7 +387,7 @@ class _MediaBrowserSearchResultsState
                             child: Padding(
                               padding: const EdgeInsets.all(24),
                               child: Text(
-                                '没有找到相关内容',
+                                AppL10n.of(context).searchNoResult,
                                 style: AppText.meta(context),
                                 textAlign: TextAlign.center,
                               ),
@@ -409,14 +409,14 @@ class _MediaBrowserSearchResultsState
             actionsBuilder: (selected) => [
               EntityBatchAction(
                 icon: Icons.favorite_rounded,
-                label: '收藏',
+                label: AppL10n.of(context).mediaBrowserFavoriteAction,
                 onTap: selected.isEmpty || _batchBusy
                     ? null
                     : () => unawaited(_applySelection(favorite: true)),
               ),
               EntityBatchAction(
                 icon: Icons.favorite_border_rounded,
-                label: '取消收藏',
+                label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
                 color: colors.danger,
                 onTap: selected.isEmpty || _batchBusy
                     ? null
@@ -424,14 +424,14 @@ class _MediaBrowserSearchResultsState
               ),
               EntityBatchAction(
                 icon: Icons.task_alt_rounded,
-                label: '标记已看',
+                label: AppL10n.of(context).mediaBrowserMarkWatched,
                 onTap: selected.isEmpty || _batchBusy
                     ? null
                     : () => unawaited(_applySelection(played: true)),
               ),
               EntityBatchAction(
                 icon: Icons.check_circle_outline_rounded,
-                label: '取消已看',
+                label: AppL10n.of(context).mediaBrowserUnmarkWatched,
                 onTap: selected.isEmpty || _batchBusy
                     ? null
                     : () => unawaited(_applySelection(played: false)),

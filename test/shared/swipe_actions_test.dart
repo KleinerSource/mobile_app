@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/swipe_actions.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
+  localizationsDelegates: AppL10n.localizationsDelegates,
+  supportedLocales: AppL10n.supportedLocales,
+  locale: const Locale('zh'),
   home: Scaffold(body: ListView(children: [child])),
 );
 
@@ -426,6 +430,9 @@ void main() {
     addTearDown(group.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: ListView(
             children: [
@@ -533,6 +540,9 @@ void main() {
     addTearDown(group.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: ListView(
             children: [
@@ -721,6 +731,9 @@ void main() {
     late StateSetter update;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -784,6 +797,9 @@ void main() {
     late StateSetter update;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -825,6 +841,9 @@ void main() {
     addTearDown(group.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: MediaQuery(
           data: const MediaQueryData(disableAnimations: true),
           child: Scaffold(

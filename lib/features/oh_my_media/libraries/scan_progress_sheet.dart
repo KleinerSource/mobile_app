@@ -9,6 +9,8 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_pill.dart';
+import 'package:omm/features/oh_my_media/tasks/task_name_labels.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'libraries_providers.dart';
 
 /// 扫描进度 sheet · 启动扫描后弹出,轮询任务进度,可暂停/恢复/取消
@@ -115,7 +117,8 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
     } catch (e) {
       if (mounted) {
         setState(
-          () => _error = '${errPrefix ?? '操作失败'}: ${toApiException(e).message}',
+          () => _error =
+              '${errPrefix ?? AppL10n.of(context).scanActionFailed}: ${toApiException(e).message}',
         );
       }
     } finally {
@@ -126,6 +129,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final t = _task;
     final isDone =
         t != null &&
@@ -151,7 +155,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
             SheetHeader(
               icon: Icons.folder_open_outlined,
               title: widget.libraryName,
-              subtitle: '扫描进度',
+              subtitle: l.scanProgressTitle,
               trailing: StatusPill(status: t?.status ?? 'pending'),
               padding: EdgeInsets.zero,
             ),
@@ -174,7 +178,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  total > 0 ? '$processed / $total' : '准备中...',
+                  total > 0 ? '$processed / $total' : l.scanPreparing,
                   style: TextStyle(
                     color: c.text,
                     fontFamily: 'monospace',
@@ -210,11 +214,11 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                 ),
                 child: Row(
                   children: [
-                    _StatCell(label: '新增', value: t.addedFiles),
+                    _StatCell(label: l.scanStatAdded, value: t.addedFiles),
                     _StatDivider(),
-                    _StatCell(label: '更新', value: t.updatedFiles),
+                    _StatCell(label: l.scanStatUpdated, value: t.updatedFiles),
                     _StatDivider(),
-                    _StatCell(label: '移除', value: t.removedFiles),
+                    _StatCell(label: l.scanStatRemoved, value: t.removedFiles),
                   ],
                 ),
               ),
@@ -232,10 +236,10 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CURRENT', style: AppText.eyebrow(context)),
+                    Text(l.scanCurrentEyebrow, style: AppText.eyebrow(context)),
                     const SizedBox(height: 4),
                     Text(
-                      t.currentFile!,
+                      taskMessageLabel(l, t.currentFile!),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -295,11 +299,11 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                                     widget.libraryId,
                                     _effectiveTaskId,
                                   ),
-                              errPrefix: '取消失败',
+                              errPrefix: l.scanCancelFailed,
                             ),
                       icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                      label: const Text(
-                        '取消',
+                      label: Text(
+                        l.cancel,
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,
@@ -323,8 +327,8 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                      label: const Text(
-                        '后台',
+                      label: Text(
+                        l.scanBackgroundButton,
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,
@@ -356,7 +360,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                                           widget.libraryId,
                                           _effectiveTaskId,
                                         ),
-                                    errPrefix: '恢复失败',
+                                    errPrefix: l.scanResumeFailed,
                                   );
                                 } else {
                                   _act(
@@ -366,7 +370,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                                           widget.libraryId,
                                           _effectiveTaskId,
                                         ),
-                                    errPrefix: '暂停失败',
+                                    errPrefix: l.scanPauseFailed,
                                   );
                                 }
                               },
@@ -375,7 +379,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                           size: 18,
                         ),
                         label: Text(
-                          t.isPaused ? '继续' : '暂停',
+                          t.isPaused ? l.scanResume : l.scanPause,
                           style: const TextStyle(
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w700,
@@ -406,7 +410,9 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                         ),
                       ),
                       child: Text(
-                        isDone ? '完成 · 关闭' : (isFailed ? '出错了 · 关闭' : '关闭'),
+                        isDone
+                            ? l.scanDoneClose
+                            : (isFailed ? l.scanFailedClose : l.scanClose),
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,

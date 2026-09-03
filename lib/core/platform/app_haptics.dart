@@ -3,16 +3,24 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum HapticIntensity {
-  off('off', '关闭'),
-  low('low', '轻'),
-  standard('standard', '标准'),
-  high('high', '强');
+import 'package:omm/l10n/generated/app_localizations.dart';
 
-  const HapticIntensity(this.storageValue, this.label);
+enum HapticIntensity {
+  off('off'),
+  low('low'),
+  standard('standard'),
+  high('high');
+
+  const HapticIntensity(this.storageValue);
 
   final String storageValue;
-  final String label;
+
+  String label(AppL10n l) => switch (this) {
+    HapticIntensity.off => l.hapticIntensityOff,
+    HapticIntensity.low => l.hapticIntensityLow,
+    HapticIntensity.standard => l.hapticIntensityStandard,
+    HapticIntensity.high => l.hapticIntensityHigh,
+  };
 
   static HapticIntensity fromStorage(String? value) {
     for (final intensity in values) {

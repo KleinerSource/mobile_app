@@ -7,6 +7,7 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
 
@@ -65,7 +66,13 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('合并失败: ${toApiException(error).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).resourceMergeFailed(toApiException(error).message),
+          ),
+        ),
       );
       setState(() => _saving = false);
     }
@@ -73,6 +80,8 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final kindLabel = widget.kind.label(l);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         22,
@@ -86,13 +95,12 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
         children: [
           SheetHeader(
             icon: Icons.merge_rounded,
-            title: '批量合并${widget.kind.label}',
-            subtitle:
-                '将 ${widget.items.length} 个${widget.kind.label}合并为一个，影片关联会转移到保留项。',
+            title: l.resourceMergeTitle(kindLabel),
+            subtitle: l.resourceMergeSubtitle(widget.items.length, kindLabel),
             padding: EdgeInsets.zero,
           ),
           const SizedBox(height: 14),
-          Text('保留的${widget.kind.label}', style: AppText.eyebrow(context)),
+          Text(l.resourceMergeKeep(kindLabel), style: AppText.eyebrow(context)),
           const SizedBox(height: 6),
           DropdownButtonFormField<int>(
             initialValue: _targetId,
@@ -103,7 +111,7 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
                 DropdownMenuItem<int>(
                   value: item.id,
                   child: Text(
-                    '${item.name} · ${item.movieCount} 部影片',
+                    l.resourceMovieCountWithName(item.name, item.movieCount),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -126,7 +134,7 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.merge_rounded),
-              label: Text(_saving ? '合并中' : '确认合并'),
+              label: Text(_saving ? l.merging : l.confirmMerge),
               style: sheetPrimaryButtonStyle(context),
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/features/player/audio/audio_player_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('亮色播放器使用纯白背景和黑色系统栏图标', (tester) async {
@@ -33,6 +34,9 @@ void main() {
 Future<void> _pumpTheme(WidgetTester tester, Brightness brightness) {
   return tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      locale: const Locale('zh'),
       theme: ThemeData(brightness: brightness),
       home: const AudioPlayerTheme(child: SafeArea(child: SizedBox.expand())),
     ),

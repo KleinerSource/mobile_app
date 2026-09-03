@@ -14,6 +14,17 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/configs/configs_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_repository.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
+
+/// 数据源显示名：混合渠道走本地化，其余沿用模型自带品牌名（DB Online / AVDB）。
+String _actorSourceLabel(AppL10n l, ActorDataSource? source) {
+  if (source == null) return '';
+  return switch (source) {
+    ActorDataSource.dbonline => 'DB Online',
+    ActorDataSource.avdb => 'AVDB',
+    ActorDataSource.mixed => l.actorAssocSourceMixed,
+  };
+}
 
 /// 同步演员关联 sheet · 选择数据源预览, 用户确认后应用
 class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
@@ -234,7 +245,7 @@ class _ActorAssociationSyncSheetState
         final available = await _loadAvailableSources();
         if (!mounted || requestId != _loadRequestId) return;
         if (available.isEmpty) {
-          throw StateError('请先在服务器设置中配置并启用 DB Online 或 AVDB 数据源');
+          throw StateError(AppL10n.of(context).actorAssocSyncSourcesRequired);
         }
         setState(() {
           _availableSources = available;
@@ -278,6 +289,7 @@ class _ActorAssociationSyncSheetState
   /// 混合渠道渐进预览：先完成的渠道立即上屏（提前结束 loading），后到的渠道补齐。
   /// 轮询循环由 _loadRequestId / _source / mounted 变化自然终止。
   Future<void> _loadMixedPreview(int requestId, ActorDataSource source) async {
+    final l = AppL10n.of(context);
     final repo = ref.read(actorAssociationsRepositoryProvider);
     final taskId = await repo.startMixedPreviewSession(_actorName);
     if (!mounted || requestId != _loadRequestId || source != _source) return;
@@ -329,10 +341,12 @@ class _ActorAssociationSyncSheetState
         return;
       }
       if (session.failed) {
-        throw StateError(session.error.isEmpty ? '混合渠道查询失败' : session.error);
+        throw StateError(
+          session.error.isEmpty ? l.actorAssocSyncMixedFailed : session.error,
+        );
       }
       if (DateTime.now().difference(startedAt) > const Duration(seconds: 90)) {
-        throw StateError('混合渠道预览超时');
+        throw StateError(l.actorAssocSyncPreviewTimedOut);
       }
       await Future<void>.delayed(const Duration(milliseconds: 400));
     }
@@ -527,12 +541,20 @@ class _ActorAssociationSyncSheetState
       if (avatarChanged) {
         widget.onAvatarApplied?.call();
       }
-      messenger.showSnackBar(const SnackBar(content: Text('同步完成')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).actorAssocSyncDone)),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('应用失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).actorAssocSyncApplyFailed(toApiException(e).message),
+          ),
+        ),
       );
       setState(() => _applying = false);
     }
@@ -563,6 +585,7 @@ class _ActorAssociationSyncSheetState
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final preview = _preview;
     final canApply =
         preview != null &&
@@ -574,8 +597,8 @@ class _ActorAssociationSyncSheetState
       children: [
         SheetHeader(
           icon: Icons.sync_alt_outlined,
-          title: '同步演员关联: $_actorName',
-          subtitle: '从选定数据源拉取演员别名预览',
+          title: l.actorAssocSyncTitle(_actorName),
+          subtitle: l.actorAssocSyncSubtitle,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
@@ -647,9 +670,11 @@ class _ActorAssociationSyncSheetState
                     ],
                     const SizedBox(height: 16),
                     _AliasSection(
-                      title:
-                          '待新增名称（已选 ${_selectedAliases.length}/${preview.newAliases.length}）',
-                      empty: '没有需要新增的关联名称',
+                      title: l.actorAssocSyncNewAliasesTitle(
+                        _selectedAliases.length,
+                        preview.newAliases.length,
+                      ),
+                      empty: l.actorAssocSyncNoNewAliases,
                       aliases: preview.newAliases,
                       color: c.accent,
                       highlight: true,
@@ -672,7 +697,7 @@ class _ActorAssociationSyncSheetState
                     if (preview.existingAliases.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _AliasSection(
-                        title: '已有关联',
+                        title: l.actorAssocSyncExistingTitle,
                         empty: '',
                         aliases: preview.existingAliases,
                         color: c.muted,
@@ -690,7 +715,7 @@ class _ActorAssociationSyncSheetState
                   onPressed: _applying
                       ? null
                       : () => Navigator.of(context).pop(false),
-                  child: const Text('取消'),
+                  child: Text(l.cancel),
                 ),
               ),
               const SizedBox(width: 10),
@@ -705,7 +730,11 @@ class _ActorAssociationSyncSheetState
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.cloud_download_outlined, size: 18),
-                  label: Text(_applying ? '应用中...' : '确认添加'),
+                  label: Text(
+                    _applying
+                        ? l.actorAssocSyncApplying
+                        : l.actorAssocSyncApply,
+                  ),
                 ),
               ),
             ],
@@ -736,8 +765,9 @@ class _ActorDataSourceSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     if (sources.isEmpty) {
-      return Text('正在加载数据源...', style: AppText.meta(context));
+      return Text(l.actorAssocSyncSourcesLoading, style: AppText.meta(context));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -746,7 +776,7 @@ class _ActorDataSourceSelector extends StatelessWidget {
           children: [
             Icon(Icons.cloud_outlined, size: 18, color: c.muted),
             const SizedBox(width: 6),
-            Text('数据源', style: AppText.meta(context)),
+            Text(l.actorAssocSyncSourcesLabel, style: AppText.meta(context)),
           ],
         ),
         const SizedBox(height: 7),
@@ -792,8 +822,12 @@ class _ActorDataSourceOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final hasStatus = notFound || failed;
-    final statusLabel = failed ? '请求失败' : '无匹配';
+    final sourceLabel = _actorSourceLabel(l, source);
+    final statusLabel = failed
+        ? l.actorAssocSyncSourceFailed
+        : l.actorAssocSyncSourceNoMatch;
     void select() {
       if (enabled && !selected) onChanged(source);
     }
@@ -802,7 +836,7 @@ class _ActorDataSourceOption extends StatelessWidget {
       button: true,
       selected: selected,
       enabled: enabled,
-      label: hasStatus ? '${source.label}，$statusLabel' : source.label,
+      label: hasStatus ? '$sourceLabel，$statusLabel' : sourceLabel,
       child: Material(
         color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
         shape: RoundedRectangleBorder(
@@ -825,7 +859,7 @@ class _ActorDataSourceOption extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        source.label,
+                        sourceLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -882,21 +916,22 @@ class _ActorIdentitySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final hasPreview = activeBytes != null && activeBytes!.isNotEmpty;
     final total = avatarChoices.length;
     final status = activeLoading
         ? avatarExists
-              ? '正在获取数据源头像，可多选后替换本地'
-              : '正在获取头像...'
+              ? l.actorAssocSyncAvatarLoadingReplace
+              : l.actorAssocSyncAvatarLoading
         : selectedAvatarCount == 0
-        ? '未选择头像（点头像候选调整）'
+        ? l.actorAssocSyncAvatarNoneSelected
         : avatarExists
         ? avatarManuallySelected
-              ? '将替换本地头像（已选 $selectedAvatarCount 张）'
-              : '本地已有头像（不覆盖）'
+              ? l.actorAssocSyncAvatarWillReplace(selectedAvatarCount)
+              : l.actorAssocSyncAvatarExists
         : activeLoadFailed
-        ? '头像获取失败'
-        : '将同步头像（已选 $selectedAvatarCount 张）';
+        ? l.actorAssocSyncAvatarFailed
+        : l.actorAssocSyncAvatarWillSync(selectedAvatarCount);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
@@ -911,7 +946,9 @@ class _ActorIdentitySection extends StatelessWidget {
             children: [
               Semantics(
                 button: onAvatarTap != null,
-                label: total > 1 ? '选择候选头像' : '演员头像',
+                label: total > 1
+                    ? l.actorAssocSyncPickAvatar
+                    : l.actorAssocSyncAvatarLabel,
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -997,7 +1034,10 @@ class _ActorIdentitySection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('标准演员', style: AppText.meta(context)),
+                    Text(
+                      l.actorAssocSyncCanonicalLabel,
+                      style: AppText.meta(context),
+                    ),
                     const SizedBox(height: 3),
                     Text(
                       mappedValue.isEmpty ? '-' : mappedValue,
@@ -1120,6 +1160,7 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
 
   Widget _buildPicker(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     // 加载失败的候选滞后到末尾展示，不占靠前的位置；保留原始索引供选中回传
     final ordered = <(int, ActorAssociationAvatarChoice)>[
       for (var i = 0; i < widget.choices.length; i++)
@@ -1129,17 +1170,30 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
         if (widget.avatarLoadFailed.contains(widget.choices[i].downloadUrl))
           (i, widget.choices[i]),
     ];
+    final pickerSubtitle = widget.avatarLoadFailed.isEmpty
+        ? l.actorAssocAvatarPickerCount(
+            widget.mappedValue.isEmpty
+                ? l.actorAssocAvatarPickerNameFallback
+                : widget.mappedValue,
+            _selected.length,
+            widget.choices.length,
+          )
+        : l.actorAssocAvatarPickerCountWithFailed(
+            widget.mappedValue.isEmpty
+                ? l.actorAssocAvatarPickerNameFallback
+                : widget.mappedValue,
+            _selected.length,
+            widget.choices.length,
+            widget.avatarLoadFailed.length,
+          );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SheetHeader(
           icon: Icons.account_box_outlined,
-          title: '选择演员头像',
-          subtitle:
-              '${widget.mappedValue.isEmpty ? '演员' : widget.mappedValue} · '
-              '已选 ${_selected.length}/${widget.choices.length} 张'
-              '${widget.avatarLoadFailed.isEmpty ? '' : '（${widget.avatarLoadFailed.length} 张加载失败已后置，点击可重试）'}',
+          title: l.actorAssocAvatarPickerTitle,
+          subtitle: pickerSubtitle,
           trailing: TextButton.icon(
             onPressed: _toggleAll,
             icon: Icon(
@@ -1148,7 +1202,11 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
                   : Icons.select_all,
               size: 16,
             ),
-            label: Text(_selected.length == ordered.length ? '清空' : '全选'),
+            label: Text(
+              _selected.length == ordered.length
+                  ? l.fileClearSelection
+                  : l.fileSelectAll,
+            ),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               minimumSize: const Size(0, 30),
@@ -1179,8 +1237,8 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
                 button: true,
                 toggled: selected,
                 label: failed
-                    ? '重试第 ${index + 1} 张演员头像'
-                    : '选择第 ${index + 1} 张演员头像',
+                    ? l.actorAssocAvatarRetrySemantics(index + 1)
+                    : l.actorAssocAvatarSelectSemantics(index + 1),
                 child: Material(
                   color: c.surface,
                   shape: RoundedRectangleBorder(
@@ -1248,10 +1306,10 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
                           child: Center(
                             child: Text(
                               failed
-                                  ? '点击重试'
+                                  ? l.actorAssocAvatarRetry
                                   : selected
-                                  ? '已选'
-                                  : '候选 ${index + 1}',
+                                  ? l.actorAssocAvatarSelected
+                                  : l.actorAssocAvatarCandidate(index + 1),
                               style: TextStyle(
                                 color: failed ? c.danger : c.muted,
                                 fontSize: 11,
@@ -1275,7 +1333,7 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
             child: FilledButton.icon(
               onPressed: () => Navigator.of(context).pop(_selected),
               icon: const Icon(Icons.check_rounded, size: 18),
-              label: Text('确定（${_selected.length} 张）'),
+              label: Text(l.actorAssocAvatarConfirm(_selected.length)),
             ),
           ),
         ),
@@ -1298,6 +1356,7 @@ class _ActorChannelStatusSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final statuses = <Widget>[];
     final added = <String>{};
 
@@ -1310,12 +1369,12 @@ class _ActorChannelStatusSummary extends StatelessWidget {
     }) {
       for (final source in sources) {
         if (!added.add(source)) continue;
-        final label = actorDataSourceFromValue(source)?.label ?? source;
+        final label = _actorSourceLabel(l, actorDataSourceFromValue(source));
         statuses.add(
           _ActorChannelStatusPill(
             icon: icon,
             color: color,
-            label: '$label $suffix',
+            label: '${label.isEmpty ? source : label} $suffix',
             spinning: spinning,
           ),
         );
@@ -1326,19 +1385,19 @@ class _ActorChannelStatusSummary extends StatelessWidget {
       failedSources,
       icon: Icons.error_outline,
       color: c.danger,
-      suffix: '请求失败',
+      suffix: l.actorAssocSyncSourceFailed,
     );
     addStatus(
       notFoundSources,
       icon: Icons.search_off_rounded,
       color: c.muted,
-      suffix: '无匹配',
+      suffix: l.actorAssocSyncSourceNoMatch,
     );
     addStatus(
       pendingSources,
       icon: Icons.sync,
       color: c.warning,
-      suffix: '查询中',
+      suffix: l.actorAssocSyncSourceQuerying,
       spinning: true,
     );
 
@@ -1491,7 +1550,10 @@ class _BiographySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('演员简介', style: AppText.cardTitle(context)),
+          Text(
+            AppL10n.of(context).actorEditorBiographyLabel,
+            style: AppText.cardTitle(context),
+          ),
           const SizedBox(height: 7),
           Text(biography, style: AppText.body(context)),
         ],
@@ -1549,7 +1611,11 @@ class _AliasSection extends StatelessWidget {
                   allSelected ? Icons.deselect : Icons.select_all,
                   size: 16,
                 ),
-                label: Text(allSelected ? '取消全选' : '全选'),
+                label: Text(
+                  allSelected
+                      ? AppL10n.of(context).actorAssocDeselectAll
+                      : AppL10n.of(context).fileSelectAll,
+                ),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   minimumSize: const Size(0, 30),
@@ -1672,12 +1738,12 @@ class _NoPreviewView extends StatelessWidget {
             Icon(Icons.cloud_download_outlined, color: c.muted, size: 36),
             const SizedBox(height: 8),
             Text(
-              '暂无预览数据',
+              AppL10n.of(context).actorAssocSyncNoPreviewTitle,
               style: TextStyle(color: c.text, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
-              '完成数据源请求后，外部接口返回的演员信息会显示在这里。',
+              AppL10n.of(context).actorAssocSyncNoPreviewHint,
               textAlign: TextAlign.center,
               style: TextStyle(color: c.muted, fontSize: 12.5),
             ),
@@ -1705,7 +1771,7 @@ class _ErrorView extends StatelessWidget {
             Icon(Icons.error_outline, color: c.danger, size: 32),
             const SizedBox(height: 8),
             Text(
-              '请求失败',
+              AppL10n.of(context).actorAssocSyncRequestFailed,
               style: TextStyle(color: c.danger, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
@@ -1715,7 +1781,10 @@ class _ErrorView extends StatelessWidget {
               style: TextStyle(color: c.muted, fontSize: 12.5),
             ),
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: onRetry, child: const Text('重试')),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: Text(AppL10n.of(context).fileRetry),
+            ),
           ],
         ),
       ),
@@ -1739,12 +1808,12 @@ class _EmptyView extends StatelessWidget {
             Icon(Icons.search_off_rounded, color: c.muted, size: 36),
             const SizedBox(height: 8),
             Text(
-              '未找到匹配演员',
+              AppL10n.of(context).actorAssocSyncNoMatchTitle,
               style: TextStyle(color: c.text, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
-              '外部数据源没有找到“$actorName”的匹配结果。',
+              AppL10n.of(context).actorAssocSyncNoMatchHint(actorName),
               textAlign: TextAlign.center,
               style: TextStyle(color: c.muted, fontSize: 12.5),
             ),

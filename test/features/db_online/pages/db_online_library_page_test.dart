@@ -12,6 +12,7 @@ import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
@@ -76,7 +77,12 @@ void main() {
           serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
           privacyShieldProvider.overrideWith(_PrivacyState.new),
         ],
-        child: const MaterialApp(home: Scaffold(body: DbOnlineLibraryPage())),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: Scaffold(body: DbOnlineLibraryPage()),
+        ),
       ),
     );
     await tester.pumpAndSettle();

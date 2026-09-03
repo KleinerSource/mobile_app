@@ -8,6 +8,7 @@ import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -40,11 +41,12 @@ class _MediaBrowserLibrarySettingsPageState
   Widget build(BuildContext context) {
     final config = ref.watch(mediaBrowserConfigProvider);
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     if (config == null) {
       return _standaloneMessage(
         context,
-        title: '无法访问媒体库',
-        message: '当前服务器不是可用的媒体服务器。',
+        title: l.mediaBrowserLibrariesUnavailable,
+        message: l.mediaBrowserNotMediaServer,
       );
     }
 
@@ -56,8 +58,8 @@ class _MediaBrowserLibrarySettingsPageState
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: config.brandLabel,
-              title: '媒体库管理',
-              subtitle: '管理服务器上的虚拟媒体库与媒体路径。',
+              title: l.mediaBrowserLibraryManageTitle,
+              subtitle: l.mediaBrowserLibraryManageSubtitle,
               trailing: user.value?.isAdmin == true ? _headerActions() : null,
             ),
             body: user.when(
@@ -79,11 +81,12 @@ class _MediaBrowserLibrarySettingsPageState
   }
 
   Widget _headerActions() {
+    final l = AppL10n.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: '刷新',
+          tooltip: l.mediaBrowserRefresh,
           onPressed: _refreshing ? null : _refresh,
           icon: _refreshing
               ? const SizedBox(
@@ -163,10 +166,11 @@ class _MediaBrowserLibrarySettingsPageState
   /// 与 OMM 媒体库页一致：点击行编辑，左滑提供刷新、启停和删除。
   List<SwipeActionData> _librarySwipeActions(MediaBrowserLibrary library) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     return [
       SwipeActionData(
         icon: Icons.refresh_rounded,
-        label: '刷新',
+        label: l.mediaBrowserRefresh,
         color: AppHues.top(AppHues.mint),
         onPressed: () => _refreshLibrary(library),
       ),
@@ -174,13 +178,15 @@ class _MediaBrowserLibrarySettingsPageState
         icon: library.enabled
             ? Icons.toggle_off_outlined
             : Icons.toggle_on_outlined,
-        label: library.enabled ? '停用' : '启用',
+        label: library.enabled
+            ? l.mediaBrowserDisableAction
+            : l.mediaBrowserEnableAction,
         color: colors.warning,
         onPressed: () => _toggleLibrary(library),
       ),
       SwipeActionData(
         icon: Icons.delete_outline_rounded,
-        label: '删除',
+        label: l.delete,
         color: colors.danger,
         onPressed: () => _confirmDelete(library),
       ),
@@ -212,14 +218,17 @@ class _MediaBrowserLibrarySettingsPageState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('加载失败', style: AppText.sectionTitle(context)),
+            Text(
+              AppL10n.of(context).loadFailed,
+              style: AppText.sectionTitle(context),
+            ),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 17),
-              label: const Text('重试'),
+              label: Text(AppL10n.of(context).mediaBrowserRetry),
             ),
           ],
         ),
@@ -237,7 +246,10 @@ class _MediaBrowserLibrarySettingsPageState
       body: SafeArea(
         child: Column(
           children: [
-            const SettingsSubPageHeader(eyebrow: '媒体库', title: '媒体库管理'),
+            SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).mediaBrowserLibrariesTitle,
+              title: AppL10n.of(context).mediaBrowserLibraryManageTitle,
+            ),
             Expanded(
               child: Center(
                 child: Column(
@@ -273,13 +285,14 @@ class _MediaBrowserLibrarySettingsPageState
 
   Future<void> _refreshLibrary(MediaBrowserLibrary library) async {
     if (_busyLibraryId != null) return;
+    final l = AppL10n.of(context);
     setState(() => _busyLibraryId = library.id);
     try {
       await ref.read(mediaBrowserMediaRepositoryProvider).refreshLibrary();
       _invalidateMediaBrowserCaches();
-      _showMessage('已开始刷新「${library.name}」');
+      _showMessage(l.mediaBrowserLibraryRefreshStarted(library.name));
     } catch (error) {
-      _showError('刷新失败：${_errorMessage(error)}');
+      _showError(l.mediaBrowserRefreshFailed(_errorMessage(error)));
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }
@@ -287,6 +300,7 @@ class _MediaBrowserLibrarySettingsPageState
 
   Future<void> _toggleLibrary(MediaBrowserLibrary library) async {
     if (_busyLibraryId != null) return;
+    final l = AppL10n.of(context);
     final enabled = !library.enabled;
     setState(() => _busyLibraryId = library.id);
     try {
@@ -299,9 +313,11 @@ class _MediaBrowserLibrarySettingsPageState
       );
       await repository.refreshLibrary();
       _invalidateMediaBrowserCaches();
-      _showMessage(enabled ? '媒体库已启用' : '媒体库已停用');
+      _showMessage(
+        enabled ? l.mediaBrowserLibraryEnabled : l.mediaBrowserLibraryDisabled,
+      );
     } catch (error) {
-      _showError('操作失败：${_errorMessage(error)}');
+      _showError(l.mediaBrowserActionFailed(_errorMessage(error)));
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }
@@ -314,28 +330,33 @@ class _MediaBrowserLibrarySettingsPageState
       ),
     );
     if (!mounted || saved != true) return;
-    _showMessage(library == null ? '媒体库已创建' : '媒体库设置已保存');
+    _showMessage(
+      library == null
+          ? AppL10n.of(context).mediaBrowserLibraryCreated
+          : AppL10n.of(context).mediaBrowserLibrarySettingsSaved,
+    );
   }
 
   Future<void> _confirmDelete(MediaBrowserLibrary library) async {
+    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除媒体库'),
+        title: Text(AppL10n.of(dialogContext).mediaBrowserDeleteLibraryTitle),
         content: Text(
-          '确定删除「${library.name}」吗？\n服务器上的媒体文件不会被删除，但库配置和相关索引可能会移除。',
+          AppL10n.of(dialogContext).mediaBrowserDeleteLibraryBody(library.name),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child: Text(AppL10n.of(dialogContext).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: appColors(context).danger,
             ),
-            child: const Text('删除'),
+            child: Text(AppL10n.of(dialogContext).delete),
           ),
         ],
       ),
@@ -348,9 +369,9 @@ class _MediaBrowserLibrarySettingsPageState
       await repository.removeVirtualFolder(library.name);
       await repository.refreshLibrary();
       _invalidateMediaBrowserCaches();
-      _showMessage('媒体库已删除');
+      _showMessage(l.mediaBrowserLibraryDeleted);
     } catch (error) {
-      _showError('删除失败：${_errorMessage(error)}');
+      _showError(l.mediaBrowserDeleteFailed(_errorMessage(error)));
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }
@@ -399,10 +420,13 @@ class _AdminRequiredState extends StatelessWidget {
               color: colors.muted,
             ),
             const SizedBox(height: 14),
-            Text('需要管理员账号', style: AppText.sectionTitle(context)),
+            Text(
+              AppL10n.of(context).mediaBrowserAdminRequired,
+              style: AppText.sectionTitle(context),
+            ),
             const SizedBox(height: 6),
             Text(
-              '当前账号没有管理媒体库的权限，请使用服务器管理员账号登录。',
+              AppL10n.of(context).mediaBrowserAdminRequiredHint,
               textAlign: TextAlign.center,
               style: AppText.meta(context),
             ),
@@ -436,9 +460,15 @@ class _EmptyLibraryState extends StatelessWidget {
                   color: colors.muted,
                 ),
                 const SizedBox(height: 14),
-                Text('还没有媒体库', style: AppText.sectionTitle(context)),
+                Text(
+                  AppL10n.of(context).mediaBrowserNoLibrariesYet,
+                  style: AppText.sectionTitle(context),
+                ),
                 const SizedBox(height: 6),
-                Text('点击右上角“添加”创建第一个媒体库', style: AppText.meta(context)),
+                Text(
+                  AppL10n.of(context).mediaBrowserNoLibrariesHint,
+                  style: AppText.meta(context),
+                ),
               ],
             ),
           ),
@@ -512,7 +542,10 @@ class _LibraryCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        _libraryTypeLabel(library.collectionType),
+                        _libraryTypeLabel(
+                          AppL10n.of(context),
+                          library.collectionType,
+                        ),
                         style: AppText.meta(context),
                       ),
                       if (busy) ...[
@@ -554,7 +587,9 @@ class _StatusPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(100),
       ),
       child: Text(
-        enabled ? '已启用' : '已停用',
+        enabled
+            ? AppL10n.of(context).mediaBrowserStatusEnabled
+            : AppL10n.of(context).mediaBrowserStatusDisabled,
         style: TextStyle(
           color: color,
           fontSize: 10,
@@ -613,15 +648,20 @@ class _MediaBrowserLibraryEditorPageState
   Widget build(BuildContext context) {
     final config = ref.watch(mediaBrowserConfigProvider);
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: config?.brandLabel ?? '媒体库',
-              title: _editing ? '编辑媒体库' : '新建媒体库',
-              subtitle: _editing ? '内容类型创建后不可修改。' : '填写名称、内容类型和一个或多个媒体路径。',
+              eyebrow: config?.brandLabel ?? l.mediaBrowserLibrariesTitle,
+              title: _editing
+                  ? l.mediaBrowserEditLibraryTitle
+                  : l.mediaBrowserNewLibraryTitle,
+              subtitle: _editing
+                  ? l.mediaBrowserEditLibrarySubtitle
+                  : l.mediaBrowserNewLibrarySubtitle,
             ),
             body: ListView(
               primary: true,
@@ -632,15 +672,15 @@ class _MediaBrowserLibraryEditorPageState
                   textInputAction: TextInputAction.next,
                   decoration: settingsInputDecoration(
                     context,
-                    labelText: '媒体库名称',
-                    hintText: '例如：电影、电视剧、音乐',
+                    labelText: l.mediaBrowserLibraryNameLabel,
+                    hintText: l.mediaBrowserLibraryNameHint,
                     prefixIcon: const Icon(Icons.label_outline_rounded),
                   ),
                 ),
                 const SizedBox(height: 14),
                 _collectionTypeField(colors),
                 const SizedBox(height: 22),
-                _sectionLabel('媒体路径'),
+                _sectionLabel(l.mediaBrowserMediaPathsLabel),
                 _pathsField(colors),
                 if (_editing) ...[
                   const SizedBox(height: 22),
@@ -661,18 +701,19 @@ class _MediaBrowserLibraryEditorPageState
   }
 
   Widget _collectionTypeField(AppColors colors) {
+    final l = AppL10n.of(context);
     if (_editing) {
       return InputDecorator(
         decoration: settingsInputDecoration(
           context,
-          labelText: '内容类型（只读）',
+          labelText: l.mediaBrowserContentTypeReadonly,
           prefixIcon: const Icon(Icons.category_outlined),
         ),
         child: Row(
           children: [
             Expanded(
               child: Text(
-                _libraryTypeLabel(_collectionType),
+                _libraryTypeLabel(l, _collectionType),
                 style: TextStyle(
                   color: colors.muted,
                   fontFamily: 'Inter',
@@ -689,7 +730,7 @@ class _MediaBrowserLibraryEditorPageState
     return InputDecorator(
       decoration: settingsInputDecoration(
         context,
-        labelText: '内容类型',
+        labelText: l.mediaBrowserContentType,
         prefixIcon: const Icon(Icons.category_outlined),
       ),
       child: DropdownButtonHideUnderline(
@@ -705,7 +746,10 @@ class _MediaBrowserLibraryEditorPageState
           ),
           items: [
             for (final option in _libraryTypeOptions)
-              DropdownMenuItem(value: option.value, child: Text(option.label)),
+              DropdownMenuItem(
+                value: option.value,
+                child: Text(option.label(l)),
+              ),
           ],
           onChanged: _saving
               ? null
@@ -720,6 +764,7 @@ class _MediaBrowserLibraryEditorPageState
   }
 
   Widget _pathsField(AppColors colors) {
+    final l = AppL10n.of(context);
     return Column(
       children: [
         for (var index = 0; index < _pathControllers.length; index++) ...[
@@ -729,11 +774,11 @@ class _MediaBrowserLibraryEditorPageState
             textInputAction: TextInputAction.next,
             decoration: settingsInputDecoration(
               context,
-              labelText: '路径 ${index + 1}',
-              hintText: '/media/movies 或 D:\\Media\\Movies',
+              labelText: l.mediaBrowserPathNumber(index + 1),
+              hintText: l.mediaBrowserPathHint,
               prefixIcon: const Icon(Icons.folder_open_outlined),
               suffixIcon: IconButton(
-                tooltip: '移除路径',
+                tooltip: l.mediaBrowserRemovePath,
                 onPressed: _saving ? null : () => _removePath(index),
                 icon: const Icon(Icons.close_rounded, size: 18),
               ),
@@ -747,7 +792,7 @@ class _MediaBrowserLibraryEditorPageState
           child: OutlinedButton.icon(
             onPressed: _saving ? null : _addPath,
             icon: const Icon(Icons.add, size: 17),
-            label: const Text('添加路径'),
+            label: Text(l.mediaBrowserAddPath),
             style: OutlinedButton.styleFrom(
               foregroundColor: colors.text,
               side: BorderSide(color: colors.cardBorder),
@@ -772,7 +817,7 @@ class _MediaBrowserLibraryEditorPageState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '启用媒体库',
+                  AppL10n.of(context).mediaBrowserEnableLibraryLabel,
                   style: TextStyle(
                     color: colors.text,
                     fontWeight: FontWeight.w700,
@@ -780,7 +825,9 @@ class _MediaBrowserLibraryEditorPageState
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _enabled ? '服务器会继续扫描并展示此媒体库' : '媒体库停用后不会出现在正常浏览入口',
+                  _enabled
+                      ? AppL10n.of(context).mediaBrowserEnableLibraryHint
+                      : AppL10n.of(context).mediaBrowserDisableLibraryHint,
                   style: AppText.meta(context),
                 ),
               ],
@@ -831,15 +878,19 @@ class _MediaBrowserLibraryEditorPageState
       _pathControllers.map((controller) => controller.text),
     );
     if (name.isEmpty) {
-      setState(() => _error = '媒体库名称不能为空');
+      setState(
+        () => _error = AppL10n.of(context).mediaBrowserLibraryNameRequired,
+      );
       return;
     }
     if (_collectionType.trim().isEmpty) {
-      setState(() => _error = '请选择媒体库内容类型');
+      setState(
+        () => _error = AppL10n.of(context).mediaBrowserContentTypeRequired,
+      );
       return;
     }
     if (paths.isEmpty) {
-      setState(() => _error = '至少需要填写一个媒体路径');
+      setState(() => _error = AppL10n.of(context).mediaBrowserPathRequired);
       return;
     }
 
@@ -865,7 +916,11 @@ class _MediaBrowserLibraryEditorPageState
       Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '保存失败：${_errorMessage(error)}');
+        setState(() {
+          _error = AppL10n.of(
+            context,
+          ).mediaBrowserSaveFailed(_errorMessage(error));
+        });
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -924,26 +979,28 @@ class _LibraryTypeOption {
   const _LibraryTypeOption(this.value, this.label);
 
   final String value;
-  final String label;
+  final String Function(AppL10n l) label;
 }
 
-const _libraryTypeOptions = <_LibraryTypeOption>[
-  _LibraryTypeOption('movies', '电影'),
-  _LibraryTypeOption('tvshows', '剧集'),
-  _LibraryTypeOption('music', '音乐'),
-  _LibraryTypeOption('mixed', '混合内容'),
-  _LibraryTypeOption('musicvideos', '音乐视频'),
-  _LibraryTypeOption('homevideos', '家庭视频'),
-  _LibraryTypeOption('books', '图书'),
-  _LibraryTypeOption('photos', '图片'),
+final _libraryTypeOptions = <_LibraryTypeOption>[
+  _LibraryTypeOption('movies', (l) => l.mediaBrowserTypeMovies),
+  _LibraryTypeOption('tvshows', (l) => l.mediaBrowserTypeTvShows),
+  _LibraryTypeOption('music', (l) => l.mediaBrowserTypeMusic),
+  _LibraryTypeOption('mixed', (l) => l.mediaBrowserTypeMixed),
+  _LibraryTypeOption('musicvideos', (l) => l.mediaBrowserTypeMusicVideos),
+  _LibraryTypeOption('homevideos', (l) => l.mediaBrowserTypeHomeVideos),
+  _LibraryTypeOption('books', (l) => l.mediaBrowserTypeBooks),
+  _LibraryTypeOption('photos', (l) => l.mediaBrowserTypePhotos),
 ];
 
-String _libraryTypeLabel(String? type) {
+String _libraryTypeLabel(AppL10n l, String? type) {
   final value = type?.trim() ?? '';
   for (final option in _libraryTypeOptions) {
-    if (option.value == value) return option.label;
+    if (option.value == value) return option.label(l);
   }
-  return value.isEmpty ? '未知类型' : '未知类型（$value）';
+  return value.isEmpty
+      ? l.mediaBrowserTypeUnknown
+      : l.mediaBrowserTypeUnknownWithValue(value);
 }
 
 List<String> _normalizedPaths(Iterable<String> paths) {

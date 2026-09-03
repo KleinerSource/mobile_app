@@ -328,7 +328,9 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),
               firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message: _controller.error?.toString() ?? '加载失败',
+                message:
+                    _controller.error?.toString() ??
+                    AppL10n.of(context).loadFailed,
                 onRetry: _controller.refresh,
               ),
               newPageErrorIndicatorBuilder: (_) =>

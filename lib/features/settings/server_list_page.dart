@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/server_compatibility.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
@@ -8,6 +9,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_config.dart';
 import '../../core/sources/files/file_source_providers.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/reorder_slot_feedback.dart';
 import '../../shared/server_avatar.dart';
@@ -54,6 +56,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     final config = ref.watch(serverConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     return Scaffold(
@@ -63,9 +66,9 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
-              eyebrow: '服务器',
-              title: '服务器列表',
-              subtitle: '每台服务器可单独配置线路，启动时选择服务器。',
+              eyebrow: l.settingsGroupServer,
+              title: l.settingsServerList,
+              subtitle: l.serverListSubtitle,
               trailing: SettingsAddButton(onPressed: () => _showServerEditor()),
             ),
             // 服务器数量少且有界：设置页式分组卡，行间细分隔线；与收藏
@@ -183,24 +186,25 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     ServerProfile server,
     int count,
   ) {
+    final l = AppL10n.of(context);
     return [
       SwipeActionData(
         icon: Icons.edit_outlined,
-        label: '编辑服务器',
+        label: l.serverEditAction,
         color: colors.accent,
         onPressed: () => _showServerEditor(existing: server),
       ),
       if (server.project?.isFileSource != true)
         SwipeActionData(
           icon: Icons.alt_route_outlined,
-          label: '管理线路',
+          label: l.serverManageLines,
           color: AppHues.top(AppHues.sky),
           onPressed: () => _openLines(server),
         ),
       if (count > 1)
         SwipeActionData(
           icon: Icons.delete_outline,
-          label: '删除',
+          label: l.delete,
           color: colors.danger,
           onPressed: () => _deleteServer(server),
         ),
@@ -222,19 +226,26 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   }
 
   Future<void> _showServerEditor({ServerProfile? existing}) async {
+    final l = AppL10n.of(context);
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ServerSetupPage(
           editing: existing != null,
           serverId: existing?.id,
-          title: existing == null ? '添加服务器' : '编辑服务器',
+          title: existing == null ? l.serverAddTitle : l.serverEditAction,
         ),
       ),
     );
     if (saved != true || !mounted) return;
     AppHaptics.medium();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(existing == null ? '服务器已添加' : '服务器已更新')),
+      SnackBar(
+        content: Text(
+          existing == null
+              ? AppL10n.of(context).serverAdded
+              : AppL10n.of(context).serverUpdated,
+        ),
+      ),
     );
   }
 
@@ -247,19 +258,20 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   }
 
   Future<void> _deleteServer(ServerProfile server) async {
+    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除服务器'),
-        content: Text('确定删除“${server.name}”及其线路吗？'),
+        title: Text(l.serverDeleteTitle),
+        content: Text(l.serverDeleteBody(server.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -280,7 +292,13 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：${toApiException(error).message}')),
+          SnackBar(
+            content: Text(
+              AppL10n.of(
+                context,
+              ).serverDeleteFailed(toApiException(error).message),
+            ),
+          ),
         );
       }
     }
@@ -301,6 +319,7 @@ class _ServerListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     // 分组连排行：透明背景，由外层分组容器提供表面，沿用设置页行布局。
     return Material(
       color: Colors.transparent,
@@ -343,9 +362,9 @@ class _ServerListCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       [
-                        '${server.lines.length} 条线路',
+                        l.serverLineCount(server.lines.length),
                         if (server.project != null)
-                          server.project!.displayName
+                          _serverProjectLabel(l, server.project)
                         else if (server.projectName?.isNotEmpty == true)
                           server.projectName!,
                         if (server.serverVersion?.isNotEmpty == true)
@@ -368,6 +387,20 @@ class _ServerListCard extends StatelessWidget {
   }
 }
 
+String _serverProjectLabel(AppL10n l, ServerProject? project) {
+  return switch (project) {
+    ServerProject.ohMyMedia => 'Oh My Media',
+    ServerProject.dbOnline => 'DB Online',
+    ServerProject.emby => 'Emby',
+    ServerProject.jellyfin => 'Jellyfin',
+    ServerProject.feiniu => l.serverProjectFeiniu,
+    ServerProject.smb => 'SMB',
+    ServerProject.webDav => 'WebDAV',
+    ServerProject.openList => 'OpenList',
+    null => l.serverProjectDefault,
+  };
+}
+
 class _ActiveChip extends StatelessWidget {
   const _ActiveChip({required this.color});
 
@@ -383,7 +416,7 @@ class _ActiveChip extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Text(
-          '当前',
+          AppL10n.of(context).serverCurrent,
           style: TextStyle(
             color: color,
             fontSize: 11,

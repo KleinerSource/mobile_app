@@ -9,6 +9,7 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movie_detail/entity_picker_sheet.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'movie_filter.dart';
 
 /// 高级筛选 bottom sheet · 对齐 frontend_new AdvancedSearchModal
@@ -150,14 +151,15 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetHeader(
           icon: Icons.filter_alt_outlined,
-          title: '高级筛选',
-          subtitle: '按标签、分类、系列、年份评分和文件属性组合筛选',
-          trailing: TextButton(onPressed: _onReset, child: const Text('重置')),
+          title: l.advancedFilterTitle,
+          subtitle: l.advancedFilterSubtitle,
+          trailing: TextButton(onPressed: _onReset, child: Text(l.reset)),
         ),
         // 内容
         Flexible(
@@ -167,7 +169,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
             padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
             children: [
               _SectionCard(
-                title: '标签',
+                title: l.settingsTags,
                 trailing: _ModeToggle(
                   mode: _tagMode,
                   onChanged: (m) => setState(() => _tagMode = m),
@@ -180,7 +182,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
               ),
               const SizedBox(height: 14),
               _SectionCard(
-                title: '分类',
+                title: l.settingsGenres,
                 trailing: _ModeToggle(
                   mode: _genreMode,
                   onChanged: (m) => setState(() => _genreMode = m),
@@ -193,7 +195,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
               ),
               const SizedBox(height: 14),
               _SectionCard(
-                title: '系列',
+                title: l.settingsSeries,
                 child: _ResourceMultiSelect(
                   kind: ResourceKind.series,
                   selected: _seriesIds,
@@ -202,18 +204,21 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
               ),
               const SizedBox(height: 14),
               _SectionCard(
-                title: '年份与评分',
+                title: l.advancedFilterYearAndRating,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('年份范围', style: AppText.meta(context)),
+                    Text(
+                      l.advancedFilterYearRange,
+                      style: AppText.meta(context),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         Expanded(
                           child: _NumberField(
                             controller: _yearFromCtl,
-                            hint: '起始年份',
+                            hint: l.advancedFilterYearFrom,
                             icon: Icons.calendar_today_outlined,
                             hasError: _yearError,
                             onChanged: (_) => setState(() {}),
@@ -223,7 +228,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                         Expanded(
                           child: _NumberField(
                             controller: _yearToCtl,
-                            hint: '结束年份',
+                            hint: l.advancedFilterYearTo,
                             icon: Icons.calendar_today_outlined,
                             hasError: _yearError,
                             onChanged: (_) => setState(() {}),
@@ -234,7 +239,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                     if (_yearError) ...[
                       const SizedBox(height: 6),
                       Text(
-                        '起始年份不能大于结束年份',
+                        l.advancedFilterYearRangeInvalid,
                         style: TextStyle(
                           color: c.danger,
                           fontFamily: 'Inter',
@@ -244,23 +249,26 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                       ),
                     ],
                     const SizedBox(height: 14),
-                    Text('评分范围', style: AppText.meta(context)),
+                    Text(
+                      l.advancedFilterRatingRange,
+                      style: AppText.meta(context),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         Expanded(
                           child: _DropdownField<int?>(
                             value: _ratingFrom,
-                            hint: '最低评分',
+                            hint: l.advancedFilterMinRating,
                             items: <DropdownMenuItem<int?>>[
-                              const DropdownMenuItem<int?>(
+                              DropdownMenuItem<int?>(
                                 value: null,
-                                child: Text('最低评分'),
+                                child: Text(l.advancedFilterMinRating),
                               ),
                               for (var i = 1; i <= 9; i++)
                                 DropdownMenuItem<int?>(
                                   value: i,
-                                  child: Text('$i 分以上'),
+                                  child: Text(l.advancedFilterRatingAbove(i)),
                                 ),
                             ],
                             onChanged: (v) => setState(() => _ratingFrom = v),
@@ -270,16 +278,16 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                         Expanded(
                           child: _DropdownField<int?>(
                             value: _ratingTo,
-                            hint: '最高评分',
+                            hint: l.advancedFilterMaxRating,
                             items: <DropdownMenuItem<int?>>[
-                              const DropdownMenuItem<int?>(
+                              DropdownMenuItem<int?>(
                                 value: null,
-                                child: Text('最高评分'),
+                                child: Text(l.advancedFilterMaxRating),
                               ),
                               for (var i = 10; i >= 2; i--)
                                 DropdownMenuItem<int?>(
                                   value: i,
-                                  child: Text('$i 分以下'),
+                                  child: Text(l.advancedFilterRatingBelow(i)),
                                 ),
                             ],
                             onChanged: (v) => setState(() => _ratingTo = v),
@@ -292,48 +300,57 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
               ),
               const SizedBox(height: 14),
               _SectionCard(
-                title: '字幕与文件',
+                title: l.advancedFilterSubtitlesAndFiles,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('外挂字幕', style: AppText.meta(context)),
+                    Text(
+                      l.advancedFilterExternalSubtitles,
+                      style: AppText.meta(context),
+                    ),
                     const SizedBox(height: 6),
                     _DropdownField<String>(
                       value: _subtitleMode,
-                      hint: '不限',
-                      items: const [
-                        DropdownMenuItem(value: '', child: Text('不限')),
+                      hint: l.unlimited,
+                      items: [
+                        DropdownMenuItem(value: '', child: Text(l.unlimited)),
                         DropdownMenuItem(
                           value: 'include',
-                          child: Text('包含外挂字幕'),
+                          child: Text(l.advancedFilterIncludeExternalSubtitles),
                         ),
                         DropdownMenuItem(
                           value: 'exclude',
-                          child: Text('排除外挂字幕'),
+                          child: Text(l.advancedFilterExcludeExternalSubtitles),
                         ),
                       ],
                       onChanged: (v) => setState(() => _subtitleMode = v ?? ''),
                     ),
                     const SizedBox(height: 14),
-                    Text('文件过滤器', style: AppText.meta(context)),
+                    Text(
+                      l.advancedFilterFileFilter,
+                      style: AppText.meta(context),
+                    ),
                     const SizedBox(height: 6),
                     _DropdownField<String>(
                       value: _fileFilterMode,
-                      hint: '不限',
-                      items: const [
-                        DropdownMenuItem(value: '', child: Text('不限')),
+                      hint: l.unlimited,
+                      items: [
+                        DropdownMenuItem(value: '', child: Text(l.unlimited)),
                         DropdownMenuItem(
                           value: 'standard',
-                          child: Text('仅限标准'),
+                          child: Text(l.advancedFilterOnlyStandard),
                         ),
-                        DropdownMenuItem(value: 'crack', child: Text('仅限破解')),
+                        DropdownMenuItem(
+                          value: 'crack',
+                          child: Text(l.advancedFilterOnlyCrack),
+                        ),
                         DropdownMenuItem(
                           value: 'subtitle',
-                          child: Text('仅限中字'),
+                          child: Text(l.advancedFilterOnlyChineseSubtitle),
                         ),
                         DropdownMenuItem(
                           value: 'subtitle_crack',
-                          child: Text('仅限中字破解'),
+                          child: Text(l.advancedFilterOnlyChineseCrack),
                         ),
                       ],
                       onChanged: (v) =>
@@ -354,7 +371,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: sheetSecondaryButtonStyle(context),
-                  child: const Text('取消'),
+                  child: Text(l.cancel),
                 ),
               ),
               const SizedBox(width: 10),
@@ -363,7 +380,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                 child: FilledButton.icon(
                   onPressed: _yearError ? null : _onApply,
                   icon: const Icon(Icons.filter_alt, size: 16),
-                  label: const Text('应用筛选'),
+                  label: Text(l.advancedFilterApply),
                   style: sheetPrimaryButtonStyle(context),
                 ),
               ),
@@ -460,7 +477,10 @@ class _ModeToggle extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [btn('包含', _SetMode.include), btn('排除', _SetMode.exclude)],
+        children: [
+          btn(AppL10n.of(context).include, _SetMode.include),
+          btn(AppL10n.of(context).exclude, _SetMode.exclude),
+        ],
       ),
     );
   }
@@ -631,7 +651,7 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
     }
     if (_error != null) {
       return Text(
-        '加载失败: $_error',
+        AppL10n.of(context).loadFailedWithError('$_error'),
         style: TextStyle(color: c.danger, fontSize: 12),
       );
     }
@@ -652,7 +672,9 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
             Expanded(
               child: selectedItems.isEmpty
                   ? Text(
-                      '选择${widget.kind.label}...',
+                      AppL10n.of(context).entityPickerSelect(
+                        widget.kind.label(AppL10n.of(context)),
+                      ),
                       style: TextStyle(color: c.muted),
                     )
                   : Wrap(

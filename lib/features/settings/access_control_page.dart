@@ -11,6 +11,7 @@ import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'settings_common.dart';
 
@@ -84,9 +85,10 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Future<void> _save() async {
+    final l = AppL10n.of(context);
     final password = _passwordController.text.trim();
     if (password.isNotEmpty && password.length < 8) {
-      setState(() => _error = '访问密码至少需要 8 位字符');
+      setState(() => _error = l.accessPasswordTooShort);
       return;
     }
 
@@ -94,19 +96,19 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       _refreshDaysController,
       min: 1,
       max: 90,
-      label: '有效期',
+      label: l.accessRefreshTokenDays,
     );
     final maxAttempts = _parseInt(
       _maxAttemptsController,
       min: 1,
       max: 100,
-      label: '最大失败次数',
+      label: l.accessMaxFailedAttempts,
     );
     final lockMinutes = _parseInt(
       _lockMinutesController,
       min: 1,
       max: 1440,
-      label: '锁定时长',
+      label: l.accessLockDuration,
     );
     if (refreshDays == null || maxAttempts == null || lockMinutes == null) {
       return;
@@ -132,9 +134,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       ref.invalidate(authControllerProvider);
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('访问控制配置已保存'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(AppL10n.of(context).accessConfigSaved),
+          duration: const Duration(seconds: 1),
         ),
       );
     } catch (error) {
@@ -152,7 +154,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }) {
     final value = int.tryParse(controller.text.trim());
     if (value == null || value < min || value > max) {
-      setState(() => _error = '$label必须在 $min-$max 之间');
+      setState(
+        () => _error = AppL10n.of(context).accessRangeError(label, min, max),
+      );
       return null;
     }
     return value;
@@ -160,7 +164,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
 
   Future<void> _beginTotp() async {
     if (!_enabled) {
-      setState(() => _error = '请先启用访问控制');
+      setState(() => _error = AppL10n.of(context).accessEnableFirst);
       return;
     }
     setState(() {
@@ -181,9 +185,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       ref.invalidate(authControllerProvider);
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('TOTP 已启用'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(AppL10n.of(context).accessTotpEnabled),
+          duration: const Duration(seconds: 1),
         ),
       );
     } catch (error) {
@@ -194,19 +198,20 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Future<void> _deleteTotp() async {
+    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除 TOTP'),
-        content: const Text('删除后登录将不再要求验证码，确定继续吗？'),
+        title: Text(l.accessDeleteTotp),
+        content: Text(l.accessDeleteTotpConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -224,9 +229,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       ref.invalidate(authControllerProvider);
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('TOTP 已删除'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(AppL10n.of(context).accessTotpDeleted),
+          duration: const Duration(seconds: 1),
         ),
       );
     } catch (error) {
@@ -239,11 +244,12 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   Future<String?> _showTotpDialog(TotpSetup setup) async {
     final codeController = TextEditingController();
     final qrBytes = _decodeQrData(setup.qrDataUrl);
+    final l = AppL10n.of(context);
     try {
       return await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('绑定 TOTP'),
+          title: Text(l.accessBindTotp),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -252,9 +258,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                   Image.memory(qrBytes, width: 192, height: 192),
                   const SizedBox(height: 12),
                 ],
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('无法扫描时，可手动输入密钥：'),
+                  child: Text(l.accessTotpManualKey),
                 ),
                 const SizedBox(height: 4),
                 SelectableText(
@@ -268,10 +274,10 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                   keyboardType: TextInputType.number,
                   maxLength: 8,
                   textAlignVertical: TextAlignVertical.center,
-                  decoration: const InputDecoration(
-                    labelText: '验证码',
-                    hintText: '输入验证器中的验证码',
-                    prefixIcon: Icon(Icons.timer_outlined),
+                  decoration: InputDecoration(
+                    labelText: l.accessTotpCode,
+                    hintText: l.accessTotpCodeHint,
+                    prefixIcon: const Icon(Icons.timer_outlined),
                     counterText: '',
                   ),
                   onSubmitted: (value) {
@@ -286,14 +292,14 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消'),
+              child: Text(l.cancel),
             ),
             FilledButton(
               onPressed: () {
                 final value = codeController.text.trim();
                 if (value.isNotEmpty) Navigator.of(ctx).pop(value);
               },
-              child: const Text('确认绑定'),
+              child: Text(l.accessTotpConfirmBind),
             ),
           ],
         ),
@@ -329,23 +335,24 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Widget _buildForm(AppColors c) {
+    final l = AppL10n.of(context);
     final active = _enabled && _configured;
     final statusTitle = active
-        ? '访问保护已启用'
+        ? l.accessStatusActive
         : _configured
-        ? '登录凭据已配置，当前未启用'
-        : '尚未配置登录凭据';
+        ? l.accessStatusConfigured
+        : l.accessStatusNotConfigured;
     final statusDescription = active
-        ? 'API、媒体资源与实时任务均需要有效登录会话。'
+        ? l.accessStatusActiveDesc
         : _configured
-        ? '保存并启用后，未登录访问将被拦截。'
-        : '设置至少一个登录凭据后即可启用访问控制。';
+        ? l.accessStatusConfiguredDesc
+        : l.accessStatusNotConfiguredDesc;
 
     return SettingsFixedHeaderLayout(
-      header: const SettingsSubPageHeader(
-        eyebrow: '系统配置',
-        title: '访问控制',
-        subtitle: '配置登录凭据与会话策略；关闭时保持开放访问。',
+      header: SettingsSubPageHeader(
+        eyebrow: l.settingsGroupSystem,
+        title: l.accessControlTitle,
+        subtitle: l.accessControlSubtitle,
       ),
       body: ListView(
         primary: true,
@@ -359,52 +366,55 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
             color: c.accent,
           ),
           const SizedBox(height: 18),
-          _sectionLabel('访问保护', '启用后，服务器 API 和媒体资源需要登录。'),
+          _sectionLabel(
+            l.accessSectionProtection,
+            l.accessSectionProtectionHelp,
+          ),
           _switchCard(c),
           const SizedBox(height: 18),
           _sectionLabel(
-            _configured ? '修改访问密码' : '设置访问密码',
-            _configured ? '留空表示保持当前密码不变。' : '首次启用前需要设置至少 8 位字符的密码。',
+            _configured ? l.accessChangePassword : l.accessSetPassword,
+            _configured ? l.accessChangePasswordHelp : l.accessSetPasswordHelp,
           ),
           _passwordInput(c),
           const SizedBox(height: 18),
-          _sectionLabel('会话策略', '限制持久登录时长和连续失败后的锁定行为。'),
+          _sectionLabel(l.accessSectionSession, l.accessSectionSessionHelp),
           _numberInput(
             c,
-            label: '有效期',
-            suffix: '天',
+            label: l.accessRefreshTokenDays,
+            suffix: l.unitDays,
             controller: _refreshDaysController,
             icon: Icons.schedule,
-            help: '范围 1-90 天；Access Token 固定 24 小时自动刷新。',
+            help: l.accessRefreshDaysHelp,
           ),
           const SizedBox(height: 12),
           _numberInput(
             c,
-            label: '最大失败次数',
-            suffix: '次',
+            label: l.accessMaxFailedAttempts,
+            suffix: l.unitTimes,
             controller: _maxAttemptsController,
             icon: Icons.error_outline,
-            help: '范围 1-100 次，达到后临时锁定。',
+            help: l.accessMaxAttemptsHelp,
           ),
           const SizedBox(height: 12),
           _numberInput(
             c,
-            label: '锁定时长',
-            suffix: '分钟',
+            label: l.accessLockDuration,
+            suffix: l.unitMinutes,
             controller: _lockMinutesController,
             icon: Icons.lock_clock,
-            help: '范围 1-1440 分钟。',
+            help: l.accessLockMinutesHelp,
           ),
           const SizedBox(height: 18),
-          _sectionLabel('登录验证方式', '为当前账户增加 TOTP 两步验证。'),
+          _sectionLabel(l.accessSectionMfa, l.accessSectionMfaHelp),
           _totpCard(c),
           if (_webAuthnConfigured || _passwordLoginDisabled) ...[
             const SizedBox(height: 10),
             _infoBox(
               c,
               _passwordLoginDisabled
-                  ? '服务器当前仅允许 Passkey 登录，移动端暂不支持 Passkey 登录或管理，请在网页端访问控制中操作。'
-                  : '服务器已配置 Passkey。移动端暂不支持注册或管理 Passkey，请在网页端访问控制中操作。',
+                  ? l.accessPasskeyOnlyInfo
+                  : l.accessPasskeyConfiguredInfo,
             ),
           ],
           if (_error != null) ...[
@@ -419,13 +429,14 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Widget _buildLoadError() {
+    final l = AppL10n.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error ?? '加载访问控制配置失败', textAlign: TextAlign.center),
+            Text(_error ?? l.accessLoadFailed, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () {
@@ -437,7 +448,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 unawaited(_load());
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
+              label: Text(l.commonRetry),
             ),
           ],
         ),
@@ -501,6 +512,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Widget _switchCard(AppColors c) {
+    final l = AppL10n.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: settingsCardDecoration(context),
@@ -508,7 +520,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         children: [
           Expanded(
             child: Text(
-              _enabled ? '已启用访问控制' : '已停用访问控制',
+              _enabled ? l.accessEnabled : l.accessDisabled,
               style: TextStyle(
                 color: c.text,
                 fontWeight: FontWeight.w700,
@@ -528,6 +540,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Widget _passwordInput(AppColors c) {
+    final l = AppL10n.of(context);
     return Container(
       decoration: settingsCardDecoration(context),
       child: TextField(
@@ -538,10 +551,14 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         decoration: settingsInputDecoration(
           context,
           borderless: true,
-          hintText: _configured ? '输入新密码' : '至少 8 位字符',
+          hintText: _configured
+              ? l.accessNewPasswordHint
+              : l.accessPasswordMinHint,
           prefixIcon: const Icon(Icons.key_outlined),
           suffixIcon: IconButton(
-            tooltip: _showPassword ? '隐藏密码' : '显示密码',
+            tooltip: _showPassword
+                ? l.commonHidePassword
+                : l.commonShowPassword,
             icon: Icon(
               _showPassword
                   ? Icons.visibility_off_outlined
@@ -613,6 +630,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   }
 
   Widget _totpCard(AppColors c) {
+    final l = AppL10n.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: settingsCardDecoration(context),
@@ -626,7 +644,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'TOTP 两步验证',
+                  l.accessTotpTwoFactor,
                   style: TextStyle(
                     color: c.text,
                     fontWeight: FontWeight.w800,
@@ -635,7 +653,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _totpConfigured ? '已绑定，登录时需要动态验证码。' : '使用验证器应用增加第二道保护。',
+                  _totpConfigured
+                      ? l.accessTotpBoundDesc
+                      : l.accessTotpUnboundDesc,
                   style: AppText.meta(context),
                 ),
                 const SizedBox(height: 10),
@@ -655,11 +675,13 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                               _totpConfigured ? Icons.refresh : Icons.add,
                               size: 16,
                             ),
-                      label: Text(_totpConfigured ? '重新绑定' : '绑定 TOTP'),
+                      label: Text(
+                        _totpConfigured ? l.accessRebindTotp : l.accessBindTotp,
+                      ),
                     ),
                     if (_totpConfigured)
                       IconButton(
-                        tooltip: '删除 TOTP',
+                        tooltip: l.accessDeleteTotp,
                         onPressed: _totpBusy || !_enabled ? null : _deleteTotp,
                         icon: Icon(Icons.delete_outline, color: c.danger),
                       ),

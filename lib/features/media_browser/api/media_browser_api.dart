@@ -94,9 +94,7 @@ class MediaBrowserApi {
     return rawItems
         .whereType<Map>()
         .map(
-          (raw) => MediaBrowserLibrary.fromJson(
-            Map<String, dynamic>.from(raw),
-          ),
+          (raw) => MediaBrowserLibrary.fromJson(Map<String, dynamic>.from(raw)),
         )
         .where((library) => library.name.isNotEmpty)
         .toList(growable: false);

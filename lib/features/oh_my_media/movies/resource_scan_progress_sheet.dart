@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/resource_scan.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
@@ -87,6 +88,7 @@ class _ResourceScanProgressSheetState
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final task = _task;
     final active = task?.isActive ?? true;
     final failed = task?.status == 'error';
@@ -101,8 +103,8 @@ class _ResourceScanProgressSheetState
           children: [
             SheetHeader(
               icon: Icons.manage_search_outlined,
-              title: '扫描资源',
-              subtitle: '资源扫描进度',
+              title: l.resourceScanTitle,
+              subtitle: l.resourceScanProgress,
               trailing: _ResourceScanStatusPill(
                 status: task?.status ?? 'pending',
               ),
@@ -126,7 +128,7 @@ class _ResourceScanProgressSheetState
               children: [
                 Text(
                   task == null
-                      ? '正在连接...'
+                      ? l.resourceScanConnecting
                       : '${task.currentIndex} / ${task.totalCount}',
                   style: TextStyle(
                     color: c.text,
@@ -161,11 +163,20 @@ class _ResourceScanProgressSheetState
                 ),
                 child: Row(
                   children: [
-                    _ResourceScanStat(label: '成功', value: task.successCount),
+                    _ResourceScanStat(
+                      label: l.resourceScanSuccess,
+                      value: task.successCount,
+                    ),
                     _ResourceScanDivider(),
-                    _ResourceScanStat(label: '失败', value: task.failedCount),
+                    _ResourceScanStat(
+                      label: l.resourceScanFailed,
+                      value: task.failedCount,
+                    ),
                     _ResourceScanDivider(),
-                    _ResourceScanStat(label: '新资源', value: task.newMovieCount),
+                    _ResourceScanStat(
+                      label: l.resourceScanNewResources,
+                      value: task.newMovieCount,
+                    ),
                   ],
                 ),
               ),
@@ -235,7 +246,11 @@ class _ResourceScanProgressSheetState
               child: FilledButton.icon(
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: Icon(active ? Icons.arrow_downward_rounded : Icons.check),
-                label: Text(active ? '后台运行' : (failed ? '关闭' : '完成')),
+                label: Text(
+                  active
+                      ? l.resourceScanBackground
+                      : (failed ? l.resourceScanClose : l.resourceScanDone),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: failed ? c.danger : c.accent,
                   foregroundColor: Colors.white,
@@ -304,11 +319,12 @@ class _ResourceScanStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final (label, color) = switch (status) {
-      'running' => ('扫描中', c.accent),
-      'completed' => ('已完成', c.accent),
-      'error' => ('失败', c.danger),
-      _ => ('准备中', c.muted),
+      'running' => (l.resourceScanRunning, c.accent),
+      'completed' => (l.resourceScanCompleted, c.accent),
+      'error' => (l.resourceScanFailed, c.danger),
+      _ => (l.resourceScanPreparing, c.muted),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

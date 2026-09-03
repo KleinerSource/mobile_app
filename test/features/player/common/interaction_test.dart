@@ -14,6 +14,7 @@ import 'package:omm/features/player/common/player_gesture_layer.dart';
 import 'package:omm/features/player/video/player_resume.dart';
 import 'package:omm/features/player/video/player_status_overlay.dart';
 import 'package:omm/features/player/video/player_subtitle_track_resolver.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/player_gesture_layer_test.dart ====================
 void _main_0() {
@@ -42,6 +43,9 @@ void _main_0() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: SizedBox(
             width: 320,
@@ -116,6 +120,9 @@ void _main_1() {
   testWidgets('网络和 CPU OSD 使用图标并保留数值', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: PlayerStatusOverlay(
             title: '测试影片',

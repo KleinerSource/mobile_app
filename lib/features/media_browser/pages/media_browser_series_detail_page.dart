@@ -17,6 +17,7 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/continue_watching_section.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// MediaBrowser 剧集详情页：季切换 + 集列表。
 ///
@@ -129,7 +130,10 @@ class _MediaBrowserSeriesDetailPageState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('加载失败', style: AppText.sectionTitle(context)),
+              Text(
+                AppL10n.of(context).loadFailed,
+                style: AppText.sectionTitle(context),
+              ),
               const SizedBox(height: 8),
               Text(toApiException(error).message, textAlign: TextAlign.center),
               const SizedBox(height: 12),
@@ -142,7 +146,7 @@ class _MediaBrowserSeriesDetailPageState
                     ),
                   ),
                 ),
-                child: const Text('重试'),
+                child: Text(AppL10n.of(context).mediaBrowserRetry),
               ),
             ],
           ),
@@ -178,7 +182,9 @@ class _MediaBrowserSeriesDetailPageState
                     icon: series.userData.isFavorite
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
-                    label: series.userData.isFavorite ? '已收藏' : '收藏',
+                    label: series.userData.isFavorite
+                        ? AppL10n.of(context).detailFavorited
+                        : AppL10n.of(context).mediaBrowserFavoriteAction,
                     active: series.userData.isFavorite,
                     onPressed: _actionBusy
                         ? null
@@ -297,7 +303,12 @@ class _SeasonSection extends ConsumerWidget {
         if (list.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text('暂无剧集分集', style: AppText.meta(context))),
+            child: Center(
+              child: Text(
+                AppL10n.of(context).mediaBrowserNoSeasons,
+                style: AppText.meta(context),
+              ),
+            ),
           );
         }
         final activeId =
@@ -312,7 +323,10 @@ class _SeasonSection extends ConsumerWidget {
               bottom: 14,
               header: Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('分集', style: AppText.sectionTitle(context)),
+                child: Text(
+                  AppL10n.of(context).mediaBrowserEpisodes,
+                  style: AppText.sectionTitle(context),
+                ),
               ),
               child: SizedBox(
                 height: 38,
@@ -325,7 +339,7 @@ class _SeasonSection extends ConsumerWidget {
                     final season = list[index];
                     final selected = season.id == activeId;
                     return _SeasonChip(
-                      label: _seasonLabel(season),
+                      label: _seasonLabel(context, season),
                       selected: selected,
                       onTap: () => onSeasonSelected(season.id),
                     );
@@ -341,11 +355,11 @@ class _SeasonSection extends ConsumerWidget {
   }
 }
 
-String _seasonLabel(MediaBrowserItem season) {
+String _seasonLabel(BuildContext context, MediaBrowserItem season) {
   final index = season.indexNumber;
   if (index == null) return season.name;
-  if (index == 0) return '特别篇';
-  return '第 $index 季';
+  if (index == 0) return AppL10n.of(context).mediaBrowserSpecialSeason;
+  return AppL10n.of(context).mediaBrowserSeasonNumber(index);
 }
 
 class _SeasonChip extends StatelessWidget {
@@ -436,7 +450,7 @@ class _EpisodeList extends ConsumerWidget {
                   ),
                 ),
               ),
-              child: const Text('重试'),
+              child: Text(AppL10n.of(context).mediaBrowserRetry),
             ),
           ],
         ),
@@ -445,7 +459,12 @@ class _EpisodeList extends ConsumerWidget {
         if (page.items.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text('本季暂无剧集', style: AppText.meta(context))),
+            child: Center(
+              child: Text(
+                AppL10n.of(context).mediaBrowserNoEpisodesInSeason,
+                style: AppText.meta(context),
+              ),
+            ),
           );
         }
         return ContinueWatchingSection(
@@ -485,8 +504,10 @@ String _episodeMeta(BuildContext context, MediaBrowserItem episode) {
   final number = episode.indexNumber ?? 0;
   final runtimeMinutes = episode.runtimeMinutes;
   return runtimeMinutes > 0
-      ? '第 $number 集 · $runtimeMinutes 分钟'
-      : '第 $number 集';
+      ? AppL10n.of(
+          context,
+        ).mediaBrowserEpisodeWithRuntime(number, runtimeMinutes)
+      : AppL10n.of(context).mediaBrowserEpisodeNumber(number);
 }
 
 double _episodeProgress(MediaBrowserItem episode) {

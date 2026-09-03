@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 
 /// Emby/Jellyfin 条目卡片。
@@ -62,7 +63,7 @@ class MediaBrowserItemCard extends StatelessWidget {
                 ? null
                 : urls.poster(item.id, tag: item.primaryImageTag),
             imageHeaders: urls.imageHeaders,
-            meta: mediaBrowserItemMetaText(item),
+            meta: mediaBrowserItemMetaText(context, item),
             width: width,
             rating: item.communityRating,
             played: played,
@@ -107,13 +108,16 @@ double _progressOf(MediaBrowserItem item) {
 /// 「起止年份 · 集数」；分集为「SxxEyy · 剧名」，音乐条目为
 /// 「年份 · 艺术家」（专辑）或「艺术家 · 时长」（歌曲）。
 /// 收藏夹页的列表行也复用这行 meta。
-String mediaBrowserItemMetaText(MediaBrowserItem item) {
+String mediaBrowserItemMetaText(BuildContext context, MediaBrowserItem item) {
+  final l = AppL10n.of(context);
   final parts = <String>[];
   if (item.isSeries) {
-    final yearText = _seriesYearText(item);
+    final yearText = _seriesYearText(l, item);
     if (yearText != null) parts.add(yearText);
     final episodeCount = item.totalEpisodeCount;
-    if (episodeCount != null) parts.add('$episodeCount集');
+    if (episodeCount != null) {
+      parts.add(l.mediaBrowserEpisodeCount(episodeCount));
+    }
     return parts.join(' · ');
   }
   if (item.isEpisode) {
@@ -132,23 +136,25 @@ String mediaBrowserItemMetaText(MediaBrowserItem item) {
     final artist = item.displayArtist;
     if (artist != null) parts.add(artist);
     final trackCount = item.childCount;
-    if (trackCount != null && trackCount > 0) parts.add('$trackCount 首');
+    if (trackCount != null && trackCount > 0) {
+      parts.add(l.mediaBrowserTrackCount(trackCount));
+    }
     return parts.join(' · ');
   }
   if (item.isAudio) {
     final artist = item.displayArtist;
     if (artist != null) parts.add(artist);
     final minutes = item.runtimeMinutes;
-    if (minutes > 0) parts.add('${minutes}m');
+    if (minutes > 0) parts.add(l.mediaBrowserMinuteShort(minutes));
     return parts.join(' · ');
   }
   if (item.productionYear != null) parts.add('${item.productionYear}');
   final minutes = item.runtimeMinutes;
-  if (minutes > 0) parts.add('${minutes}m');
+  if (minutes > 0) parts.add(l.mediaBrowserMinuteShort(minutes));
   return parts.join(' · ');
 }
 
-String? _seriesYearText(MediaBrowserItem item) {
+String? _seriesYearText(AppL10n l, MediaBrowserItem item) {
   final startYear = item.productionYear;
   final endYear = item.endYear;
 
@@ -159,27 +165,32 @@ String? _seriesYearText(MediaBrowserItem item) {
       if (endYear == startYear) return '$startYear';
       return '$startYear - $endYear';
     case 'continuing':
-      if (startYear == null) return '现在';
-      return '$startYear - 现在';
+      if (startYear == null) return l.mediaBrowserNow;
+      return '$startYear - ${l.mediaBrowserNow}';
   }
 
   if (startYear == null) return endYear?.toString();
-  if (endYear == null) return '$startYear - 现在';
+  if (endYear == null) return '$startYear - ${l.mediaBrowserNow}';
   if (endYear == startYear) return '$startYear';
   return '$startYear - $endYear';
 }
 
 /// 列表为空时的占位。
 class MediaBrowserEmptyPlaceholder extends StatelessWidget {
-  const MediaBrowserEmptyPlaceholder({super.key, this.text = '暂无内容'});
+  const MediaBrowserEmptyPlaceholder({super.key, this.text});
 
-  final String text;
+  final String? text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 80),
-      child: Center(child: Text(text, style: AppText.meta(context))),
+      child: Center(
+        child: Text(
+          text ?? AppL10n.of(context).mediaBrowserEmptyDefault,
+          style: AppText.meta(context),
+        ),
+      ),
     );
   }
 }

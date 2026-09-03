@@ -77,14 +77,13 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     required String name,
     required String collectionType,
     required List<String> paths,
-  }) =>
-      _call(
-        () => api.addVirtualFolder(
-          name: name,
-          collectionType: collectionType,
-          paths: paths,
-        ),
-      );
+  }) => _call(
+    () => api.addVirtualFolder(
+      name: name,
+      collectionType: collectionType,
+      paths: paths,
+    ),
+  );
 
   @override
   Future<void> removeVirtualFolder(String name) =>
@@ -94,40 +93,32 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   Future<void> renameVirtualFolder({
     required String name,
     required String newName,
-  }) =>
-      _call(() => api.renameVirtualFolder(name: name, newName: newName));
+  }) => _call(() => api.renameVirtualFolder(name: name, newName: newName));
 
   @override
   Future<void> addMediaPath({
     required String libraryName,
     required String path,
-  }) =>
-      _call(
-        () => api.addMediaPath(libraryName: libraryName, path: path),
-      );
+  }) => _call(() => api.addMediaPath(libraryName: libraryName, path: path));
 
   @override
   Future<void> removeMediaPath({
     required String libraryName,
     required String path,
-  }) =>
-      _call(
-        () => api.removeMediaPath(libraryName: libraryName, path: path),
-      );
+  }) => _call(() => api.removeMediaPath(libraryName: libraryName, path: path));
 
   @override
   Future<void> updateVirtualFolderOptions({
     required String id,
     required bool enabled,
     Map<String, dynamic> options = const <String, dynamic>{},
-  }) =>
-      _call(
-        () => api.updateVirtualFolderOptions(
-          id: id,
-          enabled: enabled,
-          options: options,
-        ),
-      );
+  }) => _call(
+    () => api.updateVirtualFolderOptions(
+      id: id,
+      enabled: enabled,
+      options: options,
+    ),
+  );
 
   @override
   Future<void> refreshLibrary() => _call(() => api.refreshLibrary());
@@ -366,8 +357,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   });
 
   @override
-  Future<Object?> fetchLyrics(String itemId) =>
-      _call(() => api.lyrics(itemId));
+  Future<Object?> fetchLyrics(String itemId) => _call(() => api.lyrics(itemId));
 
   @override
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
@@ -448,11 +438,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       year: item.productionYear,
       rating: item.communityRating,
       duration: mediaBrowserTicksToSeconds(item.runTimeTicks),
-      poster: await imageUrl(
-        item.id,
-        maxWidth: 440,
-        tag: item.primaryImageTag,
-      ),
+      poster: await imageUrl(item.id, maxWidth: 440, tag: item.primaryImageTag),
       thumbnail: item.thumbImageTag == null
           ? null
           : await imageUrl(
@@ -539,7 +525,8 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
             id: stream.index.toString(),
             label: stream.displayTitle?.trim().isNotEmpty == true
                 ? stream.displayTitle!.trim()
-                : stream.codec ?? '${type == 'Audio' ? '音轨' : '字幕'} ${stream.index + 1}',
+                : stream.codec ??
+                      '${type == 'Audio' ? '音轨' : '字幕'} ${stream.index + 1}',
             language: stream.language,
             kind: type.toLowerCase(),
             index: stream.index,
@@ -568,8 +555,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
           final stream = source.mediaStreams.firstWhere(
             (candidate) => candidate.index.toString() == track.id,
           );
-          final url =
-              stream.isExternal && !stream.isBitmap
+          final url = stream.isExternal && !stream.isBitmap
               ? MediaBrowserApi.subtitleStreamUrl(
                   config: config,
                   baseUrl: baseUrl,
@@ -613,7 +599,8 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     var uri = Uri.tryParse(path) ?? Uri.tryParse(Uri.encodeFull(path));
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
     final serverHost = Uri.tryParse(baseUrl)?.host.toLowerCase();
-    final sameHost = serverHost != null &&
+    final sameHost =
+        serverHost != null &&
         serverHost.isNotEmpty &&
         uri.host.toLowerCase() == serverHost;
     if (sameHost && token?.trim().isNotEmpty == true) {

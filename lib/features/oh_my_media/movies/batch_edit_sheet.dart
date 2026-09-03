@@ -15,6 +15,7 @@ import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/oh_my_media/movie_detail/entity_picker_sheet.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'movies_providers.dart';
 
 /// 批量编辑 sheet · 快速标记 / 加减 tag / 加减 genre / 设置/移除 series
@@ -146,7 +147,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
 
       if (!hasAdd && !hasRemove && !hasWatermark) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('请至少选择一项要添加、移除或裁剪的内容')),
+          SnackBar(content: Text(AppL10n.of(context).batchEditNothingSelected)),
         );
         setState(() => _saving = false);
         return;
@@ -178,19 +179,29 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         if (r.failedCount > 0) {
           messenger.showSnackBar(
             SnackBar(
-              content: Text('海报裁剪：成功 ${r.successCount}，失败 ${r.failedCount}'),
+              content: Text(
+                AppL10n.of(
+                  context,
+                ).batchEditWatermarkResult(r.successCount, r.failedCount),
+              ),
             ),
           );
         }
       }
       if (!mounted) return;
       AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(content: Text('批量编辑成功')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).batchEditSaved)),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('批量编辑失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(context).batchEditFailed(toApiException(e).message),
+          ),
+        ),
       );
       setState(() => _saving = false);
     }
@@ -199,13 +210,14 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetHeader(
           icon: Icons.edit_note_outlined,
-          title: '批量编辑 ${widget.movieIds.length} 部',
-          subtitle: '集中调整标签、分类、系列和快速标记',
+          title: l.batchEditTitle(widget.movieIds.length),
+          subtitle: l.batchEditSubtitle,
         ),
         Flexible(
           fit: FlexFit.loose,
@@ -214,8 +226,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
             padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
             children: [
               _Card(
-                title: '快速标记',
-                subtitle: '保存时会同步裁剪海报水印',
+                title: l.batchEditQuickFlags,
+                subtitle: l.batchEditQuickFlagsSubtitle,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -223,7 +235,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                       children: [
                         Expanded(
                           child: _QuickFlagChip(
-                            label: '字幕',
+                            label: l.movieFlagSubtitle,
                             value: _quickSubtitle,
                             onChanged: (v) => _onQuickSubtitle(v),
                           ),
@@ -231,7 +243,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: _QuickFlagChip(
-                            label: '外挂字幕',
+                            label: l.movieFlagExternalSubtitle,
                             value: _quickExsub,
                             onChanged: (v) => _onQuickExsub(v),
                           ),
@@ -239,7 +251,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: _QuickFlagChip(
-                            label: '破解',
+                            label: l.movieFlagCrack,
                             value: _quickCrack,
                             onChanged: (v) =>
                                 setState(() => _quickCrack = v ?? false),
@@ -259,7 +271,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        '字幕与外挂字幕互斥',
+                        l.batchEditSubtitleExclusive,
                         style: TextStyle(
                           color: c.muted,
                           fontFamily: 'Inter',
@@ -272,19 +284,19 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
               ),
               const SizedBox(height: 12),
               _Card(
-                title: '标签',
-                subtitle: '分别指定要追加和移除的标签集合',
+                title: l.settingsTags,
+                subtitle: l.batchEditTagSubtitle,
                 child: Column(
                   children: [
                     _PickerField(
-                      label: '添加标签',
+                      label: l.batchEditAdd(l.settingsTags),
                       kind: ResourceKind.tag,
                       selected: _addTagIds,
                       onChanged: (s) => setState(() => _addTagIds = s),
                     ),
                     const SizedBox(height: 8),
                     _PickerField(
-                      label: '移除标签 (仅共有)',
+                      label: l.batchEditRemoveCommon(l.settingsTags),
                       kind: ResourceKind.tag,
                       selected: _removeTagIds,
                       restrictToIds: _commonTagIds ?? const <int>{},
@@ -296,18 +308,18 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
               ),
               const SizedBox(height: 12),
               _Card(
-                title: '分类',
+                title: l.settingsGenres,
                 child: Column(
                   children: [
                     _PickerField(
-                      label: '添加分类',
+                      label: l.batchEditAdd(l.settingsGenres),
                       kind: ResourceKind.genre,
                       selected: _addGenreIds,
                       onChanged: (s) => setState(() => _addGenreIds = s),
                     ),
                     const SizedBox(height: 8),
                     _PickerField(
-                      label: '移除分类 (仅共有)',
+                      label: l.batchEditRemoveCommon(l.settingsGenres),
                       kind: ResourceKind.genre,
                       selected: _removeGenreIds,
                       restrictToIds: _commonGenreIds ?? const <int>{},
@@ -319,8 +331,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
               ),
               const SizedBox(height: 12),
               _Card(
-                title: '系列',
-                subtitle: '可统一设置系列',
+                title: l.settingsSeries,
+                subtitle: l.batchEditSeriesSubtitle,
                 child: _SingleSeriesPicker(
                   selected: _setSeriesId,
                   onChanged: (id) => setState(() => _setSeriesId = id),
@@ -339,7 +351,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                       ? null
                       : () => Navigator.of(context).pop(false),
                   style: sheetSecondaryButtonStyle(context),
-                  child: const Text('取消'),
+                  child: Text(l.cancel),
                 ),
               ),
               const SizedBox(width: 10),
@@ -355,7 +367,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         )
                       : const Icon(Icons.check, size: 18),
                   style: sheetPrimaryButtonStyle(context),
-                  label: Text(_saving ? '保存中...' : '保存'),
+                  label: Text(_saving ? l.commonSaving : l.save),
                 ),
               ),
             ],
@@ -476,6 +488,7 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final restrict = widget.restrictToIds;
     final restricted = restrict != null;
     final restrictEmpty = restricted && restrict.isEmpty;
@@ -484,10 +497,10 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
         .map((id) => ResourceItem(id: id, name: _names[id] ?? '#$id'))
         .toList();
     final placeholder = widget.restrictLoading
-        ? '加载中...'
+        ? l.loadingEllipsis
         : restrictEmpty
-        ? '无共有${widget.kind.label}'
-        : '选择${widget.kind.label}...';
+        ? l.batchEditNoCommon(widget.kind.label(l))
+        : l.entityPickerSelect(widget.kind.label(l));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,6 +619,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
 
   Future<void> _open() async {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     var q = '';
     var items = List<ResourceItem>.of(_all);
     var hasMore = _hasMore;
@@ -636,7 +650,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
         nextOffset = result.offset + result.items.length;
       } catch (_) {
         if (!active || serial != requestSerial) return;
-        searchError = '搜索系列失败，请稍后重试';
+        searchError = l.batchEditSeriesSearchFailed;
       } finally {
         if (active && serial == requestSerial) {
           setS(() => searching = false);
@@ -669,7 +683,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
         searchError = null;
       } catch (_) {
         if (active && serial == requestSerial) {
-          searchError = '加载更多系列失败，请稍后重试';
+          searchError = l.batchEditSeriesLoadMoreFailed;
         }
       } finally {
         loadingMore = false;
@@ -686,9 +700,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SheetHeader(
+                SheetHeader(
                   icon: Icons.collections_bookmark_outlined,
-                  title: '选择系列',
+                  title: l.entityPickerTitle(l.settingsSeries),
                   padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
                 ),
                 Padding(
@@ -704,7 +718,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                     },
                     decoration: sheetInputDecoration(
                       ctx,
-                      hintText: '搜索系列...',
+                      hintText: l.batchEditSeriesSearchHint,
                       prefixIcon: const Icon(Icons.search, size: 18),
                       isDense: true,
                     ),
@@ -728,7 +742,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                       : items.isEmpty
                       ? Center(
                           child: Text(
-                            q.isEmpty ? '暂无系列' : '未找到匹配的系列',
+                            q.isEmpty
+                                ? l.batchEditSeriesEmpty
+                                : l.entityPickerNoSeriesMatch,
                             style: AppText.body(ctx),
                           ),
                         )
@@ -756,7 +772,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                                               searchError = null;
                                               loadMoreSeries(setS);
                                             },
-                                            child: const Text('加载更多失败，点击重试'),
+                                            child: Text(l.commonRetry),
                                           )
                                         : loadingMore
                                         ? const SizedBox(
@@ -799,7 +815,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                     child: OutlinedButton(
                       onPressed: () =>
                           Navigator.of(ctx).pop((id: null, clear: true)),
-                      child: const Text('清空选择'),
+                      child: Text(l.batchEditClearSeries),
                     ),
                   ),
                 ),
@@ -834,6 +850,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final name = _all
         .firstWhere(
           (r) => r.id == widget.selected,
@@ -854,7 +871,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
             Expanded(
               child: Text(
                 widget.selected == null
-                    ? (_loading ? '加载中...' : '选择系列...')
+                    ? (_loading
+                          ? l.loadingEllipsis
+                          : l.entityPickerSelect(l.settingsSeries))
                     : name,
                 style: TextStyle(
                   color: widget.selected == null ? c.muted : c.text,

@@ -52,7 +52,8 @@ class _SecurityPatternPadState extends State<SecurityPatternPad>
   @override
   void didUpdateWidget(covariant SecurityPatternPad oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final replayed = !oldWidget.showError && widget.showError ||
+    final replayed =
+        !oldWidget.showError && widget.showError ||
         widget.replayToken != oldWidget.replayToken;
     if (widget.showError && replayed) {
       _shakeController.forward(from: 0);

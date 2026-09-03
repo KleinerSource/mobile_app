@@ -5,6 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/util/map_with_concurrency.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
@@ -89,12 +90,18 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
             targetMovieId: _targetId!,
           );
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('已启动合并任务')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).moviesMergeStarted)),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('合并失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(context).moviesMergeFailed(toApiException(e).message),
+          ),
+        ),
       );
       setState(() => _merging = false);
     }
@@ -103,13 +110,14 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetHeader(
           icon: Icons.merge_outlined,
-          title: '合并 ${widget.movieIds.length} 部重复影片',
-          subtitle: '选择主导影片, 其他相关文件会移到该影片所在目录',
+          title: l.moviesMergeTitle(widget.movieIds.length),
+          subtitle: l.moviesMergeSubtitle,
         ),
         Flexible(
           fit: FlexFit.loose,
@@ -148,7 +156,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '同名视频文件会被覆盖, 文件名冲突时非主导记录将被删除',
+                              l.moviesMergeWarning,
                               style: TextStyle(
                                 color: c.warning,
                                 fontSize: 12,
@@ -174,7 +182,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                           ),
                         ),
                         child: Text(
-                          '所有选中影片已在同一目录, 无需合并',
+                          l.moviesMergeSameFolder,
                           style: TextStyle(
                             color: c.danger,
                             fontSize: 12,
@@ -204,7 +212,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                       ? null
                       : () => Navigator.of(context).pop(false),
                   style: sheetSecondaryButtonStyle(context),
-                  child: const Text('取消'),
+                  child: Text(l.cancel),
                 ),
               ),
               const SizedBox(width: 10),
@@ -226,7 +234,9 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                         )
                       : const Icon(Icons.merge_rounded, size: 18),
                   style: sheetPrimaryButtonStyle(context),
-                  label: Text(_merging ? '合并中...' : '确认合并'),
+                  label: Text(
+                    _merging ? l.moviesMerging : l.moviesConfirmMerge,
+                  ),
                 ),
               ),
             ],
@@ -252,6 +262,7 @@ class _MovieOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -285,7 +296,7 @@ class _MovieOption extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        movie.title.isEmpty ? '未命名' : movie.title,
+                        movie.title.isEmpty ? l.moviesUntitled : movie.title,
                         style: TextStyle(
                           color: c.text,
                           fontFamily: 'Inter',
@@ -297,7 +308,7 @@ class _MovieOption extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        movie.num ?? '无番号',
+                        movie.num ?? l.moviesNoCode,
                         style: TextStyle(
                           color: c.muted,
                           fontFamily: 'monospace',
@@ -307,7 +318,7 @@ class _MovieOption extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        movie.filePath ?? '路径不可用',
+                        movie.filePath ?? l.moviesPathUnavailable,
                         style: TextStyle(
                           color: c.muted,
                           fontFamily: 'monospace',

@@ -37,11 +37,7 @@ enum ServerProject {
     displayName: 'Jellyfin Server',
     minimumVersion: '10.8.0',
   ),
-  feiniu(
-    projectName: 'feiniu',
-    displayName: '飞牛影视',
-    minimumVersion: '0.8.0',
-  ),
+  feiniu(projectName: 'feiniu', displayName: '飞牛影视', minimumVersion: '0.8.0'),
   smb(
     projectName: 'smb',
     displayName: 'SMB',
@@ -102,7 +98,9 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
           : defaultWebDavHttpPort,
     // OpenList 默认监听 5244；HTTPS 通常经反向代理落在 443。
     ServerProject.openList =>
-      scheme.toLowerCase() == 'https' ? defaultWebDavHttpsPort : defaultOpenListPort,
+      scheme.toLowerCase() == 'https'
+          ? defaultWebDavHttpsPort
+          : defaultOpenListPort,
   };
 }
 

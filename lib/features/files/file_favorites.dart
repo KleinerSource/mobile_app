@@ -71,14 +71,12 @@ class FileFavorite {
       sourceId: sourceId,
       path: path,
       name: name,
-      isDirectory:
-          decoded['is_directory'] is bool
-              ? decoded['is_directory'] as bool
-              : false,
-      addedAtMilliseconds:
-          decoded['added_at_ms'] is int
-              ? decoded['added_at_ms'] as int
-              : 0,
+      isDirectory: decoded['is_directory'] is bool
+          ? decoded['is_directory'] as bool
+          : false,
+      addedAtMilliseconds: decoded['added_at_ms'] is int
+          ? decoded['added_at_ms'] as int
+          : 0,
     );
   }
 }
@@ -123,10 +121,8 @@ class FileFavoritesRepository {
 
   Future<void> saveManualOrder(String serverId, bool value) {
     return _enqueue(
-      () async => _prefs.setBool(
-        _manualOrderKeyPrefix + _encodedId(serverId),
-        value,
-      ),
+      () async =>
+          _prefs.setBool(_manualOrderKeyPrefix + _encodedId(serverId), value),
     );
   }
 
@@ -147,16 +143,13 @@ class FileFavoritesRepository {
     if (normalized.isEmpty) {
       throw ArgumentError.value(serverId, 'serverId', '服务器 ID 不能为空');
     }
-    return base64Url
-        .encode(utf8.encode(normalized))
-        .replaceAll('=', '');
+    return base64Url.encode(utf8.encode(normalized)).replaceAll('=', '');
   }
 }
 
-final fileFavoritesRepositoryProvider =
-    Provider<FileFavoritesRepository>(
-      (ref) => FileFavoritesRepository(ref.watch(sharedPrefsProvider)),
-    );
+final fileFavoritesRepositoryProvider = Provider<FileFavoritesRepository>(
+  (ref) => FileFavoritesRepository(ref.watch(sharedPrefsProvider)),
+);
 
 /// 手动排序模式：用户在收藏列表拖拽过一次后启用，此后列表顺序完全由
 /// 存储数组顺序决定（新增收藏置顶），不再按「目录在前 + 时间倒序」自动排。
@@ -180,11 +173,9 @@ class FileFavoritesManualOrderNotifier extends Notifier<bool> {
 }
 
 final fileFavoritesManualOrderProvider =
-    NotifierProvider.family<
-      FileFavoritesManualOrderNotifier,
-      bool,
-      String
-    >(FileFavoritesManualOrderNotifier.new);
+    NotifierProvider.family<FileFavoritesManualOrderNotifier, bool, String>(
+      FileFavoritesManualOrderNotifier.new,
+    );
 
 class FileFavoritesNotifier extends Notifier<List<FileFavorite>> {
   FileFavoritesNotifier(this.serverId);

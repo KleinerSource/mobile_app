@@ -131,7 +131,8 @@ class FileSourceConfig {
     final id = _requiredString(json['id'], 'id');
     final name = _requiredString(json['name'], 'name');
     final host = _requiredString(json['host'], 'host');
-    final uri = protocol == FileSourceProtocol.webDav ||
+    final uri =
+        protocol == FileSourceProtocol.webDav ||
             protocol == FileSourceProtocol.openList
         ? _requiredString(json['uri'], 'uri')
         : null;

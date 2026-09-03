@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/features/player/video/player_error_view.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   test('播放错误摘要会压缩空白并截断长堆栈', () {
@@ -26,6 +27,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: PlayerErrorView(
             message: message,

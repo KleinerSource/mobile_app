@@ -5,6 +5,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   Future<Widget> wrap(Widget child) async {
@@ -14,6 +15,9 @@ void main() {
     return ProviderScope(
       overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
       child: MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: Center(child: SizedBox(width: 140, child: child)),
         ),
@@ -44,6 +48,9 @@ void main() {
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Center(
               child: SizedBox(
@@ -76,6 +83,9 @@ void main() {
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Center(
               child: SizedBox(
@@ -109,6 +119,9 @@ void main() {
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Center(
               child: SizedBox(
@@ -144,6 +157,9 @@ void main() {
         ProviderScope(
           overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
           child: MaterialApp(
+            localizationsDelegates: AppL10n.localizationsDelegates,
+            supportedLocales: AppL10n.supportedLocales,
+            locale: const Locale('zh'),
             home: Scaffold(
               body: Center(
                 child: SizedBox(

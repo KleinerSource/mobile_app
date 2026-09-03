@@ -7,6 +7,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/filter_chip.dart';
@@ -137,6 +138,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       _saving = true;
       _error = null;
     });
+    final l = AppL10n.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
       final repo = ref.read(mediaRepositoryProvider);
@@ -157,7 +159,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       ref.refresh(movieDetailProvider(widget.movie.id));
       AppHaptics.medium();
       messenger.showSnackBar(
-        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+        SnackBar(content: Text(l.saved), duration: const Duration(seconds: 1)),
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -180,9 +182,13 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     );
     if (picked == null) return;
     final id = picked.ids.isEmpty ? null : picked.ids.first;
+    final l = AppL10n.of(context);
     setState(() {
       _seriesId = id;
-      _seriesName = id == null ? null : picked.names[id] ?? '未命名系列';
+      _seriesName = id == null
+          ? null
+          : picked.names[id] ??
+                l.movieEditorUntitledEntity(l.movieEditorSeries);
     });
   }
 
@@ -201,12 +207,15 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       selectedNames: {for (final e in current) e.id: e.name},
     );
     if (result == null) return;
+    final l = AppL10n.of(context);
     final nameMap = {for (final e in current) e.id: e.name, ...result.names};
     final fallbackName = switch (kind) {
-      EntityPickerKind.genre => '未命名分类',
-      EntityPickerKind.tag => '未命名标签',
-      EntityPickerKind.actor => '未命名演员',
-      EntityPickerKind.series => '未命名系列',
+      EntityPickerKind.genre => l.movieEditorUntitledEntity(l.movieEditorGenre),
+      EntityPickerKind.tag => l.movieEditorUntitledEntity(l.movieEditorTag),
+      EntityPickerKind.actor => l.movieEditorUntitledEntity(l.movieEditorActor),
+      EntityPickerKind.series => l.movieEditorUntitledEntity(
+        l.movieEditorSeries,
+      ),
     };
     final next = result.ids
         .map((id) => (id: id, name: nameMap[id] ?? fallbackName))
@@ -332,7 +341,13 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('快捷操作失败: ${toApiException(error).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).movieEditorQuickActionFailed(toApiException(error).message),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _flagUpdating = false);
@@ -342,6 +357,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 0,
@@ -355,9 +371,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
         children: [
           SheetHeader(
             icon: Icons.movie_outlined,
-            title: '编辑影片',
+            title: l.movieEditorTitle,
             leading: IconButton(
-              tooltip: '返回',
+              tooltip: l.back,
               icon: const Icon(Icons.arrow_back),
               onPressed: _saving
                   ? null
@@ -367,7 +383,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
             ),
             trailing: TextButton(
               onPressed: _saving || _flagUpdating ? null : _save,
-              child: const Text('保存'),
+              child: Text(l.save),
             ),
           ),
           const SizedBox(height: 12),
@@ -380,7 +396,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                   // ===== 海报裁剪 + 快捷操作 =====
                   if (_fanartUrl != null) ...[
                     _label(
-                      '封面水印 · 快捷操作',
+                      l.movieEditorQuickActions,
                       trailing: _flagUpdating
                           ? const SizedBox(
                               width: 14,
@@ -402,7 +418,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _label('封面裁剪 (Fanart)'),
+                    _label(l.movieEditorFanartCrop),
                     const SizedBox(height: 4),
                     PosterCropController(
                       movieId: widget.movie.id,
@@ -424,10 +440,13 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                   ],
 
                   // ===== 文本字段 =====
-                  _label('标题', trailing: _translateBtn('title')),
+                  _label(
+                    l.movieEditorFieldTitle,
+                    trailing: _translateBtn('title'),
+                  ),
                   _input(_title, icon: Icons.title),
                   const SizedBox(height: 14),
-                  _label('原标题'),
+                  _label(l.movieEditorOriginalTitle),
                   _input(_originalTitle, icon: Icons.translate),
                   const SizedBox(height: 14),
                   Row(
@@ -436,7 +455,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('番号'),
+                            _label(l.movieEditorNumber),
                             _input(_num, mono: true, icon: Icons.tag),
                           ],
                         ),
@@ -446,7 +465,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('国家', trailing: _translateBtn('country')),
+                            _label(
+                              l.movieEditorFieldCountry,
+                              trailing: _translateBtn('country'),
+                            ),
                             _input(_country, icon: Icons.public),
                           ],
                         ),
@@ -460,7 +482,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('年份'),
+                            _label(l.movieEditorYear),
                             _input(_year, mono: true, numeric: true),
                           ],
                         ),
@@ -470,7 +492,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('评分'),
+                            _label(l.movieEditorRating),
                             _input(_rating, mono: true, numeric: true),
                           ],
                         ),
@@ -480,7 +502,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('时长 (min)'),
+                            _label(l.movieEditorRuntime),
                             _input(_runtime, mono: true, numeric: true),
                           ],
                         ),
@@ -488,7 +510,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _label('简介', trailing: _translateBtn('plot')),
+                  _label(
+                    l.movieEditorFieldPlot,
+                    trailing: _translateBtn('plot'),
+                  ),
                   _input(_plot, maxLines: 6, icon: Icons.notes),
                   const SizedBox(height: 10),
                   // 批量翻译按钮
@@ -505,7 +530,11 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.translate_rounded, size: 16),
-                      label: Text(_batchTranslating ? '批量翻译中' : '批量翻译'),
+                      label: Text(
+                        _batchTranslating
+                            ? l.movieEditorBatchTranslating
+                            : l.movieEditorBatchTranslate,
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: c.accent,
                         side: BorderSide(
@@ -522,7 +551,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
 
                   // ===== 选择器 =====
                   _PickerSection(
-                    title: '系列',
+                    title: l.movieEditorSeries,
                     icon: Icons.collections_bookmark_outlined,
                     onTap: _pickSeries,
                     onClear: _seriesId != null
@@ -531,21 +560,25 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                             _seriesName = null;
                           })
                         : null,
-                    emptyHint: '点击选择系列',
+                    emptyHint: l.movieEditorSelectEntity(l.movieEditorSeries),
                     children: _seriesId != null
                         ? [
                             HueChip(
-                              label: _seriesName ?? '未命名系列',
+                              label:
+                                  _seriesName ??
+                                  l.movieEditorUntitledEntity(
+                                    l.movieEditorSeries,
+                                  ),
                               hue: AppHues.sky,
                             ),
                           ]
                         : null,
                   ),
                   _PickerSection(
-                    title: '分类',
+                    title: l.movieEditorGenre,
                     icon: Icons.category_outlined,
                     onTap: () => _pickMulti(EntityPickerKind.genre),
-                    emptyHint: '点击选择分类',
+                    emptyHint: l.movieEditorSelectEntity(l.movieEditorGenre),
                     children: _genres.isEmpty
                         ? null
                         : [
@@ -557,10 +590,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                           ],
                   ),
                   _PickerSection(
-                    title: '标签',
+                    title: l.movieEditorTag,
                     icon: Icons.tag,
                     onTap: () => _pickMulti(EntityPickerKind.tag),
-                    emptyHint: '点击选择标签',
+                    emptyHint: l.movieEditorSelectEntity(l.movieEditorTag),
                     children: _tags.isEmpty
                         ? null
                         : [
@@ -572,10 +605,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                           ],
                   ),
                   _PickerSection(
-                    title: '演员',
+                    title: l.movieEditorActor,
                     icon: Icons.person_outline,
                     onTap: () => _pickMulti(EntityPickerKind.actor),
-                    emptyHint: '点击选择演员',
+                    emptyHint: l.movieEditorSelectEntity(l.movieEditorActor),
                     children: _actors.isEmpty
                         ? null
                         : [
@@ -665,14 +698,16 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     }
   }
 
-  Future<void> _translateField(String key, String label) async {
+  Future<void> _translateField(String key) async {
     if (_translating.contains(key) || _batchTranslating) return;
+    final l = AppL10n.of(context);
+    final label = _translationFieldLabel(l, key);
     final ctl = _ctlOf(key);
     final text = ctl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('$label 内容为空, 无需翻译')));
+      ).showSnackBar(SnackBar(content: Text(l.movieEditorFieldEmpty(label))));
       return;
     }
     setState(() => _translating.add(key));
@@ -685,15 +720,23 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       );
       if (!mounted) return;
       if (translated.isEmpty) {
-        messenger.showSnackBar(SnackBar(content: Text('$label 翻译为空')));
+        messenger.showSnackBar(
+          SnackBar(content: Text(l.movieEditorTranslationEmpty(label))),
+        );
       } else {
         ctl.text = translated;
-        messenger.showSnackBar(SnackBar(content: Text('$label 翻译成功')));
+        messenger.showSnackBar(
+          SnackBar(content: Text(l.movieEditorTranslationSuccess(label))),
+        );
       }
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('$label 翻译失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            l.movieEditorTranslationFailed(label, toApiException(e).message),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _translating.remove(key));
@@ -702,15 +745,16 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
 
   Future<void> _translateAll() async {
     if (_batchTranslating || _translating.isNotEmpty) return;
+    final l = AppL10n.of(context);
     final fields = <String, String>{};
     for (final entry in _fieldTypeMap.entries) {
       final txt = _ctlOf(entry.key).text.trim();
       if (txt.isNotEmpty) fields[entry.value] = txt;
     }
     if (fields.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('没有可翻译的内容')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.movieEditorNoTranslatableContent)),
+      );
       return;
     }
     setState(() => _batchTranslating = true);
@@ -732,14 +776,23 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            ok > 0 ? '批量翻译: 成功 $ok / ${fields.length}' : '批量翻译未返回结果',
+            ok > 0
+                ? l.movieEditorBatchResult(ok, fields.length)
+                : l.movieEditorBatchNoResult,
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
+      final error = toApiException(e).message;
       messenger.showSnackBar(
-        SnackBar(content: Text('批量翻译失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            error == 'translation_batch_failed'
+                ? l.translationBatchFailed
+                : l.movieEditorBatchFailed(error),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _batchTranslating = false);
@@ -749,16 +802,11 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   /// 单字段翻译按钮
   Widget _translateBtn(String key) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final loading = _translating.contains(key);
     final disabled = loading || _batchTranslating;
-    final label = switch (key) {
-      'title' => '标题',
-      'country' => '国家',
-      'plot' => '简介',
-      _ => key,
-    };
     return InkWell(
-      onTap: disabled ? null : () => _translateField(key, label),
+      onTap: disabled ? null : () => _translateField(key),
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -775,7 +823,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
               Icon(Icons.translate_rounded, size: 13, color: c.accent),
             const SizedBox(width: 4),
             Text(
-              loading ? '翻译中' : '翻译',
+              loading ? l.movieEditorTranslating : l.translate,
               style: TextStyle(
                 color: disabled ? c.muted : c.accent,
                 fontFamily: 'Inter',
@@ -789,6 +837,13 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       ),
     );
   }
+
+  String _translationFieldLabel(AppL10n l, String key) => switch (key) {
+    'title' => l.movieEditorFieldTitle,
+    'country' => l.movieEditorFieldCountry,
+    'plot' => l.movieEditorFieldPlot,
+    _ => key,
+  };
 
   Widget _input(
     TextEditingController controller, {
@@ -916,9 +971,17 @@ class _FlagsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      (MovieQuickFlag.subtitle, '字幕', subtitle),
-      (MovieQuickFlag.exsub, '外挂字幕', exsub),
-      (MovieQuickFlag.crack, '破解', crack),
+      (
+        MovieQuickFlag.subtitle,
+        AppL10n.of(context).movieFlagSubtitle,
+        subtitle,
+      ),
+      (
+        MovieQuickFlag.exsub,
+        AppL10n.of(context).movieFlagExternalSubtitle,
+        exsub,
+      ),
+      (MovieQuickFlag.crack, AppL10n.of(context).movieFlagCrack, crack),
       (MovieQuickFlag.uhd, 'UHD', uhd),
     ];
     return Wrap(

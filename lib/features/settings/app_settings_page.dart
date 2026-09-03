@@ -338,7 +338,9 @@ class _HapticIntensityTile extends ConsumerWidget {
     final current = ref.watch(hapticIntensityProvider);
     return SettingsTile(
       title: AppL10n.of(context).settingsHapticIntensity,
-      subtitle: AppL10n.of(context).settingsHapticCurrent(current.label),
+      subtitle: AppL10n.of(
+        context,
+      ).settingsHapticCurrent(current.label(AppL10n.of(context))),
       leadingIcon: Icons.vibration,
       trailing: SizedBox(
         width: 178,
@@ -483,7 +485,7 @@ class _HapticIntensitySlider extends StatelessWidget {
           min: 0,
           max: (intensities.length - 1).toDouble(),
           divisions: intensities.length - 1,
-          label: value.label,
+          label: value.label(AppL10n.of(context)),
           onChanged: onChanged,
         ),
         Row(
@@ -491,7 +493,7 @@ class _HapticIntensitySlider extends StatelessWidget {
             for (var i = 0; i < intensities.length; i++)
               Expanded(
                 child: Text(
-                  intensities[i].label,
+                  intensities[i].label(AppL10n.of(context)),
                   textAlign: i == 0
                       ? TextAlign.left
                       : i == intensities.length - 1

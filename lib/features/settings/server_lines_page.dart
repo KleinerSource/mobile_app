@@ -9,6 +9,7 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/swipe_actions.dart';
 import 'settings_common.dart';
@@ -67,18 +68,19 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     final config = ref.watch(serverConfigProvider);
     if (config == null) {
       return Scaffold(
         backgroundColor: colors.bg,
-        body: const Center(child: Text('服务器尚未配置')),
+        body: Center(child: Text(l.serverLinesNotConfigured)),
       );
     }
     final server = _serverFor(config);
     if (server == null) {
       return Scaffold(
         backgroundColor: colors.bg,
-        body: const Center(child: Text('服务器不存在')),
+        body: Center(child: Text(l.serverLinesServerMissing)),
       );
     }
     if (!_loaded) {
@@ -93,9 +95,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
-              eyebrow: '服务器 · ${server.name}',
-              title: '服务器线路',
-              subtitle: '当前服务器可配置多条线路，自动选择最快可用线路',
+              eyebrow: l.serverLinesEyebrow(server.name),
+              title: l.serverLinesTitle,
+              subtitle: l.serverLinesSubtitle,
             ),
             body: ListView(
               controller: _scrollController,
@@ -148,6 +150,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   }
 
   Widget _buildActions() {
+    final l = AppL10n.of(context);
     final disabled = _testingAll || _testingIds.isNotEmpty;
     return Row(
       children: [
@@ -155,7 +158,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           child: OutlinedButton.icon(
             onPressed: disabled ? null : () => _editLine(),
             icon: const Icon(Icons.add),
-            label: const Text('添加线路'),
+            label: Text(l.serverLineAdd),
           ),
         ),
         const SizedBox(width: 10),
@@ -163,7 +166,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           child: FilledButton.icon(
             onPressed: disabled || _lines.isEmpty ? null : _testAll,
             icon: const Icon(Icons.speed_outlined),
-            label: const Text('自动选择'),
+            label: Text(l.serverLineAutoSelect),
           ),
         ),
       ],
@@ -171,6 +174,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   }
 
   Widget _buildEmpty(AppColors colors) {
+    final l = AppL10n.of(context);
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: settingsCardDecoration(context),
@@ -178,10 +182,10 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         children: [
           Icon(Icons.dns_outlined, size: 36, color: colors.muted),
           const SizedBox(height: 10),
-          Text('暂无服务器线路', style: AppText.sectionTitle(context)),
+          Text(l.serverLinesEmptyTitle, style: AppText.sectionTitle(context)),
           const SizedBox(height: 6),
           Text(
-            '添加线路后可以测试延迟并切换当前服务器。',
+            l.serverLinesEmptyBody,
             textAlign: TextAlign.center,
             style: AppText.meta(context),
           ),
@@ -196,6 +200,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     ServerProfile server,
     ServerLine line,
   ) {
+    final l = AppL10n.of(context);
     final active = line.id == server.activeLine?.id;
     final testing = _testingIds.contains(line.id);
     final result = _testResults[line.id];
@@ -259,11 +264,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                     ],
                     if (active) ...[
                       const SizedBox(width: 7),
-                      _statusChip('当前', colors.accent),
+                      _statusChip(l.serverCurrent, colors.accent),
                     ],
                     if (!line.enabled) ...[
                       const SizedBox(width: 7),
-                      _statusChip('已禁用', colors.muted),
+                      _statusChip(l.serverLineDisabled, colors.muted),
                     ],
                   ],
                 ),
@@ -288,30 +293,31 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     ServerProfile server,
     ServerLine line,
   ) {
+    final l = AppL10n.of(context);
     final active = line.id == server.activeLine?.id;
     return [
       if (!active && line.enabled)
         SwipeActionData(
           icon: Icons.check_circle_outline,
-          label: '使用',
+          label: l.serverLineUse,
           color: AppHues.top(AppHues.mint),
           onPressed: () => _activate(line),
         ),
       SwipeActionData(
         icon: Icons.edit_outlined,
-        label: '编辑',
+        label: l.edit,
         color: colors.accent,
         onPressed: () => _editLine(existing: line),
       ),
       SwipeActionData(
         icon: line.enabled ? Icons.block_rounded : Icons.check_rounded,
-        label: line.enabled ? '禁用' : '启用',
+        label: line.enabled ? l.serverLineDisable : l.serverLineEnable,
         color: colors.warning,
         onPressed: () => _toggle(line, !line.enabled),
       ),
       SwipeActionData(
         icon: Icons.delete_outline,
-        label: '删除',
+        label: l.delete,
         color: colors.danger,
         onPressed: () => _delete(line),
       ),
@@ -343,9 +349,10 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     ServerLineProbeResult? result,
     bool testing,
   ) {
-    if (testing) return 'Testing';
+    final l = AppL10n.of(context);
+    if (testing) return l.serverLineTesting;
     if (result?.success == true) return '${result!.latencyMs} ms';
-    if (result?.success == false) return 'Failed';
+    if (result?.success == false) return l.serverLineProbeFailed;
     if (line.latencyMs != null) return '${line.latencyMs} ms';
     return null;
   }
@@ -354,7 +361,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     if (_testingAll || _lines.isEmpty) return;
     final lines = _lines.where((line) => line.enabled).toList();
     if (lines.isEmpty) {
-      _showMessage('没有启用的服务器线路');
+      _showMessage(AppL10n.of(context).serverLineNoneEnabled);
       return;
     }
     setState(() {
@@ -376,7 +383,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         await _persist(_lines, selected.line.baseUrl, validatedProbe: selected);
         if (mounted) {
           setState(() => _testingAll = false);
-          _showMessage('已选择 ${selected.line.name}（${selected.latencyMs} ms）');
+          _showMessage(
+            AppL10n.of(
+              context,
+            ).serverLineSelected(selected.line.name, selected.latencyMs),
+          );
         }
       }
 
@@ -389,7 +400,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         await _persist(_lines, activeUrl);
       }
       if (selected == null) {
-        _showMessage('自动测试完成，没有可用线路');
+        _showMessage(AppL10n.of(context).serverLineAutoTestNoResult);
       } else if (tested.isNotEmpty) {
         final fastest = tested
             .where((result) => result.success)
@@ -401,7 +412,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                   : best,
             );
         if (fastest != null && fastest.line.id != selected.line.id) {
-          _showMessage('测试完成，最快线路为 ${fastest.line.name}');
+          _showMessage(
+            AppL10n.of(context).serverLineFastest(fastest.line.name),
+          );
         }
       }
     } catch (error) {
@@ -429,7 +442,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       (item) => item.id != existing?.id && item.baseUrl == normalized,
     );
     if (duplicate) {
-      _showMessage('线路地址已存在，请使用不同的地址');
+      _showMessage(AppL10n.of(context).serverLineDuplicateUrl);
       return;
     }
     final line = ServerLine(
@@ -465,8 +478,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     try {
       await _persist(next, activeUrl, validatedProbe: result);
       if (mounted) {
+        final l = AppL10n.of(context);
         _showMessage(
-          editingActive ? '线路已更新并切换' : '线路已保存（${result.latencyMs} ms）',
+          editingActive
+              ? l.serverLineUpdatedAndSwitched
+              : l.serverLineSaved(result.latencyMs),
         );
       }
     } catch (error) {
@@ -487,7 +503,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         .toList();
     try {
       await _persist(next, testedLine.baseUrl, validatedProbe: result);
-      if (mounted) _showMessage('已切换到 ${line.name}');
+      if (mounted) {
+        _showMessage(AppL10n.of(context).serverLineSwitchedTo(line.name));
+      }
     } catch (error) {
       if (mounted) _showMessage(toApiException(error).message);
     }
@@ -502,7 +520,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           .where((item) => item.id != line.id && item.enabled)
           .toList();
       if (fallbackLines.isEmpty) {
-        _showMessage('至少保留一条启用线路');
+        _showMessage(AppL10n.of(context).serverLineKeepOneEnabled);
         return;
       }
       setState(() => _testingIds.addAll(fallbackLines.map((item) => item.id)));
@@ -515,7 +533,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       if (!mounted) return;
       if (selected == null) {
         setState(() => _testingIds.clear());
-        _showMessage('没有可用的备用线路，未关闭当前线路');
+        _showMessage(AppL10n.of(context).serverLineNoFallback);
         unawaited(batch.completed);
         return;
       }
@@ -545,23 +563,24 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   }
 
   Future<void> _delete(ServerLine line) async {
+    final l = AppL10n.of(context);
     if (_lines.length <= 1) {
-      _showMessage('至少保留一条服务器线路');
+      _showMessage(l.serverLineKeepOne);
       return;
     }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除服务器线路'),
-        content: Text('确定删除“${line.name}”吗？'),
+        title: Text(l.serverLineDeleteTitle),
+        content: Text(l.serverLineDeleteBody(line.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -585,7 +604,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       }
       final fallbackLine = fallback;
       if (fallbackLine == null) {
-        _showMessage('至少保留一条启用线路，无法删除当前线路');
+        _showMessage(AppL10n.of(context).serverLineDeleteActiveBlocked);
         return;
       }
       validatedProbe = await _testAndShow(fallbackLine);
@@ -596,7 +615,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     }
     try {
       await _persist(next, activeUrl, validatedProbe: validatedProbe);
-      if (mounted) _showMessage('线路已删除');
+      if (mounted) _showMessage(AppL10n.of(context).serverLineDeleted);
     } catch (error) {
       if (mounted) _showMessage(toApiException(error).message);
     }
@@ -615,14 +634,19 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final result = await _probeCoordinator.probeAll([
       line,
     ], expectedProjectName: server?.projectName).firstAvailable;
-    final resolved = result ?? ServerLineProbeResult.failure(line, '线路没有响应');
+    final resolved =
+        result ??
+        ServerLineProbeResult.failure(
+          line,
+          AppL10n.of(context).serverLineNoResponse,
+        );
     if (!mounted) return resolved;
     setState(() {
       _testingIds.remove(line.id);
       _testResults[line.id] = resolved;
     });
     if (!resolved.success && showFailure) {
-      _showMessage('线路测试失败：${resolved.message}');
+      _showMessage(AppL10n.of(context).serverLineTestFailed(resolved.message));
     }
     return resolved;
   }
@@ -669,7 +693,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       final probe = await _testAndShow(selectedLine, showFailure: false);
       if (!probe.success || probe.versionInfo == null) {
         throw ServerCompatibilityException(
-          probe.message.isEmpty ? '服务器版本检测失败，未保存线路' : probe.message,
+          probe.message.isEmpty
+              ? AppL10n.of(context).serverLineProbeFailedNotSaved
+              : probe.message,
         );
       }
       validatedProbe = probe;
@@ -743,8 +769,13 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return AlertDialog(
-      title: Text(widget.existing == null ? '添加服务器线路' : '编辑服务器线路'),
+      title: Text(
+        widget.existing == null
+            ? l.serverLineEditorAddTitle
+            : l.serverLineEditorEditTitle,
+      ),
       content: Form(
         key: _formKey,
         child: Column(
@@ -753,10 +784,10 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
             TextFormField(
               controller: _name,
               textAlignVertical: TextAlignVertical.center,
-              decoration: const InputDecoration(
-                labelText: '线路名称',
-                hintText: '例如：家庭网络',
-                prefixIcon: Icon(Icons.drive_file_rename_outline),
+              decoration: InputDecoration(
+                labelText: l.serverLineNameLabel,
+                hintText: l.serverLineNameHint,
+                prefixIcon: const Icon(Icons.drive_file_rename_outline),
               ),
               textInputAction: TextInputAction.next,
             ),
@@ -766,17 +797,17 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
               keyboardType: TextInputType.url,
               autocorrect: false,
               textAlignVertical: TextAlignVertical.center,
-              decoration: const InputDecoration(
-                labelText: '服务器地址',
+              decoration: InputDecoration(
+                labelText: l.settingsServerUrl,
                 hintText: 'http://192.168.1.10:8001',
-                prefixIcon: Icon(Icons.link),
+                prefixIcon: const Icon(Icons.link),
               ),
               validator: (value) {
                 final normalized = ServerConfig.normalize(value ?? '');
-                if (normalized.isEmpty) return '请输入服务器地址';
+                if (normalized.isEmpty) return l.serverUrlRequired;
                 if (!normalized.startsWith('http://') &&
                     !normalized.startsWith('https://')) {
-                  return '地址必须以 http:// 或 https:// 开头';
+                  return l.serverUrlSchemeRequired;
                 }
                 return null;
               },
@@ -787,9 +818,9 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(l.cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('测试并保存')),
+        FilledButton(onPressed: _submit, child: Text(l.serverTestAndSave)),
       ],
     );
   }
@@ -800,7 +831,7 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
     Navigator.pop(
       context,
       _ServerLineDraft(
-        name: name.isEmpty ? '服务器线路' : name,
+        name: name.isEmpty ? AppL10n.of(context).serverLineDefaultName : name,
         baseUrl: ServerConfig.normalize(_baseUrl.text),
       ),
     );

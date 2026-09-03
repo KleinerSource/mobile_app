@@ -6,6 +6,7 @@ import 'package:omm/features/cache/image_cache_manager.dart';
 
 import '../core/api/server_compatibility.dart';
 import '../core/platform/app_theme.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// 服务器名首字母(最多 2 个 rune),无名字时退化为 'S'。
 String serverInitials(String value) {
@@ -216,6 +217,7 @@ class _ServerProjectBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = Localizations.of<AppL10n>(context, AppL10n);
     final (label, color, name) = switch (project) {
       ServerProject.ohMyMedia => (
         'OMM',
@@ -225,7 +227,11 @@ class _ServerProjectBadge extends StatelessWidget {
       ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
       ServerProject.emby => ('EMBY', const Color(0xFF52B54B), 'Emby'),
       ServerProject.jellyfin => ('JFIN', const Color(0xFFAA5CC3), 'Jellyfin'),
-      ServerProject.feiniu => ('FN', const Color(0xFF2979FF), '飞牛影视'),
+      ServerProject.feiniu => (
+        'FN',
+        const Color(0xFF2979FF),
+        l?.serverProjectFeiniu ?? 'Feiniu',
+      ),
       ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),
       ServerProject.webDav => ('DAV', const Color(0xFF6A1B9A), 'WebDAV'),
       ServerProject.openList => ('OL', const Color(0xFFBF360C), 'OpenList'),

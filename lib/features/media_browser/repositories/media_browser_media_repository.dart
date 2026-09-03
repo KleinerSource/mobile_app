@@ -21,12 +21,11 @@ class MediaBrowserMediaRepository {
     required String name,
     required String collectionType,
     required List<String> paths,
-  }) =>
-      _source.addVirtualFolder(
-        name: name,
-        collectionType: collectionType,
-        paths: paths,
-      );
+  }) => _source.addVirtualFolder(
+    name: name,
+    collectionType: collectionType,
+    paths: paths,
+  );
 
   Future<void> removeVirtualFolder(String name) =>
       _source.removeVirtualFolder(name);
@@ -34,31 +33,27 @@ class MediaBrowserMediaRepository {
   Future<void> renameVirtualFolder({
     required String name,
     required String newName,
-  }) =>
-      _source.renameVirtualFolder(name: name, newName: newName);
+  }) => _source.renameVirtualFolder(name: name, newName: newName);
 
   Future<void> addMediaPath({
     required String libraryName,
     required String path,
-  }) =>
-      _source.addMediaPath(libraryName: libraryName, path: path);
+  }) => _source.addMediaPath(libraryName: libraryName, path: path);
 
   Future<void> removeMediaPath({
     required String libraryName,
     required String path,
-  }) =>
-      _source.removeMediaPath(libraryName: libraryName, path: path);
+  }) => _source.removeMediaPath(libraryName: libraryName, path: path);
 
   Future<void> updateVirtualFolderOptions({
     required String id,
     required bool enabled,
     Map<String, dynamic> options = const <String, dynamic>{},
-  }) =>
-      _source.updateVirtualFolderOptions(
-        id: id,
-        enabled: enabled,
-        options: options,
-      );
+  }) => _source.updateVirtualFolderOptions(
+    id: id,
+    enabled: enabled,
+    options: options,
+  );
 
   Future<void> refreshLibrary() => _source.refreshLibrary();
 

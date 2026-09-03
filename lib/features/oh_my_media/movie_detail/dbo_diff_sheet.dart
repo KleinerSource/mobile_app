@@ -6,6 +6,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
@@ -140,7 +141,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       ref.refresh(movieDetailProvider(widget.movie.id));
       messenger.showSnackBar(
         SnackBar(
-          content: Text('已应用 ${selected.length} 个字段'),
+          content: Text(AppL10n.of(context).dboAppliedFields(selected.length)),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -148,7 +149,11 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('应用失败: ${toApiException(e).message}')),
+          SnackBar(
+            content: Text(
+              AppL10n.of(context).dboApplyFailed(toApiException(e).message),
+            ),
+          ),
         );
       }
     } finally {
@@ -262,12 +267,12 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     });
   }
 
-  String _sectionLabel(DboMetadataDiffSection section) {
+  String _sectionLabel(AppL10n l, DboMetadataDiffSection section) {
     return switch (section) {
-      DboMetadataDiffSection.info => '影片信息',
-      DboMetadataDiffSection.series => '系列',
-      DboMetadataDiffSection.genres => '分类',
-      DboMetadataDiffSection.actors => '演员',
+      DboMetadataDiffSection.info => l.dboSectionInfo,
+      DboMetadataDiffSection.series => l.dboSectionSeries,
+      DboMetadataDiffSection.genres => l.dboSectionGenres,
+      DboMetadataDiffSection.actors => l.dboSectionActors,
     };
   }
 
@@ -293,7 +298,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
         for (var index = 0; index < visible.length; index++) ...[
           if (index > 0) Divider(height: 24, color: c.divider),
           _DboDiffSection(
-            label: _sectionLabel(visible[index]),
+            label: _sectionLabel(AppL10n.of(context), visible[index]),
             section: visible[index],
             items: grouped[visible[index]]!,
             saving: _saving,
@@ -313,6 +318,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final dboTitle = _meta?['title']?.toString() ?? '';
     final dboCode =
         _meta?['code']?.toString() ?? _meta?['num']?.toString() ?? '';
@@ -322,7 +328,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       children: [
         SheetHeader(
           icon: Icons.sync_alt_outlined,
-          title: 'DB Online 元数据',
+          title: l.dboTitle,
           subtitle: (dboTitle.isNotEmpty || dboCode.isNotEmpty)
               ? [
                   if (dboCode.isNotEmpty) dboCode,
@@ -368,13 +374,16 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          '本地元数据已是最新',
+                          l.dboUpToDate,
                           style: AppText.body(
                             context,
                           ).copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 4),
-                        Text('没有可覆盖的字段', style: AppText.meta(context)),
+                        Text(
+                          l.dboNoOverridableFields,
+                          style: AppText.meta(context),
+                        ),
                       ],
                     ),
                   ),
@@ -390,7 +399,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                 TextButton(
                   onPressed: _saving ? null : () => _selectAll(!_anySelected),
                   child: Text(
-                    _anySelected ? '清空' : '全选',
+                    _anySelected ? l.dboClear : l.dboSelectAll,
                     style: TextStyle(
                       color: c.muted,
                       fontFamily: 'Inter',
@@ -423,8 +432,10 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                         )
                       : Text(
                           _anySelected
-                              ? '应用 (${_items.where((i) => i.selected).length})'
-                              : '请选择字段',
+                              ? l.dboApplyCount(
+                                  _items.where((i) => i.selected).length,
+                                )
+                              : l.dboSelectFields,
                           style: const TextStyle(
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w700,
@@ -471,6 +482,7 @@ class _DboDiffSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final durationRatingItems = section == DboMetadataDiffSection.info
         ? <DboMetadataDiffItem>[
             ...items.where((item) => item.field == 'runtime'),
@@ -505,7 +517,7 @@ class _DboDiffSection extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('全选'),
+              child: Text(l.dboSelectAll),
             ),
             TextButton(
               onPressed: saving ? null : onClear,
@@ -514,7 +526,7 @@ class _DboDiffSection extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('清空'),
+              child: Text(l.dboClear),
             ),
           ],
         ),
@@ -600,6 +612,7 @@ class _DboDiffRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Material(
@@ -629,7 +642,7 @@ class _DboDiffRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.label,
+                        _dboFieldLabel(l, item.field, item.label),
                         style: TextStyle(
                           color: c.text,
                           fontFamily: 'Inter',
@@ -642,7 +655,7 @@ class _DboDiffRow extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('当前:', style: AppText.meta(context)),
+                            Text(l.dboCurrent, style: AppText.meta(context)),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
@@ -722,6 +735,7 @@ class _DboDiffBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final accent = _isRemove ? c.danger : c.accent;
     final selected = item.selected;
     final showLabel = section == DboMetadataDiffSection.info;
@@ -757,7 +771,7 @@ class _DboDiffBadge extends StatelessWidget {
             children: [
               if (showLabel) ...[
                 Text(
-                  '${item.label}:',
+                  '${_dboFieldLabel(l, item.field, item.label)}:',
                   style: AppText.meta(context).copyWith(
                     color: selected ? accent : c.muted,
                     fontWeight: FontWeight.w700,
@@ -819,6 +833,7 @@ class _DboGenderBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     final normalized = gender.trim().toLowerCase();
     final isFemale =
         normalized == '♀' || normalized == '女' || normalized == 'female';
@@ -830,9 +845,9 @@ class _DboGenderBadge extends StatelessWidget {
         ? const Color(0xFF69A7F8)
         : colors.muted;
     final label = isFemale
-        ? '女'
+        ? l.dboFemale
         : isMale
-        ? '男'
+        ? l.dboMale
         : gender.trim();
     final icon = isFemale
         ? Icons.female
@@ -859,3 +874,17 @@ class _DboGenderBadge extends StatelessWidget {
     );
   }
 }
+
+String _dboFieldLabel(AppL10n l, String? field, String fallback) =>
+    switch (field) {
+      'title' => l.dboFieldTitle,
+      'rating' => l.dboFieldRating,
+      'year' => l.dboFieldYear,
+      'runtime' => l.dboFieldRuntime,
+      'plot' => l.dboFieldPlot,
+      'series' => l.dboSectionSeries,
+      'genres' => l.dboSectionGenres,
+      'actors' => l.dboSectionActors,
+      'remove' => l.dboRemove,
+      _ => fallback,
+    };

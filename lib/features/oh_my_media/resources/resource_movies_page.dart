@@ -18,6 +18,7 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'resources_repository.dart';
 
 /// 按 genre/tag/series 维度筛选的影片列表
@@ -130,6 +131,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
 
     return Scaffold(
@@ -182,11 +184,11 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
                   firstPageProgressIndicatorBuilder: (_) =>
                       const Center(child: CupertinoActivityIndicator()),
                   firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                    message: _controller.error?.toString() ?? '加载失败',
+                    message: _controller.error?.toString() ?? l.loadFailed,
                     onRetry: () => _controller.refresh(),
                   ),
                   noItemsFoundIndicatorBuilder: (_) =>
-                      const EmptyView(message: '这个维度下还没有影片'),
+                      EmptyView(message: l.resourceMoviesEmpty),
                   noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                 ),
               ),
@@ -206,6 +208,7 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     // 用名称 hash 选一个稳定的 hue
     final hue = (item.name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
     return DecoratedBox(
@@ -263,7 +266,7 @@ class _Hero extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${overrideCount ?? item.movieCount} 部影片',
+                    l.resourceMovieCount(overrideCount ?? item.movieCount),
                     style: const TextStyle(
                       color: Color(0xCCFFFFFF),
                       fontFamily: 'Inter',

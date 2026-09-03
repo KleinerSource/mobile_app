@@ -9,6 +9,8 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../l10n/generated/app_localizations_en.dart';
+import '../../l10n/generated/app_localizations_zh.dart';
 import 'privacy_providers.dart';
 import 'shake_detector.dart';
 
@@ -134,8 +136,12 @@ class _ShieldOverlay extends StatelessWidget {
       locked = l.privacyLockedTitle;
       mode = l.privacyMode;
     } catch (_) {
-      locked = '已锁定';
-      mode = 'PRIVACY MODE';
+      final fallback =
+          Localizations.maybeLocaleOf(context)?.languageCode == 'zh'
+          ? AppL10nZh()
+          : AppL10nEn();
+      locked = fallback.privacyLockedTitle;
+      mode = fallback.privacyMode;
     }
 
     return Material(

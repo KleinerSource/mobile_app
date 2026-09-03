@@ -22,6 +22,7 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/translation/translation_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'entity_merge_sheet.dart';
 import 'resource_movies_page.dart';
 import 'resources_providers.dart';
@@ -226,24 +227,26 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   Future<void> _onBatchDelete() async {
     final items = _selectedItems();
     if (items.isEmpty) return;
+    final l = AppL10n.of(context);
+    final kindLabel = widget.kind.label(l);
     final force = items.any((item) => item.movieCount > 0);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('批量删除${widget.kind.label}'),
+        title: Text(l.resourceBatchDeleteTitle(kindLabel)),
         content: Text(
           force
-              ? '已选择 ${items.length} 个${widget.kind.label}，其中包含影片关联。强制删除会解除关联，影片本身不会被删除。'
-              : '确定删除已选择的 ${items.length} 个${widget.kind.label}吗？',
+              ? l.resourceBatchDeleteWithMovies(items.length, kindLabel)
+              : l.resourceBatchDeleteConfirm(items.length, kindLabel),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(force ? '强制删除' : '删除'),
+            child: Text(force ? l.forceDelete : l.delete),
           ),
         ],
       ),
@@ -261,14 +264,20 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       if (!mounted) return;
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除 ${items.length} 个${widget.kind.label}')),
+        SnackBar(
+          content: Text(l.resourceBatchDeleted(items.length, kindLabel)),
+        ),
       );
       _exitSelection();
       _reload(preserveScroll: true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('批量删除失败: ${toApiException(error).message}')),
+        SnackBar(
+          content: Text(
+            l.resourceBatchDeleteFailed(toApiException(error).message),
+          ),
+        ),
       );
     }
   }
@@ -292,6 +301,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
+    final kindLabel = widget.kind.label(l);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -307,8 +318,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                 SettingsFixedHeaderLayout(
                   scrollController: _scrollController,
                   header: SettingsSubPageHeader(
-                    eyebrow: '媒体库',
-                    title: widget.kind.plural,
+                    eyebrow: l.libraryTitle,
+                    title: widget.kind.plural(l),
                     titleTrailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -320,7 +331,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '个${widget.kind.label}',
+                          l.resourceCountSuffix(kindLabel),
                           style: AppText.meta(context),
                         ),
                       ],
@@ -370,7 +381,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                             TextAlignVertical.center,
                                         onChanged: _onSearchChanged,
                                         decoration: InputDecoration(
-                                          hintText: widget.kind.searchHint,
+                                          hintText: widget.kind.searchHint(l),
                                           hintStyle: TextStyle(
                                             color: c.muted,
                                             fontWeight: FontWeight.w500,
@@ -413,21 +424,21 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                 ),
                                 children: [
                                   CompactSortButton(
-                                    label: '名称',
+                                    label: l.resourceSortName,
                                     active: _sortBy == 'name',
                                     ascending: _sortOrder == 'asc',
                                     onTap: () => _setSort('name'),
                                   ),
                                   const SizedBox(width: 7),
                                   CompactSortButton(
-                                    label: '影片数',
+                                    label: l.resourceSortMovieCount,
                                     active: _sortBy == 'movie_count',
                                     ascending: _sortOrder == 'asc',
                                     onTap: () => _setSort('movie_count'),
                                   ),
                                   const SizedBox(width: 7),
                                   CompactSortButton(
-                                    label: '创建时间',
+                                    label: l.resourceSortCreatedAt,
                                     active: _sortBy == 'created_at',
                                     ascending: _sortOrder == 'asc',
                                     onTap: () => _setSort('created_at'),
@@ -481,14 +492,14 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     actions: [
                                       SwipeActionData(
                                         icon: Icons.edit_outlined,
-                                        label: '编辑',
+                                        label: l.edit,
                                         color: c.accent,
                                         onPressed: () =>
                                             _showEditor(ctx, edit: r),
                                       ),
                                       SwipeActionData(
                                         icon: Icons.delete_outline,
-                                        label: '删除',
+                                        label: l.delete,
                                         color: c.danger,
                                         onPressed: () => _confirmDelete(ctx, r),
                                       ),
@@ -539,7 +550,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     ErrorView(
                                       message:
                                           _controller.error?.toString() ??
-                                          '加载失败',
+                                          l.loadFailed,
                                       onRetry: _controller.refresh,
                                     ),
                                 newPageErrorIndicatorBuilder: (_) =>
@@ -574,13 +585,13 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                         actions: [
                           EntityBatchAction(
                             icon: Icons.merge_rounded,
-                            label: '合并',
+                            label: l.merge,
                             color: c.warning,
                             onTap: selected.length < 2 ? null : _onBatchMerge,
                           ),
                           EntityBatchAction(
                             icon: Icons.delete_outline,
-                            label: '删除',
+                            label: l.delete,
                             color: c.danger,
                             onTap: selected.isEmpty ? null : _onBatchDelete,
                           ),
@@ -600,6 +611,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
 
   Future<void> _showEditor(BuildContext context, {ResourceItem? edit}) async {
     final c = appColors(context);
+    final l = AppL10n.of(context);
+    final kindLabel = widget.kind.label(l);
     final nameCtrl = TextEditingController(text: edit?.name ?? '');
     final isEdit = edit != null;
     final originalName = _normalizeResourceName(edit?.name ?? '');
@@ -619,7 +632,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       if (text.isEmpty) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('名称内容为空, 无需翻译')));
+        ).showSnackBar(SnackBar(content: Text(l.resourceTranslateEmpty)));
         return;
       }
 
@@ -636,7 +649,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         if (value.isEmpty) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('名称翻译为空')));
+          ).showSnackBar(SnackBar(content: Text(l.resourceTranslateNoResult)));
           return;
         }
         nameCtrl.value = nameCtrl.value.copyWith(
@@ -646,11 +659,13 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         setSheetState(() {});
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('名称翻译成功')));
+        ).showSnackBar(SnackBar(content: Text(l.resourceTranslateSuccess)));
       } catch (e) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('名称翻译失败: ${toApiException(e).message}')),
+          SnackBar(
+            content: Text(l.resourceTranslateFailed(toApiException(e).message)),
+          ),
         );
       } finally {
         if (sheetContext.mounted) {
@@ -684,8 +699,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                         ? Icons.edit_outlined
                         : Icons.add_circle_outline,
                     title: isEdit
-                        ? '编辑${widget.kind.label}'
-                        : '新建${widget.kind.label}',
+                        ? l.resourceEditTitle(kindLabel)
+                        : l.resourceCreateTitle(kindLabel),
                     padding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 14),
@@ -695,7 +710,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.kind.label.toUpperCase(),
+                            kindLabel.toUpperCase(),
                             style: AppText.eyebrow(ctx),
                           ),
                         ),
@@ -718,7 +733,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                     },
                     decoration: sheetInputDecoration(
                       ctx,
-                      hintText: '${widget.kind.label}名称',
+                      hintText: l.resourceNameHint(kindLabel),
                       prefixIcon: const Icon(Icons.drive_file_rename_outline),
                     ),
                     style: TextStyle(
@@ -770,7 +785,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '自动映射',
+                              l.resourceAutoMapping,
                               style: TextStyle(
                                 color: canAutoMap ? c.text : c.muted,
                                 fontWeight: FontWeight.w700,
@@ -796,7 +811,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                       },
                       style: sheetPrimaryButtonStyle(ctx),
                       child: Text(
-                        isEdit ? '保存' : '创建',
+                        isEdit ? l.save : l.create,
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,
@@ -834,7 +849,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isEdit ? '已保存' : '已创建'),
+          content: Text(isEdit ? l.saved : l.created),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -842,7 +857,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       _reload(preserveScroll: isEdit);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
+        SnackBar(content: Text(l.operationFailed(toApiException(e).message))),
       );
     }
   }
@@ -851,24 +866,26 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
 
   Future<void> _confirmDelete(BuildContext context, ResourceItem r) async {
     if (!context.mounted) return;
+    final l = AppL10n.of(context);
+    final kindLabel = widget.kind.label(l);
     final hasMovies = r.movieCount > 0;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('删除${widget.kind.label}'),
+        title: Text(l.resourceDeleteTitle(kindLabel)),
         content: Text(
           hasMovies
-              ? '「${r.name}」关联了 ${r.movieCount} 部影片。强制删除将解除所有关联,影片本身不会被删。'
-              : '确定删除「${r.name}」?',
+              ? l.resourceDeleteWithMovies(r.name, r.movieCount)
+              : l.resourceDeleteConfirm(r.name),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(hasMovies ? '强制删除' : '删除'),
+            child: Text(hasMovies ? l.forceDelete : l.delete),
           ),
         ],
       ),
@@ -882,13 +899,16 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       ], force: hasMovies);
       AppHaptics.medium();
       messenger.showSnackBar(
-        const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text(l.deleted),
+          duration: const Duration(seconds: 1),
+        ),
       );
       // ignore: unused_result
       _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
+        SnackBar(content: Text(l.deleteFailed(toApiException(e).message))),
       );
     }
   }
@@ -922,7 +942,9 @@ class _ResourceTranslateButton extends StatelessWidget {
               Icon(Icons.translate_rounded, size: 13, color: c.accent),
             const SizedBox(width: 4),
             Text(
-              loading ? '翻译中' : '翻译',
+              loading
+                  ? AppL10n.of(context).translating
+                  : AppL10n.of(context).translate,
               style: TextStyle(
                 color: loading ? c.muted : c.accent,
                 fontFamily: 'Inter',
@@ -954,11 +976,16 @@ class _Empty extends StatelessWidget {
           Icon(Icons.tag_outlined, size: 40, color: c.muted),
           const SizedBox(height: 14),
           Text(
-            '还没有${kind.label}',
+            AppL10n.of(
+              context,
+            ).resourceEmptyTitle(kind.label(AppL10n.of(context))),
             style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          Text('点击右上 + 添加按钮创建第一个', style: AppText.meta(context)),
+          Text(
+            AppL10n.of(context).resourceEmptyHint,
+            style: AppText.meta(context),
+          ),
         ],
       ),
     );

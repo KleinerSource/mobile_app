@@ -40,10 +40,10 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
 
   Future<void> savePin(String pin) => _reload(() => _repository.savePin(pin));
 
-  Future<void> clearPin() async {
+  Future<void> clearPin({required String biometricEnabledMessage}) async {
     final current = await _repository.load();
     if (current.biometricEnabled) {
-      throw StateError('请先关闭生物识别，再清除进入密码');
+      throw StateError(biometricEnabledMessage);
     }
     await _reload(_repository.clearPin);
   }
@@ -54,10 +54,10 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
 
   Future<void> clearGesture() => _reload(_repository.clearGesture);
 
-  Future<bool> enableBiometrics() {
+  Future<bool> enableBiometrics({required String localizedReason}) {
     final pending = _enableBiometricsRequest;
     if (pending != null) return pending;
-    final request = _enableBiometrics();
+    final request = _enableBiometrics(localizedReason);
     _enableBiometricsRequest = request;
     return request.whenComplete(() {
       if (identical(_enableBiometricsRequest, request)) {
@@ -66,14 +66,18 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
     });
   }
 
-  Future<bool> _enableBiometrics() async {
+  Future<bool> _enableBiometrics(String localizedReason) async {
     final current = await _repository.load();
     if (!current.hasPin) return false;
     if (!await _repository.canUseBiometrics()) return false;
     final coordinator = ref.read(securityBiometricCoordinatorProvider);
     coordinator.beginAuthentication();
     try {
-      if (!await _repository.authenticateBiometric()) return false;
+      if (!await _repository.authenticateBiometric(
+        localizedReason: localizedReason,
+      )) {
+        return false;
+      }
       coordinator.markSessionAuthenticated();
       await _reload(() => _repository.setBiometricEnabled(true));
       return true;

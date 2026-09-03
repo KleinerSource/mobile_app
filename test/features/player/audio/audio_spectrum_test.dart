@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/features/player/audio/audio_player_layers.dart';
 import 'package:omm/features/player/audio/audio_spectrum.dart';
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   test('频谱帧会归一化异常数值并补齐固定频段', () {
@@ -59,6 +60,9 @@ void main() {
   testWidgets('播放器视觉图层不挂载圆形频谱', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: MediaQuery(
           data: MediaQueryData(
             size: Size(400, 800),

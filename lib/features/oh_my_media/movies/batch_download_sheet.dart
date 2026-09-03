@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
@@ -107,7 +108,11 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('下载请求失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(context).moviesDownloadFailed(toApiException(e).message),
+          ),
+        ),
       );
       setState(() => _submitting = false);
     }
@@ -115,13 +120,14 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetHeader(
           icon: Icons.cloud_download_outlined,
-          title: '批量下载 ${widget.movieIds.length} 部',
-          subtitle: '按条件批量提交下载请求, 缺失番号会自动跳过',
+          title: l.moviesBatchDownloadTitle(widget.movieIds.length),
+          subtitle: l.moviesBatchDownloadSubtitle,
         ),
         Flexible(
           fit: FlexFit.loose,
@@ -130,8 +136,8 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
             padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
             children: [
               _Field(
-                label: '画质偏好',
-                hint: '如 4k, hd, uhd 等, 留空不限',
+                label: l.moviesDownloadQuality,
+                hint: l.moviesDownloadQualityHint,
                 controller: _qualityCtl,
                 icon: Icons.high_quality_outlined,
               ),
@@ -140,47 +146,47 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                 children: [
                   Expanded(
                     child: _NumField(
-                      label: '最小大小 (MB)',
+                      label: l.moviesDownloadMinSize,
                       controller: _minSizeCtl,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: _NumField(
-                      label: '最大大小 (MB)',
+                      label: l.moviesDownloadMaxSize,
                       controller: _maxSizeCtl,
-                      hint: '0 = 不限',
+                      hint: l.moviesDownloadNoLimit,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               _NumField(
-                label: '最大文件数',
+                label: l.moviesDownloadMaxFiles,
                 controller: _maxFilesCtl,
-                hint: '0 = 不限',
+                hint: l.moviesDownloadNoLimit,
               ),
               const SizedBox(height: 12),
               _Field(
-                label: '截止日期',
+                label: l.moviesDownloadDate,
                 hint: 'YYYY-MM-DD',
                 controller: _afterDateCtl,
                 icon: Icons.calendar_today_outlined,
               ),
               const SizedBox(height: 12),
               SheetSwitchTile(
-                title: '要求字幕',
+                title: l.moviesDownloadRequireSubtitle,
                 value: _requireSub,
                 onChanged: (v) => setState(() => _requireSub = v),
               ),
               SheetSwitchTile(
-                title: '要求无码',
+                title: l.moviesDownloadRequireUncensored,
                 value: _requireUncensored,
                 onChanged: (v) => setState(() => _requireUncensored = v),
               ),
               SheetSwitchTile(
-                title: '精洗模式',
-                subtitle: '已存在影片也重新下载',
+                title: l.moviesDownloadWashMode,
+                subtitle: l.moviesDownloadWashModeHint,
                 value: _washMode,
                 onChanged: (v) => setState(() => _washMode = v),
               ),
@@ -197,7 +203,7 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                       ? null
                       : () => Navigator.of(context).pop(false),
                   style: sheetSecondaryButtonStyle(context),
-                  child: const Text('取消'),
+                  child: Text(l.cancel),
                 ),
               ),
               const SizedBox(width: 10),
@@ -213,7 +219,9 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                         )
                       : const Icon(Icons.cloud_download_outlined, size: 18),
                   style: sheetPrimaryButtonStyle(context),
-                  label: Text(_submitting ? '提交中...' : '确认提交'),
+                  label: Text(
+                    _submitting ? l.moviesSubmitting : l.moviesConfirmSubmit,
+                  ),
                 ),
               ),
             ],

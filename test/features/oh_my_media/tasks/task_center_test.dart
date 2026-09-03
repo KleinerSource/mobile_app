@@ -13,6 +13,7 @@ import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_models_test.dart ====================
 void _main_0() {
@@ -212,7 +213,12 @@ void _main_2() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: TaskCenterPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: TaskCenterPage(),
+        ),
       ),
     );
     await tester.pump();

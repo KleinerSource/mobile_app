@@ -3,16 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/server_config_provider.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import 'playback_engine.dart';
 
 enum PlayerLandscapeSide {
-  cameraLeft('camera_left', '摄像头在左侧'),
-  cameraRight('camera_right', '摄像头在右侧');
+  cameraLeft('camera_left'),
+  cameraRight('camera_right');
 
-  const PlayerLandscapeSide(this.value, this.label);
+  const PlayerLandscapeSide(this.value);
 
   final String value;
-  final String label;
+
+  String label(AppL10n l) => switch (this) {
+    PlayerLandscapeSide.cameraLeft => l.playerLandscapeCameraLeft,
+    PlayerLandscapeSide.cameraRight => l.playerLandscapeCameraRight,
+  };
 
   static PlayerLandscapeSide fromValue(String? value) {
     return values.firstWhere(
@@ -23,14 +28,19 @@ enum PlayerLandscapeSide {
 }
 
 enum PlayerEntryOrientation {
-  unchanged('unchanged', '无变化'),
-  forceLandscape('force_landscape', '强制横屏'),
-  forcePortrait('force_portrait', '强制竖屏');
+  unchanged('unchanged'),
+  forceLandscape('force_landscape'),
+  forcePortrait('force_portrait');
 
-  const PlayerEntryOrientation(this.value, this.label);
+  const PlayerEntryOrientation(this.value);
 
   final String value;
-  final String label;
+
+  String label(AppL10n l) => switch (this) {
+    PlayerEntryOrientation.unchanged => l.playerOrientationUnchanged,
+    PlayerEntryOrientation.forceLandscape => l.playerOrientationForceLandscape,
+    PlayerEntryOrientation.forcePortrait => l.playerOrientationForcePortrait,
+  };
 
   static PlayerEntryOrientation fromValue(String? value) {
     return values.firstWhere(
@@ -43,15 +53,21 @@ enum PlayerEntryOrientation {
 /// 播放预载的内存档位。预载（前向 demuxer 缓冲）在播放和暂停期间都会
 /// 后台填充，直到达到档位字节数或媒体结尾。
 enum PlayerPreloadSize {
-  mb250('250mb', '250MB'),
-  mb500('500mb', '500MB'),
-  mb750('750mb', '750MB'),
-  gb1('1gb', '1GB');
+  mb250('250mb'),
+  mb500('500mb'),
+  mb750('750mb'),
+  gb1('1gb');
 
-  const PlayerPreloadSize(this.value, this.label);
+  const PlayerPreloadSize(this.value);
 
   final String value;
-  final String label;
+
+  String label(AppL10n l) => switch (this) {
+    PlayerPreloadSize.mb250 => l.playerPreload250Mb,
+    PlayerPreloadSize.mb500 => l.playerPreload500Mb,
+    PlayerPreloadSize.mb750 => l.playerPreload750Mb,
+    PlayerPreloadSize.gb1 => l.playerPreload1Gb,
+  };
 
   int get bytes => switch (this) {
     PlayerPreloadSize.mb250 => 250 * 1024 * 1024,

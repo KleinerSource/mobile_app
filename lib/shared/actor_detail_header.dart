@@ -112,10 +112,8 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
   @override
   void initState() {
     super.initState();
-    _fade = AnimationController(
-      vsync: this,
-      duration: _fadeDuration,
-    )..addListener(_syncPagePosition);
+    _fade = AnimationController(vsync: this, duration: _fadeDuration)
+      ..addListener(_syncPagePosition);
     _startAutoplay();
   }
 

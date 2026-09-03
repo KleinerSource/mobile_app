@@ -80,8 +80,7 @@ class Smb2Pool {
     String path, {
     int offset = 0,
     required int length,
-  }) =>
-      _unsupported<Uint8List>();
+  }) => _unsupported<Uint8List>();
 
   Future<void> streamWrite(String path, Stream<Uint8List> chunks) =>
       _unsupported<void>();
@@ -102,8 +101,7 @@ class Smb2Pool {
     Smb2PoolHandle handle, {
     int offset = 0,
     required int length,
-  }) =>
-      _unsupported<Uint8List>();
+  }) => _unsupported<Uint8List>();
 
   Future<void> closeHandle(Smb2PoolHandle handle) => _unsupported<void>();
 

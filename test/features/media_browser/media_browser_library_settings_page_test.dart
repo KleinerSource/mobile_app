@@ -9,6 +9,7 @@ import 'package:omm/features/media_browser/pages/media_browser_library_settings_
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/shared/swipe_actions.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
   _FakeMediaBrowserSource({required this.user, required this.libraries});
@@ -103,7 +104,12 @@ void main() {
             (_) async => const MediaBrowserUser(id: 'user-1', name: '普通用户'),
           ),
         ],
-        child: const MaterialApp(home: MediaBrowserLibrarySettingsPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: MediaBrowserLibrarySettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -127,6 +133,9 @@ void main() {
           mediaBrowserMediaRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: MediaBrowserLibraryEditorPage(library: _library),
         ),
       ),
@@ -183,7 +192,12 @@ void main() {
             (_) async => const [_library],
           ),
         ],
-        child: const MaterialApp(home: MediaBrowserLibrarySettingsPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: MediaBrowserLibrarySettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -231,7 +245,12 @@ void main() {
             (_) async => const [_library],
           ),
         ],
-        child: const MaterialApp(home: MediaBrowserLibrarySettingsPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: MediaBrowserLibrarySettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -281,7 +300,12 @@ void main() {
             throw const SourceException('服务器拒绝访问（403）', statusCode: 403);
           }),
         ],
-        child: const MaterialApp(home: MediaBrowserLibrarySettingsPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: MediaBrowserLibrarySettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/top_snack_bar.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('顶部通知居中并支持点击和上滑关闭', (tester) async {
@@ -11,6 +12,9 @@ void main() {
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         navigatorKey: navigatorKey,
         builder: (context, child) => TopSnackBarMessenger(
           navigatorKey: navigatorKey,

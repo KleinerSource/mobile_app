@@ -90,7 +90,8 @@ class TranslationRepository {
     final raw = await _api.translateBatch({'fields': fields});
     if (raw is! Map || raw['success'] != true) {
       throw ApiException(
-        (raw is Map ? raw['message'] as String? : null) ?? '批量翻译失败',
+        (raw is Map ? raw['message'] as String? : null) ??
+            'translation_batch_failed',
       );
     }
     final results = (raw['data'] as Map?)?['results'];

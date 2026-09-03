@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 import '../common/playback_control_parts.dart';
 import '../common/player_session_controller.dart';
@@ -85,7 +86,7 @@ class AudioPlayerControls extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  tooltip: '退出播放',
+                  tooltip: AppL10n.of(context).playerExitPlayback,
                   enableFeedback: false,
                   icon: const Icon(Icons.close),
                   onPressed: onExit,
@@ -113,7 +114,10 @@ class AudioPlayerControls extends StatelessWidget {
                 children: [
                   SizedBox(height: _progressSlotHeight, child: _progress()),
                   const SizedBox(height: _progressToPrimaryGap),
-                  SizedBox(height: _controlSlotSize, child: _primaryControls()),
+                  SizedBox(
+                    height: _controlSlotSize,
+                    child: _primaryControls(context),
+                  ),
                   const SizedBox(height: 20),
                   SizedBox(
                     height: _controlSlotSize,
@@ -134,7 +138,7 @@ class AudioPlayerControls extends StatelessWidget {
       builder: (context, state, _) => Text(
         state.currentTitle?.trim().isNotEmpty == true
             ? state.currentTitle!.trim()
-            : '音乐播放',
+            : AppL10n.of(context).playerAudioNowPlaying,
         maxLines: 2,
         textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
@@ -169,7 +173,8 @@ class AudioPlayerControls extends StatelessWidget {
     );
   }
 
-  Widget _primaryControls() {
+  Widget _primaryControls(BuildContext context) {
+    final l = AppL10n.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -177,7 +182,7 @@ class AudioPlayerControls extends StatelessWidget {
           showSeekButtons
               ? PlaybackActionButton(
                   icon: Icons.replay_10,
-                  tooltip: '快退 10 秒',
+                  tooltip: l.playerSeekBack10Seconds,
                   onPressed: onSeekBackward,
                   onInteraction: onInteraction,
                 )
@@ -187,7 +192,7 @@ class AudioPlayerControls extends StatelessWidget {
           showMediaSwitchButton
               ? PlaybackActionButton(
                   icon: Icons.skip_previous,
-                  tooltip: '上一曲',
+                  tooltip: l.playerPreviousTrack,
                   onPressed: onPreviousMedia,
                   onInteraction: onInteraction,
                 )
@@ -211,7 +216,7 @@ class AudioPlayerControls extends StatelessWidget {
           showMediaSwitchButton
               ? PlaybackActionButton(
                   icon: Icons.skip_next,
-                  tooltip: '下一曲',
+                  tooltip: l.playerNextTrack,
                   onPressed: onNextMedia,
                   onInteraction: onInteraction,
                 )
@@ -221,7 +226,7 @@ class AudioPlayerControls extends StatelessWidget {
           showSeekButtons
               ? PlaybackActionButton(
                   icon: Icons.forward_10,
-                  tooltip: '快进 10 秒',
+                  tooltip: l.playerSeekForward10Seconds,
                   onPressed: onSeekForward,
                   onInteraction: onInteraction,
                 )

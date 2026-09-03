@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/drag_selection.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('长按未选条目后滑动会连续添加且不会漏选', (tester) async {
@@ -286,6 +287,9 @@ Future<void> _pumpHarness(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      locale: const Locale('zh'),
       home: Scaffold(
         body: _SelectionHarness(
           itemCount: itemCount,
@@ -299,7 +303,12 @@ Future<void> _pumpHarness(
 
 Future<void> _pumpGridHarness(WidgetTester tester) async {
   await tester.pumpWidget(
-    const MaterialApp(home: Scaffold(body: _GridSelectionHarness())),
+    const MaterialApp(
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      locale: const Locale('zh'),
+      home: Scaffold(body: _GridSelectionHarness()),
+    ),
   );
   await tester.pumpAndSettle();
 }

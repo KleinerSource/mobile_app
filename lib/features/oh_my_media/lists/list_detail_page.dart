@@ -11,6 +11,8 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
+import 'list_labels.dart';
 import 'list_model.dart';
 import 'lists_providers.dart';
 
@@ -27,15 +29,17 @@ class ListDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    final l10n = AppL10n.of(context);
     final list = ref.watch(favoriteListProvider(listId));
 
     if (list == null) {
       return Scaffold(
         backgroundColor: c.bg,
         appBar: AppBar(),
-        body: const Center(child: Text('集合不存在或已删除')),
+        body: Center(child: Text(AppL10n.of(context).listMissing)),
       );
     }
+    final displayName = favoriteListDisplayName(l10n, list);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -74,7 +78,7 @@ class ListDetailPage extends ConsumerWidget {
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: _Hero(
-                  name: list.name,
+                  name: displayName,
                   hue: list.hue,
                   count: list.count,
                 ),
@@ -114,6 +118,7 @@ class ListDetailPage extends ConsumerWidget {
     FavoriteList list,
   ) async {
     final c = appColors(context);
+    final l10n = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (ctx) {
@@ -123,15 +128,15 @@ class ListDetailPage extends ConsumerWidget {
             children: [
               SheetHeader(
                 icon: Icons.playlist_play_outlined,
-                title: '集合操作',
-                subtitle: list.name,
+                title: l10n.listActionsTitle,
+                subtitle: favoriteListDisplayName(l10n, list),
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
               ListTile(
                 leading: Icon(Icons.edit_outlined, color: c.text),
-                title: const Text(
-                  '重命名',
-                  style: TextStyle(
+                title: Text(
+                  l10n.listRename,
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w600,
                   ),
@@ -145,7 +150,7 @@ class ListDetailPage extends ConsumerWidget {
                 ListTile(
                   leading: Icon(Icons.delete_outline, color: c.danger),
                   title: Text(
-                    '删除集合',
+                    l10n.listDelete,
                     style: TextStyle(
                       color: c.danger,
                       fontFamily: 'Inter',
@@ -157,16 +162,16 @@ class ListDetailPage extends ConsumerWidget {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (cctx) => AlertDialog(
-                        title: const Text('删除集合'),
-                        content: const Text('集合内的影片不会被删除,只是不再属于这个集合。'),
+                        title: Text(AppL10n.of(cctx).listDelete),
+                        content: Text(AppL10n.of(cctx).listDeleteConfirmBody),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(cctx, false),
-                            child: const Text('取消'),
+                            child: Text(AppL10n.of(cctx).cancel),
                           ),
                           FilledButton(
                             onPressed: () => Navigator.pop(cctx, true),
-                            child: const Text('删除'),
+                            child: Text(AppL10n.of(cctx).delete),
                           ),
                         ],
                       ),
@@ -196,24 +201,24 @@ class ListDetailPage extends ConsumerWidget {
     final renamed = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('重命名集合'),
+        title: Text(AppL10n.of(ctx).listRenameTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
           textAlignVertical: TextAlignVertical.center,
-          decoration: const InputDecoration(
-            hintText: '集合名称',
-            prefixIcon: Icon(Icons.drive_file_rename_outline),
+          decoration: InputDecoration(
+            hintText: AppL10n.of(ctx).listNameHint,
+            prefixIcon: const Icon(Icons.drive_file_rename_outline),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(AppL10n.of(ctx).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('保存'),
+            child: Text(AppL10n.of(ctx).save),
           ),
         ],
       ),
@@ -240,13 +245,16 @@ class _EmptyListView extends StatelessWidget {
             Icon(Icons.collections_bookmark_outlined, size: 40, color: c.muted),
             const SizedBox(height: 14),
             Text(
-              '集合是空的',
+              AppL10n.of(context).listEmptyTitle,
               style: AppText.body(
                 context,
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
-            Text('在影片详情里点 + List 加入', style: AppText.meta(context)),
+            Text(
+              AppL10n.of(context).listEmptyHint,
+              style: AppText.meta(context),
+            ),
           ],
         ),
       ),
@@ -282,7 +290,7 @@ class _ListMovieCell extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Text(
-            '加载失败',
+            AppL10n.of(context).loadFailed,
             textAlign: TextAlign.center,
             style: TextStyle(color: c.muted, fontFamily: 'Inter', fontSize: 10),
           ),
@@ -348,16 +356,16 @@ class _ListMovieCell extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('从集合移除'),
-        content: Text('把「${movie.title}」从这个集合移除?'),
+        title: Text(AppL10n.of(ctx).listRemoveTitle),
+        content: Text(AppL10n.of(ctx).listRemoveConfirm(movie.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(AppL10n.of(ctx).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('移除'),
+            child: Text(AppL10n.of(ctx).remove),
           ),
         ],
       ),
@@ -407,7 +415,7 @@ class _Hero extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    '集合',
+                    AppL10n.of(context).listHeroEyebrow,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontFamily: 'Inter',
@@ -432,7 +440,7 @@ class _Hero extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '$count 部',
+                    AppL10n.of(context).listHeroCount(count),
                     style: const TextStyle(
                       color: Color(0xCCFFFFFF),
                       fontFamily: 'Inter',

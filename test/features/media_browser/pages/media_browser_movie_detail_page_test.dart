@@ -10,6 +10,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_movie_detail_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 class _ServerConfigState extends ServerConfigNotifier {
   _ServerConfigState(this.config);
@@ -75,6 +76,9 @@ void main() {
           badgePositionsProvider.overrideWith(_BadgePositionsState.new),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: MediaBrowserMovieDetailPage(itemId: 'movie-1'),
         ),
       ),

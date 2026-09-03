@@ -16,8 +16,10 @@ class FileSourceRepository {
 
   final FileSource source;
 
-  Future<DirectoryListing> listDirectory(FilePath path, {bool refresh = false}) =>
-      _browse().listDirectory(path, refresh: refresh);
+  Future<DirectoryListing> listDirectory(
+    FilePath path, {
+    bool refresh = false,
+  }) => _browse().listDirectory(path, refresh: refresh);
 
   Future<FileEntry> stat(FilePath path) => _browse().stat(path);
 
@@ -62,13 +64,12 @@ class FileSourceRepository {
     required int offset,
     required int length,
     FileTransferOptions options = const FileTransferOptions(),
-  }) =>
-      _range().openRange(
-        path,
-        offset: offset,
-        length: length,
-        options: options,
-      );
+  }) => _range().openRange(
+    path,
+    offset: offset,
+    length: length,
+    options: options,
+  );
 
   FileBrowseCapability _browse() => _require<FileBrowseCapability>('browse');
 

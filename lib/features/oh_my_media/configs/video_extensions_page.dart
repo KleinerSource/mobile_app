@@ -5,6 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
 
 class VideoExtensionsPage extends ConsumerStatefulWidget {
@@ -58,7 +59,11 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
       ref.refresh(videoExtensionsProvider);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('保存失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            '${AppL10n.of(context).videoExtensionsSaveFailed}: ${toApiException(e).message}',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -75,17 +80,20 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            header: const SettingsSubPageHeader(
-              eyebrow: '工具',
-              title: '视频扩展名',
-              subtitle: '配置媒体库扫描时识别的视频文件后缀',
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupTools,
+              title: AppL10n.of(context).settingsExtensions,
+              subtitle: AppL10n.of(context).videoExtensionsSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text('加载失败: $e', style: AppText.body(context)),
+                  child: Text(
+                    '${AppL10n.of(context).loadFailed}: $e',
+                    style: AppText.body(context),
+                  ),
                 ),
               ),
               data: (extensions) => _buildBody(c, extensions),
@@ -97,12 +105,13 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
   }
 
   Widget _buildBody(AppColors c, List<String> extensions) {
+    final l = AppL10n.of(context);
     return ListView(
       primary: true,
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
       children: [
         // 添加输入
-        Text('ADD', style: AppText.eyebrow(context)),
+        Text(l.videoExtensionsAddLabel, style: AppText.eyebrow(context)),
         const SizedBox(height: 8),
         Container(
           decoration: settingsCardDecoration(context),
@@ -151,13 +160,13 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
           ),
         ),
         const SizedBox(height: 4),
-        Text('支持带点号或不带点号', style: AppText.meta(context)),
+        Text(l.videoExtensionsDotHint, style: AppText.meta(context)),
         const SizedBox(height: 24),
         Row(
           children: [
             Expanded(
               child: Text(
-                'CURRENT · ${extensions.length}',
+                '${l.videoExtensionsCurrentLabel} · ${extensions.length}',
                 style: AppText.eyebrow(context),
               ),
             ),
@@ -169,7 +178,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
             padding: const EdgeInsets.all(24),
             decoration: settingsCardDecoration(context),
             child: Center(
-              child: Text('还没有配置扩展名', style: AppText.meta(context)),
+              child: Text(l.videoExtensionsEmpty, style: AppText.meta(context)),
             ),
           )
         else

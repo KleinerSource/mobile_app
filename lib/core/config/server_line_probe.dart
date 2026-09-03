@@ -429,11 +429,7 @@ String _openListSiteBaseUrl(String raw) {
   if (davIndex < 0) return normalized;
   final prefix = segments.take(davIndex).toList(growable: false);
   return ServerConfig.normalize(
-    uri
-        .replace(
-          path: prefix.isEmpty ? '/' : '/${prefix.join('/')}',
-        )
-        .toString(),
+    uri.replace(path: prefix.isEmpty ? '/' : '/${prefix.join('/')}').toString(),
   );
 }
 

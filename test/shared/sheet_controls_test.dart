@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('sheetMaxHeight 为灵动岛设备保留顶部状态栏和更大的余量', (tester) async {
@@ -222,6 +223,9 @@ void main() {
 Future<void> _pumpSheet(WidgetTester tester, Widget content) async {
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      locale: const Locale('zh'),
       home: Scaffold(
         body: Builder(
           builder: (context) {

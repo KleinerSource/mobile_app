@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/models/media_streams.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/stacked_badges.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 
@@ -9,9 +10,42 @@ import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 class CoverBadgeSpec {
   const CoverBadgeSpec(this.kind, this.label, this.color, [this.tooltip]);
   final PosterBadgeKind kind;
+
+  /// 稳定的技术值或内部标签；可见文本由 [localizedLabel] 提供。
   final String label;
   final Color color;
+
+  /// 稳定的 tooltip 标识；设置页预览也可以传入已经本地化的文本。
   final String? tooltip;
+
+  String localizedLabel(AppL10n l) => switch (label) {
+    'subtitle' => l.badgeSubtitle,
+    'crack' => l.badgeCrack,
+    _ => label,
+  };
+
+  String? localizedTooltip(AppL10n l) {
+    final value = tooltip;
+    if (value == null) return null;
+    if (value.startsWith('codec:')) {
+      return l.coverBadgeCodecTooltip(value.substring('codec:'.length));
+    }
+    if (value.startsWith('range:')) {
+      return l.coverBadgeRangeTooltip(value.substring('range:'.length));
+    }
+    return switch (value) {
+      'strm' => l.coverBadgeStrmTooltip,
+      'externalSubtitle' => l.movieCardSubExternal,
+      'aiSubtitle' => l.movieCardSubAi,
+      'muxedSubtitle' => l.movieCardSubMuxedTrack,
+      'filenameSubtitle' => l.movieCardSubFilename,
+      'embeddedSubtitle' => l.coverBadgeEmbeddedSubtitleTooltip,
+      'crack' => l.coverBadgeCrackTooltip,
+      'resolutionUhd' => l.coverBadgeResolutionUhdTooltip,
+      'resolutionHd' => l.coverBadgeResolutionHdTooltip,
+      _ => value,
+    };
+  }
 
   IconData get icon => switch (kind) {
     PosterBadgeKind.codec => Icons.memory_outlined,
@@ -72,7 +106,7 @@ List<CoverBadgeSpec> buildCoverBadges({
       _ => (codec.toUpperCase(), const Color(0xFF475569)),
     };
     badges.add(
-      CoverBadgeSpec(PosterBadgeKind.codec, label, color, '视频编码: $label'),
+      CoverBadgeSpec(PosterBadgeKind.codec, label, color, 'codec:$label'),
     );
   }
 
@@ -84,7 +118,7 @@ List<CoverBadgeSpec> buildCoverBadges({
           PosterBadgeKind.hdr,
           'Dolby Vision',
           Color(0xFF7C3AED),
-          '动态范围: Dolby Vision',
+          'range:Dolby Vision',
         ),
       );
     } else {
@@ -95,7 +129,7 @@ List<CoverBadgeSpec> buildCoverBadges({
               PosterBadgeKind.hdr,
               'HDR10',
               Color(0xFFEA580C),
-              '动态范围: HDR10 (PQ)',
+              'range:HDR10 (PQ)',
             ),
           );
         case 'arib-std-b67':
@@ -104,7 +138,7 @@ List<CoverBadgeSpec> buildCoverBadges({
               PosterBadgeKind.hdr,
               'HLG',
               Color(0xFF16A34A),
-              '动态范围: HLG',
+              'range:HLG',
             ),
           );
       }
@@ -117,9 +151,9 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(
       const CoverBadgeSpec(
         PosterBadgeKind.strm,
-        'STRM',
+        'strm',
         Color(0xFF475569),
-        'STRM 视频文件',
+        'strm',
       ),
     );
   }
@@ -128,9 +162,9 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(
       const CoverBadgeSpec(
         PosterBadgeKind.subtitle,
-        '字幕',
+        'subtitle',
         Color(0xFFFF9F1C),
-        '外挂字幕',
+        'externalSubtitle',
       ),
     );
   }
@@ -140,9 +174,9 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(
       const CoverBadgeSpec(
         PosterBadgeKind.subtitle,
-        '字幕',
+        'subtitle',
         Color(0xFF8B5CF6),
-        'AI 字幕',
+        'aiSubtitle',
       ),
     );
   }
@@ -152,9 +186,9 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(
       const CoverBadgeSpec(
         PosterBadgeKind.subtitle,
-        '字幕',
+        'subtitle',
         Color(0xFF16A34A),
-        '内嵌字幕轨道',
+        'muxedSubtitle',
       ),
     );
   }
@@ -166,9 +200,9 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(
       const CoverBadgeSpec(
         PosterBadgeKind.subtitle,
-        '字幕',
+        'subtitle',
         Color(0xFFCA8A04),
-        '内嵌字幕',
+        'embeddedSubtitle',
       ),
     );
   }
@@ -178,9 +212,9 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(
       const CoverBadgeSpec(
         PosterBadgeKind.crack,
-        '破解',
+        'crack',
         Color(0xFFDB2777),
-        '破解/无码',
+        'crack',
       ),
     );
   }
@@ -199,7 +233,7 @@ List<CoverBadgeSpec> buildCoverBadges({
         PosterBadgeKind.resolution,
         'UHD',
         Color(0xFF2563EB),
-        '2160p / 4K',
+        'resolutionUhd',
       ),
     );
   } else if ((height >= 720 && height < 2160) ||
@@ -209,7 +243,7 @@ List<CoverBadgeSpec> buildCoverBadges({
         PosterBadgeKind.resolution,
         'HD',
         Color(0xFF0891B2),
-        '720p 及以上',
+        'resolutionHd',
       ),
     );
   }
@@ -227,6 +261,7 @@ class CoverBadgeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final subs = <CoverBadgeSpec>[];
     final others = <CoverBadgeSpec>[];
     for (final b in badges) {
@@ -241,7 +276,7 @@ class CoverBadgeRow extends StatelessWidget {
       if (list.isEmpty) return const SizedBox.shrink();
       if (list.length == 1) return _CoverBadgePill(spec: list.single);
       return StackedBadges(
-        tooltip: '字幕 ×${list.length}（点按展开）',
+        tooltip: l.movieCardSubStack(list.length),
         children: [for (final b in list) _CoverBadgePill(spec: b)],
       );
     }
@@ -326,9 +361,9 @@ class _CoverBadgePill extends StatelessWidget {
   Widget build(BuildContext context) {
     return CoverBadgePill(
       icon: spec.icon,
-      label: spec.label,
+      label: spec.localizedLabel(AppL10n.of(context)),
       color: spec.color,
-      tooltip: spec.tooltip,
+      tooltip: spec.localizedTooltip(AppL10n.of(context)),
     );
   }
 }

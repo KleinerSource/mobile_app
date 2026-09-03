@@ -34,7 +34,7 @@ void main() {
     expect(running.fileName, 'a.mp3');
     expect(running.formatLabel, 'MP3');
     expect(running.isTranscriptionActive, isTrue);
-    expect(running.transcriptionView.stageLabel, '云端转译');
+    expect(running.transcriptionView.stage, 'transcribing');
     expect(running.transcriptionView.clampedPercent, 42);
 
     final done = page.items.last;
@@ -115,7 +115,7 @@ void main() {
     });
     expect(plain.transcription, isNull);
     expect(plain.isTranscriptionDone, isTrue);
-    expect(plain.transcriptionView.stageLabel, '');
+    expect(plain.transcriptionView.stage, '');
   });
 }
 

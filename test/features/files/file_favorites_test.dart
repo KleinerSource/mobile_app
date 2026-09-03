@@ -86,14 +86,19 @@ void main() {
     final movie = _entry('/media/movie.mkv');
     expect(container.read(serverOne.notifier).toggle(movie), isTrue);
     expect(
-      container.read(serverOne.notifier).toggle(_entry('/media', directory: true)),
+      container
+          .read(serverOne.notifier)
+          .toggle(_entry('/media', directory: true)),
       isTrue,
     );
     expect(
       container.read(serverOne.notifier).isFavorite(movie.stableKey),
       isTrue,
     );
-    expect(container.read(serverTwo.notifier).isFavorite(movie.stableKey), isFalse);
+    expect(
+      container.read(serverTwo.notifier).isFavorite(movie.stableKey),
+      isFalse,
+    );
 
     // 再次切换同一文件即取消收藏。
     expect(container.read(serverOne.notifier).toggle(movie), isFalse);
@@ -114,14 +119,19 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final notifier = container.read(fileFavoritesProvider('server-one').notifier);
+    final notifier = container.read(
+      fileFavoritesProvider('server-one').notifier,
+    );
     final dir = _entry('/shows', directory: true);
     notifier.toggle(dir);
     notifier.toggle(_entry('/shows/s01.mkv'));
 
     notifier.remove('src-one:/shows/s01.mkv');
     expect(container.read(fileFavoritesProvider('server-one')), hasLength(1));
-    expect(container.read(fileFavoritesProvider('server-one')).single.path, '/shows');
+    expect(
+      container.read(fileFavoritesProvider('server-one')).single.path,
+      '/shows',
+    );
 
     // 不存在的键不会改动状态。
     notifier.remove('src-one:/missing');
@@ -137,7 +147,10 @@ void main() {
     await repository.saveManualOrder('server-one', true);
     expect(repository.loadManualOrder('server-one'), isTrue);
     expect(repository.loadManualOrder('server-two'), isFalse);
-    expect(FileFavoritesRepository(prefs).loadManualOrder('server-one'), isTrue);
+    expect(
+      FileFavoritesRepository(prefs).loadManualOrder('server-one'),
+      isTrue,
+    );
   });
 
   test('reorder 应用拖拽后的顺序并进入手动排序模式', () async {
@@ -147,7 +160,9 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final notifier = container.read(fileFavoritesProvider('server-one').notifier);
+    final notifier = container.read(
+      fileFavoritesProvider('server-one').notifier,
+    );
     notifier.toggle(_entry('/c.mkv'));
     notifier.toggle(_entry('/a.mkv'));
     notifier.toggle(_entry('/b.mkv'));
@@ -156,11 +171,15 @@ void main() {
     notifier.reorder(current.reversed.toList());
 
     final state = container.read(fileFavoritesProvider('server-one'));
+    expect(state.map((favorite) => favorite.path).toList(), [
+      '/b.mkv',
+      '/a.mkv',
+      '/c.mkv',
+    ]);
     expect(
-      state.map((favorite) => favorite.path).toList(),
-      ['/b.mkv', '/a.mkv', '/c.mkv'],
+      container.read(fileFavoritesManualOrderProvider('server-one')),
+      isTrue,
     );
-    expect(container.read(fileFavoritesManualOrderProvider('server-one')), isTrue);
 
     // 长度不一致的列表视为异常输入，直接忽略。
     notifier.reorder(current.take(1).toList());
@@ -168,11 +187,15 @@ void main() {
 
     await container.read(fileFavoritesRepositoryProvider).flush();
     final saved = FileFavoritesRepository(prefs).load('server-one');
+    expect(saved.map((favorite) => favorite.path).toList(), [
+      '/b.mkv',
+      '/a.mkv',
+      '/c.mkv',
+    ]);
     expect(
-      saved.map((favorite) => favorite.path).toList(),
-      ['/b.mkv', '/a.mkv', '/c.mkv'],
+      FileFavoritesRepository(prefs).loadManualOrder('server-one'),
+      isTrue,
     );
-    expect(FileFavoritesRepository(prefs).loadManualOrder('server-one'), isTrue);
   });
 
   test('手动排序模式下新增收藏置顶，默认模式追加尾部', () async {
@@ -182,7 +205,9 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final notifier = container.read(fileFavoritesProvider('server-one').notifier);
+    final notifier = container.read(
+      fileFavoritesProvider('server-one').notifier,
+    );
     notifier.toggle(_entry('/first.mkv'));
     notifier.toggle(_entry('/second.mkv'));
     expect(

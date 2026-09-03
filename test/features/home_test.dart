@@ -18,6 +18,7 @@ import 'package:omm/features/home/recommend_carousel.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/home_providers_test.dart ====================
 void _main_0() {
@@ -155,6 +156,9 @@ void _main_2() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: CustomScrollView(
             slivers: [
@@ -203,6 +207,9 @@ void _main_2() {
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: HeroBackdrop(arts: arts, position: position),
           ),
@@ -256,6 +263,9 @@ void _main_2() {
     Widget buildCarousel(List<MovieListItem> carouselItems) => ProviderScope(
       overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
       child: MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: SizedBox(
             height: 300,
@@ -298,6 +308,9 @@ void _main_2() {
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: SizedBox(
               height: 300,
@@ -355,6 +368,9 @@ void _main_2() {
           privacyShieldProvider.overrideWith(() => _PrivacyOn()),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: HeroBackdrop(arts: arts, position: position),
           ),
@@ -371,6 +387,9 @@ void _main_2() {
       ProviderScope(
         overrides: [privacyShieldProvider.overrideWith(() => _PrivacyOn())],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: SizedBox(
               height: 300,
@@ -412,6 +431,9 @@ void _main_3() {
       ProviderScope(
         overrides: [privacyShieldProvider.overrideWith(() => _PrivacyOn())],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: HomeLibrariesSection(
               entries: [

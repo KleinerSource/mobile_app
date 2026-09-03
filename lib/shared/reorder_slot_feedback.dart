@@ -58,8 +58,7 @@ class ReorderSlotFeedback {
     }
     // 拖拽行（overlay 中的代理）中心越过哪一行，就落在哪个位置。
     final proxyCenter =
-        proxyObject.localToGlobal(Offset.zero).dy +
-        proxyObject.size.height / 2;
+        proxyObject.localToGlobal(Offset.zero).dy + proxyObject.size.height / 2;
     var slot = 0;
     for (final entry in _rowContexts.entries) {
       if (entry.key == rowId) continue;

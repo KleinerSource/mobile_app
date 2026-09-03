@@ -17,6 +17,7 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// MediaBrowser 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和区块布局。
 /// 数据来自「继续观看 / 接下来观看 / 最新入库」，跳转走统一导航入口。
@@ -176,7 +177,7 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
         ),
         SliverToBoxAdapter(
           child: _MediaBrowserHomeSection(
-            title: '最新入库',
+            title: AppL10n.of(context).mediaBrowserLatestAdded,
             value: latest,
             onRetry: () => ref.invalidate(mediaBrowserLatestProvider),
           ),
@@ -401,9 +402,15 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('统计加载失败', style: TextStyle(color: colors.muted)),
+            Text(
+              AppL10n.of(context).mediaBrowserStatsLoadFailed,
+              style: TextStyle(color: colors.muted),
+            ),
             const SizedBox(width: 8),
-            TextButton(onPressed: onRetry, child: const Text('重试')),
+            TextButton(
+              onPressed: onRetry,
+              child: Text(AppL10n.of(context).mediaBrowserRetry),
+            ),
           ],
         ),
       ),
@@ -422,7 +429,7 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
                 Expanded(
                   child: _MediaBrowserStatItem(
                     icon: Icons.movie_outlined,
-                    label: '总电影',
+                    label: AppL10n.of(context).mediaBrowserStatMovies,
                     value: stats.movieCount,
                   ),
                 ),
@@ -430,7 +437,7 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
                 Expanded(
                   child: _MediaBrowserStatItem(
                     icon: Icons.live_tv_outlined,
-                    label: '总剧集',
+                    label: AppL10n.of(context).mediaBrowserStatSeries,
                     value: stats.seriesCount,
                   ),
                 ),
@@ -438,7 +445,7 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
                 Expanded(
                   child: _MediaBrowserStatItem(
                     icon: Icons.video_library_outlined,
-                    label: '总集数',
+                    label: AppL10n.of(context).mediaBrowserStatEpisodes,
                     value: stats.episodeCount,
                   ),
                 ),
@@ -520,9 +527,9 @@ class _SeeAllButton extends StatelessWidget {
         visualDensity: VisualDensity.compact,
       ),
       icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-      label: const Text(
-        '查看全部',
-        style: TextStyle(
+      label: Text(
+        AppL10n.of(context).homeSeeAll,
+        style: const TextStyle(
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           fontSize: 12,
@@ -564,14 +571,20 @@ class _MediaBrowserHeroFallback extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                TextButton(onPressed: onRetry, child: const Text('重试')),
+                TextButton(
+                  onPressed: onRetry,
+                  child: Text(AppL10n.of(context).mediaBrowserRetry),
+                ),
               ],
             ),
           ),
         ),
         data: (items) => items.isEmpty
             ? Center(
-                child: Text('暂无数据', style: TextStyle(color: colors.muted)),
+                child: Text(
+                  AppL10n.of(context).mediaBrowserNoData,
+                  style: TextStyle(color: colors.muted),
+                ),
               )
             : const SizedBox.shrink(),
       ),

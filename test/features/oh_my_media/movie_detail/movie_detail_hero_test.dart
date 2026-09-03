@@ -18,6 +18,9 @@ void main() {
   testWidgets('有封面时不显示封面放大入口', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         theme: ThemeData(brightness: Brightness.dark),
         home: const Scaffold(
           body: SizedBox(

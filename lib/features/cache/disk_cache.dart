@@ -5,14 +5,15 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 
 enum CacheCategory { image, other }
 
 extension CacheCategoryX on CacheCategory {
-  String get label => switch (this) {
-    CacheCategory.image => '图片缓存',
-    CacheCategory.other => '其他缓存',
+  String label(AppL10n l) => switch (this) {
+    CacheCategory.image => l.cacheCategoryImage,
+    CacheCategory.other => l.cacheCategoryOther,
   };
 }
 

@@ -7,6 +7,7 @@ import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/shared/poster.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   _PrivacyState(this.enabled);
@@ -48,6 +49,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: DbOnlineMovieCard(
               movie: DbOnlineMovie(
@@ -125,6 +129,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: DbOnlineMovieCard(
               movie: const DbOnlineMovie(

@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 Widget _wrap(Widget child) {
-  return MaterialApp(home: Scaffold(body: child));
+  return MaterialApp(
+    localizationsDelegates: AppL10n.localizationsDelegates,
+    supportedLocales: AppL10n.supportedLocales,
+    locale: const Locale('zh'),
+    home: Scaffold(body: child),
+  );
 }
 
 ListView _longList() {

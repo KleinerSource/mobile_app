@@ -7,6 +7,7 @@ import 'package:omm/core/models/modal_transcription_config.dart';
 import 'package:omm/features/translation/modal_transcription_providers.dart';
 import 'package:omm/features/translation/modal_transcription_repository.dart';
 import 'package:omm/features/translation/modal_transcription_settings_page.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// 模拟服务端行为：保存后回显脱敏令牌，并为新增令牌分配稳定 id。
 class _FakeModalRepository extends ModalTranscriptionRepository {
@@ -58,7 +59,12 @@ Future<_FakeModalRepository> _pumpPage(
       overrides: [
         modalTranscriptionRepositoryProvider.overrideWithValue(repository),
       ],
-      child: const MaterialApp(home: ModalTranscriptionSettingsPage()),
+      child: const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
+        home: ModalTranscriptionSettingsPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

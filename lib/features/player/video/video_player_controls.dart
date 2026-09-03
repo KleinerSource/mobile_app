@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/playback.dart' as playback_models;
+import '../../../l10n/generated/app_localizations.dart';
 import 'frame_preview_controller.dart';
 import '../common/playback_engine.dart';
 import 'player_decode_status.dart';
@@ -202,14 +203,14 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
         children: [
           _topActionButton(
             icon: Icons.close,
-            tooltip: '退出播放',
+            tooltip: AppL10n.of(context).playerExitPlayback,
             onPressed: widget.onExit,
           ),
           const Spacer(),
           if (widget.showPipButton)
             _topActionButton(
               icon: Icons.picture_in_picture_alt,
-              tooltip: '画中画',
+              tooltip: AppL10n.of(context).playerPictureInPicture,
               onPressed: () {
                 widget.onPictureInPicture();
                 widget.onInteraction();
@@ -218,7 +219,9 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
           if (widget.showOrientationButton)
             _topActionButton(
               icon: Icons.screen_rotation,
-              tooltip: widget.isLandscape ? '切换竖屏' : '切换横屏',
+              tooltip: widget.isLandscape
+                  ? AppL10n.of(context).playerSwitchToPortrait
+                  : AppL10n.of(context).playerSwitchToLandscape,
               onPressed: () {
                 widget.onOrientationToggle();
                 widget.onInteraction();
@@ -304,26 +307,26 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
       if (widget.showMediaSwitchButton)
         _actionButton(
           icon: Icons.skip_previous,
-          tooltip: '上一部',
+          tooltip: AppL10n.of(context).playerPreviousMedia,
           onPressed: widget.onPreviousMedia,
         ),
       if (widget.showSeekButtons)
         _actionButton(
           icon: Icons.replay_10,
-          tooltip: '快退 10 秒',
+          tooltip: AppL10n.of(context).playerSeekBack10Seconds,
           onPressed: widget.onSeekBackward,
         ),
       if (widget.showPlayPauseButton) _playPauseButton(),
       if (widget.showSeekButtons)
         _actionButton(
           icon: Icons.forward_10,
-          tooltip: '快进 10 秒',
+          tooltip: AppL10n.of(context).playerSeekForward10Seconds,
           onPressed: widget.onSeekForward,
         ),
       if (widget.showMediaSwitchButton)
         _actionButton(
           icon: Icons.skip_next,
-          tooltip: '下一部',
+          tooltip: AppL10n.of(context).playerNextMedia,
           onPressed: widget.onNextMedia,
         ),
     ];
@@ -373,7 +376,9 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
   Widget _speedButton() {
     const rates = <double>[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
     return PopupMenuButton<double>(
-      tooltip: '播放速度 ${widget.playbackRate.toStringAsFixed(1)}x',
+      tooltip: AppL10n.of(
+        context,
+      ).playerPlaybackSpeed('${widget.playbackRate.toStringAsFixed(1)}x'),
       enableFeedback: false,
       initialValue: widget.playbackRate,
       padding: EdgeInsets.zero,
@@ -501,15 +506,18 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
                         ? buffered
                         : null,
                     semanticFormatterCallback: (sliderValue) {
+                      final l = AppL10n.of(context);
                       final current = Duration(
                         milliseconds: sliderValue.round(),
                       );
                       if (!capabilities.customBuffering) {
-                        return '当前播放 ${formatDuration(current)}';
+                        return l.playerSliderPosition(formatDuration(current));
                       }
                       final cached = Duration(milliseconds: buffered.round());
-                      return '当前播放 ${formatDuration(current)}，'
-                          '已缓冲 ${formatDuration(cached)}';
+                      return l.playerSliderPositionBuffered(
+                        formatDuration(current),
+                        formatDuration(cached),
+                      );
                     },
                     onChangeStart: dur <= 0 ? null : (v) => _beginSliderDrag(v),
                     onChanged: dur <= 0 ? null : (v) => _updateSliderDrag(v),
@@ -601,8 +609,9 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
   }
 
   Widget _qualityButton() {
+    final l = AppL10n.of(context);
     return PopupMenuButton<String>(
-      tooltip: '选择画质',
+      tooltip: l.playerSelectQuality,
       enableFeedback: false,
       initialValue: widget.quality,
       padding: EdgeInsets.zero,
@@ -617,7 +626,11 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
             value: option.id,
             child: Row(
               children: [
-                Expanded(child: Text(option.label)),
+                Expanded(
+                  child: Text(
+                    option.kind == 'auto' ? l.playerQualityAuto : option.label,
+                  ),
+                ),
                 const SizedBox(width: 16),
                 option.id == widget.quality
                     ? const Icon(Icons.check, size: 18)
@@ -637,8 +650,9 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
   }
 
   Widget _subtitleButton() {
+    final l = AppL10n.of(context);
     return PopupMenuButton<Object>(
-      tooltip: '选择字幕',
+      tooltip: l.playerSelectSubtitle,
       enableFeedback: false,
       padding: EdgeInsets.zero,
       initialValue: widget.selectedSubtitle ?? _noSubtitleTrack,
@@ -654,20 +668,20 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
         widget.onInteraction();
       },
       itemBuilder: (context) => <PopupMenuEntry<Object>>[
-        const PopupMenuItem<Object>(
+        PopupMenuItem<Object>(
           value: _SubtitleMenuAction.openSettings,
           child: Row(
             children: [
-              Icon(Icons.tune, size: 18),
-              SizedBox(width: 10),
-              Text('字幕设置'),
+              const Icon(Icons.tune, size: 18),
+              const SizedBox(width: 10),
+              Text(l.settingsSubtitleSettings),
             ],
           ),
         ),
         const PopupMenuDivider(height: 1),
         _subtitleMenuItem(
           _noSubtitleTrack,
-          label: '关闭字幕',
+          label: l.playerSubtitleOff,
           selected: widget.selectedSubtitle == null,
           icon: Icons.closed_caption_disabled_outlined,
         ),
@@ -717,16 +731,27 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
     );
   }
 
+  /// 字幕轨道菜单文案。模型层不再提供本地化标签（内嵌/外挂等），
+  /// 这里按轨道字段在 UI 层组装本地化描述。
   String _subtitleLabel(playback_models.SubtitleTrack track) {
+    final l = AppL10n.of(context);
     final label = track.title.isNotEmpty
         ? track.title
-        : (track.language.isNotEmpty ? track.language : '字幕');
-    return '$label · ${track.typeLabel} · ${track.sourceLabel}';
+        : (track.language.isNotEmpty ? track.language : l.playerSubtitleName);
+    final codec = track.codec.trim().isEmpty ? l.codecUnknown : track.typeLabel;
+    final source = track.isEmbedded
+        ? l.subtitleSourceEmbedded
+        : track.isExternal
+        ? l.subtitleSourceExternal
+        : (track.source.trim().isEmpty
+              ? l.subtitleSourceUnknown
+              : track.source.trim());
+    return '$label · $codec · $source';
   }
 
   Widget _audioButton() {
     return PopupMenuButton<playback_models.AudioTrack>(
-      tooltip: '选择音轨',
+      tooltip: AppL10n.of(context).playerSelectAudioTrack,
       enableFeedback: false,
       padding: EdgeInsets.zero,
       onSelected: (track) {
@@ -811,19 +836,19 @@ class _SliderFramePreview extends StatelessWidget {
               ),
             )
           else if (frame == null)
-            const Center(
+            Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.image_not_supported_outlined,
                     color: Colors.white70,
                     size: 20,
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    '当前源无法预览',
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
+                    AppL10n.of(context).playerFramePreviewUnavailable,
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
                   ),
                 ],
               ),

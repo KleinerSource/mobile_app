@@ -17,21 +17,22 @@ import 'package:omm/shared/taxonomy_search_policy.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// 资源选择器类型 · 比 ResourceKind 多个 actor
 enum EntityPickerKind { genre, tag, series, actor }
 
 extension on EntityPickerKind {
-  String get label {
+  String label(AppL10n l) {
     switch (this) {
       case EntityPickerKind.genre:
-        return '分类';
+        return l.settingsGenres;
       case EntityPickerKind.tag:
-        return '标签';
+        return l.settingsTags;
       case EntityPickerKind.series:
-        return '系列';
+        return l.settingsSeries;
       case EntityPickerKind.actor:
-        return '演员';
+        return l.settingsActors;
     }
   }
 
@@ -180,6 +181,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final headerIcon = switch (widget.kind) {
       EntityPickerKind.genre => Icons.category_outlined,
       EntityPickerKind.tag => Icons.sell_outlined,
@@ -192,11 +194,11 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
       children: [
         SheetHeader(
           icon: headerIcon,
-          title: '选择${widget.kind.label}',
-          subtitle: _isMulti ? '${_selected.length} 已选' : null,
+          title: l.entityPickerTitle(widget.kind.label(l)),
+          subtitle: _isMulti ? l.entityPickerSelected(_selected.length) : null,
           trailing: TextButton(
             onPressed: () => Navigator.of(context).pop(_selection()),
-            child: Text(_isMulti ? '完成' : '使用'),
+            child: Text(_isMulti ? l.done : l.use),
           ),
         ),
         // 搜索栏
@@ -211,10 +213,10 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
               hintText:
                   widget.kind == EntityPickerKind.genre ||
                       widget.kind == EntityPickerKind.tag
-                  ? '搜索名称'
+                  ? l.entityPickerSearchName
                   : widget.kind == EntityPickerKind.actor
-                  ? '搜索名称 / 别名'
-                  : '搜索名称',
+                  ? l.entityPickerSearchNameOrAlias
+                  : l.entityPickerSearchName,
               prefixIcon: const Icon(Icons.search, size: 18),
               isDense: true,
             ),
@@ -250,7 +252,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                 _selectedNames.clear();
               }),
               child: Text(
-                '清空',
+                l.commonClear,
                 style: TextStyle(
                   color: c.danger,
                   fontFamily: 'Inter',
@@ -486,7 +488,9 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            '加载失败: ${toApiException(_error!).message}',
+            AppL10n.of(
+              context,
+            ).loadFailedWithError(toApiException(_error!).message),
             style: AppText.meta(context),
           ),
         ),
@@ -494,7 +498,12 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
     }
     final items = _visibleItems();
     if (items.isEmpty && !_loading) {
-      return Center(child: Text('没有匹配的资源', style: AppText.meta(context)));
+      return Center(
+        child: Text(
+          AppL10n.of(context).entityPickerNoResourceMatch,
+          style: AppText.meta(context),
+        ),
+      );
     }
 
     return Column(
@@ -534,7 +543,9 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
               return _PickerTile(
                 id: r.id,
                 label: r.name,
-                sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+                sub: r.movieCount > 0
+                    ? AppL10n.of(context).movieCountShort(r.movieCount)
+                    : null,
                 hue: AppHues.all[i % AppHues.all.length],
                 selected: isSel,
                 multiCheckbox: !widget.singleSelect,
@@ -701,7 +712,9 @@ class _ActorListState extends ConsumerState<_ActorList> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            '加载失败: ${toApiException(_error!).message}',
+            AppL10n.of(
+              context,
+            ).loadFailedWithError(toApiException(_error!).message),
             style: AppText.meta(context),
           ),
         ),
@@ -709,7 +722,12 @@ class _ActorListState extends ConsumerState<_ActorList> {
     }
     final items = _visibleItems();
     if (items.isEmpty && !_loading) {
-      return Center(child: Text('没有匹配的演员', style: AppText.meta(context)));
+      return Center(
+        child: Text(
+          AppL10n.of(context).entityPickerNoActorMatch,
+          style: AppText.meta(context),
+        ),
+      );
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -745,7 +763,9 @@ class _ActorListState extends ConsumerState<_ActorList> {
               return _PickerTile(
                 id: r.id,
                 label: r.name,
-                sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+                sub: r.movieCount > 0
+                    ? AppL10n.of(context).movieCountShort(r.movieCount)
+                    : null,
                 hue: AppHues.all[i % AppHues.all.length],
                 selected: isSel,
                 multiCheckbox: true,

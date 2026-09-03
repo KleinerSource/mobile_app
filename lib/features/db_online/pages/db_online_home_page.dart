@@ -9,6 +9,7 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
@@ -79,6 +80,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
     final recommend = ref.watch(dbOnlineRecommendProvider);
     final updated = ref.watch(dbOnlineLatestUpdatedProvider);
     final released = ref.watch(dbOnlineLatestReleasedProvider);
+    final l = AppL10n.of(context);
 
     final heroReady = recommend.when(
       loading: () => false,
@@ -139,7 +141,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
       slivers: [
         SliverToBoxAdapter(
           child: HomeMovieSection<List<DbOnlineMovie>, DbOnlineMovie>(
-            title: '最近更新',
+            title: l.dbOnlineRecentUpdated,
             value: updated,
             itemsOf: (items) => items,
             onRetry: () => ref.invalidate(dbOnlineLatestUpdatedProvider),
@@ -160,7 +162,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
         ),
         SliverToBoxAdapter(
           child: HomeMovieSection<List<DbOnlineMovie>, DbOnlineMovie>(
-            title: '最新上架',
+            title: l.dbOnlineLatestReleased,
             value: released,
             itemsOf: (items) => items,
             onRetry: () => ref.invalidate(dbOnlineLatestReleasedProvider),
@@ -203,9 +205,9 @@ class _SeeAllButton extends StatelessWidget {
         visualDensity: VisualDensity.compact,
       ),
       icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-      label: const Text(
-        '查看全部',
-        style: TextStyle(
+      label: Text(
+        AppL10n.of(context).homeSeeAll,
+        style: const TextStyle(
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           fontSize: 12,
@@ -258,14 +260,20 @@ class _DbOnlineRecommendFallback extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                TextButton(onPressed: onRetry, child: const Text('重试')),
+                TextButton(
+                  onPressed: onRetry,
+                  child: Text(AppL10n.of(context).dbOnlineRetry),
+                ),
               ],
             ),
           ),
         ),
         data: (items) => items.isEmpty
             ? Center(
-                child: Text('暂无数据', style: TextStyle(color: colors.muted)),
+                child: Text(
+                  AppL10n.of(context).dbOnlineNoData,
+                  style: TextStyle(color: colors.muted),
+                ),
               )
             : const SizedBox.shrink(),
       ),

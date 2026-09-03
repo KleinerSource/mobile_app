@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 
@@ -153,6 +154,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return LayoutBuilder(
       builder: (ctx, cons) {
         // 用 fanart 真实比例计算 frame · 与 frontend_new 一致 (img width:100% + 真实高度)
@@ -224,7 +226,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                           color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(100),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
@@ -234,7 +236,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                             ),
                             SizedBox(width: 4),
                             Text(
-                              '勾选上方快捷操作启用裁剪',
+                              l.posterCropEnableHint,
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -399,7 +401,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                             color: Colors.black.withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(100),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
@@ -409,7 +411,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
                               ),
                               SizedBox(width: 4),
                               Text(
-                                '左右拖动或点击定位裁剪范围',
+                                l.posterCropGestureHint,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,

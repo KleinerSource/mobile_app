@@ -90,6 +90,7 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
     final asyncDetail = ref.watch(movieDetailProvider(widget.movieId));
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final c = appColors(context);
+    final l = AppL10n.of(context);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -101,7 +102,7 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('加载失败', style: AppText.sectionTitle(context)),
+                Text(l.loadFailed, style: AppText.sectionTitle(context)),
                 const SizedBox(height: 8),
                 Text(
                   toApiException(e).message,
@@ -173,6 +174,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final movie = widget.movie;
     final urlBuilder = widget.urlBuilder;
     final favStatus = ref.watch(favoriteStatusProvider);
@@ -248,7 +250,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         if (movie.series != null)
           SliverToBoxAdapter(
             child: _TaxonomySection(
-              label: '系列',
+              label: l.settingsSeries,
               items: [movie.series!],
               kind: ResourceKind.series,
               hueOffset: 0,
@@ -258,7 +260,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         if (movie.genres.isNotEmpty)
           SliverToBoxAdapter(
             child: _TaxonomySection(
-              label: '分类',
+              label: l.settingsGenres,
               items: movie.genres,
               kind: ResourceKind.genre,
               hueOffset: 0,
@@ -267,7 +269,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         if (movie.tags.isNotEmpty)
           SliverToBoxAdapter(
             child: _TaxonomySection(
-              label: '标签',
+              label: l.settingsTags,
               items: movie.tags,
               kind: ResourceKind.tag,
               hueOffset: 2,
@@ -309,7 +311,9 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
                 ),
               );
             } catch (e) {
-              messenger.showSnackBar(SnackBar(content: Text('操作失败: $e')));
+              messenger.showSnackBar(
+                SnackBar(content: Text(l.operationFailed('$e'))),
+              );
             }
           },
         ),
@@ -674,9 +678,13 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final relatedMovies = _randomMovies();
     if (relatedMovies.isEmpty) return const SizedBox.shrink();
+    final l = AppL10n.of(context);
 
     return MovieDetailFullBleedSection(
-      header: Text('演员关联影片', style: AppText.sectionTitle(context)),
+      header: Text(
+        l.detailActorRelatedMovies,
+        style: AppText.sectionTitle(context),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           // 与影片库三列网格保持相同的横向内边距、间距和宽高比。
@@ -794,13 +802,14 @@ class _RelatedFilesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final files = <({String label, String path})>[];
     if (movie.relatedFiles.isNotEmpty) {
       for (final f in movie.relatedFiles) {
-        files.add((label: f.label ?? f.type ?? '文件', path: f.path));
+        files.add((label: f.label ?? f.type ?? l.detailFile, path: f.path));
       }
     } else if (movie.filePath != null && movie.filePath!.isNotEmpty) {
-      files.add((label: '影片', path: movie.filePath!));
+      files.add((label: l.detailMovieFile, path: movie.filePath!));
     }
     if (files.isEmpty) return const SizedBox.shrink();
 
@@ -809,7 +818,7 @@ class _RelatedFilesSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('文件路径', style: AppText.sectionTitle(context)),
+          Text(l.detailFilePath, style: AppText.sectionTitle(context)),
           const SizedBox(height: 12),
           for (var i = 0; i < files.length; i++)
             Container(
@@ -858,12 +867,13 @@ class _DetailsTable extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final rows = <List<String>>[];
     if (movie.num != null && movie.num!.isNotEmpty) {
-      rows.add(['番号', movie.num!]);
+      rows.add([l.detailNumber, movie.num!]);
     }
     if (movie.country != null && movie.country!.isNotEmpty) {
-      rows.add(['产地', movie.country!]);
+      rows.add([l.detailCountry, movie.country!]);
     }
     // 时长优先用媒体探测结果，缺失时回退 NFO 元数据 runtime
     final durationSec = ref
@@ -871,18 +881,18 @@ class _DetailsTable extends ConsumerWidget {
         .value
         ?.durationSec;
     if (durationSec != null && durationSec > 0) {
-      rows.add(['时长', _formatDurationSec(durationSec)]);
+      rows.add([l.detailRuntime, _formatDurationSec(durationSec, l)]);
     } else if (movie.runtime != null && movie.runtime! > 0) {
-      rows.add(['时长', '${movie.runtime} MIN']);
+      rows.add([l.detailRuntime, l.detailRuntimeMinutes(movie.runtime!)]);
     }
     if (movie.fileSize != null && movie.fileSize! > 0) {
-      rows.add(['文件大小', _formatBytes(movie.fileSize!)]);
+      rows.add([l.detailFileSize, _formatBytes(movie.fileSize!)]);
     }
     if (movie.moviePart != null && movie.moviePart!.isNotEmpty) {
-      rows.add(['分卷', movie.moviePart!]);
+      rows.add([l.detailPart, movie.moviePart!]);
     }
     if (movie.lastDownloadedAt != null && movie.lastDownloadedAt!.isNotEmpty) {
-      rows.add(['下载时间', movie.lastDownloadedAt!]);
+      rows.add([l.detailDownloadedAt, movie.lastDownloadedAt!]);
     }
     if (rows.isEmpty) return const SizedBox.shrink();
 
@@ -891,7 +901,7 @@ class _DetailsTable extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('详细信息', style: AppText.sectionTitle(context)),
+          Text(l.detailDetails, style: AppText.sectionTitle(context)),
           const SizedBox(height: 12),
           for (var i = 0; i < rows.length; i++)
             Container(
@@ -953,14 +963,16 @@ String _formatBytes(int bytes) {
 }
 
 /// 媒体探测时长 → "1h 02m 30s" 风格，供详细信息表使用。
-String _formatDurationSec(double sec) {
+String _formatDurationSec(double sec, AppL10n l) {
   final s = sec.round();
   final h = s ~/ 3600;
   final m = (s % 3600) ~/ 60;
   final ss = s % 60;
+  final minutes = m.toString().padLeft(2, '0');
+  final seconds = ss.toString().padLeft(2, '0');
   return h > 0
-      ? '${h}h ${m.toString().padLeft(2, '0')}m ${ss.toString().padLeft(2, '0')}s'
-      : '${m}m ${ss.toString().padLeft(2, '0')}s';
+      ? l.detailDurationHours(h, minutes, seconds)
+      : l.detailDurationMinutes(m, seconds);
 }
 
 /// 媒体技术信息 section (容器/大小 + 视频/音频/字幕流卡片)
@@ -976,16 +988,18 @@ class _MediaInfoSection extends ConsumerWidget {
         if (detail == null) return const SizedBox.shrink();
         final streams = detail.streams;
         final c = appColors(context);
+        final l = AppL10n.of(context);
         final rows = <List<String>>[];
-        if (detail.container != null) rows.add(['容器', detail.container!]);
+        if (detail.container != null)
+          rows.add([l.detailContainer, detail.container!]);
         if (detail.fileSize != null && detail.fileSize! > 0) {
-          rows.add(['大小', _formatBytes(detail.fileSize!)]);
+          rows.add([l.detailSize, _formatBytes(detail.fileSize!)]);
         }
         final hasCards = streams.hasContent;
         if (rows.isEmpty && !hasCards) return const SizedBox.shrink();
         return MovieDetailFullBleedSection(
           bottom: 32,
-          header: Text('媒体信息', style: AppText.sectionTitle(context)),
+          header: Text(l.detailMediaInfo, style: AppText.sectionTitle(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1054,10 +1068,11 @@ class _MoreMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return GlassMenuAnchor<String>(
       width: 244,
-      entries: _movieMoreEntries(c),
-      tooltip: '更多',
+      entries: _movieMoreEntries(c, l),
+      tooltip: l.more,
       offset: const Offset(0, 8),
       placement: GlassMenuPlacement.below,
       child: Container(
@@ -1083,8 +1098,8 @@ class _MoreMenuButton extends ConsumerWidget {
             );
             if (taskId != null && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('音频提取任务已提交，可在任务中心查看进度'),
+                SnackBar(
+                  content: Text(l.detailAudioExtractionSubmitted),
                   duration: Duration(seconds: 2),
                 ),
               );
@@ -1100,21 +1115,21 @@ class _MoreMenuButton extends ConsumerWidget {
             await _confirmAndRun(
               context,
               ref,
-              title: '同步到 NFO',
-              message: '把当前元数据写入磁盘 NFO 文件?',
+              title: l.detailSyncNfoTitle,
+              message: l.detailSyncNfoMessage,
               run: () => ref.read(mediaRepositoryProvider).syncNfo(movie.id),
-              successMsg: '已同步到 NFO',
+              successMsg: l.detailSyncNfoSuccess,
             );
             break;
           case 'refresh_nfo':
             await _confirmAndRun(
               context,
               ref,
-              title: 'NFO 重载',
-              message: '从磁盘 NFO 重新加载,会覆盖当前元数据。',
+              title: l.detailRefreshNfoTitle,
+              message: l.detailRefreshNfoMessage,
               run: () =>
                   ref.read(mediaRepositoryProvider).refreshFromNfo(movie.id),
-              successMsg: '已从 NFO 重载',
+              successMsg: l.detailRefreshNfoSuccess,
               refreshDetail: true,
             );
             break;
@@ -1126,12 +1141,12 @@ class _MoreMenuButton extends ConsumerWidget {
     );
   }
 
-  List<GlassMenuEntry<String>> _movieMoreEntries(AppColors c) => [
+  List<GlassMenuEntry<String>> _movieMoreEntries(AppColors c, AppL10n l) => [
     GlassMenuEntry<String>.action(
       value: 'edit',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.edit_outlined,
-        label: '编辑影片',
+        label: l.detailEditMovie,
         selected: selected,
         onTap: onTap,
       ),
@@ -1141,7 +1156,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'dbo_meta',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.cloud_download_outlined,
-        label: '获取元数据',
+        label: l.detailFetchMetadata,
         selected: selected,
         onTap: onTap,
       ),
@@ -1150,7 +1165,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'resources',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.link,
-        label: '获取资源',
+        label: l.detailFetchResources,
         selected: selected,
         onTap: onTap,
       ),
@@ -1160,7 +1175,7 @@ class _MoreMenuButton extends ConsumerWidget {
         value: 'subtitle',
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.subtitles_outlined,
-          label: '获取字幕',
+          label: l.detailFetchSubtitles,
           selected: selected,
           onTap: onTap,
         ),
@@ -1169,7 +1184,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'audio_extract',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.audiotrack_outlined,
-        label: '提取音频',
+        label: l.detailExtractAudio,
         selected: selected,
         onTap: onTap,
       ),
@@ -1179,7 +1194,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'sync_nfo',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.upload_outlined,
-        label: '同步到 NFO',
+        label: l.detailSyncNfoTitle,
         selected: selected,
         onTap: onTap,
       ),
@@ -1188,7 +1203,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'refresh_nfo',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.refresh,
-        label: '从 NFO 重载',
+        label: l.detailRefreshNfoTitle,
         selected: selected,
         onTap: onTap,
       ),
@@ -1198,7 +1213,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'delete',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.delete_outline,
-        label: '删除',
+        label: l.delete,
         foregroundColor: c.danger,
         selected: selected,
         onTap: onTap,
@@ -1215,6 +1230,7 @@ class _MoreMenuButton extends ConsumerWidget {
     required String successMsg,
     bool refreshDetail = false,
   }) async {
+    final l = AppL10n.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1223,11 +1239,11 @@ class _MoreMenuButton extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确定'),
+            child: Text(l.confirm),
           ),
         ],
       ),
@@ -1248,7 +1264,7 @@ class _MoreMenuButton extends ConsumerWidget {
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
+        SnackBar(content: Text(l.operationFailed(toApiException(e).message))),
       );
     }
   }
@@ -1258,21 +1274,20 @@ class _MoreMenuButton extends ConsumerWidget {
     WidgetRef ref,
     MovieDetail movie,
   ) async {
+    final l = AppL10n.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除影片'),
-        content: Text(
-          '确定删除「${movie.title}」?\n影片文件、海报、剧照、NFO 等关联资源都会被删除,且不可恢复。',
-        ),
+        title: Text(l.detailDeleteMovieTitle),
+        content: Text(l.detailDeleteMovieMessage(movie.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -1283,13 +1298,16 @@ class _MoreMenuButton extends ConsumerWidget {
     try {
       await ref.read(mediaRepositoryProvider).deleteMovie(movie.id);
       messenger.showSnackBar(
-        const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text(l.deleted),
+          duration: const Duration(seconds: 1),
+        ),
       );
       // 返回上一页
       nav.popUntil((r) => r.isFirst);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
+        SnackBar(content: Text(l.deleteFailed(toApiException(e).message))),
       );
     }
   }

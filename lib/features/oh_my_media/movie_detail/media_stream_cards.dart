@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// 媒体流详情卡片轨道：视频 / 每条音轨一张卡 / 字幕，横向滚动。
 ///
@@ -206,6 +207,7 @@ class _VideoStreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final range = dynamicRange(video);
     final badgeColor = switch (range.$2) {
       _RangeTone.dolbyVision => const Color(0xFFC084FC),
@@ -215,13 +217,13 @@ class _VideoStreamCard extends StatelessWidget {
     };
     return _CardShell(
       icon: Icons.movie_outlined,
-      title: '视频',
+      title: l.mediaStreamVideo,
       badge: _CardBadge(range.$1, badgeColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final r in _videoRows(video, fallbackBitRate))
+          for (final r in _videoRows(video, fallbackBitRate, l))
             _CardRow(r.label, r.value!),
         ],
       ),
@@ -240,15 +242,18 @@ class _AudioStreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return _CardShell(
       icon: Icons.graphic_eq_outlined,
-      title: '音频 $ordinal',
-      badge: track.isDefault ? _CardBadge('默认', c.accent) : null,
+      title: l.mediaStreamAudio(ordinal),
+      badge: track.isDefault
+          ? _CardBadge(l.mediaStreamDefault, c.accent)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final r in _audioRows(track)) _CardRow(r.label, r.value!),
+          for (final r in _audioRows(track, l)) _CardRow(r.label, r.value!),
         ],
       ),
     );
@@ -265,17 +270,18 @@ class _SubtitleStreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return _CardShell(
       icon: Icons.subtitles_outlined,
-      title: '字幕',
-      badge: _CardBadge('${streams.length} 条', c.muted),
+      title: l.mediaStreamSubtitles,
+      badge: _CardBadge(l.mediaStreamCount(streams.length), c.muted),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final sub in streams)
             _CardRow(
-              _opt(languageLabel(sub.language)) ??
+              _opt(localizedLanguageLabel(l, sub.language)) ??
                   subtitleCodecLabel(sub.codec),
               subtitleCodecLabel(sub.codec),
               valueWidget: Wrap(
@@ -291,10 +297,10 @@ class _SubtitleStreamCard extends StatelessWidget {
                       size: 11.5,
                     ).copyWith(color: c.text),
                   ),
-                  if (sub.isDefault) _CardBadge('默认', c.accent),
-                  if (sub.forced) _CardBadge('强制', c.warning),
+                  if (sub.isDefault) _CardBadge(l.mediaStreamDefault, c.accent),
+                  if (sub.forced) _CardBadge(l.mediaStreamForced, c.warning),
                   _CardBadge(
-                    sub.playable ? '文本' : '位图',
+                    sub.playable ? l.mediaStreamText : l.mediaStreamBitmap,
                     sub.playable
                         ? const Color(0xFF4ADE80)
                         : const Color(0xFFFFB454),
@@ -319,45 +325,72 @@ String? _opt(String? v) {
   return v;
 }
 
-List<_StreamRow> _videoRows(VideoStreamInfo video, int? fallbackBitRate) {
+List<_StreamRow> _videoRows(
+  VideoStreamInfo video,
+  int? fallbackBitRate,
+  AppL10n l,
+) {
   return [
-    (label: '编码', value: _opt(formatVideoCodec(video.codec))),
-    (label: '配置', value: _opt(video.profile ?? '-')),
-    (label: '等级', value: _opt(formatVideoLevel(video))),
+    (label: l.mediaStreamEncoding, value: _opt(formatVideoCodec(video.codec))),
+    (label: l.mediaStreamProfile, value: _opt(video.profile ?? '-')),
+    (label: l.mediaStreamLevel, value: _opt(formatVideoLevel(video))),
     (
-      label: '分辨率',
+      label: l.mediaStreamResolution,
       value: video.width != null && video.height != null
           ? '${video.width}×${video.height}'
           : null,
     ),
-    (label: '长宽比', value: _opt(formatAspectRatio(video))),
-    (label: '帧率', value: _opt(formatFrameRate(video.frameRate))),
-    (label: '基色', value: _opt(colorPrimariesLabel(video.colorPrimaries))),
-    (label: '色彩空间', value: _opt(colorSpaceLabel(video.colorSpace))),
-    (label: '传递特性', value: _opt(colorTransferLabel(video.colorTransfer))),
-    (label: '色彩范围', value: _opt(colorRangeLabel(video.colorRange))),
+    (label: l.mediaStreamAspectRatio, value: _opt(formatAspectRatio(video))),
     (
-      label: '位深',
+      label: l.mediaStreamFrameRate,
+      value: _opt(formatFrameRate(video.frameRate)),
+    ),
+    (
+      label: l.mediaStreamColorPrimaries,
+      value: _opt(colorPrimariesLabel(video.colorPrimaries)),
+    ),
+    (
+      label: l.mediaStreamColorSpace,
+      value: _opt(colorSpaceLabel(video.colorSpace)),
+    ),
+    (
+      label: l.mediaStreamTransfer,
+      value: _opt(colorTransferLabel(video.colorTransfer)),
+    ),
+    (label: l.mediaStreamRange, value: _opt(colorRangeLabel(video.colorRange))),
+    (
+      label: l.mediaStreamBitDepth,
       value: video.bitDepth != null ? '${video.bitDepth}-bit' : null,
     ),
-    (label: '像素格式', value: video.pixFmt),
-    (label: '码率', value: _opt(formatBitrate(video.bitRate ?? fallbackBitRate))),
+    (label: l.mediaStreamPixelFormat, value: video.pixFmt),
+    (
+      label: l.mediaStreamBitrate,
+      value: _opt(formatBitrate(video.bitRate ?? fallbackBitRate)),
+    ),
   ].where((r) => r.value != null).toList();
 }
 
-List<_StreamRow> _audioRows(AudioStreamInfo track) {
+List<_StreamRow> _audioRows(AudioStreamInfo track, AppL10n l) {
   return [
-    (label: '语言', value: _opt(languageLabel(track.language))),
-    (label: '编码', value: _opt(audioCodecLabel(track.codec))),
-    (label: '等级', value: track.profile),
-    (label: '布局', value: _opt(channelLayoutLabel(track))),
     (
-      label: '声道',
-      value: track.channels != null ? '${track.channels} ch' : null,
+      label: l.mediaStreamLanguage,
+      value: _opt(localizedLanguageLabel(l, track.language)),
     ),
-    (label: '采样率', value: _opt(formatSampleRate(track.sampleRate))),
-    (label: '码率', value: _opt(formatBitrate(track.bitRate))),
-    (label: '标题', value: track.title),
+    (label: l.mediaStreamEncoding, value: _opt(audioCodecLabel(track.codec))),
+    (label: l.mediaStreamLevel, value: track.profile),
+    (label: l.mediaStreamLayout, value: _opt(channelLayoutLabel(track))),
+    (
+      label: l.mediaStreamChannelsLabel,
+      value: track.channels != null
+          ? l.mediaStreamChannels(track.channels!)
+          : null,
+    ),
+    (
+      label: l.mediaStreamSampleRate,
+      value: _opt(formatSampleRate(track.sampleRate)),
+    ),
+    (label: l.mediaStreamBitrate, value: _opt(formatBitrate(track.bitRate))),
+    (label: l.mediaStreamTitle, value: track.title),
   ].where((r) => r.value != null).toList();
 }
 
@@ -398,31 +431,6 @@ const _subtitleCodecNames = {
   'hdmv_pgs_subtitle': 'PGS',
   'dvd_subtitle': 'VobSub',
   'dvb_subtitle': 'DVB-SUB',
-};
-
-const _languageNames = {
-  'jpn': '日语',
-  'ja': '日语',
-  'eng': '英语',
-  'en': '英语',
-  'chi': '中文',
-  'zho': '中文',
-  'zh': '中文',
-  'yue': '粤语',
-  'kor': '韩语',
-  'ko': '韩语',
-  'fra': '法语',
-  'fre': '法语',
-  'fr': '法语',
-  'rus': '俄语',
-  'ru': '俄语',
-  'spa': '西班牙语',
-  'deu': '德语',
-  'ger': '德语',
-  'de': '德语',
-  'tha': '泰语',
-  'th': '泰语',
-  'und': '未指定',
 };
 
 const _colorPrimariesNames = {
@@ -471,7 +479,25 @@ String subtitleCodecLabel(String? codec) =>
 
 String languageLabel(String? lang) {
   if (lang == null || lang.isEmpty) return '-';
-  return _languageNames[lang.toLowerCase()] ?? lang.toUpperCase();
+  return lang.toUpperCase();
+}
+
+String localizedLanguageLabel(AppL10n l, String? lang) {
+  if (lang == null || lang.isEmpty) return '-';
+  return switch (lang.toLowerCase()) {
+    'jpn' || 'ja' => l.mediaLanguageJapanese,
+    'eng' || 'en' => l.mediaLanguageEnglish,
+    'chi' || 'zho' || 'zh' => l.mediaLanguageChinese,
+    'yue' => l.mediaLanguageCantonese,
+    'kor' || 'ko' => l.mediaLanguageKorean,
+    'fra' || 'fre' || 'fr' => l.mediaLanguageFrench,
+    'rus' || 'ru' => l.mediaLanguageRussian,
+    'spa' => l.mediaLanguageSpanish,
+    'deu' || 'ger' || 'de' => l.mediaLanguageGerman,
+    'tha' || 'th' => l.mediaLanguageThai,
+    'und' => l.mediaLanguageUndetermined,
+    _ => lang.toUpperCase(),
+  };
 }
 
 String colorPrimariesLabel(String? v) => _mapLabel(_colorPrimariesNames, v);

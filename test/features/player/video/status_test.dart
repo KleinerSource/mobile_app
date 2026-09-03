@@ -21,11 +21,12 @@ void _main_0() {
     const localSoftware = PlayerDecodeStatus.local(hardware: false);
     final serverHardware = PlayerDecodeStatus.server(engine: 'videotoolbox');
     final serverSoftware = PlayerDecodeStatus.server(engine: 'software');
+    final l = lookupAppL10n(const Locale('zh'));
 
-    expect(localHardware.shortLabel, '本地硬解');
-    expect(localSoftware.shortLabel, '本地软解');
-    expect(serverHardware.fullLabel, '服务端硬解 · VideoToolbox');
-    expect(serverSoftware.shortLabel, '服务端软解');
+    expect(localHardware.shortLabel(l), '本地硬解');
+    expect(localSoftware.shortLabel(l), '本地软解');
+    expect(serverHardware.fullLabel(l), '服务端硬解 · VideoToolbox');
+    expect(serverSoftware.shortLabel(l), '服务端软解');
     expect(localHardware.icon, isNot(localSoftware.icon));
     expect(localHardware.icon, isNot(serverHardware.icon));
     expect(localHardware.color, isNot(localSoftware.color));
@@ -39,7 +40,7 @@ void _main_0() {
     );
 
     expect(status.mode, PlayerDecodeMode.software);
-    expect(status.shortLabel, '服务端软解回退');
+    expect(status.shortLabel(lookupAppL10n(const Locale('zh'))), '服务端软解回退');
     expect(status.isFallback, isTrue);
   });
 
@@ -66,7 +67,10 @@ void _main_0() {
 
     expect(statuses, hasLength(1));
     expect(statuses.single.location, PlayerDecodeLocation.server);
-    expect(statuses.single.shortLabel, '服务端软解');
+    expect(
+      statuses.single.shortLabel(lookupAppL10n(const Locale('zh'))),
+      '服务端软解',
+    );
   });
 
   test('直传时显示本地主状态', () {
@@ -79,7 +83,10 @@ void _main_0() {
 
     expect(statuses, hasLength(1));
     expect(statuses.single.location, PlayerDecodeLocation.local);
-    expect(statuses.single.shortLabel, '本地硬解');
+    expect(
+      statuses.single.shortLabel(lookupAppL10n(const Locale('zh'))),
+      '本地硬解',
+    );
   });
 }
 
@@ -213,7 +220,10 @@ void _main_2() {
     expect(PlayerPreloadSize.mb500.bytes, 500 * 1024 * 1024);
     expect(PlayerPreloadSize.mb750.bytes, 750 * 1024 * 1024);
     expect(PlayerPreloadSize.gb1.bytes, 1024 * 1024 * 1024);
-    expect(PlayerPreloadSize.gb1.label, '1GB');
+    expect(
+      PlayerPreloadSize.gb1.label(lookupAppL10n(const Locale('zh'))),
+      '1GB',
+    );
     expect(PlayerPreloadSize.fromValue('500mb'), PlayerPreloadSize.mb500);
     expect(PlayerPreloadSize.fromValue(null), PlayerPreloadSize.mb250);
     expect(PlayerPreloadSize.fromValue('unsupported'), PlayerPreloadSize.mb250);
@@ -421,16 +431,19 @@ void _main_3() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(body: PlayerDebugOverlay(stateListenable: state)),
       ),
     );
 
-    expect(find.text('内核 KSPlayer'), findsOneWidget);
-    expect(find.text('内部 KSMEPlayer'), findsOneWidget);
-    expect(find.text('视频 hevc'), findsOneWidget);
-    expect(find.text('视频码率 8.24 Mbps'), findsOneWidget);
-    expect(find.text('帧率 23.98 fps'), findsOneWidget);
-    expect(find.text('分辨率 1920×1080'), findsOneWidget);
+    expect(find.text('播放器内核：KSPlayer'), findsOneWidget);
+    expect(find.text('内部播放器：KSMEPlayer'), findsOneWidget);
+    expect(find.text('视频编码：hevc'), findsOneWidget);
+    expect(find.text('视频码率：8.24 Mbps'), findsOneWidget);
+    expect(find.text('帧率：23.98 fps'), findsOneWidget);
+    expect(find.text('分辨率：1920×1080'), findsOneWidget);
   });
 }
 

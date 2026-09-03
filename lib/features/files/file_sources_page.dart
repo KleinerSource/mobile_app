@@ -162,10 +162,7 @@ class _MissingFileSource extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 children: [
-                  OutlinedButton(
-                    onPressed: onRetry,
-                    child: Text(l.fileRetry),
-                  ),
+                  OutlinedButton(onPressed: onRetry, child: Text(l.fileRetry)),
                   FilledButton(
                     onPressed: onConfigure,
                     child: Text(l.fileBackToServers),
@@ -206,10 +203,7 @@ class _FileError extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 children: [
-                  OutlinedButton(
-                    onPressed: onRetry,
-                    child: Text(l.fileRetry),
-                  ),
+                  OutlinedButton(onPressed: onRetry, child: Text(l.fileRetry)),
                   FilledButton(
                     onPressed: onConfigure,
                     child: Text(l.fileManageServers),

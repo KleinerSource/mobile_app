@@ -281,6 +281,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final w = MediaQuery.of(context).size.width;
     final crossAxisCount = w > 600 ? 4 : 3;
 
@@ -384,7 +385,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             ),
                             const SizedBox(width: 7),
                             CompactFilterButton(
-                              label: '重复番号',
+                              label: l.moviesFilterDuplicateNum,
                               icon: Icons.copy_all_outlined,
                               active: _currentFilter.duplicateNum,
                               onTap: () => _applyFilter(
@@ -395,7 +396,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             ),
                             const SizedBox(width: 7),
                             CompactFilterButton(
-                              label: '新资源',
+                              label: l.moviesFilterNewResources,
                               icon: Icons.fiber_new_rounded,
                               active: _currentFilter.hasNewResources == true,
                               onTap: () {
@@ -411,7 +412,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             ),
                             const SizedBox(width: 7),
                             CompactFilterButton(
-                              label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                              label: _resourceScanStarting
+                                  ? l.moviesScanning
+                                  : l.moviesScanResources,
                               icon: _resourceScanStarting
                                   ? Icons.sync_rounded
                                   : Icons.cloud_download_outlined,
@@ -497,18 +500,18 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                         actions: [
                           EntityBatchAction(
                             icon: Icons.edit_outlined,
-                            label: '编辑',
+                            label: l.moviesBatchEdit,
                             onTap: selected.isEmpty ? null : _onBatchEdit,
                           ),
                           EntityBatchAction(
                             icon: Icons.cloud_download_outlined,
-                            label: '下载',
+                            label: l.moviesBatchDownload,
                             color: const Color(0xFF34F5A5),
                             onTap: selected.isEmpty ? null : _onBatchDownload,
                           ),
                           EntityBatchAction(
                             icon: Icons.sync_rounded,
-                            label: '扫描',
+                            label: l.moviesBatchScan,
                             onTap: selected.isEmpty
                                 ? null
                                 : _onBatchResourceScan,
@@ -516,13 +519,13 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                           if (_canMergeOrCompare)
                             EntityBatchAction(
                               icon: Icons.compare_arrows_rounded,
-                              label: '比较',
+                              label: l.moviesBatchCompare,
                               onTap: _onBatchCompareNfo,
                             ),
                           if (_canMergeOrCompare)
                             EntityBatchAction(
                               icon: Icons.merge_rounded,
-                              label: '合并',
+                              label: l.moviesBatchMerge,
                               color: c.warning,
                               onTap: _onBatchMerge,
                             ),
@@ -647,7 +650,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            nextValue ? '已收藏「${movie.title}」' : '已取消收藏「${movie.title}」',
+            nextValue
+                ? AppL10n.of(context).moviesFavoriteAdded(movie.title)
+                : AppL10n.of(context).moviesFavoriteRemoved(movie.title),
           ),
           duration: const Duration(seconds: 1),
         ),
@@ -655,7 +660,13 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).moviesOperationFailed(toApiException(e).message),
+          ),
+        ),
       );
     }
   }
@@ -704,29 +715,33 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final selected = movieIds != null && movieIds.isNotEmpty;
     final count = selected ? movieIds.length : _totalCount;
     if (count <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('当前没有可扫描的影片')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).moviesNoScannable)),
+      );
       return;
     }
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(selected ? '扫描已选影片' : '扫描筛选结果'),
+        title: Text(
+          selected
+              ? AppL10n.of(context).moviesScanSelectedTitle
+              : AppL10n.of(context).moviesScanFilteredTitle,
+        ),
         content: Text(
           selected
-              ? '将扫描已选的 $count 部影片，确定继续吗？'
-              : '将扫描当前筛选结果中的 $count 部影片（包含全部分页），确定继续吗？',
+              ? AppL10n.of(context).moviesScanSelectedMessage(count)
+              : AppL10n.of(context).moviesScanFilteredMessage(count),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+            child: Text(AppL10n.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('开始扫描'),
+            child: Text(AppL10n.of(context).moviesStartScan),
           ),
         ],
       ),
@@ -745,10 +760,16 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       if (selected) _exitSelection();
       setState(() => _resourceScanStarting = false);
       final skippedText = result.skippedCount > 0
-          ? '，跳过 ${result.skippedCount} 部无效影片'
+          ? AppL10n.of(context).moviesScanSkipped(result.skippedCount)
           : '';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已提交 ${result.acceptedCount} 部影片$skippedText')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).moviesScanSubmitted(result.acceptedCount, skippedText),
+          ),
+        ),
       );
       await ResourceScanProgressSheet.show(
         context,
@@ -761,16 +782,22 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       if (!mounted) return;
       setState(() => _resourceScanStarting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('创建资源扫描任务失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).moviesScanCreateFailed(toApiException(e).message),
+          ),
+        ),
       );
     }
   }
 
   Future<void> _onBatchMerge() async {
     if (!_canMergeOrCompare) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('需选择 2 部以上相同番号影片')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).moviesNeedSameNumber)),
+      );
       return;
     }
     final ok = await BatchMergeSheet.show(context, _selectedIds.toList());
@@ -782,9 +809,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   Future<void> _onBatchCompareNfo() async {
     if (!_canMergeOrCompare) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('需选择 2 部以上相同番号影片')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).moviesNeedSameNumber)),
+      );
       return;
     }
     final ok = await BatchDuplicateNfoCompareSheet.show(
@@ -798,15 +825,38 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }
 }
 
-const _kSortOptions = <({String value, String label})>[
-  (value: 'title', label: '标题'),
-  (value: 'year', label: '年份'),
-  (value: 'rating', label: '评分'),
-  (value: 'file_size', label: '文件大小'),
-  (value: 'created_at', label: '创建'),
-  (value: 'updated_at', label: '更新'),
-  (value: 'last_downloaded_at', label: '下载日期'),
+const _kSortOptions = <String>[
+  'title',
+  'year',
+  'rating',
+  'file_size',
+  'created_at',
+  'updated_at',
+  'last_downloaded_at',
 ];
+
+String _sortLabel(AppL10n l, String value) => switch (value) {
+  'title' => l.sortByTitle,
+  'year' => l.sortByYear,
+  'rating' => l.sortByRating,
+  'file_size' => l.moviesSortFileSize,
+  'created_at' => l.moviesSortCreatedAt,
+  'updated_at' => l.moviesSortUpdatedAt,
+  'last_downloaded_at' => l.moviesSortDownloadedAt,
+  _ => value,
+};
+
+String _updatedLabel(AppL10n l, bool? value) => switch (value) {
+  true => l.moviesUpdated,
+  false => l.moviesNotUpdated,
+  _ => l.moviesUpdatedStatus,
+};
+
+String _sortOrderLabel(AppL10n l, String value) =>
+    value == 'asc' ? l.moviesSortAscending : l.moviesSortDescending;
+
+String _movieRuntimeLabel(AppL10n l, int minutes) =>
+    l.moviesRuntimeMinutes(minutes);
 
 class _ViewModeToggle extends StatelessWidget {
   const _ViewModeToggle({required this.mode, required this.onChanged});
@@ -916,6 +966,7 @@ class _SortButton extends StatelessWidget {
 
   Future<void> _openMenu(BuildContext context) async {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -925,7 +976,7 @@ class _SortButton extends StatelessWidget {
           children: [
             SheetHeader(
               icon: Icons.sort_rounded,
-              title: '排序',
+              title: l.moviesSortSheetTitle,
               padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
               trailing: GestureDetector(
                 onTap: () {
@@ -955,7 +1006,7 @@ class _SortButton extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        sortOrder == 'asc' ? '升序' : '降序',
+                        _sortOrderLabel(l, sortOrder),
                         style: TextStyle(
                           color: c.accent,
                           fontFamily: 'Inter',
@@ -971,13 +1022,13 @@ class _SortButton extends StatelessWidget {
             for (final opt in _kSortOptions)
               ListTile(
                 dense: true,
-                title: Text(opt.label),
-                trailing: opt.value == sortBy
+                title: Text(_sortLabel(l, opt)),
+                trailing: opt == sortBy
                     ? Icon(Icons.check_rounded, color: c.accent, size: 18)
                     : null,
                 onTap: () {
                   Navigator.pop(ctx);
-                  onChanged(opt.value, sortOrder);
+                  onChanged(opt, sortOrder);
                 },
               ),
             const SizedBox(height: 8),
@@ -1024,14 +1075,9 @@ class _UpdatedDropdownChip extends StatelessWidget {
   final bool? value;
   final ValueChanged<bool?> onChanged;
 
-  String get _label => switch (value) {
-    true => '已更新',
-    false => '未更新',
-    _ => '更新状态',
-  };
-
   Future<void> _openMenu(BuildContext context) async {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -1039,15 +1085,15 @@ class _UpdatedDropdownChip extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SheetHeader(
+            SheetHeader(
               icon: Icons.update_rounded,
-              title: '更新状态',
+              title: l.moviesUpdatedStatus,
               padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
             ),
-            for (final opt in const <({bool? v, String label})>[
-              (v: null, label: '不限'),
-              (v: true, label: '已更新'),
-              (v: false, label: '未更新'),
+            for (final opt in <({bool? v, String label})>[
+              (v: null, label: l.moviesUnlimited),
+              (v: true, label: l.moviesUpdated),
+              (v: false, label: l.moviesNotUpdated),
             ])
               ListTile(
                 dense: true,
@@ -1070,6 +1116,7 @@ class _UpdatedDropdownChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final active = value != null;
     final fg = active ? c.accent : c.text;
     final iconColor = active ? c.accent : c.muted;
@@ -1091,7 +1138,7 @@ class _UpdatedDropdownChip extends StatelessWidget {
             Icon(Icons.update_rounded, size: 15, color: iconColor),
             const SizedBox(width: 5),
             Text(
-              _label,
+              _updatedLabel(l, value),
               strutStyle: const StrutStyle(
                 fontSize: 11.5,
                 height: 1.0,
@@ -1136,6 +1183,7 @@ class _ListRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final isFavorited = ref.watch(
       favoriteStatusProvider.select(
         (statuses) => statuses[movie.id] ?? movie.isFavorited,
@@ -1146,7 +1194,8 @@ class _ListRow extends ConsumerWidget {
     final hasRating = movie.rating != null && movie.rating! > 0;
     final meta = <String>[
       if (movie.year != null) '${movie.year}',
-      if (movie.runtime != null && movie.runtime! > 0) '${movie.runtime}m',
+      if (movie.runtime != null && movie.runtime! > 0)
+        _movieRuntimeLabel(l, movie.runtime!),
       if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
     ].join(' · ');
 
@@ -1287,7 +1336,7 @@ class _ListRow extends ConsumerWidget {
       actions: [
         SwipeActionData(
           icon: Icons.favorite_rounded,
-          label: isFavorited ? '取消收藏' : '收藏',
+          label: isFavorited ? l.moviesUnfavorite : l.moviesFavorite,
           color: isFavorited ? c.danger : c.accent,
           onPressed: () => onFavorite(isFavorited),
         ),

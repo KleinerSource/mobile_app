@@ -15,12 +15,6 @@ extension ActorDataSourceX on ActorDataSource {
     ActorDataSource.avdb => 'avdb',
     ActorDataSource.mixed => 'mixed',
   };
-
-  String get label => switch (this) {
-    ActorDataSource.dbonline => 'DB Online',
-    ActorDataSource.avdb => 'AVDB',
-    ActorDataSource.mixed => '混合渠道',
-  };
 }
 
 ActorDataSource? actorDataSourceFromValue(String? value) {
@@ -291,9 +285,7 @@ class ActorAssociationsRepository {
     if (s != null && s.isNotEmpty) q['search'] = s;
     final raw = await _source.mappingList(_type, q);
     if (raw is! Map || raw['success'] != true) {
-      throw ApiException(
-        (raw is Map ? raw['message'] as String? : null) ?? '加载失败',
-      );
+      throw ApiException((raw is Map ? raw['message'] as String? : null) ?? '');
     }
     final data = raw['data'];
     final list = data is List

@@ -212,7 +212,7 @@ void main() {
     await _pumpLibrary(tester, repo);
 
     await _longPress(tester, find.byType(Poster).first);
-    await tester.tap(find.text('标记已看'));
+    await tester.tap(find.text('标记为已看'));
     await tester.pumpAndSettle();
 
     expect(repo.markPlayedCalls, [('a', true)]);

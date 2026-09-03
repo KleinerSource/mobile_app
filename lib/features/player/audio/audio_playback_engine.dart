@@ -989,11 +989,12 @@ class AudioPlaybackEngine
     return position;
   }
 
+  /// 无文件名的兜底标题返回空串，界面层用本地化占位（“音乐播放”）展示。
   String _titleFromUrl(String url) {
     final uri = Uri.tryParse(url);
     final path = uri?.path ?? url;
     final name = path.split('/').last.trim();
-    return name.isEmpty ? '音频' : Uri.decodeComponent(name);
+    return name.isEmpty ? '' : Uri.decodeComponent(name);
   }
 
   @override

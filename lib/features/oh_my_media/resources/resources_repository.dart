@@ -3,24 +3,36 @@ import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/sources/media/omm_metadata_operations_source.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// 三类相同 schema 的资源 · 同样的 5 个 CRUD
 enum ResourceKind {
-  genre(label: '分类', plural: '分类管理', searchHint: '搜索分类名称', icon: 'GENRES'),
-  tag(label: '标签', plural: '标签管理', searchHint: '搜索标签名称', icon: 'TAGS'),
-  series(label: '系列', plural: '系列管理', searchHint: '搜索系列名称', icon: 'SERIES');
+  genre(value: 'genres', icon: 'GENRES'),
+  tag(value: 'tags', icon: 'TAGS'),
+  series(value: 'series', icon: 'SERIES');
 
-  const ResourceKind({
-    required this.label,
-    required this.plural,
-    required this.searchHint,
-    required this.icon,
-  });
+  const ResourceKind({required this.value, required this.icon});
 
-  final String label;
-  final String plural;
-  final String searchHint;
+  final String value;
   final String icon;
+
+  String label(AppL10n l) => switch (this) {
+    ResourceKind.genre => l.settingsGenres,
+    ResourceKind.tag => l.settingsTags,
+    ResourceKind.series => l.settingsSeries,
+  };
+
+  String plural(AppL10n l) => switch (this) {
+    ResourceKind.genre => l.resourceGenresManage,
+    ResourceKind.tag => l.resourceTagsManage,
+    ResourceKind.series => l.resourceSeriesManage,
+  };
+
+  String searchHint(AppL10n l) => switch (this) {
+    ResourceKind.genre => l.resourceGenresSearchHint,
+    ResourceKind.tag => l.resourceTagsSearchHint,
+    ResourceKind.series => l.resourceSeriesSearchHint,
+  };
 }
 
 class ResourcesRepository {
@@ -28,66 +40,27 @@ class ResourcesRepository {
   final OmmMetadataOperationsSource _source;
 
   Future<dynamic> _list(ResourceKind k, Map<String, dynamic> q) {
-    switch (k) {
-      case ResourceKind.genre:
-        return _source.resourceList('genres', q);
-      case ResourceKind.tag:
-        return _source.resourceList('tags', q);
-      case ResourceKind.series:
-        return _source.resourceList('series', q);
-    }
+    return _source.resourceList(k.value, q);
   }
 
   Future<dynamic> _options(ResourceKind k, Map<String, dynamic> q) {
-    switch (k) {
-      case ResourceKind.genre:
-        return _source.resourceOptions('genres', q);
-      case ResourceKind.tag:
-        return _source.resourceOptions('tags', q);
-      case ResourceKind.series:
-        return _source.resourceOptions('series', q);
-    }
+    return _source.resourceOptions(k.value, q);
   }
 
   Future<dynamic> _create(ResourceKind k, Map<String, dynamic> body) {
-    switch (k) {
-      case ResourceKind.genre:
-        return _source.resourceCreate('genres', body);
-      case ResourceKind.tag:
-        return _source.resourceCreate('tags', body);
-      case ResourceKind.series:
-        return _source.resourceCreate('series', body);
-    }
+    return _source.resourceCreate(k.value, body);
   }
 
   Future<dynamic> _update(ResourceKind k, int id, Map<String, dynamic> body) {
-    switch (k) {
-      case ResourceKind.genre:
-        return _source.resourceUpdate('genres', id, body);
-      case ResourceKind.tag:
-        return _source.resourceUpdate('tags', id, body);
-      case ResourceKind.series:
-        return _source.resourceUpdate('series', id, body);
-    }
+    return _source.resourceUpdate(k.value, id, body);
   }
 
   Future<dynamic> _batchDelete(ResourceKind k, Map<String, dynamic> body) {
-    switch (k) {
-      case ResourceKind.genre:
-        return _source.resourceDelete('genres', body);
-      case ResourceKind.tag:
-        return _source.resourceDelete('tags', body);
-      case ResourceKind.series:
-        return _source.resourceDelete('series', body);
-    }
+    return _source.resourceDelete(k.value, body);
   }
 
   Future<ResourceItem> get(ResourceKind kind, int id) async {
-    final type = switch (kind) {
-      ResourceKind.genre => 'genres',
-      ResourceKind.tag => 'tags',
-      ResourceKind.series => 'series',
-    };
+    final type = kind.value;
     final raw = await _source.resourceDetail(type, id);
     return unwrapStd<ResourceItem>(
       raw,
@@ -201,11 +174,7 @@ class ResourcesRepository {
     required List<int> sourceIds,
     required String targetName,
   }) async {
-    final type = switch (kind) {
-      ResourceKind.tag => 'tags',
-      ResourceKind.genre => 'genres',
-      ResourceKind.series => 'series',
-    };
+    final type = kind.value;
     final raw = await _source.resourceMerge(type, {
       'source_ids': sourceIds,
       'target_name': targetName,

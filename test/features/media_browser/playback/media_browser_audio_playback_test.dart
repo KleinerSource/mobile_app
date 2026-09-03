@@ -116,7 +116,10 @@ void main() {
 
     final queue = session.queue;
     expect(queue.length, 3);
-    expect(queue.every((item) => item.type == PlayerQueueItemType.audio), isTrue);
+    expect(
+      queue.every((item) => item.type == PlayerQueueItemType.audio),
+      isTrue,
+    );
     expect(queue[0].title, '01 曲目t1');
     expect(queue[1].title, '03 曲目t2');
     expect(queue[2].title, '曲目t3');
@@ -153,8 +156,7 @@ void main() {
   });
 
   test('元数据加载：歌词接口失败时静默回退', () async {
-    final source = _FakeMediaBrowserSource()
-      ..lyricsError = Exception('服务器无歌词');
+    final source = _FakeMediaBrowserSource()..lyricsError = Exception('服务器无歌词');
     final session = MediaBrowserAudioQueueSession(
       tracks: [_track('t1')],
       urls: _urls(),
@@ -168,9 +170,7 @@ void main() {
   });
 
   test('封面下载到临时文件并在 dispose 时清理', () async {
-    final adapter = _BytesAdapter(
-      Uint8List.fromList('fake-jpeg'.codeUnits),
-    );
+    final adapter = _BytesAdapter(Uint8List.fromList('fake-jpeg'.codeUnits));
     final session = MediaBrowserAudioQueueSession(
       tracks: [
         _track('t1', albumId: 'album-1'),

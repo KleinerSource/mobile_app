@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movies/media_repository.dart';
@@ -186,7 +187,8 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       });
     } catch (e) {
       if (!_isCurrentLoad(generation)) return;
-      final message = '${_sourceLabel(source)}: ${toApiException(e).message}';
+      final message =
+          '${_sourceLabel(AppL10n.of(context), source)}: ${toApiException(e).message}';
       setState(() {
         _sourceErrors[source] = message;
         _warnings = [..._warnings, message];
@@ -237,14 +239,14 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     }
   }
 
-  String _sourceLabel(String source) {
+  String _sourceLabel(AppL10n l, String source) {
     switch (source) {
       case 'detail':
-        return '影片详情资源';
+        return l.resourceSourceDetail;
       case 'custom':
-        return '自定义资源';
+        return l.resourceSourceCustom;
       case 'nyaa':
-        return 'Nyaa 资源';
+        return l.resourceSourceNyaa;
       default:
         return source;
     }
@@ -269,11 +271,12 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
 
   Future<void> _onPush(Map<String, dynamic> item) async {
     if (_pushingKey != null) return;
+    final l = AppL10n.of(context);
     final downloaders = _activeDownloaders;
     if (downloaders.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('未配置可用下载器')));
+      ).showSnackBar(SnackBar(content: Text(l.resourceNoDownloaders)));
       return;
     }
     String? selected;
@@ -286,10 +289,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SheetHeader(
+              SheetHeader(
                 icon: Icons.download_outlined,
-                title: '选择下载器',
-                padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
+                title: l.resourceSelectDownloader,
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
               for (final d in downloaders)
                 ListTile(
@@ -310,6 +313,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   Future<void> _push(Map<String, dynamic> item, String downloader) async {
     final url = _pickUrl(item);
     if (url.isEmpty) return;
+    final l = AppL10n.of(context);
     setState(() => _pushingKey = url);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -346,7 +350,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text('推送失败: ${toApiException(e).message}'),
+          content: Text(l.resourcePushFailed(toApiException(e).message)),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -407,6 +411,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
     return SafeArea(
       top: false,
@@ -418,7 +423,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
           children: [
             SheetHeader(
               icon: Icons.cloud_download_outlined,
-              title: '在线资源',
+              title: l.resourceOnline,
               subtitle: _movieTitle,
               trailing: IconButton(
                 icon: const Icon(Icons.refresh, size: 18),
@@ -439,7 +444,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                     children: [
                       Expanded(
                         child: _TabBtn(
-                          label: '磁力 (${_magnets.length})',
+                          label: l.resourceMagnetCount(_magnets.length),
                           active: _tab == _ResTab.magnet,
                           onTap: () => setState(() {
                             _tab = _ResTab.magnet;
@@ -449,7 +454,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                       ),
                       Expanded(
                         child: _TabBtn(
-                          label: 'ED2K (${_ed2ks.length})',
+                          label: l.resourceEd2kCount(_ed2ks.length),
                           active: _tab == _ResTab.ed2k,
                           onTap: () => setState(() {
                             _tab = _ResTab.ed2k;
@@ -525,7 +530,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('正在加载在线资源…', style: AppText.meta(context)),
+                      Text(
+                        l.resourceLoadingOnline,
+                        style: AppText.meta(context),
+                      ),
                     ],
                   ),
                 ),
@@ -534,10 +542,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                   padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
                   child: Text(
                     _loadingResources
-                        ? '已返回的渠道暂无资源，继续等待其他渠道…'
+                        ? l.resourceWaitingSources
                         : _tab == _ResTab.magnet
-                        ? '没有磁力资源'
-                        : '没有 ED2K 资源',
+                        ? l.resourceNoMagnet
+                        : l.resourceNoEd2k,
                     textAlign: TextAlign.center,
                     style: AppText.body(context),
                   ),
@@ -602,17 +610,17 @@ String _extractEd2kHash(String ed2k) {
   return t.toUpperCase();
 }
 
-String _formatDownloadedTooltip(String value) {
+String _formatDownloadedTooltip(AppL10n l, String value) {
   if (value.isEmpty) return '';
   final dt = DateTime.tryParse(value);
-  if (dt == null) return '最近下载 $value';
+  if (dt == null) return l.resourceRecentlyDownloaded(value);
   final local = dt.toLocal();
   final y = local.year.toString().padLeft(4, '0');
   final mo = local.month.toString().padLeft(2, '0');
   final d = local.day.toString().padLeft(2, '0');
   final h = local.hour.toString().padLeft(2, '0');
   final mi = local.minute.toString().padLeft(2, '0');
-  return '最近下载 $y-$mo-$d $h:$mi';
+  return l.resourceRecentlyDownloadedAt('$y-$mo-$d $h:$mi');
 }
 
 String _formatResourceSize(dynamic value) {
@@ -695,8 +703,13 @@ class _ResourceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final title = (item['title'] ?? item['name'] ?? item['filename'] ?? '资源')
-        .toString();
+    final l = AppL10n.of(context);
+    final title =
+        (item['title'] ??
+                item['name'] ??
+                item['filename'] ??
+                l.resourceFallbackTitle)
+            .toString();
     final size = _formatResourceSize(item['size_mb'] ?? item['size']);
     final date =
         item['date']?.toString() ?? item['publish_date']?.toString() ?? '';
@@ -741,7 +754,7 @@ class _ResourceTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '来自 $source',
+                          l.resourceFrom(source),
                           style: TextStyle(
                             color: c.muted,
                             fontFamily: 'monospace',
@@ -779,7 +792,7 @@ class _ResourceTile extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    tooltip: '复制',
+                    tooltip: l.resourceCopy,
                     icon: Icon(Icons.copy, size: 18, color: c.accent),
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(6),
@@ -793,15 +806,17 @@ class _ResourceTile extends StatelessWidget {
                             await Clipboard.setData(ClipboardData(text: url));
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('已复制'),
+                              SnackBar(
+                                content: Text(l.resourceCopied),
                                 duration: Duration(seconds: 1),
                               ),
                             );
                           },
                   ),
                   IconButton(
-                    tooltip: pushing ? '推送中' : '推送下载',
+                    tooltip: pushing
+                        ? l.resourcePushing
+                        : l.resourcePushDownload,
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(6),
                     constraints: const BoxConstraints(
@@ -838,7 +853,7 @@ class _ResourceTile extends StatelessWidget {
 
     if (isDownloaded) {
       content = Tooltip(
-        message: _formatDownloadedTooltip(downloadedAt!),
+        message: _formatDownloadedTooltip(l, downloadedAt!),
         child: content,
       );
     }
@@ -883,6 +898,7 @@ class _ResourceTagBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final hasUHD = _hasUHD;
     final hasHD = _hasHD;
     final hasSub = _hasSub;
@@ -912,8 +928,8 @@ class _ResourceTagBadges extends StatelessWidget {
               color: Color(0xFF10B981),
             ),
           if (hasSub)
-            const _ResBadge(
-              label: '字幕',
+            _ResBadge(
+              label: l.movieFlagSubtitle,
               icon: Icons.closed_caption_rounded,
               color: Color(0xFFFF9F1C),
             ),
@@ -924,8 +940,8 @@ class _ResourceTagBadges extends StatelessWidget {
               color: Color(0xFFA855F7),
             )
           else if (hasCrack)
-            const _ResBadge(
-              label: '破解',
+            _ResBadge(
+              label: l.movieFlagCrack,
               icon: Icons.lock_open_rounded,
               color: Color(0xFFE91E63),
             ),

@@ -79,11 +79,8 @@ class _RangeRemoteAdapter implements HttpClientAdapter {
   }
 }
 
-MediaBrowserItem _track(String id) => MediaBrowserItem(
-  id: id,
-  name: '曲目$id',
-  type: 'Audio',
-);
+MediaBrowserItem _track(String id) =>
+    MediaBrowserItem(id: id, name: '曲目$id', type: 'Audio');
 
 const _mp3Bytes = <int>[
   0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ID3
@@ -119,7 +116,10 @@ void main() {
       );
       expect(response.statusCode, 200);
       expect(response.headers.value(HttpHeaders.acceptRangesHeader), 'bytes');
-      expect(response.headers.value(HttpHeaders.contentLengthHeader), '${_mp3Bytes.length}');
+      expect(
+        response.headers.value(HttpHeaders.contentLengthHeader),
+        '${_mp3Bytes.length}',
+      );
       expect(response.data, _mp3Bytes);
       // ID3 头被嗅探为 audio/mpeg。
       expect(
@@ -148,9 +148,10 @@ void main() {
 
       final partial = await client.get<List<int>>(
         url,
-        options: Options(responseType: ResponseType.bytes, headers: {
-          HttpHeaders.rangeHeader: 'bytes=4-7',
-        }),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {HttpHeaders.rangeHeader: 'bytes=4-7'},
+        ),
       );
       expect(partial.statusCode, 206);
       expect(
@@ -161,9 +162,10 @@ void main() {
 
       final suffix = await client.get<List<int>>(
         url,
-        options: Options(responseType: ResponseType.bytes, headers: {
-          HttpHeaders.rangeHeader: 'bytes=-4',
-        }),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {HttpHeaders.rangeHeader: 'bytes=-4'},
+        ),
       );
       expect(suffix.statusCode, 206);
       expect(suffix.data, _mp3Bytes.sublist(_mp3Bytes.length - 4));
@@ -206,12 +208,17 @@ void main() {
 
       final head = await client.head(url);
       expect(head.statusCode, 200);
-      expect(head.headers.value(HttpHeaders.contentLengthHeader), '${_mp3Bytes.length}');
+      expect(
+        head.headers.value(HttpHeaders.contentLengthHeader),
+        '${_mp3Bytes.length}',
+      );
       expect(downloads, 1);
 
       final missing = await client.get(
         proxy.localBaseUri.replace(path: '/unknown').toString(),
-        options: Options(validateStatus: (status) => status != null && status < 500),
+        options: Options(
+          validateStatus: (status) => status != null && status < 500,
+        ),
       );
       expect(missing.statusCode, 404);
     } finally {
@@ -290,10 +297,7 @@ void main() {
     );
     await proxy.close();
 
-    expect(
-      () => client.get(url),
-      throwsA(isA<DioException>()),
-    );
+    expect(() => client.get(url), throwsA(isA<DioException>()));
     // 重复 close 幂等。
     await proxy.close();
     client.close();

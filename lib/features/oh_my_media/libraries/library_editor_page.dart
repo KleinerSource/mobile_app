@@ -66,16 +66,17 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
   }
 
   Future<void> _save() async {
+    final l = AppL10n.of(context);
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = '请填写媒体库名称');
+      setState(() => _error = l.libraryErrNameRequired);
       return;
     }
     final dirs = _dirs
         .where((d) => d.controller.text.trim().isNotEmpty)
         .toList();
     if (dirs.isEmpty) {
-      setState(() => _error = '至少需要一个目录');
+      setState(() => _error = l.libraryErrDirRequired);
       return;
     }
     // 重复检查
@@ -83,7 +84,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
     for (final d in dirs) {
       final p = d.controller.text.trim();
       if (!seen.add(p)) {
-        setState(() => _error = '目录路径重复: $p');
+        setState(() => _error = l.libraryErrDirDuplicate(p));
         return;
       }
     }
@@ -99,21 +100,17 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       // 路径验证
       for (final d in dirs) {
         final path = d.controller.text.trim();
-        try {
-          final result = await repo.validatePath(path, directoryId: d.id);
-          if (result['exists'] != true) {
-            throw Exception('目录路径不存在: $path');
-          }
-          if (result['is_directory'] != true) {
-            throw Exception('路径不是目录: $path');
-          }
-          if (result['is_duplicate'] == true) {
-            throw Exception('目录路径已被其他媒体库使用: $path');
-          }
-        } catch (e) {
-          if (e is! Exception) rethrow;
-          // 已是 Exception, 提取 message
-          setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+        final result = await repo.validatePath(path, directoryId: d.id);
+        if (result['exists'] != true) {
+          setState(() => _error = l.libraryErrPathNotFound(path));
+          return;
+        }
+        if (result['is_directory'] != true) {
+          setState(() => _error = l.libraryErrNotDirectory(path));
+          return;
+        }
+        if (result['is_duplicate'] == true) {
+          setState(() => _error = l.libraryErrPathUsed(path));
           return;
         }
       }
@@ -146,7 +143,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
           await repo.createDirectory(
             libId,
             path: path,
-            name: '目录 ${i + 1}',
+            name: l.libraryDefaultDirName(i + 1),
             enabled: d.enabled,
           );
         } else {
@@ -162,7 +159,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(_isEdit ? '已保存' : '已创建'),
+          content: Text(_isEdit ? l.configSavedToast : l.libraryCreatedToast),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -186,12 +183,14 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: '媒体库',
-              title: _isEdit ? '编辑媒体库' : '新建媒体库',
+              eyebrow: l.settingsGroupLibrary,
+              title: _isEdit
+                  ? l.libraryEditorTitleEdit
+                  : l.libraryEditorTitleNew,
               trailing: TextButton(
                 onPressed: _saving ? null : _save,
                 child: Text(
-                  _isEdit ? '保存' : '创建',
+                  _isEdit ? l.save : l.listCreate,
                   style: TextStyle(
                     color: c.accent,
                     fontFamily: 'Inter',
@@ -217,11 +216,11 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                   child: TextField(
                     controller: _nameController,
                     textAlignVertical: TextAlignVertical.center,
-                    decoration: const InputDecoration(
-                      hintText: '例: 我的电影',
-                      prefixIcon: Icon(Icons.drive_file_rename_outline),
+                    decoration: InputDecoration(
+                      hintText: l.libraryEditorNameHint,
+                      prefixIcon: const Icon(Icons.drive_file_rename_outline),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 14,
                       ),
@@ -254,7 +253,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '启用',
+                              l.libraryEnable,
                               style: TextStyle(
                                 color: c.text,
                                 fontFamily: 'Inter',
@@ -263,7 +262,10 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text('关闭后不参与扫描,首页隐藏', style: AppText.meta(context)),
+                            Text(
+                              l.libraryEditorEnableHint,
+                              style: AppText.meta(context),
+                            ),
                           ],
                         ),
                       ),
@@ -288,7 +290,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                       onPressed: _addDir,
                       icon: Icon(Icons.add, size: 16, color: c.accent),
                       label: Text(
-                        '添加目录',
+                        l.libraryEditorAddDir,
                         style: TextStyle(
                           color: c.accent,
                           fontFamily: 'Inter',

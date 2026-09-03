@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/shake_error_text.dart' show shakeErrorDuration;
 import 'security_policy.dart';
 
@@ -79,7 +80,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
                 height: 54,
                 child: IconButton(
                   onPressed: widget.busy || _value.isEmpty ? null : _clear,
-                  tooltip: '清空',
+                  tooltip: AppL10n.of(context).commonClearInput,
                   icon: const Icon(Icons.clear),
                 ),
               ),
@@ -89,7 +90,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
                 height: 54,
                 child: IconButton(
                   onPressed: widget.busy || _value.isEmpty ? null : _delete,
-                  tooltip: '删除',
+                  tooltip: AppL10n.of(context).delete,
                   icon: const Icon(Icons.backspace_outlined),
                 ),
               ),

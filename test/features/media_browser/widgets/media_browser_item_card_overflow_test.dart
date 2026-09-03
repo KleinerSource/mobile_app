@@ -8,6 +8,7 @@ import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/poster.dart';
 
@@ -76,6 +77,9 @@ Widget _grid(List<Widget> children, double aspectRatio) {
       ),
     ],
     child: MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
       home: Scaffold(
         body: GridView.count(
           crossAxisCount: 3,
@@ -150,7 +154,9 @@ Future<void> _pumpBoth(WidgetTester tester) async {
 }
 
 void main() {
-  test('剧集 meta 显示起止年份和集数', () {
+  testWidgets('剧集 meta 显示起止年份和集数', (tester) async {
+    await tester.pumpWidget(_grid(const [], 0.5));
+    final context = tester.element(find.byType(Scaffold));
     final ended = MediaBrowserItem.fromJson(const {
       'Id': 'series-1',
       'Name': '已完结剧集',
@@ -178,12 +184,14 @@ void main() {
       'ChildCount': 8,
     });
 
-    expect(mediaBrowserItemMetaText(ended), '2019 - 2024 · 24集');
-    expect(mediaBrowserItemMetaText(ongoing), '2019 - 现在 · 12集');
-    expect(mediaBrowserItemMetaText(legacy), '2019 - 2024 · 8集');
+    expect(mediaBrowserItemMetaText(context, ended), '2019 - 2024 · 24集');
+    expect(mediaBrowserItemMetaText(context, ongoing), '2019 - 现在 · 12集');
+    expect(mediaBrowserItemMetaText(context, legacy), '2019 - 2024 · 8集');
   });
 
-  test('Emby 原始剧集字段显示起始年份和连载状态', () {
+  testWidgets('Emby 原始剧集字段显示起始年份和连载状态', (tester) async {
+    await tester.pumpWidget(_grid(const [], 0.5));
+    final context = tester.element(find.byType(Scaffold));
     final item = MediaBrowserItem.fromJson(const {
       'Name': '侠探杰克',
       'Id': '3292',
@@ -195,7 +203,7 @@ void main() {
     });
 
     expect(item.productionYear, 2022);
-    expect(mediaBrowserItemMetaText(item), '2022 - 现在 · 24集');
+    expect(mediaBrowserItemMetaText(context, item), '2022 - 现在 · 24集');
   });
 
   testWidgets('MediaBrowser 卡片在影视网格中完整显示 meta', (tester) async {
@@ -248,7 +256,7 @@ void main() {
     await tester.pump();
     tester.takeException();
 
-    expect(find.text('2024 · 90m'), findsOneWidget);
+    expect(find.text('2024 · 90 分钟'), findsOneWidget);
     expect(find.text('S01E02 · 很长的剧集名称同样会占满一行'), findsOneWidget);
     // OMM 卡片没有在线播放角标；播放入口在详情页。
     expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);

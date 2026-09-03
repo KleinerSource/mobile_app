@@ -10,6 +10,7 @@ import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/features/privacy/shake_detector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/privacy_providers_test.dart ====================
 void _main_0() {
@@ -87,6 +88,9 @@ void _main_0() {
           privacyShieldProvider.overrideWith(() => _PrivacyEnabled()),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Column(
               children: [

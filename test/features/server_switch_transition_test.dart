@@ -369,7 +369,11 @@ class _FakeAuthController extends AuthController {
   }
 
   @override
-  Future<bool> login({String? username, required String password, String? totpCode}) async {
+  Future<bool> login({
+    String? username,
+    required String password,
+    String? totpCode,
+  }) async {
     loginCalls.add((password: password, totpCode: totpCode));
     return true;
   }

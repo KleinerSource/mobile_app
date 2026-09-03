@@ -83,13 +83,19 @@ class _MovieExtraFanartSectionState
           .downloadExtraFanarts(widget.movieId);
       if (!mounted) return;
       ref.invalidate(extraFanartsProvider(widget.movieId));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('预览图获取完成')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).fanartFetchDone)),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('获取预览图失败: ${toApiException(error).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).fanartFetchFailed(toApiException(error).message),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _fetching = false);
@@ -97,9 +103,12 @@ class _MovieExtraFanartSectionState
   }
 
   Widget _header(BuildContext context, {required bool hasImages}) {
+    final l = AppL10n.of(context);
     return Row(
       children: [
-        Expanded(child: Text('预览图', style: AppText.sectionTitle(context))),
+        Expanded(
+          child: Text(l.fanartTitle, style: AppText.sectionTitle(context)),
+        ),
         if (widget.canFetch)
           TextButton.icon(
             onPressed: _fetching ? null : _fetchExtraFanarts,
@@ -110,7 +119,7 @@ class _MovieExtraFanartSectionState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh_rounded, size: 17),
-            label: Text(hasImages ? '重新获取' : '获取'),
+            label: Text(hasImages ? l.fanartRefresh : l.fanartFetch),
           ),
       ],
     );
@@ -177,19 +186,20 @@ class _MovieExtraFanartSectionState
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(extraFanartsProvider(widget.movieId));
+    final l = AppL10n.of(context);
     return async.when(
       loading: () => widget.trailerUrl != null
           ? _trailerOnlyPreview(context)
           : _placeholderState(
               context,
-              message: '正在加载预览图',
+              message: l.fanartLoading,
               icon: Icons.hourglass_empty_rounded,
             ),
       error: (error, _) => widget.trailerUrl != null
           ? _trailerOnlyPreview(context)
           : _placeholderState(
               context,
-              message: '预览图加载失败: ${toApiException(error).message}',
+              message: l.fanartLoadFailed(toApiException(error).message),
               icon: Icons.broken_image_outlined,
             ),
       data: (urls) {
@@ -197,7 +207,7 @@ class _MovieExtraFanartSectionState
         if (!hasTrailer && urls.isEmpty) {
           return _placeholderState(
             context,
-            message: '暂无预览图',
+            message: l.fanartEmpty,
             icon: Icons.photo_library_outlined,
           );
         }
@@ -279,7 +289,7 @@ class _MovieExtraFanartSectionState
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: '关闭预览图',
+      barrierLabel: AppL10n.of(context).fanartClose,
       // 背景由灯箱自身绘制，才能在下滑时和内容一起实时淡出。
       barrierColor: Colors.transparent,
       pageBuilder: (_, __, ___) => _ExtraFanartViewer(
@@ -299,7 +309,7 @@ class _MovieExtraFanartSectionState
       VideoPlayerPage.open(
         context,
         movieId: widget.movieId,
-        title: '${widget.movieTitle} · 预告片',
+        title: '${widget.movieTitle} · ${AppL10n.of(context).detailTrailer}',
         directUrl: url,
         engineKind: PlaybackEngineKind.libmpv,
       ),
@@ -407,7 +417,7 @@ Future<void> showImageLightbox(
     context: context,
     useRootNavigator: useRootNavigator,
     barrierDismissible: true,
-    barrierLabel: '关闭预览图',
+    barrierLabel: AppL10n.of(context).fanartClose,
     barrierColor: Colors.transparent,
     pageBuilder: (_, __, ___) => _ExtraFanartViewer(
       urls: const <String>[],
@@ -436,7 +446,7 @@ Future<void> showMovieImageLightbox(
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: '关闭预览图',
+    barrierLabel: AppL10n.of(context).fanartClose,
     barrierColor: Colors.transparent,
     pageBuilder: (_, __, ___) => _ExtraFanartViewer(
       urls: validUrls,
@@ -816,6 +826,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final height = MediaQuery.sizeOf(context).height;
     final dragProgress = (_verticalDragOffset / height)
         .clamp(0.0, 1.0)
@@ -955,7 +966,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer>
                       top: 4,
                       right: 4,
                       child: IconButton(
-                        tooltip: '关闭预览图',
+                        tooltip: l.fanartClose,
                         onPressed: _close,
                         icon: const Icon(
                           Icons.close_rounded,
@@ -1057,7 +1068,11 @@ class _TrailerViewerState extends State<_TrailerViewer> {
         if (!widget.active) await _player.pause();
       }
     } catch (_) {
-      if (mounted) setState(() => _error = '预告片播放失败');
+      if (mounted) {
+        setState(
+          () => _error = AppL10n.of(context).fanartTrailerPlaybackFailed,
+        );
+      }
     } finally {
       if (mounted) setState(() => _opening = false);
     }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/subtitle_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -97,7 +98,13 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('预览失败: ${toApiException(e).message}')),
+          SnackBar(
+            content: Text(
+              AppL10n.of(
+                context,
+              ).subtitlePreviewFailed(toApiException(e).message),
+            ),
+          ),
         );
       }
       return null;
@@ -151,7 +158,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           if (mounted) Navigator.of(context).pop();
           messenger?.showSnackBar(
             SnackBar(
-              content: Text('已下载 ${item.name}'),
+              content: Text(AppL10n.of(context).subtitleDownloaded(item.name)),
               duration: const Duration(seconds: 1),
             ),
           );
@@ -167,7 +174,13 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           }
           if (!mounted) return;
           messenger?.showSnackBar(
-            SnackBar(content: Text('下载失败: ${toApiException(e).message}')),
+            SnackBar(
+              content: Text(
+                AppL10n.of(
+                  context,
+                ).subtitleDownloadFailed(toApiException(e).message),
+              ),
+            ),
           );
           return;
         }
@@ -181,16 +194,16 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('字幕已存在'),
-        content: const Text('同名字幕文件已存在，是否覆盖？'),
+        title: Text(AppL10n.of(context).subtitleExistsTitle),
+        content: Text(AppL10n.of(context).subtitleExistsMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(AppL10n.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('覆盖'),
+            child: Text(AppL10n.of(context).fileOverwrite),
           ),
         ],
       ),
@@ -211,13 +224,14 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetHeader(
           icon: Icons.subtitles_outlined,
-          title: '获取字幕',
-          subtitle: _keyword.isEmpty ? null : '关键词: $_keyword',
+          title: l.subtitleSearchTitle,
+          subtitle: _keyword.isEmpty ? null : l.subtitleSearchKeyword(_keyword),
           trailing: IconButton(
             icon: Icon(Icons.refresh, color: c.muted, size: 20),
             onPressed: _loading ? null : _load,
@@ -263,7 +277,10 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           children: [
             Icon(Icons.subtitles_off, size: 36, color: c.muted),
             const SizedBox(height: 12),
-            Text('没有找到匹配的字幕', style: AppText.meta(context)),
+            Text(
+              AppL10n.of(context).subtitleNoMatch,
+              style: AppText.meta(context),
+            ),
           ],
         ),
       );
@@ -309,6 +326,7 @@ class _SubtitleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final ext = item.ext ?? '';
     final size = item.fileSize ?? 0;
     return Padding(
@@ -411,14 +429,14 @@ class _SubtitleRow extends StatelessWidget {
           // 操作
           const SizedBox(width: 6),
           _IconBtn(
-            tooltip: '预览',
+            tooltip: l.subtitlePreview,
             loading: previewing,
             icon: Icons.visibility_outlined,
             onTap: onPreview,
           ),
           const SizedBox(width: 4),
           _IconBtn(
-            tooltip: '下载',
+            tooltip: l.subtitleDownload,
             loading: downloading,
             icon: Icons.download,
             color: c.accent,
@@ -493,6 +511,7 @@ class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: c.bg,
       appBar: AppBar(
@@ -506,8 +525,8 @@ class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '字幕预览',
+            Text(
+              l.subtitlePreviewTitle,
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w800,
@@ -561,15 +580,15 @@ class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
               ),
             ),
           IconButton(
-            tooltip: '复制',
+            tooltip: l.subtitleCopy,
             icon: const Icon(Icons.copy, size: 18),
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: widget.content));
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('已复制全部内容'),
-                  duration: Duration(seconds: 1),
+                SnackBar(
+                  content: Text(l.subtitleCopied),
+                  duration: const Duration(seconds: 1),
                 ),
               );
             },

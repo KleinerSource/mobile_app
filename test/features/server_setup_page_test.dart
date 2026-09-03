@@ -9,6 +9,7 @@ import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/settings/server_list_page.dart';
 import 'package:omm/features/settings/server_setup_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('服务器名称为空时显示报错', (tester) async {
@@ -194,6 +195,9 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: ServerSetupPage(editing: true, serverId: 'first'),
         ),
       ),
@@ -214,7 +218,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerListPage()),
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: ServerListPage(),
+        ),
       ),
     );
 
@@ -240,7 +249,12 @@ Future<void> _pumpSetup(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-      child: MaterialApp(home: ServerSetupPage(editing: editing)),
+      child: MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
+        home: ServerSetupPage(editing: editing),
+      ),
     ),
   );
   await tester.pumpAndSettle();

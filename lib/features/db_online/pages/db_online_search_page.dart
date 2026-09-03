@@ -177,7 +177,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                         },
                       ),
                     IconButton(
-                      tooltip: '搜索',
+                      tooltip: l.searchTitle,
                       icon: Icon(Icons.search, size: 18, color: colors.muted),
                       onPressed: _submitSearch,
                     ),
@@ -338,7 +338,9 @@ class _DbOnlineSearchResultsState
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),
               firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message: _pagingController.error?.toString() ?? '加载失败',
+                message:
+                    _pagingController.error?.toString() ??
+                    AppL10n.of(context).loadFailed,
                 onRetry: _pagingController.refresh,
               ),
               newPageErrorIndicatorBuilder: (_) => PaginationRetry(
@@ -501,7 +503,9 @@ class _DbOnlineSeriesSearchResultsState
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),
               firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message: _pagingController.error?.toString() ?? '加载失败',
+                message:
+                    _pagingController.error?.toString() ??
+                    AppL10n.of(context).loadFailed,
                 onRetry: _pagingController.refresh,
               ),
               newPageErrorIndicatorBuilder: (_) => PaginationRetry(

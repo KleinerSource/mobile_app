@@ -12,9 +12,7 @@ import 'package:flutter/services.dart';
 class ScreenBrightnessChannel {
   ScreenBrightnessChannel._();
 
-  static const MethodChannel _channel = MethodChannel(
-    'omm/screen_brightness',
-  );
+  static const MethodChannel _channel = MethodChannel('omm/screen_brightness');
 
   /// 当前亮度 (0.0–1.0)。平台未实现或读取失败时返回 null，
   /// 调用方应保留自己的默认值。

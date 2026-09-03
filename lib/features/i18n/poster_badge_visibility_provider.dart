@@ -4,19 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config_provider.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// 影片详情页海报技术角标类型。
-enum PosterBadgeKind {
-  codec('编码'),
-  hdr('HDR'),
-  strm('STRM'),
-  subtitle('字幕'),
-  crack('破解'),
-  resolution('HD / UHD');
+enum PosterBadgeKind { codec, hdr, strm, subtitle, crack, resolution }
 
-  const PosterBadgeKind(this.label);
-
-  final String label;
+extension PosterBadgeKindL10n on PosterBadgeKind {
+  String label(AppL10n l) => switch (this) {
+    PosterBadgeKind.codec => l.badgeCodec,
+    PosterBadgeKind.hdr => 'HDR',
+    PosterBadgeKind.strm => 'STRM',
+    PosterBadgeKind.subtitle => l.badgeSubtitle,
+    PosterBadgeKind.crack => l.badgeCrack,
+    PosterBadgeKind.resolution => 'HD / UHD',
+  };
 }
 
 /// 影片详情页海报技术角标显示偏好。

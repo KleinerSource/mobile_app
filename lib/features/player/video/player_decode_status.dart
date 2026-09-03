@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 
 enum PlayerDecodeLocation { local, server }
@@ -67,28 +68,34 @@ class PlayerDecodeStatus {
     ];
   }
 
-  String get shortLabel {
+  /// 解码徽标的短文案（仅含位置/模式，本地化由 UI 层传入）。
+  String shortLabel(AppL10n l) {
     if (location == PlayerDecodeLocation.local) {
-      return isHardware ? '本地硬解' : '本地软解';
+      return isHardware
+          ? l.playerDecodeLocalHardware
+          : l.playerDecodeLocalSoftware;
     }
-    if (isFallback) return '服务端软解回退';
-    return isHardware ? '服务端硬解' : '服务端软解';
+    if (isFallback) return l.playerDecodeServerSoftwareFallback;
+    return isHardware
+        ? l.playerDecodeServerHardware
+        : l.playerDecodeServerSoftware;
   }
 
-  String get fullLabel {
+  /// 解码徽标的长文案（含解码器/内核名，本地化由 UI 层传入）。
+  String fullLabel(AppL10n l) {
     final engineName = _engineLabel;
     if (location == PlayerDecodeLocation.local) {
       final clientName = clientEngine?.label ?? PlaybackEngineKind.libmpv.label;
       return engineName == null
-          ? '$shortLabel · $clientName'
+          ? '${shortLabel(l)} · $clientName'
           : '$clientName · $engineName';
     }
     if (location == PlayerDecodeLocation.server &&
         isHardware &&
         engineName != null) {
-      return '$shortLabel · $engineName';
+      return '${shortLabel(l)} · $engineName';
     }
-    return shortLabel;
+    return shortLabel(l);
   }
 
   IconData get icon {
@@ -132,10 +139,11 @@ class PlayerDecodeStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = status.color;
+    final l = AppL10n.of(context);
     return Semantics(
-      label: status.fullLabel,
+      label: status.fullLabel(l),
       child: Tooltip(
-        message: status.fullLabel,
+        message: status.fullLabel(l),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.14),
@@ -150,7 +158,7 @@ class PlayerDecodeStatusBadge extends StatelessWidget {
                 Icon(status.icon, color: color, size: 13),
                 const SizedBox(width: 3),
                 Text(
-                  status.shortLabel,
+                  status.shortLabel(l),
                   style: TextStyle(
                     color: color,
                     fontSize: 10,

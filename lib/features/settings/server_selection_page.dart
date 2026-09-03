@@ -20,6 +20,7 @@ import '../../features/cache/image_cache_manager.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import '../home/server_switch_transition.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'server_setup_page.dart';
@@ -178,11 +179,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       }
     });
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     final config = ref.watch(serverSelectionConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     final transition = ref.watch(serverSwitchTransitionProvider);
     final searchEnabled = servers.length > 20;
-    final visibleServers = searchEnabled ? _filterServers(servers) : servers;
+    final visibleServers = searchEnabled ? _filterServers(servers, l) : servers;
     // 列表底部穿透安全区滚动；安全区高度并入列表内边距，停靠时保持
     // 与原先 48+12 相同的呼吸空间。
     final safeBottom = MediaQuery.paddingOf(context).bottom;
@@ -251,7 +253,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                     vertical: 18,
                                   ),
                                   child: Text(
-                                    '没有找到匹配的连接',
+                                    l.serverSelectionNoMatch,
                                     textAlign: TextAlign.center,
                                     style: AppText.meta(context),
                                   ),
@@ -310,7 +312,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final config = ref.read(serverSelectionConfigProvider);
     final allServers = config?.servers ?? const <ServerProfile>[];
     final servers = allServers.length > 20
-        ? _filterServers(allServers)
+        ? _filterServers(allServers, AppL10n.of(context))
         : allServers;
     try {
       await Future.wait<void>([
@@ -323,7 +325,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     }
   }
 
-  List<ServerProfile> _filterServers(List<ServerProfile> servers) {
+  List<ServerProfile> _filterServers(List<ServerProfile> servers, AppL10n l) {
     final query = _searchQuery.toLowerCase();
     if (query.isEmpty) return servers;
     return servers
@@ -331,7 +333,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           final line = server.activeLine;
           final searchable = [
             server.name,
-            _serverProjectLabel(server.project),
+            _serverProjectLabel(l, server.project),
             line?.name,
             line?.baseUrl,
           ].whereType<String>().join(' ').toLowerCase();
@@ -357,19 +359,20 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 
   Future<void> _deleteServer(ServerProfile server) async {
+    final l = AppL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除服务器'),
-        content: Text('确定删除“${server.name}”及其线路吗？'),
+        title: Text(l.serverDeleteTitle),
+        content: Text(l.serverDeleteBody(server.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text(l.serverCancelAction),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
+            child: Text(l.serverDeleteAction),
           ),
         ],
       ),
@@ -381,7 +384,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：${toApiException(error).message}')),
+          SnackBar(
+            content: Text(l.serverDeleteFailed(toApiException(error).message)),
+          ),
         );
       }
     }
@@ -634,10 +639,14 @@ class _ConnectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('连接', style: AppText.pageTitle(context).copyWith(fontSize: 24)),
+        Text(
+          l.serverSelectionTitle,
+          style: AppText.pageTitle(context).copyWith(fontSize: 24),
+        ),
         if (showSearch) ...[
           const SizedBox(height: 16),
           SizedBox(
@@ -656,7 +665,7 @@ class _ConnectionHeader extends StatelessWidget {
                 style: AppText.body(context).copyWith(fontSize: 14),
                 cursorColor: colors.accent,
                 decoration: InputDecoration(
-                  hintText: '搜索连接',
+                  hintText: l.serverSelectionSearchHint,
                   hintStyle: TextStyle(
                     color: colors.muted,
                     fontFamily: 'Inter',
@@ -691,9 +700,10 @@ class _AddServerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return Semantics(
       button: true,
-      label: '添加服务器',
+      label: l.serverSelectionAddServer,
       child: SizedBox(
         width: double.infinity,
         height: _ServerSelectionMetrics.cardHeight,
@@ -711,7 +721,10 @@ class _AddServerCard extends StatelessWidget {
                     size: _ServerSelectionMetrics.addIconSize,
                   ),
                   const SizedBox(height: 7),
-                  Text('添加服务器', style: AppText.cardTitle(context)),
+                  Text(
+                    l.serverSelectionAddServer,
+                    style: AppText.cardTitle(context),
+                  ),
                 ],
               ),
             ),
@@ -1233,6 +1246,7 @@ class _ServerActionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     final overlayBackground = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFF1B1A24)
         : Colors.white;
@@ -1258,7 +1272,7 @@ class _ServerActionList extends StatelessWidget {
               child: _ServerActionListItem(
                 key: editKey,
                 icon: Icons.edit_outlined,
-                label: '编辑服务器',
+                label: l.serverEditAction,
                 color: colors.text,
                 onTap: onEdit,
               ),
@@ -1269,7 +1283,7 @@ class _ServerActionList extends StatelessWidget {
               child: _ServerActionListItem(
                 key: deleteKey,
                 icon: Icons.delete_outline,
-                label: '删除服务器',
+                label: l.serverDeleteAction,
                 color: colors.danger,
                 onTap: onDelete,
               ),
@@ -1358,6 +1372,7 @@ class _ServerAvatarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     return FutureBuilder<ServerProfileData?>(
       future: profileFuture,
       initialData: cachedProfile,
@@ -1376,11 +1391,11 @@ class _ServerAvatarCard extends StatelessWidget {
             : server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         final line = server.activeLine;
-        final lineName = _serverLineLabel(line);
-        final projectLabel = _serverProjectLabel(server.project);
+        final lineName = _serverLineLabel(l, line);
+        final projectLabel = _serverProjectLabel(l, server.project);
         return Semantics(
           button: true,
-          label: '选择$displayName',
+          label: l.serverSelectionSelectServer(displayName),
           child: _ServerCardShell(
             project: server.project,
             avatarUrl: avatarUrl,
@@ -1469,7 +1484,7 @@ class _ServerAvatarCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${server.lines.length}条线路',
+                        l.serverLineCount(server.lines.length),
                         style: AppText.meta(
                           context,
                         ).copyWith(fontSize: 11, color: colors.muted),
@@ -1480,7 +1495,7 @@ class _ServerAvatarCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '延迟',
+                        l.serverLatency,
                         style: AppText.meta(
                           context,
                         ).copyWith(fontSize: 11, color: colors.muted),
@@ -1742,22 +1757,28 @@ String? _serverCardAsset(ServerProject? project) {
   return serverProjectAvatarAsset(project);
 }
 
-String _serverProjectLabel(ServerProject? project) {
+String _serverProjectLabel(AppL10n l, ServerProject? project) {
   return switch (project) {
     ServerProject.ohMyMedia => 'Oh My Media',
     ServerProject.dbOnline => 'DB Online',
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
-    ServerProject.feiniu => '飞牛影视',
+    ServerProject.feiniu => l.serverProjectFeiniu,
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',
-    null => '服务器',
+    null => l.serverProjectDefault,
   };
 }
 
-String _serverLineLabel(ServerLine? line) {
+String _serverLineLabel(AppL10n l, ServerLine? line) {
   final name = line?.name.trim();
-  if (name == null || name.isEmpty || name == '服务器线路') return '主线路';
+  if (name == null ||
+      name.isEmpty ||
+      name == l.serverLineDefaultName ||
+      name == '主线路' ||
+      name == 'Primary line') {
+    return l.serverLineMain;
+  }
   return name;
 }

@@ -14,6 +14,7 @@ import '../../core/sources/files/openlist_api.dart';
 import '../../core/sources/files/openlist_file_source.dart';
 import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
@@ -97,13 +98,14 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   }
 
   Future<void> _testAndSave() async {
+    final l = AppL10n.of(context);
     final project = _project;
     if (project == null) {
-      _showError('请选择服务器类型');
+      _showError(l.serverSetupSelectProject);
       return;
     }
     if (_nameController.text.trim().isEmpty) {
-      _showError('请输入服务器名称');
+      _showError(l.serverSetupNameRequired);
       return;
     }
     if (project.isFileSource) {
@@ -124,7 +126,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       normalized,
       excludingServerId: editingServer?.id,
     )) {
-      _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
+      _showError(
+        AppL10n.of(
+          context,
+        ).serverSetupDuplicate(_projectLabel(AppL10n.of(context), project)),
+      );
       return;
     }
 
@@ -149,7 +155,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           .probe(line, expectedProjectName: project.projectName);
       if (!probe.success || probe.versionInfo == null) {
         throw ServerCompatibilityException(
-          probe.message.isEmpty ? '服务器版本检测失败' : probe.message,
+          probe.message.isEmpty
+              ? AppL10n.of(context).serverLineProbeFailed
+              : probe.message,
         );
       }
 
@@ -182,19 +190,20 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   }
 
   Future<void> _testAndSaveFileSource(ServerProject project) async {
+    final l = AppL10n.of(context);
     final host = _hostController.text.trim();
     final port = _readPort(project);
     final path = _pathController.text.trim();
     if (host.isEmpty) {
-      _showError('请输入主机');
+      _showError(l.serverSetupHostRequired);
       return;
     }
     if (port == null) {
-      _showError('请输入 1-65535 之间的端口');
+      _showError(l.serverSetupPortInvalid);
       return;
     }
     if (path.isEmpty) {
-      _showError('请输入路径');
+      _showError(l.serverSetupPathRequired);
       return;
     }
 
@@ -226,7 +235,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       endpoint,
       excludingServerId: editingServer?.id,
     )) {
-      _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
+      _showError(
+        AppL10n.of(
+          context,
+        ).serverSetupDuplicate(_projectLabel(AppL10n.of(context), project)),
+      );
       return;
     }
     final config = switch (project) {
@@ -266,7 +279,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       ServerProject.feiniu => null,
     };
     if (config == null || !config.isValid) {
-      _showError('请完整填写有效的文件服务器配置');
+      _showError(AppL10n.of(context).serverSetupInvalidFileConfig);
       return;
     }
 
@@ -306,7 +319,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
             .probe(line, expectedProjectName: project.projectName);
         if (!probe.success || probe.versionInfo == null) {
           throw ServerCompatibilityException(
-            probe.message.isEmpty ? 'OpenList/AList 版本检测失败' : probe.message,
+            probe.message.isEmpty
+                ? AppL10n.of(context).serverLineProbeFailed
+                : probe.message,
           );
         }
         validatedProbe = probe;
@@ -480,14 +495,15 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   }
 
   String? _buildHttpEndpoint(ServerProject project) {
+    final l = AppL10n.of(context);
     final host = _hostController.text.trim();
     final port = _readPort(project);
     if (host.isEmpty) {
-      _showError('请输入主机');
+      _showError(l.serverSetupHostRequired);
       return null;
     }
     if (port == null) {
-      _showError('请输入 1-65535 之间的端口');
+      _showError(l.serverSetupPortInvalid);
       return null;
     }
     return ServerConfig.normalizeForProject(
@@ -512,6 +528,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final project = _project ?? ServerProject.ohMyMedia;
     final editing = _editingServerId != null;
     final httpServer =
@@ -530,9 +547,15 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: '服务器',
-              title: widget.title ?? (editing ? '更换服务器' : '连接到服务器'),
-              subtitle: editing ? '修改连接信息后重新测试并保存。' : '选择服务器类型并填写连接信息。',
+              eyebrow: l.settingsGroupServer,
+              title:
+                  widget.title ??
+                  (editing
+                      ? l.serverSetupReplaceTitle
+                      : l.serverSetupConnectTitle),
+              subtitle: editing
+                  ? l.serverSetupEditSubtitle
+                  : l.serverSetupNewSubtitle,
               showBackButton: Navigator.of(context).canPop(),
             ),
             body: ListView(
@@ -546,7 +569,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('服务器类型', style: AppText.cardTitle(context)),
+                        Text(
+                          l.serverSetupProjectLabel,
+                          style: AppText.cardTitle(context),
+                        ),
                         const SizedBox(height: 10),
                         _ProjectSelector(
                           value: project,
@@ -564,9 +590,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                         TextField(
                           controller: _nameController,
                           enabled: !_busy,
-                          decoration: const InputDecoration(
-                            labelText: '服务器名称',
-                            prefixIcon: Icon(Icons.drive_file_rename_outline),
+                          decoration: InputDecoration(
+                            labelText: l.serverSetupNameLabel,
+                            prefixIcon: const Icon(
+                              Icons.drive_file_rename_outline,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -590,7 +618,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                                   keyboardType: TextInputType.url,
                                   autocorrect: false,
                                   decoration: InputDecoration(
-                                    labelText: '主机',
+                                    labelText: l.serverSetupHostLabel,
                                     hintText: project == ServerProject.smb
                                         ? '192.168.1.10'
                                         : 'example.com',
@@ -608,7 +636,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                                   enabled: !_busy,
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    labelText: '端口',
+                                    labelText: l.serverSetupPortLabel,
                                     hintText: defaultServerPort(
                                       project,
                                       scheme: _scheme,
@@ -624,11 +652,14 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _pathController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: openList ? '根路径' : '路径',
+                              labelText: openList
+                                  ? l.serverSetupRootPathLabel
+                                  : l.serverSetupPathLabel,
                               hintText: switch (project) {
-                                ServerProject.smb => '共享名或 /',
+                                ServerProject.smb => l.serverSetupPathHintSmb,
                                 ServerProject.webDav => 'dav/media',
-                                ServerProject.openList => '/ 或 /media',
+                                ServerProject.openList =>
+                                  l.serverSetupPathHintOpenList,
                                 _ => '/',
                               },
                               prefixIcon: const Icon(Icons.folder_outlined),
@@ -639,7 +670,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _userController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: openList ? '用户名（留空匿名访问）' : '用户名',
+                              labelText: openList
+                                  ? l.serverSetupUserAnonymousLabel
+                                  : l.serverSetupUserLabel,
                               prefixIcon: const Icon(Icons.person_outline),
                             ),
                           ),
@@ -648,9 +681,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _passwordController,
                             enabled: !_busy,
                             obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: '密码',
-                              prefixIcon: Icon(Icons.lock_outline),
+                            decoration: InputDecoration(
+                              labelText: l.serverSetupPasswordLabel,
+                              prefixIcon: const Icon(Icons.lock_outline),
                             ),
                           ),
                         ],
@@ -699,7 +732,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                 SettingsSaveButton(
                   onPressed: _testAndSave,
                   saving: _busy,
-                  label: '测试并保存',
+                  label: l.serverTestAndSave,
                 ),
               ],
             ),
@@ -757,7 +790,7 @@ class _ProjectSelector extends StatelessWidget {
             for (final project in ServerProject.values)
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: Text(_projectLabel(project)),
+                child: Text(_projectLabel(AppL10n.of(context), project)),
               ),
           ],
           onChanged: enabled
@@ -791,7 +824,7 @@ class _ProtocolSelector extends StatelessWidget {
     return InputDecorator(
       decoration: settingsInputDecoration(
         context,
-        labelText: '协议',
+        labelText: AppL10n.of(context).serverSetupProtocolLabel,
         prefixIcon: const Icon(Icons.http_outlined),
       ),
       child: DropdownButtonHideUnderline(
@@ -850,7 +883,7 @@ class _ProjectMenuItem extends StatelessWidget {
           child: Row(
             children: [
               ServerAvatar(
-                displayName: _projectLabel(project),
+                displayName: _projectLabel(AppL10n.of(context), project),
                 avatarUrl: null,
                 size: 30,
                 colors: colors,
@@ -859,7 +892,9 @@ class _ProjectMenuItem extends StatelessWidget {
                 showBorder: false,
               ),
               const SizedBox(width: 10),
-              Expanded(child: Text(_projectLabel(project))),
+              Expanded(
+                child: Text(_projectLabel(AppL10n.of(context), project)),
+              ),
             ],
           ),
         ),
@@ -868,13 +903,13 @@ class _ProjectMenuItem extends StatelessWidget {
   }
 }
 
-String _projectLabel(ServerProject project) {
+String _projectLabel(AppL10n l, ServerProject project) {
   return switch (project) {
     ServerProject.ohMyMedia => 'Oh My Media',
     ServerProject.dbOnline => 'DB Online',
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
-    ServerProject.feiniu => '飞牛影视',
+    ServerProject.feiniu => l.serverProjectFeiniu,
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

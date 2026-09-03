@@ -109,11 +109,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     final state = container.read(fileSourceRegistryProvider);
-    expect(
-      state.hasError,
-      isTrue,
-      reason: '连接失败应以错误态呈现',
-    );
+    expect(state.hasError, isTrue, reason: '连接失败应以错误态呈现');
     expect(
       state.error.toString(),
       isNot(contains('onDispose')),

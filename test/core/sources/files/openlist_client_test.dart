@@ -23,10 +23,10 @@ void main() {
           FilePath(sourceId: sourceId, value: '/'),
         );
         expect(listing.currentPath.value, '/');
-        expect(
-          listing.entries.map((entry) => entry.name).toList(),
-          ['movies', 'movie.mkv'],
-        );
+        expect(listing.entries.map((entry) => entry.name).toList(), [
+          'movies',
+          'movie.mkv',
+        ]);
         final movie = listing.entries.singleWhere(
           (entry) => entry.name == 'movie.mkv',
         );
@@ -92,7 +92,8 @@ void main() {
     });
 
     test('REST 刷新失败时降级为普通 WebDAV 列目录', () async {
-      final fixture = await _OpenListFixture.start()..failRefresh = true;
+      final fixture = await _OpenListFixture.start()
+        ..failRefresh = true;
       final sourceId = SourceId.of('openlist-degrade');
       final source = await OpenListFileSource.connect(
         id: sourceId.value,
@@ -167,7 +168,8 @@ void main() {
     });
 
     test('密码错误时连接失败并给出业务错误', () async {
-      final fixture = await _OpenListFixture.start()..wrongPassword = true;
+      final fixture = await _OpenListFixture.start()
+        ..wrongPassword = true;
       try {
         await expectLater(
           OpenListFileSource.connect(
@@ -306,13 +308,18 @@ class _OpenListFixture {
           await _writeEnvelope(response, 500, 'storage driver error');
           return;
         }
-        await _writeEnvelope(response, 200, 'success', data: {
-          'content': <Object?>[],
-          'total': 0,
-          'page': 1,
-          'per_page': 1,
-          'has_more': false,
-        });
+        await _writeEnvelope(
+          response,
+          200,
+          'success',
+          data: {
+            'content': <Object?>[],
+            'total': 0,
+            'page': 1,
+            'per_page': 1,
+            'has_more': false,
+          },
+        );
         return;
       }
 

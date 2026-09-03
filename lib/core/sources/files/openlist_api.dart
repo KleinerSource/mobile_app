@@ -78,9 +78,7 @@ class OpenListClient {
     final index = segments.indexOf('dav');
     if (index < 0) return davUri.replace(path: '/');
     final prefix = segments.sublist(0, index);
-    return davUri.replace(
-      path: prefix.isEmpty ? '/' : '/${prefix.join('/')}',
-    );
+    return davUri.replace(path: prefix.isEmpty ? '/' : '/${prefix.join('/')}');
   }
 
   Future<void> ensureAuthenticated() {

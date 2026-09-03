@@ -10,6 +10,7 @@ import 'package:omm/features/settings/app_update_settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -96,6 +97,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(body: PerformanceMonitorOverlay(statsReader: reader)),
       ),
     );
@@ -115,6 +119,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(body: PerformanceMonitorOverlay(statsReader: reader)),
       ),
     );
@@ -138,7 +145,12 @@ Widget _settingsApp(SharedPreferences prefs) {
         ),
       ),
     ],
-    child: const MaterialApp(home: AppUpdateSettingsPage()),
+    child: const MaterialApp(
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      locale: const Locale('zh'),
+      home: AppUpdateSettingsPage(),
+    ),
   );
 }
 

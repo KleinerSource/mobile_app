@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/features/security/security_biometric_coordinator.dart';
 import 'package:omm/features/security/security_pin_pad.dart';
 import 'package:omm/features/security/security_policy.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/security_policy_test.dart ====================
 void _main_0() {
@@ -96,6 +97,9 @@ void _main_2() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: Scaffold(
           body: SecurityPinPad(
             onCompleted: (pin) async {

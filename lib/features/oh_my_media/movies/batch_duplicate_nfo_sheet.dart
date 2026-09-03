@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
@@ -167,12 +168,18 @@ class _BatchDuplicateNfoCompareSheetState
         'movie_lists': movieLists,
       });
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('NFO 已同步')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).moviesNfoSynced)),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('应用失败: ${toApiException(e).message}')),
+        SnackBar(
+          content: Text(
+            AppL10n.of(context).moviesApplyFailed(toApiException(e).message),
+          ),
+        ),
       );
       setState(() => _saving = false);
     }
@@ -181,19 +188,20 @@ class _BatchDuplicateNfoCompareSheetState
   String _movieLabel(int id) {
     final m = _movies.firstWhere((x) => x['id'] == id, orElse: () => const {});
     final title = (m['title'] ?? '').toString();
-    return title.isEmpty ? '影片 $id' : title;
+    return title.isEmpty ? AppL10n.of(context).moviesMovieWithId(id) : title;
   }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SheetHeader(
+        SheetHeader(
           icon: Icons.compare_arrows_outlined,
-          title: '比较重复 NFO',
-          subtitle: '为每个字段选择同步来源',
+          title: l.moviesCompareNfoTitle,
+          subtitle: l.moviesCompareNfoSubtitle,
         ),
         Flexible(
           fit: FlexFit.loose,
@@ -211,7 +219,7 @@ class _BatchDuplicateNfoCompareSheetState
                   child: Padding(
                     padding: const EdgeInsets.all(22),
                     child: Text(
-                      '影片标题、描述、概要、评分均一致, 无需选择',
+                      l.moviesCompareNfoNoChanges,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.muted),
                     ),
@@ -242,7 +250,7 @@ class _BatchDuplicateNfoCompareSheetState
                       ? null
                       : () => Navigator.of(context).pop(false),
                   style: sheetSecondaryButtonStyle(context),
-                  child: const Text('取消'),
+                  child: Text(l.cancel),
                 ),
               ),
               const SizedBox(width: 10),
@@ -260,7 +268,7 @@ class _BatchDuplicateNfoCompareSheetState
                         )
                       : const Icon(Icons.check, size: 18),
                   style: sheetPrimaryButtonStyle(context),
-                  label: Text(_saving ? '应用中...' : '应用同步'),
+                  label: Text(_saving ? l.moviesApplying : l.moviesApplySync),
                 ),
               ),
             ],
@@ -286,8 +294,13 @@ class _FieldCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final fieldName = (field['field'] ?? '').toString();
-    final label = (field['label'] ?? field['field'] ?? '').toString();
+    final label = _nfoFieldLabel(
+      l,
+      fieldName,
+      (field['label'] ?? field['field'] ?? '').toString(),
+    );
     final options = (field['options'] as List?) ?? const [];
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -342,10 +355,11 @@ class _ScalarOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final movieId = (option['movie_id'] as num?)?.toInt();
     final value = option['value'];
     final displayValue = value?.toString().trim() ?? '';
-    final display = displayValue.isEmpty ? '(空)' : displayValue;
+    final display = displayValue.isEmpty ? l.moviesEmptyValue : displayValue;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -416,6 +430,18 @@ class _ScalarOption extends StatelessWidget {
     );
   }
 }
+
+String _nfoFieldLabel(AppL10n l, String field, String fallback) =>
+    switch (field) {
+      'title' => l.moviesNfoFieldTitle,
+      'description' => l.moviesNfoFieldDescription,
+      'plot' || 'overview' => l.moviesNfoFieldPlot,
+      'rating' || 'score' => l.moviesNfoFieldRating,
+      'year' => l.moviesNfoFieldYear,
+      'runtime' || 'duration' => l.moviesNfoFieldRuntime,
+      'date' || 'release_date' => l.moviesNfoFieldDate,
+      _ => fallback,
+    };
 
 const _numericScalarFields = {'rating', 'runtime', 'year', 'duration'};
 

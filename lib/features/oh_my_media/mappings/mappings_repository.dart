@@ -2,6 +2,7 @@ import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/sources/media/omm_metadata_operations_source.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 String normalizeMappingStatus(String status) => switch (status) {
   'convert' => 'active',
@@ -11,13 +12,18 @@ String normalizeMappingStatus(String status) => switch (status) {
 
 /// 普通映射规则类型 · 与后端路径 /mappings/type/{type} 一致
 enum MappingType {
-  tag(value: 'tags', label: '标签'),
-  genre(value: 'genres', label: '分类'),
-  series(value: 'series', label: '系列');
+  tag(value: 'tags'),
+  genre(value: 'genres'),
+  series(value: 'series');
 
-  const MappingType({required this.value, required this.label});
+  const MappingType({required this.value});
   final String value;
-  final String label;
+
+  String label(AppL10n l) => switch (this) {
+    MappingType.tag => l.settingsTags,
+    MappingType.genre => l.settingsGenres,
+    MappingType.series => l.settingsSeries,
+  };
 }
 
 class MappingsRepository {

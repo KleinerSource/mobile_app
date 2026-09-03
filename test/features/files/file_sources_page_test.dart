@@ -179,9 +179,9 @@ void main() {
               ),
             ],
           ),
-          fileSourceProvider(sourceId.value).overrideWith(
-            (ref) async => _KindFileSource(SourceKind.openList),
-          ),
+          fileSourceProvider(
+            sourceId.value,
+          ).overrideWith((ref) async => _KindFileSource(SourceKind.openList)),
           fileDirectoryProvider(
             FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async {
@@ -231,9 +231,9 @@ void main() {
               ),
             ],
           ),
-          fileSourceProvider(sourceId.value).overrideWith(
-            (ref) async => _KindFileSource(SourceKind.smb),
-          ),
+          fileSourceProvider(
+            sourceId.value,
+          ).overrideWith((ref) async => _KindFileSource(SourceKind.smb)),
           fileDirectoryProvider(
             FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async => _listing(sourceId)),
@@ -270,9 +270,9 @@ void main() {
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
           fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
-          fileDirectoryProvider(request).overrideWith(
-            (ref) async => _listing(sourceId),
-          ),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listing(sourceId)),
         ],
         child: MaterialApp(
           locale: const Locale('zh'),
@@ -288,10 +288,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('选择播放器'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('player-engine-libmpv')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('player-engine-libmpv')), findsOneWidget);
 
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
@@ -354,9 +351,9 @@ void main() {
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
           fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
-          fileDirectoryProvider(request).overrideWith(
-            (ref) async => _listing(sourceId),
-          ),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listing(sourceId)),
         ],
         child: MaterialApp(
           locale: const Locale('zh'),
@@ -1021,14 +1018,8 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
-          fileSourceProvider(
-            sourceId.value,
-          ).overrideWith(
-            (ref) async => _PreviewFileSource(
-              sourceId,
-              png,
-              failAccess: true,
-            ),
+          fileSourceProvider(sourceId.value).overrideWith(
+            (ref) async => _PreviewFileSource(sourceId, png, failAccess: true),
           ),
           fileDirectoryProvider(
             request,

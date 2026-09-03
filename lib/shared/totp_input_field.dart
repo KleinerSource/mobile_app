@@ -187,10 +187,9 @@ class _TotpDigitBox extends StatelessWidget {
         ),
         child: Text(
           character ?? '',
-          style: AppText.pageTitle(context).copyWith(
-            fontSize: 24,
-            color: colors.text,
-          ),
+          style: AppText.pageTitle(
+            context,
+          ).copyWith(fontSize: 24, color: colors.text),
         ),
       ),
     );

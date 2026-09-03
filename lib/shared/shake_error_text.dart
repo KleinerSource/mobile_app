@@ -42,7 +42,8 @@ class _ShakeErrorTextState extends State<ShakeErrorText>
   @override
   void didUpdateWidget(covariant ShakeErrorText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final replayed = widget.replayToken != oldWidget.replayToken ||
+    final replayed =
+        widget.replayToken != oldWidget.replayToken ||
         (widget.text.isNotEmpty && widget.text != oldWidget.text);
     if (widget.text.isNotEmpty && replayed) {
       _controller.forward(from: 0);

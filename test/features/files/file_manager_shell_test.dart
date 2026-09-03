@@ -120,11 +120,7 @@ void main() {
 
     await _pumpShell(
       tester,
-      favorites: [
-        _favorite('a.txt'),
-        _favorite('b.txt'),
-        _favorite('c.txt'),
-      ],
+      favorites: [_favorite('a.txt'), _favorite('b.txt'), _favorite('c.txt')],
     );
 
     await tester.tap(find.byIcon(Icons.star_rounded).last);
@@ -157,10 +153,9 @@ void main() {
       isTrue,
     );
     expect(
-      FileFavoritesRepository(prefs)
-          .load('file-server')
-          .map((favorite) => favorite.path)
-          .toList(),
+      FileFavoritesRepository(
+        prefs,
+      ).load('file-server').map((favorite) => favorite.path).toList(),
       ['b.txt', 'c.txt', 'a.txt'],
     );
   });

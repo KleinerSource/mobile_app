@@ -312,7 +312,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                         ),
                         if (_totalCount != null)
                           Text(
-                            '${_totalCount!} 部',
+                            l.actorMovieCount(_totalCount!),
                             style: AppText.meta(context),
                           ),
                       ],
@@ -340,14 +340,14 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                       firstPageProgressIndicatorBuilder: (_) =>
                           const Center(child: CupertinoActivityIndicator()),
                       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message: _controller.error?.toString() ?? '加载失败',
+                        message: _controller.error?.toString() ?? l.loadFailed,
                         onRetry: () => _controller.refresh,
                       ),
                       newPageErrorIndicatorBuilder: (_) => PaginationRetry(
                         onRetry: () => _controller.retryLastFailedRequest,
                       ),
                       noItemsFoundIndicatorBuilder: (_) =>
-                          const EmptyView(message: '没有该演员的影片'),
+                          EmptyView(message: l.personNoMovies),
                       noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                     ),
                   ),
@@ -377,7 +377,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: '同步演员关联',
+                    tooltip: l.personSyncAssociations,
                     icon: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(

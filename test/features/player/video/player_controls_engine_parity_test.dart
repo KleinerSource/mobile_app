@@ -8,6 +8,7 @@ import 'package:omm/features/player/video/player_decode_status.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
 
 import '../common/fake_playback_engine.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('libmpv 与 KSPlayer 渲染同一套控制栏和菜单', (tester) async {
@@ -33,6 +34,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             backgroundColor: Colors.black,
             body: SizedBox.expand(

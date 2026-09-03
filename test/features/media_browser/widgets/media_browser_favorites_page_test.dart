@@ -181,7 +181,6 @@ void main() {
     final repo = _RecordingRepo(page: _page(const []));
     await _pumpFavorites(tester, repo);
 
-    expect(find.text('还没有收藏的内容'), findsOneWidget);
     expect(find.text('在详情页点击 ♡ 加入收藏'), findsOneWidget);
     expect(find.text('暂无收藏'), findsOneWidget);
   });
@@ -278,6 +277,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Center(
               child: MediaBrowserItemCard(
@@ -305,7 +307,9 @@ void main() {
     expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
   });
 
-  testWidgets('点击走外层 GestureDetector，内部 InkWell 无回调（同 DBO，按住无水波纹）', (tester) async {
+  testWidgets('点击走外层 GestureDetector，内部 InkWell 无回调（同 DBO，按住无水波纹）', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
@@ -320,6 +324,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Center(
               child: MediaBrowserItemCard(

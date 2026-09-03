@@ -19,6 +19,7 @@ import 'package:omm/features/oh_my_media/actor_associations/actor_associations_r
 import 'package:omm/features/oh_my_media/actor_associations/widgets/actor_association_sync_sheet.dart';
 import 'package:omm/features/oh_my_media/configs/configs_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/oh_my_media/actor_associations/actor_association_sync_sheet_test.dart ====================
 void _main_0() {
@@ -51,6 +52,9 @@ void _main_0() {
           actorAssociationsRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: ActorAssociationSyncSheet(
               actor: MappingRule(
@@ -70,13 +74,13 @@ void _main_0() {
     expect(find.byType(DropdownButtonFormField<ActorDataSource>), findsNothing);
     expect(find.byType(Checkbox), findsNothing);
     // 两渠道均启用时三个来源选项并排显示（含混合渠道）
-    expect(find.text('混合渠道'), findsOneWidget);
+    expect(find.text('混合来源'), findsOneWidget);
     expect(
       tester.getCenter(find.text('DB Online')).dy,
       tester.getCenter(find.text('AVDB')).dy,
     );
     expect(
-      tester.getCenter(find.text('混合渠道')).dy,
+      tester.getCenter(find.text('混合来源')).dy,
       tester.getCenter(find.text('DB Online')).dy,
     );
     expect(repository.requests, [ActorDataSource.dbonline]);
@@ -108,7 +112,7 @@ void _main_0() {
     // 切换到混合渠道：走渐进会话（先部分上屏、后补齐），不再调用 previewSource
     final mixedPartial = repository.enqueueMixedSession();
     final mixedFinal = repository.enqueueMixedSession();
-    await tester.tap(find.text('混合渠道'));
+    await tester.tap(find.text('混合来源'));
     await tester.pump();
     expect(repository.requests.last, ActorDataSource.mixed);
 
@@ -235,6 +239,9 @@ void _main_0() {
           actorAssociationsRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: ActorAssociationSyncSheet(
               actor: MappingRule(
@@ -297,6 +304,9 @@ void _main_0() {
           actorAssociationsRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: ActorAssociationSyncSheet(
               actor: MappingRule(
@@ -616,7 +626,6 @@ void _main_1() {
 
   test('混合来源序列化与反序列化', () {
     expect(ActorDataSource.mixed.value, 'mixed');
-    expect(ActorDataSource.mixed.label, '混合渠道');
     expect(actorDataSourceFromValue(' mixed '), ActorDataSource.mixed);
     expect(actorDataSourceFromValue('unknown'), isNull);
   });

@@ -8,6 +8,7 @@ import 'package:omm/shared/actor_detail_header.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'movie_detail_formatters.dart';
 
 /// 影片详情页的统一页面骨架。
@@ -69,7 +70,7 @@ class MovieDetailScaffold extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  tooltip: '返回',
+                  tooltip: AppL10n.of(context).back,
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
@@ -165,9 +166,10 @@ class MovieDetailPlot extends StatelessWidget {
 
   Future<void> _showFullPlot(BuildContext context) {
     final normalizedPlot = normalizeMoviePlot(plot);
+    final l = AppL10n.of(context);
     return showGlassDialog<void>(
       context: context,
-      title: const Text('影片简介'),
+      title: Text(l.detailPlotTitle),
       content: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * 0.58,
@@ -186,7 +188,7 @@ class MovieDetailPlot extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
+          child: Text(l.close),
         ),
       ],
     );
@@ -196,10 +198,11 @@ class MovieDetailPlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final normalizedPlot = normalizeMoviePlot(plot);
+    final l = AppL10n.of(context);
 
     return Semantics(
       button: true,
-      label: '查看完整简介',
+      label: l.detailPlotViewFull,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

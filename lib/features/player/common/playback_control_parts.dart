@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import 'playback_engine.dart';
 import 'player_haptics.dart';
 import 'player_overlay_indicators.dart' show formatDuration;
@@ -70,8 +71,7 @@ class _PlaybackProgressSliderState extends State<PlaybackProgressSlider> {
             .toDouble();
         final value = (_dragValue ?? current).clamp(0, max).toDouble();
         final showBuffered =
-            durationMs > 0 &&
-            widget.controller.capabilities.customBuffering;
+            durationMs > 0 && widget.controller.capabilities.customBuffering;
         final buffered = showBuffered
             ? state.buffered.inMilliseconds
                   .toDouble()
@@ -101,11 +101,16 @@ class _PlaybackProgressSliderState extends State<PlaybackProgressSlider> {
             value: value,
             secondaryTrackValue: buffered,
             semanticFormatterCallback: (sliderValue) {
-              final current =
-                  '当前播放 ${formatDuration(Duration(milliseconds: sliderValue.round()))}';
-              if (buffered == null) return current;
-              return '$current，'
-                  '已缓冲 ${formatDuration(Duration(milliseconds: buffered.round()))}';
+              final l = AppL10n.of(context);
+              final current = Duration(milliseconds: sliderValue.round());
+              if (buffered == null) {
+                return l.playerSliderPosition(formatDuration(current));
+              }
+              final cached = Duration(milliseconds: buffered.round());
+              return l.playerSliderPositionBuffered(
+                formatDuration(current),
+                formatDuration(cached),
+              );
             },
             onChangeStart: durationMs <= 0 ? null : _beginDrag,
             onChanged: durationMs <= 0 ? null : _updateDrag,
@@ -239,7 +244,9 @@ class PlaybackSpeedButton extends StatelessWidget {
   Widget build(BuildContext context) {
     const rates = <double>[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
     return PopupMenuButton<double>(
-      tooltip: '播放速度 ${playbackRate.toStringAsFixed(1)}x',
+      tooltip: AppL10n.of(
+        context,
+      ).playerPlaybackSpeed('${playbackRate.toStringAsFixed(1)}x'),
       enableFeedback: false,
       initialValue: playbackRate,
       onSelected: (rate) {

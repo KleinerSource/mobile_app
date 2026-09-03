@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/edge_swipe_back.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('左边缘向右滑动触发返回动作', (tester) async {
     var triggered = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: EdgeSwipeBack(
           onTriggered: () => triggered++,
           child: const SizedBox.expand(),
@@ -25,6 +29,9 @@ void main() {
     var triggered = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: EdgeSwipeBack(
           onTriggered: () => triggered++,
           child: const SizedBox.expand(),
@@ -51,6 +58,9 @@ void main() {
     var triggered = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         home: EdgeSwipeBack(
           enabled: false,
           onTriggered: () => triggered++,
@@ -69,6 +79,9 @@ void main() {
   testWidgets('真实页面栈返回拖动时显示父页，取消后可再次完成返回', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
         theme: ThemeData(platform: TargetPlatform.iOS),
         home: const _PageStackFixture(),
       ),
