@@ -512,8 +512,6 @@ class _MediaSelectionCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOutCubic,
-      width: 132,
-      height: 68,
       decoration: BoxDecoration(
         color: selected
             ? colors.accent.withValues(alpha: 0.14)
@@ -531,7 +529,7 @@ class _MediaSelectionCard extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Center(
               child: Text(
                 label,
