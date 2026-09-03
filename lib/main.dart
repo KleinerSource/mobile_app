@@ -155,6 +155,8 @@ class _AppNavigator extends ConsumerStatefulWidget {
 
 class _AppNavigatorState extends ConsumerState<_AppNavigator> {
   bool _contentWasVisible = false;
+  String? _lastActiveServerId;
+  bool? _lastIsFileServer;
   bool _contentRemovalBelongsToServerSwitch = false;
   late final NavigatorObserver _routeObserver;
   final Set<Route<dynamic>> _observedContentRoutes = <Route<dynamic>>{};
@@ -184,6 +186,25 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
         isAuthenticated &&
         (!serverSwitch.isActive || isFinishingServerSwitch);
     final isFileServer = config?.activeServer?.project?.isFileSource == true;
+
+    // 文件服务器切换可能在同一帧内完成配置更新和转场收尾，届时
+    // serverSwitch 已经回到 idle，不能只依赖 isActive 判断旧内容页的移除。
+    // 只有媒体/文件模式发生变化时才会产生不同的内容路由，需要提前标记。
+    final activeServerChanged =
+        config != null &&
+        _lastActiveServerId != null &&
+        config.activeServerId != _lastActiveServerId;
+    final contentModeChanged =
+        config != null &&
+        _lastIsFileServer != null &&
+        isFileServer != _lastIsFileServer;
+    if (activeServerChanged && contentModeChanged) {
+      _contentRemovalBelongsToServerSwitch = true;
+    }
+    if (config != null) {
+      _lastActiveServerId = config.activeServerId;
+      _lastIsFileServer = isFileServer;
+    }
 
     // 切换服务器会先从声明式栈移除旧首页，再挂载切换遮罩。移除回调可能
     // 在异步切换完成后才到达，因此不能只在回调里读取 isActive 判断归属。
