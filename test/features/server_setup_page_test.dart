@@ -39,9 +39,8 @@ void main() {
     expect(find.text('路径'), findsNothing);
     // OMM 密码鉴权没有用户名概念，只有密码 + TOTP 密钥。
     expect(find.text('用户名'), findsNothing);
-    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('密码（可选）'), findsOneWidget);
     expect(find.text('TOTP 密钥（可选）'), findsOneWidget);
-    expect(find.text('登录凭据（可选）'), findsOneWidget);
   });
 
   testWidgets('切换服务器类型显示对应字段', (tester) async {
@@ -54,7 +53,7 @@ void main() {
     expect(find.text('端口'), findsOneWidget);
     expect(find.text('路径'), findsOneWidget);
     expect(find.text('用户名'), findsOneWidget);
-    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('密码（可选）'), findsOneWidget);
     expect(
       tester
           .widgetList<TextField>(find.byType(TextField))
@@ -69,8 +68,8 @@ void main() {
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
     expect(find.text('路径'), findsOneWidget);
-    expect(find.text('用户名'), findsOneWidget);
-    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('用户名（可选）'), findsOneWidget);
+    expect(find.text('密码（可选）'), findsOneWidget);
     expect(
       tester
           .widgetList<TextField>(find.byType(TextField))
@@ -85,7 +84,7 @@ void main() {
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
     expect(find.text('根路径'), findsOneWidget);
-    expect(find.text('用户名（留空匿名访问）'), findsOneWidget);
+    expect(find.text('用户名'), findsOneWidget);
     expect(find.text('密码'), findsOneWidget);
     expect(
       tester
@@ -116,8 +115,41 @@ void main() {
     expect(find.text('端口'), findsOneWidget);
     expect(find.text('路径'), findsNothing);
     expect(find.text('用户名'), findsNothing);
-    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('密码（可选）'), findsOneWidget);
     expect(find.text('TOTP 密钥（可选）'), findsOneWidget);
+  });
+
+  testWidgets('新建 SMB 时用户名必填', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'SMB');
+
+    await tester.enterText(find.byType(TextField).at(0), '我的 SMB');
+    await tester.enterText(find.byType(TextField).at(1), '192.168.1.10');
+    await tester.enterText(find.byType(TextField).at(3), 'media');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pump();
+
+    expect(find.text('请输入用户名'), findsOneWidget);
+  });
+
+  testWidgets('新建 OpenList 时用户名和密码必填', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'OpenList');
+
+    await tester.enterText(find.byType(TextField).at(0), '我的 OpenList');
+    await tester.enterText(find.byType(TextField).at(1), 'example.com');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pump();
+
+    expect(find.text('请输入用户名'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(4), 'admin');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pump();
+
+    expect(find.text('请输入密码'), findsOneWidget);
   });
 
   testWidgets('Emby 显示用户名密码而不显示 TOTP 密钥', (tester) async {
@@ -125,8 +157,8 @@ void main() {
     await _pumpSetup(tester, prefs);
     await _selectProject(tester, 'Emby');
 
-    expect(find.text('用户名'), findsOneWidget);
-    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('用户名（可选）'), findsOneWidget);
+    expect(find.text('密码（可选）'), findsOneWidget);
     expect(find.text('TOTP 密钥（可选）'), findsNothing);
   });
 
@@ -135,7 +167,7 @@ void main() {
     await _pumpSetup(tester, prefs);
     await _selectProject(tester, 'Jellyfin');
 
-    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('用户名（可选）'), findsOneWidget);
     expect(find.text('TOTP 密钥（可选）'), findsNothing);
   });
 
@@ -164,10 +196,7 @@ void main() {
     await tester.tap(find.text('测试并保存'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('TOTP 密钥格式无效（应为 base32 字符串）'),
-      findsOneWidget,
-    );
+    expect(find.text('TOTP 密钥格式无效（应为 base32 字符串）'), findsOneWidget);
   });
 
   testWidgets('HTTP 类型之间切换服务器类型时清空已输入的凭据', (tester) async {
@@ -215,19 +244,14 @@ void main() {
     );
     // 服务器与 TOTP 密钥均已保存。
     expect(prefs.getString('server.servers'), isNotNull);
-    expect(
-      store.values.values,
-      contains('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'),
-    );
+    expect(store.values.values, contains('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'));
   });
 
   testWidgets('登录失败时显示错误且不保存服务器', (tester) async {
     final prefs = await _prefs();
     final store = _MemoryTokenStore();
     final sessions = AuthSessionRepository(store: store);
-    final controller = _RecordingAuthController(
-      ApiException('用户名或密码错误'),
-    );
+    final controller = _RecordingAuthController(ApiException('用户名或密码错误'));
     await _pumpSetupWithAuth(
       tester,
       prefs,
@@ -276,7 +300,36 @@ void main() {
     expect(fields[1].controller?.text, 'saved.example');
     expect(fields[2].controller?.text, '8001');
     expect(find.text('HTTPS'), findsOneWidget);
+    expect(find.text('密码（留空为不更改）'), findsOneWidget);
+    expect(find.text('TOTP 密钥（留空为不更改）'), findsOneWidget);
     expect(find.text('已回填上次保存的服务器地址，可直接修改后重新测试。'), findsNothing);
+  });
+
+  testWidgets('编辑服务器时用户名和密码显示留空为不更改', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'saved-emby',
+          'name': '已保存 Emby',
+          'lines': [
+            {
+              'id': 'saved-emby-line',
+              'name': '主线路',
+              'base_url': 'http://emby.example:8096',
+            },
+          ],
+          'active_line_id': 'saved-emby-line',
+          'project_name': 'emby',
+        },
+      ]),
+      'server.active_server_id': 'saved-emby',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await _pumpSetup(tester, prefs, editing: true);
+
+    expect(find.text('用户名（留空为不更改）'), findsOneWidget);
+    expect(find.text('密码（留空为不更改）'), findsOneWidget);
   });
 
   testWidgets('编辑服务器时拒绝改成其他服务器的重复连接', (tester) async {
@@ -466,12 +519,14 @@ class _RecordingAuthController extends AuthController {
     String? username,
     required String password,
     String? totpSecret,
+    String? apiKey,
   }) async {
     log.add({
       'serverId': server.id,
       'username': username,
       'password': password,
       'totpSecret': totpSecret,
+      'apiKey': apiKey,
     });
     if (error != null) throw error!;
   }

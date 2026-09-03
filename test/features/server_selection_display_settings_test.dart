@@ -65,8 +65,6 @@ void main() {
 
   testWidgets('应用设置通用分组显示并可分别切换两个开关', (tester) async {
     final prefs = await SharedPreferences.getInstance();
-    await tester.binding.setSurfaceSize(const Size(800, 1600));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -106,6 +104,7 @@ void main() {
     expect(avatarSwitch, findsOneWidget);
 
     await tester.ensureVisible(usernameSwitch);
+    await tester.pumpAndSettle();
     await tester.tap(usernameSwitch);
     await tester.pump();
     expect(
@@ -118,6 +117,7 @@ void main() {
     );
 
     await tester.ensureVisible(avatarSwitch);
+    await tester.pumpAndSettle();
     await tester.tap(avatarSwitch);
     await tester.pump();
     expect(

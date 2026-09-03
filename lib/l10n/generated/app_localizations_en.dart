@@ -945,6 +945,22 @@ class AppL10nEn extends AppL10n {
   String get settingsHapticIntensity => 'Haptic intensity';
 
   @override
+  String get settingsServerSelectionShowUsername =>
+      'Show username on connections';
+
+  @override
+  String get settingsServerSelectionShowUsernameSub =>
+      'Use the signed-in Emby/Jellyfin username; otherwise show the server name';
+
+  @override
+  String get settingsServerSelectionShowAvatar =>
+      'Show user avatar on connections';
+
+  @override
+  String get settingsServerSelectionShowAvatarSub =>
+      'Use the signed-in Emby/Jellyfin avatar; otherwise show the server avatar or logo';
+
+  @override
   String settingsHapticCurrent(String label) {
     return 'Current: $label';
   }
@@ -2252,13 +2268,6 @@ class AppL10nEn extends AppL10n {
   String get serverSetupConnectTitle => 'Connect';
 
   @override
-  String get serverSetupCredentialHint =>
-      'If provided, credentials are verified at save time; leave empty to sign in later';
-
-  @override
-  String get serverSetupCredentialTitle => 'Login credentials (optional)';
-
-  @override
   String serverSetupDuplicate(String name) {
     return 'A server with the same connection already exists: $name';
   }
@@ -2291,6 +2300,16 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get serverSetupPasswordLabel => 'Password';
+
+  @override
+  String get serverSetupPasswordEditLabel =>
+      'Password (leave blank to keep unchanged)';
+
+  @override
+  String get serverSetupPasswordOptionalLabel => 'Password (optional)';
+
+  @override
+  String get serverSetupPasswordRequired => 'Enter a password';
 
   @override
   String get serverSetupPathHintOpenList => 'OpenList path';
@@ -2340,15 +2359,29 @@ class AppL10nEn extends AppL10n {
   String get serverSetupTotpKeyLabel => 'TOTP secret (optional)';
 
   @override
+  String get serverSetupTotpKeyEditLabel =>
+      'TOTP secret (leave blank to keep unchanged)';
+
+  @override
   String get serverSetupTotpRequired =>
       'This server requires two-step verification. Provide a TOTP secret, or clear the password and sign in from the login page.';
 
   @override
-  String get serverSetupUserAnonymousLabel =>
-      'Username (leave blank for anonymous access)';
+  String get serverSetupUserLabel => 'Username';
 
   @override
-  String get serverSetupUserLabel => 'Username';
+  String get serverSetupUserEditLabel =>
+      'Username (leave blank to keep unchanged)';
+
+  @override
+  String get serverSetupUserOptionalGenericLabel => 'Username (optional)';
+
+  @override
+  String get serverSetupUserOptionalLabel =>
+      'Username (optional when using API key)';
+
+  @override
+  String get serverSetupUserRequired => 'Enter a username';
 
   @override
   String get serverTestAndSave => 'Test and save';

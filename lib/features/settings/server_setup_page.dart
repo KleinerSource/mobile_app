@@ -217,7 +217,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       // 会话与 TOTP 密钥都按服务器 ID 作用域存储，先固定 ID 再登录，
       // 保证与最终保存的 ServerProfile 一致。
       final serverId =
-          editingServer?.id ?? 'server-${DateTime.now().microsecondsSinceEpoch}';
+          editingServer?.id ??
+          'server-${DateTime.now().microsecondsSinceEpoch}';
       final server = editingServer == null
           ? ServerProfile(
               id: serverId,
@@ -289,6 +290,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final host = _hostController.text.trim();
     final port = _readPort(project);
     final path = _pathController.text.trim();
+    final username = _userController.text.trim();
+    final password = _passwordController.text;
+    final editing = _editingServerId != null;
     if (host.isEmpty) {
       _showError(l.serverSetupHostRequired);
       return;
@@ -299,6 +303,16 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     }
     if (path.isEmpty) {
       _showError(l.serverSetupPathRequired);
+      return;
+    }
+    if (!editing &&
+        (project == ServerProject.smb || project == ServerProject.openList) &&
+        username.isEmpty) {
+      _showError(l.serverSetupUserRequired);
+      return;
+    }
+    if (!editing && project == ServerProject.openList && password.isEmpty) {
+      _showError(l.serverSetupPasswordRequired);
       return;
     }
 
@@ -388,12 +402,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       );
       final stored = await credentialsRepository.read(reference);
       final credentials = FileSourceCredentials(
-        user: _userController.text.trim().isNotEmpty
-            ? _userController.text.trim()
-            : stored?.user ?? '',
-        password: _passwordController.text.isNotEmpty
-            ? _passwordController.text
-            : stored?.password ?? '',
+        user: username.isNotEmpty ? username : stored?.user ?? '',
+        password: password.isNotEmpty ? password : stored?.password ?? '',
         domain: stored?.domain,
       );
       await _connectFileSource(project, config, credentials, serverId);
@@ -784,9 +794,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _userController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: openList
-                                  ? l.serverSetupUserAnonymousLabel
-                                  : l.serverSetupUserLabel,
+                              labelText: editing
+                                  ? l.serverSetupUserEditLabel
+                                  : (openList || project == ServerProject.smb)
+                                  ? l.serverSetupUserLabel
+                                  : l.serverSetupUserOptionalGenericLabel,
                               prefixIcon: const Icon(Icons.person_outline),
                             ),
                           ),
@@ -796,22 +808,16 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             enabled: !_busy,
                             obscureText: true,
                             decoration: InputDecoration(
-                              labelText: l.serverSetupPasswordLabel,
+                              labelText: editing
+                                  ? l.serverSetupPasswordEditLabel
+                                  : openList
+                                  ? l.serverSetupPasswordLabel
+                                  : l.serverSetupPasswordOptionalLabel,
                               prefixIcon: const Icon(Icons.lock_outline),
                             ),
                           ),
                         ],
                         if (httpServer) ...[
-                          const SizedBox(height: 18),
-                          Text(
-                            l.serverSetupCredentialTitle,
-                            style: AppText.cardTitle(context),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            l.serverSetupCredentialHint,
-                            style: AppText.meta(context).copyWith(height: 1.4),
-                          ),
                           const SizedBox(height: 12),
                           if (needsUsername) ...[
                             TextField(
@@ -819,7 +825,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                               enabled: !_busy,
                               autocorrect: false,
                               decoration: InputDecoration(
-                                labelText: l.serverSetupUserLabel,
+                                labelText: editing
+                                    ? l.serverSetupUserEditLabel
+                                    : l.serverSetupUserOptionalGenericLabel,
                                 prefixIcon: const Icon(Icons.person_outline),
                               ),
                             ),
@@ -830,7 +838,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             enabled: !_busy,
                             obscureText: true,
                             decoration: InputDecoration(
-                              labelText: l.serverSetupPasswordLabel,
+                              labelText: editing
+                                  ? l.serverSetupPasswordEditLabel
+                                  : l.serverSetupPasswordOptionalLabel,
                               prefixIcon: const Icon(Icons.lock_outline),
                             ),
                           ),
@@ -842,7 +852,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                               autocorrect: false,
                               onChanged: (_) => setState(() {}),
                               decoration: InputDecoration(
-                                labelText: l.serverSetupTotpKeyLabel,
+                                labelText: editing
+                                    ? l.serverSetupTotpKeyEditLabel
+                                    : l.serverSetupTotpKeyLabel,
                                 helperText: l.serverSetupTotpKeyHint,
                                 prefixIcon: const Icon(Icons.password_outlined),
                                 suffixIcon:
@@ -850,9 +862,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                                         _totpSecretController.text.isEmpty
                                     ? IconButton(
                                         tooltip: l.serverSetupTotpClearStored,
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                        ),
+                                        icon: const Icon(Icons.delete_outline),
                                         onPressed: _busy
                                             ? null
                                             : () => setState(() {

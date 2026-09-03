@@ -927,6 +927,20 @@ class AppL10nZh extends AppL10n {
   String get settingsHapticIntensity => '震动反馈强度';
 
   @override
+  String get settingsServerSelectionShowUsername => '连接页显示用户名';
+
+  @override
+  String get settingsServerSelectionShowUsernameSub =>
+      '使用 Emby/Jellyfin 登录用户名，否则显示服务器名称';
+
+  @override
+  String get settingsServerSelectionShowAvatar => '连接页显示用户头像';
+
+  @override
+  String get settingsServerSelectionShowAvatarSub =>
+      '使用 Emby/Jellyfin 登录用户头像，否则显示服务器头像或 Logo';
+
+  @override
   String settingsHapticCurrent(String label) {
     return '当前：$label';
   }
@@ -2215,12 +2229,6 @@ class AppL10nZh extends AppL10n {
   String get serverSetupConnectTitle => '连接到服务器';
 
   @override
-  String get serverSetupCredentialHint => '填写后将在保存时验证并登录，留空则稍后在登录页登录';
-
-  @override
-  String get serverSetupCredentialTitle => '登录凭据（可选）';
-
-  @override
   String serverSetupDuplicate(String name) {
     return '已存在相同连接的 $name 服务器';
   }
@@ -2251,6 +2259,15 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get serverSetupPasswordLabel => '密码';
+
+  @override
+  String get serverSetupPasswordEditLabel => '密码（留空为不更改）';
+
+  @override
+  String get serverSetupPasswordOptionalLabel => '密码（可选）';
+
+  @override
+  String get serverSetupPasswordRequired => '请输入密码';
 
   @override
   String get serverSetupPathHintOpenList => '点击此处从文件列表选择路径';
@@ -2298,14 +2315,26 @@ class AppL10nZh extends AppL10n {
   String get serverSetupTotpKeyLabel => 'TOTP 密钥（可选）';
 
   @override
+  String get serverSetupTotpKeyEditLabel => 'TOTP 密钥（留空为不更改）';
+
+  @override
   String get serverSetupTotpRequired =>
       '该服务器开启了两步验证，请填写 TOTP 密钥或清空密码保存后再从登录页登录';
 
   @override
-  String get serverSetupUserAnonymousLabel => '用户名（留空匿名访问）';
+  String get serverSetupUserLabel => '用户名';
 
   @override
-  String get serverSetupUserLabel => '用户名';
+  String get serverSetupUserEditLabel => '用户名（留空为不更改）';
+
+  @override
+  String get serverSetupUserOptionalGenericLabel => '用户名（可选）';
+
+  @override
+  String get serverSetupUserOptionalLabel => '用户名（API Key 登录可留空）';
+
+  @override
+  String get serverSetupUserRequired => '请输入用户名';
 
   @override
   String get serverTestAndSave => '测试并保存';

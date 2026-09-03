@@ -1813,6 +1813,30 @@ abstract class AppL10n {
   /// **'震动反馈强度'**
   String get settingsHapticIntensity;
 
+  /// No description provided for @settingsServerSelectionShowUsername.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接页显示用户名'**
+  String get settingsServerSelectionShowUsername;
+
+  /// No description provided for @settingsServerSelectionShowUsernameSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用 Emby/Jellyfin 登录用户名，否则显示服务器名称'**
+  String get settingsServerSelectionShowUsernameSub;
+
+  /// No description provided for @settingsServerSelectionShowAvatar.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接页显示用户头像'**
+  String get settingsServerSelectionShowAvatar;
+
+  /// No description provided for @settingsServerSelectionShowAvatarSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用 Emby/Jellyfin 登录用户头像，否则显示服务器头像或 Logo'**
+  String get settingsServerSelectionShowAvatarSub;
+
   /// No description provided for @settingsHapticCurrent.
   ///
   /// In zh, this message translates to:
@@ -4237,18 +4261,6 @@ abstract class AppL10n {
   /// **'连接到服务器'**
   String get serverSetupConnectTitle;
 
-  /// No description provided for @serverSetupCredentialHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'填写后将在保存时验证并登录，留空则稍后在登录页登录'**
-  String get serverSetupCredentialHint;
-
-  /// No description provided for @serverSetupCredentialTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录凭据（可选）'**
-  String get serverSetupCredentialTitle;
-
   /// No description provided for @serverSetupDuplicate.
   ///
   /// In zh, this message translates to:
@@ -4308,6 +4320,24 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'密码'**
   String get serverSetupPasswordLabel;
+
+  /// No description provided for @serverSetupPasswordEditLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码（留空为不更改）'**
+  String get serverSetupPasswordEditLabel;
+
+  /// No description provided for @serverSetupPasswordOptionalLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码（可选）'**
+  String get serverSetupPasswordOptionalLabel;
+
+  /// No description provided for @serverSetupPasswordRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入密码'**
+  String get serverSetupPasswordRequired;
 
   /// No description provided for @serverSetupPathHintOpenList.
   ///
@@ -4399,23 +4429,47 @@ abstract class AppL10n {
   /// **'TOTP 密钥（可选）'**
   String get serverSetupTotpKeyLabel;
 
+  /// No description provided for @serverSetupTotpKeyEditLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'TOTP 密钥（留空为不更改）'**
+  String get serverSetupTotpKeyEditLabel;
+
   /// No description provided for @serverSetupTotpRequired.
   ///
   /// In zh, this message translates to:
   /// **'该服务器开启了两步验证，请填写 TOTP 密钥或清空密码保存后再从登录页登录'**
   String get serverSetupTotpRequired;
 
-  /// No description provided for @serverSetupUserAnonymousLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'用户名（留空匿名访问）'**
-  String get serverSetupUserAnonymousLabel;
-
   /// No description provided for @serverSetupUserLabel.
   ///
   /// In zh, this message translates to:
   /// **'用户名'**
   String get serverSetupUserLabel;
+
+  /// No description provided for @serverSetupUserEditLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户名（留空为不更改）'**
+  String get serverSetupUserEditLabel;
+
+  /// No description provided for @serverSetupUserOptionalGenericLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户名（可选）'**
+  String get serverSetupUserOptionalGenericLabel;
+
+  /// No description provided for @serverSetupUserOptionalLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户名（API Key 登录可留空）'**
+  String get serverSetupUserOptionalLabel;
+
+  /// No description provided for @serverSetupUserRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入用户名'**
+  String get serverSetupUserRequired;
 
   /// No description provided for @serverTestAndSave.
   ///
