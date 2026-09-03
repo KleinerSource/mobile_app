@@ -1392,7 +1392,10 @@ class _ServerAvatarCard extends StatelessWidget {
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         final line = server.activeLine;
         final lineName = _serverLineLabel(l, line);
-        final projectLabel = _serverProjectLabel(l, server.project);
+        final projectLabel = [
+          _serverProjectLabel(l, server.project),
+          if (server.serverVersion?.isNotEmpty == true) server.serverVersion!,
+        ].join(' · ');
         return Semantics(
           button: true,
           label: l.serverSelectionSelectServer(displayName),
