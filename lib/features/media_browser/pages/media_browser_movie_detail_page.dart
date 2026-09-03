@@ -265,6 +265,9 @@ class _MediaBrowserDetailBodyState
     final videoParts = item.videoParts;
     final selectedVideoPart = _selectedVideoPart;
     final selectedMediaSource = _selectedMediaSource;
+    final isFeiniu =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.feiniu;
+    final hasFeiniuSourceVariants = isFeiniu && item.mediaSources.length > 1;
     final playbackMediaSourceId = selectedVideoPart == null
         ? selectedMediaSource?.id
         : selectedVideoPart.mediaSourceId;
@@ -277,8 +280,7 @@ class _MediaBrowserDetailBodyState
         if (person.type == 'Director' && person.name.trim().isNotEmpty) person,
     ];
     // fnos 列表接口不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
-    final void Function(MediaBrowserPerson)? onOpenPerson =
-        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.feiniu
+    final void Function(MediaBrowserPerson)? onOpenPerson = isFeiniu
         ? null
         : (person) => openMediaBrowserPersonWorks(
             context,
@@ -319,7 +321,8 @@ class _MediaBrowserDetailBodyState
                 ref,
                 item: item,
                 part: selectedVideoPart,
-                playAllParts: selectedVideoPart == null,
+                playAllParts:
+                    selectedVideoPart == null && !hasFeiniuSourceVariants,
                 mediaSourceId: playbackMediaSourceId,
               ),
               // 与 OMM 详情页一致：长按播放先选内核（libmpv / KSPlayer）。
@@ -329,7 +332,8 @@ class _MediaBrowserDetailBodyState
                       ref,
                       item: item,
                       part: selectedVideoPart,
-                      playAllParts: selectedVideoPart == null,
+                      playAllParts:
+                          selectedVideoPart == null && !hasFeiniuSourceVariants,
                       mediaSourceId: playbackMediaSourceId,
                     )
                   : null,
@@ -339,7 +343,8 @@ class _MediaBrowserDetailBodyState
                 item: item,
                 transcode: true,
                 part: selectedVideoPart,
-                playAllParts: selectedVideoPart == null,
+                playAllParts:
+                    selectedVideoPart == null && !hasFeiniuSourceVariants,
                 mediaSourceId: playbackMediaSourceId,
               ),
               onToggleFavorite: _toggleFavorite,
@@ -347,15 +352,12 @@ class _MediaBrowserDetailBodyState
             ),
           ),
         ),
-        if (videoParts.length > 1)
+        if (videoParts.length > 1 && !hasFeiniuSourceVariants)
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-              child: _MediaPartSelector(
-                parts: videoParts,
-                selectedId: _selectedVideoPartId,
-                onChanged: _selectVideoPart,
-              ),
+            child: _MediaPartSelector(
+              parts: videoParts,
+              selectedId: _selectedVideoPartId,
+              onChanged: _selectVideoPart,
             ),
           ),
         if (item.mediaSources.length > 1 && selectedVideoPart == null)
@@ -469,8 +471,8 @@ class _MediaSourceSelector extends StatelessWidget {
             children: [
               for (var index = 0; index < sources.length; index++) ...[
                 if (index > 0) const SizedBox(width: 10),
-                _MediaSourceCard(
-                  summary: _mediaSourceSummary(
+                _MediaSelectionCard(
+                  label: _mediaSourceSummary(
                     sources[index],
                     unknown: l.commonUnknown,
                   ),
@@ -490,19 +492,19 @@ class _MediaSourceSelector extends StatelessWidget {
   }
 }
 
-class _MediaSourceCard extends StatelessWidget {
-  const _MediaSourceCard({
-    required this.summary,
+class _MediaSelectionCard extends StatelessWidget {
+  const _MediaSelectionCard({
+    required this.label,
     required this.selected,
     required this.onTap,
-    required this.onLongPress,
+    this.onLongPress,
     required this.colors,
   });
 
-  final String summary;
+  final String label;
   final bool selected;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback? onLongPress;
   final AppColors colors;
 
   @override
@@ -510,8 +512,8 @@ class _MediaSourceCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOutCubic,
-      width: 176,
-      height: 92,
+      width: 132,
+      height: 68,
       decoration: BoxDecoration(
         color: selected
             ? colors.accent.withValues(alpha: 0.14)
@@ -529,26 +531,18 @@ class _MediaSourceCard extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(
-                  Icons.movie_outlined,
-                  size: 18,
-                  color: selected ? colors.accent : colors.muted,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppText.cardTitle(context).copyWith(
+                  color: selected ? colors.accent : colors.text,
+                  fontSize: 15,
                 ),
-                Text(
-                  summary,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.cardTitle(context).copyWith(
-                    color: selected ? colors.accent : colors.text,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -725,100 +719,36 @@ class _MediaPartSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     final l = AppL10n.of(context);
-    return MovieDetailSection(
-      title: l.mediaBrowserVideoParts,
-      child: RadioGroup<String>(
-        groupValue: selectedId ?? '',
-        onChanged: (id) {
-          if (id != null) onChanged(id);
-        },
-        child: Column(
-          children: [
-            _MediaPartCard(
-              title: l.mediaBrowserPlayAllParts,
-              subtitle: Text('${parts.length} ${l.mediaBrowserVideoParts}'),
-              selected: selectedId == null,
-              value: '',
-              colors: colors,
-            ),
-            for (var index = 0; index < parts.length; index++)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: _MediaPartCard(
-                  title: parts[index].name?.trim().isNotEmpty == true
+    final colors = appColors(context);
+    return MovieDetailFullBleedSection(
+      header: Text(
+        l.mediaBrowserVideoParts,
+        style: AppText.sectionTitle(context),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Row(
+            children: [
+              for (var index = 0; index < parts.length; index++) ...[
+                if (index > 0) const SizedBox(width: 10),
+                _MediaSelectionCard(
+                  label: parts[index].name?.trim().isNotEmpty == true
                       ? parts[index].name!.trim()
                       : l.mediaBrowserVideoPartNumber(index + 1),
-                  subtitle: _MediaPartSubtitle(part: parts[index]),
                   selected: parts[index].id == selectedId,
-                  value: parts[index].id,
+                  onTap: () => onChanged(parts[index].id),
                   colors: colors,
                 ),
-              ),
-          ],
+              ],
+            ],
+          ),
         ),
       ),
     );
-  }
-}
-
-class _MediaPartCard extends StatelessWidget {
-  const _MediaPartCard({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.value,
-    required this.colors,
-  });
-
-  final String title;
-  final Widget subtitle;
-  final bool selected;
-  final String value;
-  final AppColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      color: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: selected ? colors.text : colors.cardBorder),
-      ),
-      child: RadioListTile<String>(
-        value: value,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: subtitle,
-      ),
-    );
-  }
-}
-
-class _MediaPartSubtitle extends StatelessWidget {
-  const _MediaPartSubtitle({required this.part});
-
-  final MediaBrowserVideoPart part;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    final details = <String>[
-      if (part.path?.trim().isNotEmpty == true) part.path!.trim(),
-      if (part.container?.trim().isNotEmpty == true)
-        '${l.mediaBrowserContainer}: ${part.container!.trim()}',
-      if (part.sizeInBytes != null && part.sizeInBytes! > 0)
-        '${l.mediaBrowserFileSize}: ${formatFileSize(part.sizeInBytes!)}',
-    ];
-    return details.isEmpty
-        ? const SizedBox.shrink()
-        : Text(
-            details.join(' · '),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          );
   }
 }
 

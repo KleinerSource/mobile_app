@@ -85,6 +85,54 @@ MediaBrowserItem _multiSourceItem() {
   });
 }
 
+MediaBrowserItem _feiniuMultiSourceItem() {
+  return MediaBrowserItem.fromJson(const {
+    'Id': 'feiniu-multi-source',
+    'Name': '飞牛多片源电影',
+    'Type': 'Movie',
+    'MediaSources': [
+      {
+        'Id': 'feiniu-source-1',
+        'Name': '1080p.mkv',
+        'Path': '/movies/1080p.mkv',
+        'MediaStreams': [
+          {
+            'Index': 0,
+            'Type': 'Video',
+            'Height': 1080,
+            'VideoRangeType': 'SDR',
+          },
+        ],
+      },
+      {
+        'Id': 'feiniu-source-2',
+        'Name': '4K.mkv',
+        'Path': '/movies/4K.mkv',
+        'MediaStreams': [
+          {
+            'Index': 0,
+            'Type': 'Video',
+            'Height': 2160,
+            'VideoRangeType': 'HDR10',
+          },
+        ],
+      },
+      {
+        'Id': 'feiniu-source-3',
+        'Name': '720p.mkv',
+        'Path': '/movies/720p.mkv',
+        'MediaStreams': [
+          {'Index': 0, 'Type': 'Video', 'Height': 720, 'VideoRangeType': 'SDR'},
+        ],
+      },
+    ],
+    'AdditionalParts': [
+      {'Id': 'feiniu-part-2', 'Name': '4K.mkv'},
+      {'Id': 'feiniu-part-3', 'Name': '720p.mkv'},
+    ],
+  });
+}
+
 MediaBrowserItem _multiPartItem() {
   return MediaBrowserItem.fromJson(const {
     'Id': 'movie-parts',
@@ -399,7 +447,7 @@ void main() {
     expect(find.text('未知'), findsNWidgets(2));
   });
 
-  testWidgets('电影详情页默认连续播放全部分集并可切换单独分集', (tester) async {
+  testWidgets('电影详情页显示横向分集卡片并可切换单独分集', (tester) async {
     const serverId = 'server-1';
     final movie = _multiPartItem();
 
@@ -442,13 +490,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('分集'), findsOneWidget);
-    expect(find.text('连续播放全部分集'), findsOneWidget);
+    expect(find.text('连续播放全部分集'), findsNothing);
     expect(find.text('CD1.mkv'), findsOneWidget);
     expect(find.text('CD2.mp4'), findsOneWidget);
-
-    final groups = find.byType(RadioGroup<String>);
-    expect(groups, findsOneWidget);
-    expect(tester.widget<RadioGroup<String>>(groups.first).groupValue, '');
+    expect(find.byType(RadioGroup<String>), findsNothing);
+    expect(find.byType(RadioListTile<String>), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
 
     await tester.drag(
       find.byType(CustomScrollView).first,
@@ -458,10 +505,61 @@ void main() {
     await tester.tap(find.text('CD2.mp4'));
     await tester.pump();
 
-    expect(
-      tester.widget<RadioGroup<String>>(groups.first).groupValue,
-      'part-cd2',
+    expect(find.textContaining('/movies/CD2.mp4'), findsOneWidget);
+  });
+
+  testWidgets('飞牛多片源不重复显示分集选择器', (tester) async {
+    const serverId = 'server-1';
+    final movie = _feiniuMultiSourceItem();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://mb.test',
+                activeServerId: serverId,
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(
+            MediaBrowserConfig.feiniu,
+          ),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.feiniu,
+              baseUrl: 'http://mb.test',
+              token: 'test-token',
+            ),
+          ),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'feiniu-multi-source'),
+        ),
+      ),
     );
-    expect(find.textContaining('/movies/CD2.mp4'), findsNWidgets(2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('片源'), findsOneWidget);
+    expect(find.text('分集'), findsNothing);
+    expect(find.text('连续播放全部分集'), findsNothing);
+    expect(find.text('1080 SDR'), findsOneWidget);
+    expect(find.text('4K HDR10'), findsOneWidget);
+    expect(find.text('720 SDR'), findsOneWidget);
+    expect(find.byType(RadioGroup<String>), findsNothing);
+    expect(find.byType(RadioListTile<String>), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
   });
 }
