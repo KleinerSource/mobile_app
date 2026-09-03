@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/feiniu_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_models.dart';
@@ -155,6 +156,53 @@ void main() {
       'http://test/v/api/v1/subtitle/dl/sub-external',
     );
     expect(adapter.playInfoBody['subtitle_guid'], 'sub-external');
+  });
+
+  test('飞牛多文件映射为多个片源并按 mediaGuid 播放第二源', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuMultiFileAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    final item = await source.getItem('item-multi');
+    expect(item.mediaSources.map((source) => source.id), [
+      'media-1',
+      'media-2',
+    ]);
+    expect(item.mediaSources[0].name, 'first.mkv');
+    expect(item.mediaSources[1].path, '/movies/second.mp4');
+    expect(item.mediaSources[1].container, 'mp4');
+    expect(item.mediaSources[1].sizeInBytes, 2048);
+
+    final descriptor = await source.resolvePlayback(
+      const MediaRef(sourceId: SourceId('feiniu'), value: 'item-multi'),
+      const PlaybackRequest(mediaSourceId: 'media-2'),
+    );
+
+    expect(adapter.playInfoBody['media_guid'], 'media-2');
+    expect(
+      descriptor.uri.toString(),
+      'http://test/v/api/v1/media/range/media-2',
+    );
+    expect(descriptor.mimeType, 'video/mp4');
+
+    await expectLater(
+      source.resolvePlayback(
+        const MediaRef(sourceId: SourceId('feiniu'), value: 'item-multi'),
+        const PlaybackRequest(mediaSourceId: 'missing'),
+      ),
+      throwsA(isA<SourceException>()),
+    );
   });
 
   test('飞牛适配器支持媒体库管理并按 GUID 更新', () async {
@@ -498,6 +546,72 @@ class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
         Headers.contentTypeHeader: ['application/json'],
       },
     );
+  }
+}
+
+class _FeiniuMultiFileAdapter implements HttpClientAdapter {
+  Map<String, dynamic> playInfoBody = const {};
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final path = options.uri.path;
+    final data = switch (path) {
+      '/v/api/v1/item/item-multi' => {
+        'guid': 'item-multi',
+        'title': '多片源电影',
+        'type': 'Movie',
+        'can_play': true,
+        'media_guid': 'media-1',
+      },
+      '/v/api/v1/stream/list/item-multi' => {
+        'files': [
+          {
+            'media_guid': 'media-2',
+            'file_name': 'second.mp4',
+            'path': '/movies/second.mp4',
+            'size': 2048,
+            'container': 'mp4',
+          },
+          {
+            'media_guid': 'media-1',
+            'file_name': 'first.mkv',
+            'path': '/movies/first.mkv',
+            'size': 4096,
+            'container': 'mkv',
+          },
+          {
+            'media_guid': 'media-2',
+            'file_name': 'duplicate.mp4',
+            'path': '/movies/duplicate.mp4',
+          },
+        ],
+        'video_stream': {'guid': 'video-1', 'codec_name': 'h264'},
+      },
+      '/v/api/v1/play/info' => _playInfo(options),
+      _ => <String, Object?>{},
+    };
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  Map<String, dynamic> _playInfo(RequestOptions options) {
+    playInfoBody = Map<String, dynamic>.from(options.data as Map);
+    return {
+      'item_guid': 'item-multi',
+      'media_guid': playInfoBody['media_guid'],
+    };
   }
 }
 

@@ -14,13 +14,18 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 /// 滚动视口铺满屏宽：首卡与标题对齐，向左滚动卡片可贴到屏幕边缘
 /// （外层不再垫横向边距，由卡片轨道自带的滚动内边距控制起止位置）。
 class MediaBrowserMediaInfoSection extends StatelessWidget {
-  const MediaBrowserMediaInfoSection({super.key, required this.item});
+  const MediaBrowserMediaInfoSection({
+    super.key,
+    required this.item,
+    this.source,
+  });
 
   final MediaBrowserItem item;
+  final MediaBrowserMediaSourceDto? source;
 
   @override
   Widget build(BuildContext context) {
-    final detail = mediaBrowserMediaInfoDetail(item);
+    final detail = mediaBrowserMediaInfoDetail(item, source: source);
     if (detail == null) return const SizedBox.shrink();
     return MovieDetailFullBleedSection(
       header: Text(
@@ -35,11 +40,15 @@ class MediaBrowserMediaInfoSection extends StatelessWidget {
   }
 }
 
-/// 条目的首选媒体源 → OMM 媒体信息模型；无媒体源或无任何流时返回 null。
-MediaInfoDetail? mediaBrowserMediaInfoDetail(MediaBrowserItem item) {
-  final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
-  if (source == null) return null;
-  final streams = source.mediaStreams;
+/// 将当前媒体源（未传入时取首源）转换为 OMM 媒体信息模型；无媒体源或无任何流时返回 null。
+MediaInfoDetail? mediaBrowserMediaInfoDetail(
+  MediaBrowserItem item, {
+  MediaBrowserMediaSourceDto? source,
+}) {
+  final selectedSource =
+      source ?? (item.mediaSources.isEmpty ? null : item.mediaSources.first);
+  if (selectedSource == null) return null;
+  final streams = selectedSource.mediaStreams;
   final video = streams
       .where((stream) => stream.type.toLowerCase() == 'video')
       .firstOrNull;
@@ -51,12 +60,12 @@ MediaInfoDetail? mediaBrowserMediaInfoDetail(MediaBrowserItem item) {
       .toList(growable: false);
   if (video == null && audio.isEmpty && subtitle.isEmpty) return null;
   return MediaInfoDetail(
-    container: source.container?.trim().isEmpty == true
+    container: selectedSource.container?.trim().isEmpty == true
         ? null
-        : source.container,
+        : selectedSource.container,
     durationSec: mediaBrowserTicksToSeconds(item.runTimeTicks).toDouble(),
     bitRate: video?.bitRate,
-    fileSize: source.sizeInBytes,
+    fileSize: selectedSource.sizeInBytes,
     streams: MediaStreams(
       video: video == null ? null : _videoInfo(video),
       audioStreams: [for (final stream in audio) _audioInfo(stream)],

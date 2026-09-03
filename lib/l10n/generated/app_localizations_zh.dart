@@ -4029,6 +4029,14 @@ class AppL10nZh extends AppL10n {
   String get mediaBrowserMediaInfo => '媒体信息';
 
   @override
+  String get mediaBrowserMediaSources => '片源';
+
+  @override
+  String mediaBrowserMediaSourceNumber(int number) {
+    return '片源 $number';
+  }
+
+  @override
   String get mediaBrowserNextUp => '接下来播放';
 
   @override

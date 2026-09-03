@@ -26,6 +26,7 @@ Future<void> openMediaBrowserPlayback(
   WidgetRef ref, {
   required MediaBrowserItem item,
   bool transcode = false,
+  String? mediaSourceId,
   PlaybackEngineKind? engineKind,
 }) async {
   final config = ref.read(mediaBrowserConfigProvider);
@@ -40,7 +41,10 @@ Future<void> openMediaBrowserPlayback(
   try {
     final descriptor = await source.resolvePlayback(
       MediaRef(sourceId: SourceId(config.sourceId), value: itemId),
-      PlaybackRequest(forceVideoTranscode: transcode),
+      PlaybackRequest(
+        forceVideoTranscode: transcode,
+        mediaSourceId: mediaSourceId,
+      ),
     );
     final payload = descriptor.payload;
     final playSessionId = payload is MediaBrowserPlaybackInfo
@@ -141,6 +145,7 @@ Future<void> openMediaBrowserPlaybackWithEnginePicker(
   WidgetRef ref, {
   required MediaBrowserItem item,
   bool transcode = false,
+  String? mediaSourceId,
 }) async {
   if (!playbackEnginePickerEnabled) return;
   final engineKind = await pickPlaybackEngine(
@@ -153,6 +158,7 @@ Future<void> openMediaBrowserPlaybackWithEnginePicker(
     ref,
     item: item,
     transcode: transcode,
+    mediaSourceId: mediaSourceId,
     engineKind: engineKind,
   );
 }

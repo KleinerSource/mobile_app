@@ -435,6 +435,92 @@ void main() {
         expect(descriptor.startAt, 0);
       });
 
+      test('resolvePlayback 选择第二个片源并使用其媒体信息', () async {
+        String? requestedMediaSourceId;
+        final httpAdapter = _RecordingAdapter((options) {
+          if (options.uri.path.endsWith('/PlaybackInfo')) {
+            requestedMediaSourceId =
+                options.uri.queryParameters['MediaSourceId'];
+            return {
+              'MediaSources': [
+                {
+                  'Id': 'ms-1',
+                  'Container': 'mkv',
+                  'MediaStreams': [
+                    {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
+                    {'Index': 1, 'Type': 'Audio', 'DisplayTitle': '第一音轨'},
+                  ],
+                },
+                {
+                  'Id': 'ms-2',
+                  'Path': '/media/second.mp4',
+                  'Container': 'mp4',
+                  'Size': 2048,
+                  'MediaStreams': [
+                    {'Index': 0, 'Type': 'Video', 'Codec': 'h264'},
+                    {
+                      'Index': 1,
+                      'Type': 'Audio',
+                      'DisplayTitle': '第二音轨',
+                      'IsDefault': true,
+                    },
+                    {
+                      'Index': 2,
+                      'Type': 'Subtitle',
+                      'Codec': 'srt',
+                      'IsExternal': true,
+                      'Language': 'chi',
+                    },
+                  ],
+                },
+              ],
+            };
+          }
+          return {
+            'Id': 'item-1',
+            'Name': '电影一',
+            'Type': 'Movie',
+            'RunTimeTicks': 72000000000,
+          };
+        });
+        final adapter = buildAdapter(httpAdapter);
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'item-1'),
+          const PlaybackRequest(mediaSourceId: 'ms-2'),
+        );
+
+        expect(requestedMediaSourceId, 'ms-2');
+        expect(descriptor.uri.queryParameters['MediaSourceId'], 'ms-2');
+        expect(descriptor.mimeType, 'video/mp4');
+        expect(descriptor.audioTracks.single.label, '第二音轨');
+        expect(descriptor.subtitleTracks.single.url, contains('/ms-2/'));
+        expect(descriptor.subtitleTracks.single.url, contains('/2/Stream.vtt'));
+      });
+
+      test('resolvePlayback 选择不存在的片源时拒绝回退到第一源', () async {
+        final adapter = buildAdapter(
+          _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'MediaSources': [
+                  {'Id': 'ms-1', 'SupportsDirectPlay': true},
+                ],
+              };
+            }
+            return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+          }),
+        );
+
+        await expectLater(
+          adapter.resolvePlayback(
+            MediaRef(sourceId: sourceId, value: 'item-1'),
+            const PlaybackRequest(mediaSourceId: 'missing'),
+          ),
+          throwsA(isA<SourceException>()),
+        );
+      });
+
       test('resolvePlayback 请求转码时使用绝对化的 TranscodingUrl', () async {
         final adapter = buildAdapter(
           _RecordingAdapter((options) {

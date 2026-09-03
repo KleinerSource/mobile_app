@@ -41,6 +41,30 @@ MediaBrowserItem _item(String id, String name) {
   });
 }
 
+MediaBrowserItem _multiSourceItem() {
+  return MediaBrowserItem.fromJson(const {
+    'Id': 'movie-multi',
+    'Name': '多片源电影',
+    'Type': 'Movie',
+    'MediaSources': [
+      {
+        'Id': 'media-1',
+        'Name': 'first.mkv',
+        'Path': '/movies/first.mkv',
+        'Container': 'mkv',
+        'Size': 4096,
+      },
+      {
+        'Id': 'media-2',
+        'Name': 'second.mp4',
+        'Path': '/movies/second.mp4',
+        'Container': 'mp4',
+        'Size': 2048,
+      },
+    ],
+  });
+}
+
 void main() {
   testWidgets('电影详情页显示 Similar 推荐区块', (tester) async {
     const serverId = 'server-1';
@@ -91,5 +115,63 @@ void main() {
 
     expect(find.text('更多类似'), findsOneWidget);
     expect(find.text('相似电影'), findsWidgets);
+  });
+
+  testWidgets('电影详情页显示并切换片源', (tester) async {
+    const serverId = 'server-1';
+    final movie = _multiSourceItem();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://mb.test',
+                activeServerId: serverId,
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.emby,
+              baseUrl: 'http://mb.test',
+              token: 'test-token',
+            ),
+          ),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'movie-multi'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('片源'), findsOneWidget);
+    expect(find.text('first.mkv'), findsOneWidget);
+    expect(find.text('second.mp4'), findsOneWidget);
+    expect(find.textContaining('/movies/second.mp4'), findsOneWidget);
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('second.mp4'));
+    await tester.pump();
+
+    final group = tester.widget<RadioGroup<String>>(
+      find.byType(RadioGroup<String>),
+    );
+    expect(group.groupValue, 'media-2');
   });
 }

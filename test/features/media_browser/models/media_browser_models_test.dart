@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/features/media_browser/api/feiniu_models.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 void main() {
@@ -91,6 +92,64 @@ void main() {
     expect(item.seriesName, '示例剧集');
     expect(item.parentIndexNumber, 2);
     expect(item.indexNumber, 3);
+  });
+
+  test('MediaBrowserItem.fromJson 按服务端顺序保留多个片源', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-multi',
+      'Name': '多片源电影',
+      'Type': 'Movie',
+      'MediaSources': [
+        {'Id': 'ms-1', 'Container': 'mkv'},
+        {'Id': 'ms-2', 'Container': 'mp4'},
+      ],
+    });
+
+    expect(item.mediaSources.map((source) => source.id), ['ms-1', 'ms-2']);
+    expect(item.mediaSources.map((source) => source.container), ['mkv', 'mp4']);
+  });
+
+  test('飞牛文件列表按条目 mediaGuid 优先映射多个片源并去重', () {
+    final item = FeiniuItem.fromJson(const {
+      'guid': 'movie-1',
+      'title': '多片源电影',
+      'type': 'Movie',
+      'media_guid': 'media-1',
+    });
+    final streamList = FeiniuStreamList.fromData(const {
+      'files': [
+        {
+          'media_guid': 'media-2',
+          'file_name': 'second.mp4',
+          'path': '/movies/second.mp4',
+          'size': 2048,
+          'container': 'mp4',
+        },
+        {
+          'media_guid': 'media-1',
+          'file_name': 'first.mkv',
+          'path': '/movies/first.mkv',
+          'size': 4096,
+          'container': 'mkv',
+        },
+        {
+          'media_guid': 'media-2',
+          'file_name': 'second-duplicate.mp4',
+          'path': '/movies/second-duplicate.mp4',
+        },
+      ],
+    });
+
+    final converted = item.toMediaBrowserItem(streamList: streamList);
+
+    expect(converted.mediaSources.map((source) => source.id), [
+      'media-1',
+      'media-2',
+    ]);
+    expect(converted.mediaSources[0].name, 'first.mkv');
+    expect(converted.mediaSources[0].container, 'mkv');
+    expect(converted.mediaSources[0].sizeInBytes, 4096);
+    expect(converted.mediaSources[1].path, '/movies/second.mp4');
   });
 
   test('MediaBrowserItem.fromJson 解析剧集年份和总集数', () {

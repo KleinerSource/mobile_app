@@ -100,6 +100,7 @@ class _MediaBrowserDetailBodyState
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPosition = ValueNotifier(0.0);
   bool _actionBusy = false;
+  String? _selectedMediaSourceId;
 
   @override
   void initState() {
@@ -111,6 +112,15 @@ class _MediaBrowserDetailBodyState
   void didUpdateWidget(covariant _MediaBrowserDetailBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncHeroArt(ref.read(mediaBrowserServerUrlsProvider).value);
+    final sourceIds = widget.item.mediaSources
+        .map((source) => source.id)
+        .toSet();
+    if (_selectedMediaSourceId == null ||
+        !sourceIds.contains(_selectedMediaSourceId)) {
+      _selectedMediaSourceId = widget.item.mediaSources.isEmpty
+          ? null
+          : widget.item.mediaSources.first.id;
+    }
   }
 
   @override
@@ -189,6 +199,20 @@ class _MediaBrowserDetailBodyState
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  MediaBrowserMediaSourceDto? get _selectedMediaSource {
+    final sources = widget.item.mediaSources;
+    if (sources.isEmpty) return null;
+    for (final source in sources) {
+      if (source.id == _selectedMediaSourceId) return source;
+    }
+    return sources.first;
+  }
+
+  void _selectMediaSource(String id) {
+    if (_selectedMediaSourceId == id) return;
+    setState(() => _selectedMediaSourceId = id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -198,6 +222,7 @@ class _MediaBrowserDetailBodyState
         ? null
         : urls.value?.poster(item.id, tag: item.primaryImageTag);
     final runtimeMinutes = item.runtimeMinutes;
+    final selectedMediaSource = _selectedMediaSource;
     final castPeople = [
       for (final person in item.people)
         if (person.type == 'Actor' && person.name.trim().isNotEmpty) person,
@@ -244,13 +269,19 @@ class _MediaBrowserDetailBodyState
               favorite: item.userData.isFavorite,
               played: item.userData.played,
               busy: _actionBusy,
-              onPlay: () => openMediaBrowserPlayback(context, ref, item: item),
+              onPlay: () => openMediaBrowserPlayback(
+                context,
+                ref,
+                item: item,
+                mediaSourceId: selectedMediaSource?.id,
+              ),
               // 与 OMM 详情页一致：长按播放先选内核（libmpv / KSPlayer）。
               onLongPressPlay: playbackEnginePickerEnabled
                   ? () => openMediaBrowserPlaybackWithEnginePicker(
                       context,
                       ref,
                       item: item,
+                      mediaSourceId: selectedMediaSource?.id,
                     )
                   : null,
               onTranscodePlay: () => openMediaBrowserPlayback(
@@ -258,12 +289,24 @@ class _MediaBrowserDetailBodyState
                 ref,
                 item: item,
                 transcode: true,
+                mediaSourceId: selectedMediaSource?.id,
               ),
               onToggleFavorite: _toggleFavorite,
               onTogglePlayed: _togglePlayed,
             ),
           ),
         ),
+        if (item.mediaSources.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              child: _MediaSourceSelector(
+                sources: item.mediaSources,
+                selectedId: selectedMediaSource?.id ?? '',
+                onChanged: _selectMediaSource,
+              ),
+            ),
+          ),
         if (item.overview?.trim().isNotEmpty == true)
           SliverToBoxAdapter(
             child: Padding(
@@ -304,12 +347,17 @@ class _MediaBrowserDetailBodyState
                   child: MediaBrowserSimilarSection(items: items),
                 ),
         ),
-        SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
-        if (_hasDetails(item))
+        SliverToBoxAdapter(
+          child: MediaBrowserMediaInfoSection(
+            item: item,
+            source: selectedMediaSource,
+          ),
+        ),
+        if (_hasDetails(item, selectedMediaSource))
           SliverToBoxAdapter(
             child: MovieDetailSection(
               title: AppL10n.of(context).mediaBrowserDetails,
-              child: _DetailsTable(item: item),
+              child: _DetailsTable(item: item, source: selectedMediaSource),
             ),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
@@ -317,15 +365,99 @@ class _MediaBrowserDetailBodyState
     );
   }
 
-  bool _hasDetails(MediaBrowserItem item) {
+  bool _hasDetails(MediaBrowserItem item, MediaBrowserMediaSourceDto? source) {
     if (item.originalTitle?.trim().isNotEmpty == true) return true;
     if (item.seriesName?.trim().isNotEmpty == true) return true;
-    final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     if (source == null) return false;
     if (source.mediaStreams.isNotEmpty) return true;
     return source.path?.trim().isNotEmpty == true ||
         source.container?.trim().isNotEmpty == true ||
         source.sizeInBytes != null;
+  }
+}
+
+class _MediaSourceSelector extends StatelessWidget {
+  const _MediaSourceSelector({
+    required this.sources,
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  final List<MediaBrowserMediaSourceDto> sources;
+  final String selectedId;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final l = AppL10n.of(context);
+    return MovieDetailSection(
+      title: l.mediaBrowserMediaSources,
+      child: RadioGroup<String>(
+        groupValue: selectedId,
+        onChanged: (id) {
+          if (id != null) onChanged(id);
+        },
+        child: Column(
+          children: [
+            for (var index = 0; index < sources.length; index++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == sources.length - 1 ? 0 : 8,
+                ),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  color: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: sources[index].id == selectedId
+                          ? colors.text
+                          : colors.cardBorder,
+                    ),
+                  ),
+                  child: RadioListTile<String>(
+                    value: sources[index].id,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                    title: Text(
+                      sources[index].name?.trim().isNotEmpty == true
+                          ? sources[index].name!.trim()
+                          : l.mediaBrowserMediaSourceNumber(index + 1),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: _MediaSourceSubtitle(source: sources[index]),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaSourceSubtitle extends StatelessWidget {
+  const _MediaSourceSubtitle({required this.source});
+
+  final MediaBrowserMediaSourceDto source;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final details = <String>[
+      if (source.path?.trim().isNotEmpty == true) source.path!.trim(),
+      if (source.container?.trim().isNotEmpty == true)
+        '${l.mediaBrowserContainer}: ${source.container!.trim()}',
+      if (source.sizeInBytes != null && source.sizeInBytes! > 0)
+        '${l.mediaBrowserFileSize}: ${formatFileSize(source.sizeInBytes!)}',
+    ];
+    if (details.isEmpty) return const SizedBox.shrink();
+    return Text(
+      details.join(' · '),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 }
 
@@ -462,26 +594,28 @@ class _ChipSection extends StatelessWidget {
 }
 
 class _DetailsTable extends StatelessWidget {
-  const _DetailsTable({required this.item});
+  const _DetailsTable({required this.item, required this.source});
 
   final MediaBrowserItem item;
+  final MediaBrowserMediaSourceDto? source;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
-    final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
+    final selectedSource = source;
     final rows = <(String, String)>[
       if (item.originalTitle?.trim().isNotEmpty == true)
         (l.mediaBrowserOriginalTitle, item.originalTitle!),
       if (item.seriesName?.trim().isNotEmpty == true)
         (l.mediaBrowserSeriesLabel, item.seriesName!),
-      if (source?.path?.trim().isNotEmpty == true)
-        (l.mediaBrowserFilePath, source!.path!),
-      if (source?.container?.trim().isNotEmpty == true)
-        (l.mediaBrowserContainer, source!.container!),
-      if (source?.sizeInBytes != null && source!.sizeInBytes! > 0)
-        (l.mediaBrowserFileSize, formatFileSize(source.sizeInBytes!)),
+      if (selectedSource?.path?.trim().isNotEmpty == true)
+        (l.mediaBrowserFilePath, selectedSource!.path!),
+      if (selectedSource?.container?.trim().isNotEmpty == true)
+        (l.mediaBrowserContainer, selectedSource!.container!),
+      if (selectedSource?.sizeInBytes != null &&
+          selectedSource!.sizeInBytes! > 0)
+        (l.mediaBrowserFileSize, formatFileSize(selectedSource.sizeInBytes!)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

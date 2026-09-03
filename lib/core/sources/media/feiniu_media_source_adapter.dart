@@ -418,10 +418,30 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     _checkRef(ref);
     final item = await api.item(ref.value);
     final streams = await api.streamList(ref.value);
-    final file = streams.files.isEmpty ? null : streams.files.first;
-    final itemMediaGuid = item.mediaGuid.isNotEmpty
-        ? item.mediaGuid
-        : file?.mediaGuid ?? '';
+    final requestedMediaGuid = request.mediaSourceId?.trim();
+    final normalizedRequestedMediaGuid =
+        requestedMediaGuid == null || requestedMediaGuid.isEmpty
+        ? null
+        : requestedMediaGuid;
+    final validFiles = streams.files
+        .where(
+          (file) =>
+              file.mediaGuid.trim().isNotEmpty && file.path.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    final file = normalizedRequestedMediaGuid == null
+        ? _findMediaFile(validFiles, item.mediaGuid) ??
+              (validFiles.isEmpty ? null : validFiles.first)
+        : _findMediaFile(validFiles, normalizedRequestedMediaGuid);
+    if (normalizedRequestedMediaGuid != null &&
+        file == null &&
+        (validFiles.isNotEmpty ||
+            normalizedRequestedMediaGuid != item.mediaGuid)) {
+      throw const SourceException('所选片源已失效，请重新选择');
+    }
+    final itemMediaGuid =
+        normalizedRequestedMediaGuid ??
+        (item.mediaGuid.isNotEmpty ? item.mediaGuid : file?.mediaGuid ?? '');
     final audio = request.audioStreamIndex == null
         ? streams.audio.firstWhere(
             (stream) => stream.isDefault,
@@ -463,7 +483,12 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final containerPath = file?.path.trim().isNotEmpty == true
         ? file!.path
         : item.fileName;
-    final record = _recordFrom(info, item, url);
+    final record = _recordFrom(
+      info,
+      item,
+      url,
+      fallbackMediaGuid: itemMediaGuid,
+    );
     _records[ref.value] = record;
     final session = await sessionRepository.current();
     return PlaybackDescriptor(
@@ -643,10 +668,15 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   FeiniuPlayRecord _recordFrom(
     FeiniuPlayInfo info,
     FeiniuItem item,
-    String url,
-  ) => FeiniuPlayRecord(
+    String url, {
+    String? fallbackMediaGuid,
+  }) => FeiniuPlayRecord(
     itemGuid: info.itemGuid.isEmpty ? item.guid : info.itemGuid,
-    mediaGuid: info.mediaGuid.isEmpty ? item.mediaGuid : info.mediaGuid,
+    mediaGuid: info.mediaGuid.isEmpty
+        ? (fallbackMediaGuid?.trim().isNotEmpty == true
+              ? fallbackMediaGuid!.trim()
+              : item.mediaGuid)
+        : info.mediaGuid,
     videoGuid: info.videoGuid.isEmpty ? item.videoGuid : info.videoGuid,
     audioGuid: info.audioGuid.isEmpty ? item.audioGuid : info.audioGuid,
     subtitleGuid: info.subtitleGuid.isEmpty
@@ -777,6 +807,18 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final index = value.lastIndexOf('.');
     if (index < 0 || index == value.length - 1) return null;
     return value.substring(index + 1).toLowerCase();
+  }
+
+  FeiniuMediaFile? _findMediaFile(
+    Iterable<FeiniuMediaFile> files,
+    String mediaGuid,
+  ) {
+    final normalized = mediaGuid.trim();
+    if (normalized.isEmpty) return null;
+    for (final file in files) {
+      if (file.mediaGuid.trim() == normalized) return file;
+    }
+    return null;
   }
 
   Future<FeiniuMediaDb> _findLibrary({String? name, String? guid}) async {

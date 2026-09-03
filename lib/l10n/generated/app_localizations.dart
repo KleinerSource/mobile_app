@@ -7500,6 +7500,18 @@ abstract class AppL10n {
   /// **'媒体信息'**
   String get mediaBrowserMediaInfo;
 
+  /// No description provided for @mediaBrowserMediaSources.
+  ///
+  /// In zh, this message translates to:
+  /// **'片源'**
+  String get mediaBrowserMediaSources;
+
+  /// No description provided for @mediaBrowserMediaSourceNumber.
+  ///
+  /// In zh, this message translates to:
+  /// **'片源 {number}'**
+  String mediaBrowserMediaSourceNumber(int number);
+
   /// No description provided for @mediaBrowserNextUp.
   ///
   /// In zh, this message translates to:

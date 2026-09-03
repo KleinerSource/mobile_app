@@ -384,39 +384,61 @@ class FeiniuItem {
         (guid.isEmpty
             ? null
             : '/mediadb/${Uri.encodeComponent(guid)}/poster.jpg');
-    final file = streams.files.isEmpty
-        ? null
-        : streams.files.firstWhere(
-            (item) => item.mediaGuid == mediaGuid && item.mediaGuid.isNotEmpty,
-            orElse: () => streams.files.first,
+    final validFiles = streams.files
+        .where(
+          (file) =>
+              file.mediaGuid.trim().isNotEmpty && file.path.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    final orderedFiles = <FeiniuMediaFile>[];
+    final seenMediaGuids = <String>{};
+    void addFile(FeiniuMediaFile file) {
+      final id = file.mediaGuid.trim();
+      if (id.isEmpty || !seenMediaGuids.add(id)) return;
+      orderedFiles.add(file);
+    }
+
+    final preferredMediaGuid = mediaGuid.trim();
+    if (preferredMediaGuid.isNotEmpty) {
+      for (final file in validFiles) {
+        if (file.mediaGuid.trim() == preferredMediaGuid) addFile(file);
+      }
+    }
+    for (final file in validFiles) {
+      addFile(file);
+    }
+
+    final mediaStreams = [
+      for (final stream in [
+        ...streams.video,
+        ...streams.audio,
+        ...streams.subtitle,
+      ])
+        stream.toMediaBrowserStream(),
+    ];
+    final mediaSource = orderedFiles.isNotEmpty
+        ? [
+            for (final file in orderedFiles)
+              MediaBrowserMediaSourceDto(
+                id: file.mediaGuid.trim(),
+                name: file.name.trim().isEmpty ? null : file.name.trim(),
+                path: file.path.trim().isEmpty ? null : file.path,
+                container: file.container?.trim().isNotEmpty == true
+                    ? file.container!.trim()
+                    : _extension(file.path),
+                protocol: 'http',
+                sizeInBytes: file.sizeInBytes,
+                supportsDirectPlay: true,
+                supportsDirectStream: true,
+                mediaStreams: mediaStreams,
+              ),
+          ]
+        : _legacyMediaSource(
+            streams: streams,
+            mediaGuid: mediaGuid,
+            fileName: fileName,
+            fileSize: fileSize,
           );
-    final resolvedMediaGuid = mediaGuid.isNotEmpty
-        ? mediaGuid
-        : file?.mediaGuid ?? '';
-    final resolvedPath = file?.path.isNotEmpty == true ? file!.path : fileName;
-    final mediaSource = resolvedMediaGuid.isEmpty
-        ? const <MediaBrowserMediaSourceDto>[]
-        : [
-            MediaBrowserMediaSourceDto(
-              id: resolvedMediaGuid,
-              path: resolvedPath.isEmpty ? null : resolvedPath,
-              container: file?.container?.trim().isNotEmpty == true
-                  ? file!.container
-                  : _extension(resolvedPath),
-              protocol: 'http',
-              sizeInBytes: file?.sizeInBytes ?? fileSize,
-              supportsDirectPlay: true,
-              supportsDirectStream: true,
-              mediaStreams: [
-                for (final stream in [
-                  ...streams.video,
-                  ...streams.audio,
-                  ...streams.subtitle,
-                ])
-                  stream.toMediaBrowserStream(),
-              ],
-            ),
-          ];
     return MediaBrowserItem(
       id: guid,
       name: title,
@@ -450,6 +472,49 @@ class FeiniuItem {
       childCount: numberOfEpisodes ?? localNumberOfEpisodes,
       mediaSources: mediaSource,
     );
+  }
+
+  List<MediaBrowserMediaSourceDto> _legacyMediaSource({
+    required FeiniuStreamList streams,
+    required String mediaGuid,
+    required String fileName,
+    required int? fileSize,
+  }) {
+    final file = streams.files.isEmpty
+        ? null
+        : streams.files.firstWhere(
+            (item) => item.mediaGuid == mediaGuid && item.mediaGuid.isNotEmpty,
+            orElse: () => streams.files.first,
+          );
+    final resolvedMediaGuid = mediaGuid.isNotEmpty
+        ? mediaGuid
+        : file?.mediaGuid ?? '';
+    final resolvedPath = file?.path.isNotEmpty == true ? file!.path : fileName;
+    if (resolvedMediaGuid.isEmpty) {
+      return const <MediaBrowserMediaSourceDto>[];
+    }
+    return [
+      MediaBrowserMediaSourceDto(
+        id: resolvedMediaGuid,
+        name: file?.name.trim().isNotEmpty == true ? file!.name.trim() : null,
+        path: resolvedPath.isEmpty ? null : resolvedPath,
+        container: file?.container?.trim().isNotEmpty == true
+            ? file!.container!.trim()
+            : _extension(resolvedPath),
+        protocol: 'http',
+        sizeInBytes: file?.sizeInBytes ?? fileSize,
+        supportsDirectPlay: true,
+        supportsDirectStream: true,
+        mediaStreams: [
+          for (final stream in [
+            ...streams.video,
+            ...streams.audio,
+            ...streams.subtitle,
+          ])
+            stream.toMediaBrowserStream(),
+        ],
+      ),
+    ];
   }
 }
 

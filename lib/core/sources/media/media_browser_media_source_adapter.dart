@@ -186,11 +186,13 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     final info = await api.playbackInfo(
       uid,
       ref.value,
+      mediaSourceId: _normalizedMediaSourceId(request.mediaSourceId),
       deviceProfile: playbackDeviceProfile(),
     );
-    final mediaSource = info.mediaSources.isEmpty
-        ? null
-        : info.mediaSources.first;
+    final mediaSource = _selectMediaSource(
+      info.mediaSources,
+      _normalizedMediaSourceId(request.mediaSourceId),
+    );
     if (mediaSource == null || mediaSource.id.isEmpty) {
       throw SourceException('${config.displayName} 条目没有可用的媒体源');
     }
@@ -501,6 +503,27 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
 
   MediaRef _refFor(MediaBrowserItem item) =>
       MediaRef(sourceId: _sourceId, value: item.id);
+
+  String? _normalizedMediaSourceId(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  MediaBrowserMediaSourceDto? _selectMediaSource(
+    List<MediaBrowserMediaSourceDto> sources,
+    String? requestedId,
+  ) {
+    if (requestedId != null) {
+      for (final source in sources) {
+        if (source.id.trim() == requestedId) return source;
+      }
+      throw const SourceException('所选片源已失效，请重新选择');
+    }
+    for (final source in sources) {
+      if (source.id.trim().isNotEmpty) return source;
+    }
+    return null;
+  }
 
   /// 恢复播放位置：看完（>= 95%）的条目从头开始。
   int _resumeSeconds(MediaBrowserItem item) {

@@ -4087,6 +4087,14 @@ class AppL10nEn extends AppL10n {
   String get mediaBrowserMediaInfo => 'Media info';
 
   @override
+  String get mediaBrowserMediaSources => 'Media sources';
+
+  @override
+  String mediaBrowserMediaSourceNumber(int number) {
+    return 'Source $number';
+  }
+
+  @override
   String get mediaBrowserNextUp => 'Next up';
 
   @override

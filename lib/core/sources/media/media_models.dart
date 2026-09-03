@@ -197,6 +197,7 @@ class PlaybackRequest {
     this.audioStreamIndex,
     this.subtitleTrackId,
     this.playSourceId,
+    this.mediaSourceId,
     this.episodeIndex,
     this.clientCapabilities,
   });
@@ -206,6 +207,11 @@ class PlaybackRequest {
   final int? audioStreamIndex;
   final String? subtitleTrackId;
   final int? playSourceId;
+
+  /// MediaBrowser（Emby/Jellyfin/fnos）使用的媒体源 ID。
+  ///
+  /// 与 DBO 的整数 [playSourceId] 分开，避免不同后端的 ID 语义混用。
+  final String? mediaSourceId;
   final int? episodeIndex;
   final PlaybackClientCaps? clientCapabilities;
 
@@ -217,6 +223,7 @@ class PlaybackRequest {
       other.audioStreamIndex == audioStreamIndex &&
       other.subtitleTrackId == subtitleTrackId &&
       other.playSourceId == playSourceId &&
+      other.mediaSourceId == mediaSourceId &&
       other.episodeIndex == episodeIndex &&
       other.clientCapabilities == clientCapabilities;
 
@@ -227,6 +234,7 @@ class PlaybackRequest {
     audioStreamIndex,
     subtitleTrackId,
     playSourceId,
+    mediaSourceId,
     episodeIndex,
     clientCapabilities,
   );
