@@ -180,7 +180,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
           ? {_seriesId!: _seriesName!}
           : const {},
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     final id = picked.ids.isEmpty ? null : picked.ids.first;
     final l = AppL10n.of(context);
     setState(() {
@@ -206,7 +206,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       selected: selected,
       selectedNames: {for (final e in current) e.id: e.name},
     );
-    if (result == null) return;
+    if (result == null || !mounted) return;
     final l = AppL10n.of(context);
     final nameMap = {for (final e in current) e.id: e.name, ...result.names};
     final fallbackName = switch (kind) {

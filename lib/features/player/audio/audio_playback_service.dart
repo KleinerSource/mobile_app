@@ -118,8 +118,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
         androidNotificationChannelDescription:
             l.audioNotificationChannelDescription,
         androidNotificationOngoing: true,
-        fastForwardInterval: Duration(seconds: 10),
-        rewindInterval: Duration(seconds: 10),
+        fastForwardInterval: const Duration(seconds: 10),
+        rewindInterval: const Duration(seconds: 10),
       ),
     );
     _handler = handler;

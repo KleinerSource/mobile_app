@@ -54,7 +54,7 @@ void _main_0() {
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
+          locale: Locale('zh'),
           home: Scaffold(
             body: ActorAssociationSyncSheet(
               actor: MappingRule(
@@ -241,7 +241,7 @@ void _main_0() {
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
+          locale: Locale('zh'),
           home: Scaffold(
             body: ActorAssociationSyncSheet(
               actor: MappingRule(
@@ -306,7 +306,7 @@ void _main_0() {
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
+          locale: Locale('zh'),
           home: Scaffold(
             body: ActorAssociationSyncSheet(
               actor: MappingRule(

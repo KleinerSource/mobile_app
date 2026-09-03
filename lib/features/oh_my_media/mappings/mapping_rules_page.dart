@@ -720,6 +720,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
           mappedValue: result.mapped,
         );
       }
+      if (!mounted) return;
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
@@ -734,6 +735,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       // ignore: unused_result
       _reload(preserveScroll: rule != null);
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(

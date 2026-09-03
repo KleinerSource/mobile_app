@@ -1419,8 +1419,9 @@ class _AssetCard extends StatelessWidget {
         pulsing: true,
       );
     }
-    if (transcription.isFailed)
+    if (transcription.isFailed) {
       return _StatusInfo(l.audioStatusFailed, c.danger);
+    }
     if (transcription.isCanceled) {
       return _StatusInfo(l.audioStatusCanceled, c.muted);
     }

@@ -990,8 +990,9 @@ class _MediaInfoSection extends ConsumerWidget {
         final c = appColors(context);
         final l = AppL10n.of(context);
         final rows = <List<String>>[];
-        if (detail.container != null)
+        if (detail.container != null) {
           rows.add([l.detailContainer, detail.container!]);
+        }
         if (detail.fileSize != null && detail.fileSize! > 0) {
           rows.add([l.detailSize, _formatBytes(detail.fileSize!)]);
         }
@@ -1100,7 +1101,7 @@ class _MoreMenuButton extends ConsumerWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(l.detailAudioExtractionSubmitted),
-                  duration: Duration(seconds: 2),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             }

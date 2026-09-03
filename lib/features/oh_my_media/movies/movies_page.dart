@@ -1088,7 +1088,7 @@ class _UpdatedDropdownChip extends StatelessWidget {
             SheetHeader(
               icon: Icons.update_rounded,
               title: l.moviesUpdatedStatus,
-              padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
+              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
             ),
             for (final opt in <({bool? v, String label})>[
               (v: null, label: l.moviesUnlimited),

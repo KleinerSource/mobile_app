@@ -148,7 +148,7 @@ Widget _settingsApp(SharedPreferences prefs) {
     child: const MaterialApp(
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
-      locale: const Locale('zh'),
+      locale: Locale('zh'),
       home: AppUpdateSettingsPage(),
     ),
   );

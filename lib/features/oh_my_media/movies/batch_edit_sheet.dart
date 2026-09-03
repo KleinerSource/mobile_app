@@ -145,6 +145,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       final hasWatermark =
           _quickSubtitle || _quickExsub || _quickCrack || _quickUHD;
 
+      if (!mounted) return;
       if (!hasAdd && !hasRemove && !hasWatermark) {
         messenger.showSnackBar(
           SnackBar(content: Text(AppL10n.of(context).batchEditNothingSelected)),
@@ -177,6 +178,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
           uhd: _quickUHD,
         );
         if (r.failedCount > 0) {
+          if (!mounted) return;
           messenger.showSnackBar(
             SnackBar(
               content: Text(
@@ -703,7 +705,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                 SheetHeader(
                   icon: Icons.collections_bookmark_outlined,
                   title: l.entityPickerTitle(l.settingsSeries),
-                  padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),

@@ -344,13 +344,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(favoritesRepositoryProvider).removeBatch([m.id]);
+      if (!mounted) return;
       ref.read(favoriteStatusProvider.notifier).seed(m.id, false);
       // 直接从当前 list 移除,避免整页 refresh
       final list = _controller.itemList?.toList() ?? [];
       list.removeWhere((it) => it.id == m.id);
       _controller.itemList = list;
       _totalCount = (_totalCount - 1).clamp(0, 1 << 30);
-      if (mounted) setState(() {});
+      setState(() {});
       messenger.showSnackBar(
         SnackBar(
           content: Text(AppL10n.of(context).favoritesRemovedOne(m.title)),
@@ -358,6 +359,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(AppL10n.of(context).favoritesRemoveFailed('$e')),

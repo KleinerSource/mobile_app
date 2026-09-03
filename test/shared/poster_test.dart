@@ -13,7 +13,7 @@ void main() {
       const MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
-        locale: const Locale('zh'),
+        locale: Locale('zh'),
         home: Center(
           child: SizedBox(
             width: 120,
@@ -35,7 +35,7 @@ void main() {
       const MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
-        locale: const Locale('zh'),
+        locale: Locale('zh'),
         home: Center(
           child: SizedBox(
             width: 0,
@@ -60,7 +60,7 @@ void main() {
       const MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
-        locale: const Locale('zh'),
+        locale: Locale('zh'),
         home: Center(
           child: Poster(
             url: 'https://example.com/poster.jpg',

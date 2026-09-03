@@ -186,7 +186,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
         _selectDefaultTab();
       });
     } catch (e) {
-      if (!_isCurrentLoad(generation)) return;
+      if (!mounted || !_isCurrentLoad(generation)) return;
       final message =
           '${_sourceLabel(AppL10n.of(context), source)}: ${toApiException(e).message}';
       setState(() {
@@ -808,7 +808,7 @@ class _ResourceTile extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(l.resourceCopied),
-                                duration: Duration(seconds: 1),
+                                duration: const Duration(seconds: 1),
                               ),
                             );
                           },
@@ -931,7 +931,7 @@ class _ResourceTagBadges extends StatelessWidget {
             _ResBadge(
               label: l.movieFlagSubtitle,
               icon: Icons.closed_caption_rounded,
-              color: Color(0xFFFF9F1C),
+              color: const Color(0xFFFF9F1C),
             ),
           if (hasLADA)
             const _ResBadge(
@@ -943,7 +943,7 @@ class _ResourceTagBadges extends StatelessWidget {
             _ResBadge(
               label: l.movieFlagCrack,
               icon: Icons.lock_open_rounded,
-              color: Color(0xFFE91E63),
+              color: const Color(0xFFE91E63),
             ),
         ],
       ),

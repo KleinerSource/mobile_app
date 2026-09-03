@@ -78,7 +78,7 @@ void main() {
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
+          locale: Locale('zh'),
           home: MediaBrowserMovieDetailPage(itemId: 'movie-1'),
         ),
       ),

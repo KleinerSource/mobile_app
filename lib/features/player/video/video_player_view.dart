@@ -233,14 +233,17 @@ class VideoPlayerBufferingView extends StatelessWidget {
     final l = AppL10n.of(context);
     return IgnorePointer(
       child: ColoredBox(
-        color: Color(0x66000000),
+        color: const Color(0x66000000),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 12),
-              Text(l.playerBuffering, style: TextStyle(color: Colors.white)),
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 12),
+              Text(
+                l.playerBuffering,
+                style: const TextStyle(color: Colors.white),
+              ),
             ],
           ),
         ),

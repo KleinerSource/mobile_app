@@ -52,7 +52,7 @@ void main() {
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
+          locale: Locale('zh'),
           home: PosterBadgeDisplayPage(),
         ),
       ),
@@ -81,7 +81,7 @@ void main() {
       const MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
-        locale: const Locale('zh'),
+        locale: Locale('zh'),
         home: Scaffold(
           body: Center(child: CoverBadgeRow(badges: [badge])),
         ),

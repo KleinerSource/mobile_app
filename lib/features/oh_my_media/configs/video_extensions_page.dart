@@ -58,6 +58,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
       // ignore: unused_result
       ref.refresh(videoExtensionsProvider);
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(

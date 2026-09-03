@@ -304,7 +304,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                       icon: const Icon(Icons.stop_circle_outlined, size: 18),
                       label: Text(
                         l.cancel,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -329,7 +329,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                       icon: const Icon(Icons.arrow_downward_rounded, size: 18),
                       label: Text(
                         l.scanBackgroundButton,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,
                           fontSize: 13,

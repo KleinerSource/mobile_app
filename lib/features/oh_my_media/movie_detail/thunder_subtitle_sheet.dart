@@ -155,10 +155,12 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
               );
           // ignore: unused_result
           ref.refresh(movieDetailProvider(widget.movieId));
-          if (mounted) Navigator.of(context).pop();
+          if (!mounted) return;
+          final l = AppL10n.of(context);
+          Navigator.of(context).pop();
           messenger?.showSnackBar(
             SnackBar(
-              content: Text(AppL10n.of(context).subtitleDownloaded(item.name)),
+              content: Text(l.subtitleDownloaded(item.name)),
               duration: const Duration(seconds: 1),
             ),
           );
@@ -527,7 +529,7 @@ class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
           children: [
             Text(
               l.subtitlePreviewTitle,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w800,
                 fontSize: 16,

@@ -268,6 +268,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       await ref
           .read(librariesRepositoryProvider)
           .update(lib.id, enabled: !lib.enabled);
+      if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -281,6 +282,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       // ignore: unused_result
       ref.refresh(librariesAllProvider);
     } catch (e) {
+      if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -318,6 +320,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(librariesRepositoryProvider).delete(lib.id);
+      if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(AppL10n.of(context).libraryDeletedToast),
@@ -327,6 +330,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       // ignore: unused_result
       ref.refresh(librariesAllProvider);
     } catch (e) {
+      if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(

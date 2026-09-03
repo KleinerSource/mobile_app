@@ -137,6 +137,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       } else if (!seriesRemoved) {
         return;
       }
+      if (!mounted) return;
       // ignore: unused_result
       ref.refresh(movieDetailProvider(widget.movie.id));
       messenger.showSnackBar(
@@ -147,15 +148,14 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(context).dboApplyFailed(toApiException(e).message),
-            ),
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppL10n.of(context).dboApplyFailed(toApiException(e).message),
           ),
-        );
-      }
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }

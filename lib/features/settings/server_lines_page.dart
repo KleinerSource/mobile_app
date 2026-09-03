@@ -399,6 +399,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       if (activeUrl != null) {
         await _persist(_lines, activeUrl);
       }
+      if (!mounted) return;
       if (selected == null) {
         _showMessage(AppL10n.of(context).serverLineAutoTestNoResult);
       } else if (tested.isNotEmpty) {
@@ -631,15 +632,12 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     });
     final config = ref.read(serverConfigProvider);
     final server = config == null ? null : _serverFor(config);
+    final noResponseMessage = AppL10n.of(context).serverLineNoResponse;
     final result = await _probeCoordinator.probeAll([
       line,
     ], expectedProjectName: server?.projectName).firstAvailable;
     final resolved =
-        result ??
-        ServerLineProbeResult.failure(
-          line,
-          AppL10n.of(context).serverLineNoResponse,
-        );
+        result ?? ServerLineProbeResult.failure(line, noResponseMessage);
     if (!mounted) return resolved;
     setState(() {
       _testingIds.remove(line.id);
@@ -691,6 +689,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     if (activeLineChanged &&
         !_isValidProbeForLine(validatedProbe, selectedLine)) {
       final probe = await _testAndShow(selectedLine, showFailure: false);
+      if (!mounted) return;
       if (!probe.success || probe.versionInfo == null) {
         throw ServerCompatibilityException(
           probe.message.isEmpty

@@ -94,6 +94,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
             format: _format,
             bitrateKbps: _bitrateKbps,
           );
+      if (!mounted) return;
       final data = unwrapStd<Map<String, dynamic>>(raw, (value) {
         if (value is Map) return Map<String, dynamic>.from(value);
         return <String, dynamic>{};

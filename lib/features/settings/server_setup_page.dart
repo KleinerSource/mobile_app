@@ -153,6 +153,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       final probe = await ref
           .read(serverLineProbeCoordinatorProvider)
           .probe(line, expectedProjectName: project.projectName);
+      if (!mounted) return;
       if (!probe.success || probe.versionInfo == null) {
         throw ServerCompatibilityException(
           probe.message.isEmpty
@@ -317,6 +318,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         final probe = await ref
             .read(serverLineProbeCoordinatorProvider)
             .probe(line, expectedProjectName: project.projectName);
+        if (!mounted) return;
         if (!probe.success || probe.versionInfo == null) {
           throw ServerCompatibilityException(
             probe.message.isEmpty

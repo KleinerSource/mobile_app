@@ -413,9 +413,10 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                     decoration: InputDecoration(
                                       hintText: l.actorSearchHint,
                                       isCollapsed: true,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 14,
+                                          ),
                                       border: InputBorder.none,
                                     ),
                                     style: TextStyle(
