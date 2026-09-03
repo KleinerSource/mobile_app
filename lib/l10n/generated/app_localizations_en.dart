@@ -5678,35 +5678,35 @@ class AppL10nEn extends AppL10n {
   String get detailPlotViewFull => 'View full plot';
 
   @override
-  String get fanartFetchDone => 'Additional artwork fetched';
+  String get fanartFetchDone => 'Additional previews fetched';
 
   @override
   String fanartFetchFailed(String error) {
-    return 'Failed to fetch additional artwork: $error';
+    return 'Failed to fetch additional previews: $error';
   }
 
   @override
-  String get fanartTitle => 'Artwork';
+  String get fanartTitle => 'Previews';
 
   @override
-  String get fanartRefresh => 'Refresh artwork';
+  String get fanartRefresh => 'Refresh previews';
 
   @override
-  String get fanartFetch => 'Fetch artwork';
+  String get fanartFetch => 'Fetch previews';
 
   @override
-  String get fanartLoading => 'Loading artwork…';
+  String get fanartLoading => 'Loading previews…';
 
   @override
   String fanartLoadFailed(String error) {
-    return 'Failed to load artwork: $error';
+    return 'Failed to load previews: $error';
   }
 
   @override
-  String get fanartEmpty => 'No artwork';
+  String get fanartEmpty => 'No previews';
 
   @override
-  String get fanartClose => 'Close artwork';
+  String get fanartClose => 'Close previews';
 
   @override
   String get fanartTrailerPlaybackFailed => 'Failed to play trailer';

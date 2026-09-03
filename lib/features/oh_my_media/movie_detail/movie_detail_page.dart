@@ -250,7 +250,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         if (movie.series != null)
           SliverToBoxAdapter(
             child: _TaxonomySection(
-              label: l.settingsSeries,
+              label: l.movieEditorSeries,
               items: [movie.series!],
               kind: ResourceKind.series,
               hueOffset: 0,
@@ -260,7 +260,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         if (movie.genres.isNotEmpty)
           SliverToBoxAdapter(
             child: _TaxonomySection(
-              label: l.settingsGenres,
+              label: l.movieEditorGenre,
               items: movie.genres,
               kind: ResourceKind.genre,
               hueOffset: 0,
@@ -269,7 +269,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         if (movie.tags.isNotEmpty)
           SliverToBoxAdapter(
             child: _TaxonomySection(
-              label: l.settingsTags,
+              label: l.movieEditorTag,
               items: movie.tags,
               kind: ResourceKind.tag,
               hueOffset: 2,

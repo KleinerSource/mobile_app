@@ -10257,55 +10257,55 @@ abstract class AppL10n {
   /// No description provided for @fanartFetchDone.
   ///
   /// In zh, this message translates to:
-  /// **'额外背景图获取完成'**
+  /// **'额外预览图获取完成'**
   String get fanartFetchDone;
 
   /// No description provided for @fanartFetchFailed.
   ///
   /// In zh, this message translates to:
-  /// **'获取额外背景图失败：{error}'**
+  /// **'获取额外预览图失败：{error}'**
   String fanartFetchFailed(String error);
 
   /// No description provided for @fanartTitle.
   ///
   /// In zh, this message translates to:
-  /// **'背景图'**
+  /// **'预览图'**
   String get fanartTitle;
 
   /// No description provided for @fanartRefresh.
   ///
   /// In zh, this message translates to:
-  /// **'刷新背景图'**
+  /// **'刷新预览图'**
   String get fanartRefresh;
 
   /// No description provided for @fanartFetch.
   ///
   /// In zh, this message translates to:
-  /// **'获取背景图'**
+  /// **'获取预览图'**
   String get fanartFetch;
 
   /// No description provided for @fanartLoading.
   ///
   /// In zh, this message translates to:
-  /// **'正在加载背景图…'**
+  /// **'正在加载预览图…'**
   String get fanartLoading;
 
   /// No description provided for @fanartLoadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'背景图加载失败：{error}'**
+  /// **'预览图加载失败：{error}'**
   String fanartLoadFailed(String error);
 
   /// No description provided for @fanartEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'暂无背景图'**
+  /// **'暂无预览图'**
   String get fanartEmpty;
 
   /// No description provided for @fanartClose.
   ///
   /// In zh, this message translates to:
-  /// **'关闭背景图'**
+  /// **'关闭预览图'**
   String get fanartClose;
 
   /// No description provided for @fanartTrailerPlaybackFailed.

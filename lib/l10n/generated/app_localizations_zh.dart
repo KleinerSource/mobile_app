@@ -5590,35 +5590,35 @@ class AppL10nZh extends AppL10n {
   String get detailPlotViewFull => '查看完整简介';
 
   @override
-  String get fanartFetchDone => '额外背景图获取完成';
+  String get fanartFetchDone => '额外预览图获取完成';
 
   @override
   String fanartFetchFailed(String error) {
-    return '获取额外背景图失败：$error';
+    return '获取额外预览图失败：$error';
   }
 
   @override
-  String get fanartTitle => '背景图';
+  String get fanartTitle => '预览图';
 
   @override
-  String get fanartRefresh => '刷新背景图';
+  String get fanartRefresh => '刷新预览图';
 
   @override
-  String get fanartFetch => '获取背景图';
+  String get fanartFetch => '获取预览图';
 
   @override
-  String get fanartLoading => '正在加载背景图…';
+  String get fanartLoading => '正在加载预览图…';
 
   @override
   String fanartLoadFailed(String error) {
-    return '背景图加载失败：$error';
+    return '预览图加载失败：$error';
   }
 
   @override
-  String get fanartEmpty => '暂无背景图';
+  String get fanartEmpty => '暂无预览图';
 
   @override
-  String get fanartClose => '关闭背景图';
+  String get fanartClose => '关闭预览图';
 
   @override
   String get fanartTrailerPlaybackFailed => '预告片播放失败';
