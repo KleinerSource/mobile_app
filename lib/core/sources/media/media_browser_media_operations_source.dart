@@ -1,4 +1,34 @@
+import 'package:flutter/foundation.dart';
+
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
+
+@immutable
+class MediaBrowserLibraryRefreshTarget {
+  const MediaBrowserLibraryRefreshTarget({
+    required this.id,
+    required this.name,
+    this.category = '',
+  });
+
+  final String id;
+  final String name;
+  final String category;
+}
+
+@immutable
+class MediaBrowserLibraryRefreshProgress {
+  const MediaBrowserLibraryRefreshProgress({
+    required this.isRunning,
+    this.failed = false,
+    this.ratio,
+  });
+
+  final bool isRunning;
+  final bool failed;
+
+  /// 0.0–1.0；服务器无法提供可靠百分比时为 null。
+  final double? ratio;
+}
 
 /// MediaBrowser（Emby/Jellyfin/飞牛影视）保留给 Feature 的扩展能力。
 ///
@@ -43,7 +73,13 @@ abstract interface class MediaBrowserMediaOperationsSource {
     Map<String, dynamic> options = const <String, dynamic>{},
   });
 
-  Future<void> refreshLibrary();
+  /// 刷新全部媒体库；传入 [libraryId] 时只刷新指定媒体库。
+  Future<void> refreshLibrary({String? libraryId});
+
+  /// 查询指定媒体库的刷新任务；无匹配任务时返回已完成状态。
+  Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
+    MediaBrowserLibraryRefreshTarget target,
+  );
 
   /// 媒体库（Views）列表。
   Future<List<MediaBrowserItem>> views();

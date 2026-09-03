@@ -6,6 +6,7 @@ import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
+import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/core/sources/media/media_browser_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_capabilities.dart';
 import 'package:omm/core/sources/media/media_models.dart';
@@ -165,6 +166,62 @@ void main() {
           'Id': 'library-1',
           'LibraryOptions': {'EnableRealtimeMonitor': true, 'Enabled': false},
         });
+      });
+
+      test('单库刷新使用指定 ID并按计划任务解析库级进度', () async {
+        var scheduledTaskCalls = 0;
+        final httpAdapter = _RecordingAdapter((options) {
+          if (options.uri.path == config.path('/ScheduledTasks')) {
+            scheduledTaskCalls++;
+            if (scheduledTaskCalls == 1) {
+              return [
+                {
+                  'Key': 'RefreshMediaLibrary',
+                  'Name': 'Refresh Media Library library-1',
+                  'State': 'Running',
+                  'CurrentProgressPercentage': 42.5,
+                },
+                {
+                  'Key': 'RefreshMediaLibrary',
+                  'Name': 'Refresh Media Library library-2',
+                  'State': 'Running',
+                  'CurrentProgressPercentage': 99,
+                },
+              ];
+            }
+            if (scheduledTaskCalls == 2) {
+              return [
+                {
+                  'Key': 'RefreshMediaLibrary',
+                  'Name': 'Refresh Media Library library-2',
+                  'State': 'Running',
+                  'CurrentProgressPercentage': 99,
+                },
+              ];
+            }
+            return const <Map<String, dynamic>>[];
+          }
+          return null;
+        });
+        final adapter = buildAdapter(httpAdapter);
+        const target = MediaBrowserLibraryRefreshTarget(
+          id: 'library-1',
+          name: '电影库',
+          category: 'Movie',
+        );
+
+        await adapter.refreshLibrary(libraryId: 'library-1');
+        final matched = await adapter.libraryRefreshProgress(target);
+        final unmatched = await adapter.libraryRefreshProgress(target);
+        final completed = await adapter.libraryRefreshProgress(target);
+
+        expect(httpAdapter.requests[0], 'POST $base/Items/library-1/Refresh');
+        expect(httpAdapter.bodies[0], isNull);
+        expect(matched.isRunning, isTrue);
+        expect(matched.ratio, closeTo(0.425, 0.0001));
+        expect(unmatched.isRunning, isTrue);
+        expect(unmatched.ratio, isNull);
+        expect(completed.isRunning, isFalse);
       });
 
       test('albumTracks 按光盘号与曲号查询专辑曲目', () async {

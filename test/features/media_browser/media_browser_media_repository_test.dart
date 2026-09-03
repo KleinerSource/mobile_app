@@ -62,8 +62,8 @@ class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
   }
 
   @override
-  Future<void> refreshLibrary() async {
-    calls.add('refresh');
+  Future<void> refreshLibrary({String? libraryId}) async {
+    calls.add('refresh:${libraryId ?? 'all'}');
   }
 
   @override
@@ -91,6 +91,7 @@ void main() {
     );
     await repository.removeVirtualFolder('影片库');
     await repository.refreshLibrary();
+    await repository.refreshLibrary(libraryId: 'library-1');
 
     expect(source.calls, [
       'virtualFolders',
@@ -100,7 +101,8 @@ void main() {
       'removePath:影片库:/media/movies',
       'options:library-1:false',
       'remove:影片库',
-      'refresh',
+      'refresh:all',
+      'refresh:library-1',
     ]);
     expect(source.updatedOptions, {
       'EnableRealtimeMonitor': true,

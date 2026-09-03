@@ -181,10 +181,37 @@ class FeiniuApi {
       throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
     }
     final response = await _dio.post<dynamic>(
-      '/mdb/refresh',
-      data: {'mdb_guid': normalizedGuid},
+      '/mdb/scan/${Uri.encodeComponent(normalizedGuid)}',
     );
     _unwrap(response.data, (_) {});
+  }
+
+  /// 查询飞牛影视媒体库扫描任务。
+  Future<List<FeiniuRunningTask>> runningTasks({
+    required String guid,
+    required String ancestor,
+    required String ancestorName,
+    required String ancestorCategory,
+  }) async {
+    final response = await _dio.post<dynamic>(
+      '/task/running',
+      data: {
+        'guid': guid,
+        'ancestor': ancestor,
+        'ancestor_name': ancestorName,
+        'ancestor_category': ancestorCategory,
+      },
+    );
+    return _unwrap(response.data, (data) {
+      if (data is! List) return const <FeiniuRunningTask>[];
+      return data
+          .whereType<Map>()
+          .map(
+            (item) =>
+                FeiniuRunningTask.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList(growable: false);
+    });
   }
 
   Future<int> mediaDbSum() async {

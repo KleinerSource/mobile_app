@@ -227,8 +227,25 @@ class MediaBrowserApi {
     );
   }
 
-  /// 触发一次全局媒体库刷新。
-  Future<void> refreshLibrary() => _dio.post<void>(_p('/Library/Refresh'));
+  /// 触发一次媒体库刷新；传入条目 ID 时只刷新该媒体库。
+  Future<void> refreshLibrary({String? libraryId}) {
+    final normalizedId = libraryId?.trim() ?? '';
+    final path = normalizedId.isEmpty
+        ? '/Library/Refresh'
+        : '/Items/${_segment(normalizedId)}/Refresh';
+    return _dio.post<void>(_p(path));
+  }
+
+  /// 读取 Emby/Jellyfin 当前计划任务，用于观察媒体库扫描进度。
+  Future<List<Map<String, dynamic>>> scheduledTasks() async {
+    final response = await _dio.get<List<dynamic>>(_p('/ScheduledTasks'));
+    final data = response.data;
+    if (data == null) return const <Map<String, dynamic>>[];
+    return data
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
 
   /// 通用条目分页查询。参数命名与服务器一致，仅保留移动端用到的子集。
   Future<MediaBrowserItemPage> items(

@@ -143,6 +143,36 @@ class FeiniuMediaDb {
 }
 
 @immutable
+class FeiniuRunningTask {
+  const FeiniuRunningTask({
+    this.guid = '',
+    this.type = '',
+    this.ancestor = '',
+    this.status = 0,
+    this.totalCount = 0,
+    this.finishedCount = 0,
+  });
+
+  final String guid;
+  final String type;
+  final String ancestor;
+  final int status;
+  final int totalCount;
+  final int finishedCount;
+
+  factory FeiniuRunningTask.fromJson(Map<String, dynamic> json) {
+    return FeiniuRunningTask(
+      guid: _string(json['guid']),
+      type: _string(json['type']),
+      ancestor: _string(json['ancestor']),
+      status: _int(json['status']),
+      totalCount: _int(json['total_count']),
+      finishedCount: _int(json['finished_count']),
+    );
+  }
+}
+
+@immutable
 class FeiniuPerson {
   const FeiniuPerson({
     required this.id,

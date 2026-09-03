@@ -7,6 +7,7 @@ import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/feiniu_media_source_adapter.dart';
+import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/features/media_browser/api/feiniu_api.dart';
 
@@ -246,12 +247,12 @@ void main() {
     expect(adapter.requests, contains('PUT /v/api/v1/mdb/create'));
     expect(adapter.requests, contains('POST /v/api/v1/mdb/mdb-1'));
     expect(adapter.requests, contains('DELETE /v/api/v1/mdb/mdb-1'));
-    expect(adapter.requests, contains('POST /v/api/v1/mdb/refresh'));
+    expect(adapter.requests, contains('POST /v/api/v1/mdb/scan/mdb-1'));
     expect(
       adapter.bodies.whereType<Map>().any(
         (body) => body['mdb_guid'] == 'mdb-1',
       ),
-      isTrue,
+      isFalse,
     );
     expect(
       adapter.bodies.whereType<Map>().any(
@@ -261,6 +262,85 @@ void main() {
             (body['dir_list'] as List).contains('/media/movies'),
       ),
       isTrue,
+    );
+  });
+
+  test('飞牛媒体库刷新聚合任务进度并处理零总数和任务结束', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuRefreshAdapter([
+      [
+        {
+          'guid': 'task-1',
+          'ancestor': 'mdb-1',
+          'status': 2,
+          'total_count': 352,
+          'finished_count': 342,
+        },
+        {
+          'guid': 'mdb-1',
+          'ancestor': 'mdb-1',
+          'status': 3,
+          'total_count': 648,
+          'finished_count': 618,
+        },
+        {
+          'guid': 'other',
+          'ancestor': 'other',
+          'status': 2,
+          'total_count': 100,
+          'finished_count': 99,
+        },
+      ],
+      [
+        {
+          'guid': 'mdb-1',
+          'ancestor': 'mdb-1',
+          'status': 2,
+          'total_count': 0,
+          'finished_count': 0,
+        },
+      ],
+      const [],
+    ]);
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+    const target = MediaBrowserLibraryRefreshTarget(
+      id: 'mdb-1',
+      name: '本地动漫',
+      category: 'TV',
+    );
+
+    await source.refreshLibrary(libraryId: 'mdb-1');
+    final aggregated = await source.libraryRefreshProgress(target);
+    final unknown = await source.libraryRefreshProgress(target);
+    final completed = await source.libraryRefreshProgress(target);
+
+    expect(adapter.requests.first, 'POST /v/api/v1/mdb/scan/mdb-1');
+    expect(adapter.bodies.first, isNull);
+    expect(aggregated.isRunning, isTrue);
+    expect(aggregated.ratio, closeTo(960 / 1000, 0.0001));
+    expect(unknown.isRunning, isTrue);
+    expect(unknown.ratio, isNull);
+    expect(completed.isRunning, isFalse);
+    expect(completed.failed, isFalse);
+    expect(
+      adapter.taskRequestBodies,
+      everyElement({
+        'guid': 'mdb-1',
+        'ancestor': 'mdb-1',
+        'ancestor_name': '本地动漫',
+        'ancestor_category': 'TV',
+      }),
     );
   });
 }
@@ -653,6 +733,51 @@ class _FeiniuLibraryAdapter implements HttpClientAdapter {
     };
     return ResponseBody.fromString(
       jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _FeiniuRefreshAdapter implements HttpClientAdapter {
+  _FeiniuRefreshAdapter(this.taskResponses);
+
+  final List<List<Map<String, dynamic>>> taskResponses;
+  final requests = <String>[];
+  final bodies = <Object?>[];
+  final taskRequestBodies = <Map<String, dynamic>>[];
+  var _taskCall = 0;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add('${options.method} ${options.uri.path}');
+    bodies.add(options.data);
+    final path = options.uri.path;
+    if (path == '/v/api/v1/task/running') {
+      taskRequestBodies.add(Map<String, dynamic>.from(options.data as Map));
+      final index = _taskCall++;
+      final tasks = index < taskResponses.length
+          ? taskResponses[index]
+          : const <Map<String, dynamic>>[];
+      return ResponseBody.fromString(
+        jsonEncode({'code': 0, 'data': tasks}),
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
+    }
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': true}),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],

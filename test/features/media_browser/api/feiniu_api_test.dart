@@ -219,8 +219,9 @@ void main() {
       'PUT /v/api/v1/mdb/create',
       'POST /v/api/v1/mdb/mdb-1',
       'DELETE /v/api/v1/mdb/mdb-1',
-      'POST /v/api/v1/mdb/refresh',
+      'POST /v/api/v1/mdb/scan/mdb-1',
     ]);
+    expect(adapter.requestData[4], isNull);
     expect(adapter.bodies[0], {
       'name': '剧集库',
       'category': 'TV',
@@ -246,7 +247,56 @@ void main() {
       'auto_scrap_subtitle': 1,
       'guid': 'mdb-1',
     });
-    expect(adapter.bodies[2], {'mdb_guid': 'mdb-1'});
+    expect(adapter.bodies, hasLength(2));
+  });
+
+  test('飞牛扫描不带请求体且任务查询携带四个媒体库字段', () async {
+    final adapter = _FeiniuAdapter((options) {
+      if (options.uri.path.endsWith('/task/running')) {
+        return {
+          'code': 0,
+          'msg': '',
+          'data': [
+            {
+              'guid': 'task-1',
+              'type': 'TaskItemScrap',
+              'ancestor': 'mdb-1',
+              'status': 2,
+              'total_count': 352,
+              'finished_count': 342,
+            },
+          ],
+        };
+      }
+      return {'code': 0, 'msg': '', 'data': true};
+    });
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = adapter,
+    );
+
+    await api.mdbRefresh('mdb-1');
+    final tasks = await api.runningTasks(
+      guid: 'mdb-1',
+      ancestor: 'mdb-1',
+      ancestorName: '本地动漫',
+      ancestorCategory: 'TV',
+    );
+
+    expect(adapter.requests, [
+      'POST /v/api/v1/mdb/scan/mdb-1',
+      'POST /v/api/v1/task/running',
+    ]);
+    expect(adapter.requestData[0], isNull);
+    expect(adapter.requestData[1], {
+      'guid': 'mdb-1',
+      'ancestor': 'mdb-1',
+      'ancestor_name': '本地动漫',
+      'ancestor_category': 'TV',
+    });
+    expect(tasks.single.totalCount, 352);
+    expect(tasks.single.finishedCount, 342);
+    expect(tasks.single.status, 2);
   });
 
   test('飞牛用户信息解析管理员字段', () async {
@@ -442,6 +492,7 @@ class _FeiniuAdapter implements HttpClientAdapter {
   final Map<String, List<String>> responseHeaders;
   final requests = <String>[];
   final bodies = <Map<String, dynamic>>[];
+  final requestData = <Object?>[];
 
   @override
   void close({bool force = false}) {}
@@ -453,6 +504,7 @@ class _FeiniuAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.method} ${options.uri.path}');
+    requestData.add(options.data);
     if (options.data is Map) {
       bodies.add(Map<String, dynamic>.from(options.data as Map));
     }

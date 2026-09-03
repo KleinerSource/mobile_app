@@ -476,9 +476,112 @@ void _main_3() {
   });
 }
 
+Future<void> _pumpHomeLibraryCard(
+  WidgetTester tester,
+  HomeLibraryCardEntry entry,
+) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+      child: MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: const Locale('zh'),
+        home: Scaffold(body: HomeLibrariesSection(entries: [entry])),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+void _main_4() {
+  testWidgets('媒体库卡片长按显示刷新菜单并可点击外部关闭', (tester) async {
+    var refreshCount = 0;
+    await _pumpHomeLibraryCard(
+      tester,
+      HomeLibraryCardEntry(
+        id: 'library-refresh',
+        name: '可刷新媒体库',
+        onTap: () {},
+        onRefresh: () => refreshCount++,
+      ),
+    );
+
+    final card = find.byType(PrivacyAwareInkWell);
+    await tester.longPress(card);
+    await tester.pump();
+    expect(find.text('刷新'), findsOneWidget);
+
+    await tester.tapAt(const Offset(300, 300));
+    await tester.pump();
+    expect(find.text('刷新'), findsNothing);
+
+    await tester.longPress(card);
+    await tester.pump();
+    await tester.tap(find.text('刷新'));
+    await tester.pump();
+    expect(refreshCount, 1);
+  });
+
+  testWidgets('媒体库卡片刷新时显示确定或不确定圆形进度且禁止重复触发', (tester) async {
+    var refreshCount = 0;
+    final refreshing = HomeLibraryCardEntry(
+      id: 'library-progress',
+      name: '刷新中的媒体库',
+      onTap: () {},
+      onRefresh: () => refreshCount++,
+      isRefreshing: true,
+      refreshProgress: 0.42,
+    );
+    await _pumpHomeLibraryCard(tester, refreshing);
+
+    final determinate = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator),
+    );
+    expect(determinate.value, closeTo(0.42, 0.0001));
+    expect(find.text('42%'), findsOneWidget);
+
+    await tester.longPress(find.byType(PrivacyAwareInkWell));
+    await tester.pump();
+    expect(find.text('刷新'), findsOneWidget);
+    await tester.tap(find.text('刷新'));
+    await tester.pump();
+    expect(refreshCount, 0);
+
+    await _pumpHomeLibraryCard(
+      tester,
+      refreshing.copyWithForTest(refreshProgress: null),
+    );
+    final indeterminate = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator),
+    );
+    expect(indeterminate.value, isNull);
+    expect(find.text('42%'), findsNothing);
+  });
+}
+
+extension on HomeLibraryCardEntry {
+  HomeLibraryCardEntry copyWithForTest({double? refreshProgress}) {
+    return HomeLibraryCardEntry(
+      id: id,
+      name: name,
+      coverUrl: coverUrl,
+      onTap: onTap,
+      imageHeaders: imageHeaders,
+      category: category,
+      onRefresh: onRefresh,
+      isRefreshing: isRefreshing,
+      refreshProgress: refreshProgress,
+    );
+  }
+}
+
 void main() {
   group('home_providers', _main_0);
   group('home_movie_view_state', _main_1);
   group('home_hero', _main_2);
   group('home_libraries_section', _main_3);
+  group('home_libraries_refresh', _main_4);
 }

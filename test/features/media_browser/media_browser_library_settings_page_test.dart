@@ -74,8 +74,8 @@ class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
   }
 
   @override
-  Future<void> refreshLibrary() async {
-    calls.add('refresh');
+  Future<void> refreshLibrary({String? libraryId}) async {
+    calls.add('refresh:${libraryId ?? 'all'}');
   }
 
   @override
@@ -157,7 +157,7 @@ void main() {
       'removePath:新库:/media/b',
       'addPath:新库:/media/c',
       'options:library-1:false',
-      'refresh',
+      'refresh:all',
     ]);
     expect(source.options, {
       'EnableRealtimeMonitor': true,
@@ -217,7 +217,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 
-    expect(source.calls, ['remove:旧库', 'refresh']);
+    expect(source.calls, ['remove:旧库', 'refresh:all']);
   });
 
   testWidgets('媒体库卡片隐藏路径并通过左滑刷新服务器', (tester) async {
@@ -280,7 +280,7 @@ void main() {
     await tester.tap(find.text('刷新').hitTestable());
     await tester.pumpAndSettle();
 
-    expect(source.calls, ['refresh']);
+    expect(source.calls, ['refresh:all']);
     expect(find.text('已开始刷新「旧库」'), findsOneWidget);
   });
 

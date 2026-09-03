@@ -1,4 +1,5 @@
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
+import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）Feature 的 Source 门面。
@@ -55,7 +56,12 @@ class MediaBrowserMediaRepository {
     options: options,
   );
 
-  Future<void> refreshLibrary() => _source.refreshLibrary();
+  Future<void> refreshLibrary({String? libraryId}) =>
+      _source.refreshLibrary(libraryId: libraryId);
+
+  Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
+    MediaBrowserLibraryRefreshTarget target,
+  ) => _source.libraryRefreshProgress(target);
 
   Future<List<MediaBrowserItem>> views() => _source.views();
 

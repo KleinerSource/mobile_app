@@ -8,6 +8,7 @@ import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'media_browser_media_source.dart';
+import 'media_browser_media_operations_source.dart';
 import 'media_capabilities.dart';
 import 'media_models.dart';
 
@@ -225,12 +226,54 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   });
 
   @override
-  Future<void> refreshLibrary() => _call(() async {
+  Future<void> refreshLibrary({String? libraryId}) => _call(() async {
+    final normalizedId = libraryId?.trim() ?? '';
+    if (normalizedId.isNotEmpty) {
+      await api.mdbRefresh(normalizedId);
+      return;
+    }
     final libraries = await api.mdbList();
     await Future.wait(
       libraries
           .where((library) => library.guid.isNotEmpty)
           .map((library) => api.mdbRefresh(library.guid)),
+    );
+  });
+
+  @override
+  Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
+    MediaBrowserLibraryRefreshTarget target,
+  ) => _call(() async {
+    final tasks = await api.runningTasks(
+      guid: target.id,
+      ancestor: target.id,
+      ancestorName: target.name,
+      ancestorCategory: target.category,
+    );
+    final matched = tasks
+        .where((task) => task.guid == target.id || task.ancestor == target.id)
+        .toList(growable: false);
+    if (matched.isEmpty) {
+      return const MediaBrowserLibraryRefreshProgress(isRunning: false);
+    }
+
+    var total = 0;
+    var finished = 0;
+    var running = false;
+    var failed = false;
+    for (final task in matched) {
+      total += task.totalCount;
+      finished += task.finishedCount;
+      running = running || task.status == 2 || task.status == 3;
+      failed = failed || task.status == 0;
+    }
+    final ratio = total <= 0
+        ? null
+        : (finished / total).clamp(0.0, 1.0).toDouble();
+    return MediaBrowserLibraryRefreshProgress(
+      isRunning: running && !failed,
+      failed: failed,
+      ratio: ratio,
     );
   });
 

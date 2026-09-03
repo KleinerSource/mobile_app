@@ -14,6 +14,7 @@ class _MediaBrowserTestAdapter implements HttpClientAdapter {
 
   final requests = <String>[];
   final requestBodies = <Map<String, dynamic>>[];
+  final requestData = <Object?>[];
   final authorizationHeaders = <String?>[];
 
   @override
@@ -26,6 +27,7 @@ class _MediaBrowserTestAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.method} ${options.uri}');
+    requestData.add(options.data);
     if (options.data is Map) {
       requestBodies.add(Map<String, dynamic>.from(options.data as Map));
     }
@@ -360,6 +362,34 @@ void main() {
             'MetadataSavers': ['Nfo'],
           },
         });
+      });
+
+      test('单库刷新使用 Items 路径并读取 ScheduledTasks', () async {
+        final adapter = _MediaBrowserTestAdapter((options) {
+          if (options.uri.path == config.path('/ScheduledTasks')) {
+            return [
+              {
+                'Key': 'RefreshMediaLibrary',
+                'Name': 'Refresh Media Library library-1',
+                'State': 'Running',
+                'CurrentProgressPercentage': 42.5,
+              },
+            ];
+          }
+          return null;
+        }, config.authHeaderName);
+        final api = apiFor(config, adapter);
+
+        await api.refreshLibrary(libraryId: 'library-1');
+        final tasks = await api.scheduledTasks();
+
+        expect(adapter.requests, [
+          'POST http://test${config.pathPrefix}/Items/library-1/Refresh',
+          'GET http://test${config.pathPrefix}/ScheduledTasks',
+        ]);
+        expect(adapter.requestData[0], isNull);
+        expect(adapter.requestData[1], isNull);
+        expect(tasks.single['CurrentProgressPercentage'], 42.5);
       });
 
       test('播放会话上报使用 Sessions/Playing 系列端点与 tick 单位', () async {

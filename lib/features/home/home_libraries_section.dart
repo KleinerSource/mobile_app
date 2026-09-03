@@ -14,6 +14,10 @@ class HomeLibraryCardEntry {
     this.coverUrl,
     required this.onTap,
     this.imageHeaders,
+    this.category,
+    this.onRefresh,
+    this.isRefreshing = false,
+    this.refreshProgress,
   });
 
   final Object id;
@@ -23,6 +27,10 @@ class HomeLibraryCardEntry {
   final String? coverUrl;
   final Map<String, String>? imageHeaders;
   final VoidCallback onTap;
+  final String? category;
+  final VoidCallback? onRefresh;
+  final bool isRefreshing;
+  final double? refreshProgress;
 }
 
 /// 首页「媒体库」区块 · OMM 媒体库卡片同款设计：
@@ -79,95 +87,277 @@ class HomeLibrariesSection extends StatelessWidget {
   }
 }
 
-class _HomeLibraryCard extends StatelessWidget {
+class _HomeLibraryCard extends StatefulWidget {
   const _HomeLibraryCard({required this.entry, required this.hue});
 
   final HomeLibraryCardEntry entry;
   final int hue;
 
   @override
+  State<_HomeLibraryCard> createState() => _HomeLibraryCardState();
+}
+
+class _HomeLibraryCardState extends State<_HomeLibraryCard> {
+  final _overlayController = OverlayPortalController();
+  final _layerLink = LayerLink();
+  final _tapRegionGroup = Object();
+  var _showActions = false;
+
+  void _showActionMenu() {
+    if (widget.entry.onRefresh == null) return;
+    setState(() => _showActions = true);
+    _overlayController.show();
+  }
+
+  void _dismissActions() {
+    if (!_showActions) return;
+    setState(() => _showActions = false);
+    _overlayController.hide();
+  }
+
+  void _refresh() {
+    final callback = widget.entry.onRefresh;
+    if (callback == null || widget.entry.isRefreshing) return;
+    _dismissActions();
+    callback();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final hue = widget.hue;
     // 与 OMM 首页 _LibraryCard 同款隐私遮罩:点击先揭开,不直接进库
-    return PrivacyAwareInkWell(
-      movieId: entry.id,
-      scope: PrivacyScope.library,
-      onTap: entry.onTap,
-      borderRadius: 16,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: AspectRatio(
-          aspectRatio: 5 / 3,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 背景: 封面就绪后淡入替换品牌渐变
-              PrivacyMask(
-                movieId: entry.id,
-                scope: PrivacyScope.library,
-                radius: 0,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  layoutBuilder: (currentChild, previousChildren) => Stack(
-                    fit: StackFit.expand,
-                    alignment: Alignment.center,
-                    children: [
-                      ...previousChildren,
-                      if (currentChild != null) currentChild,
-                    ],
-                  ),
-                  child: entry.coverUrl != null
-                      ? KeyedSubtree(
-                          key: ValueKey('cover-${entry.id}'),
-                          child: Poster(
-                            url: entry.coverUrl,
-                            title: entry.name,
-                            radius: 0,
-                            httpHeaders: entry.imageHeaders,
-                          ),
-                        )
-                      : KeyedSubtree(
-                          key: ValueKey('hue-$hue'),
-                          child: _HueGradient(hue: hue),
-                        ),
-                ),
-              ),
-              // 封面上的压暗渐变,保证白色文字可读
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black54,
-                      Colors.black87,
-                    ],
-                    stops: [0.35, 0.7, 1.0],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: PrivacyText(
-                    movieId: entry.id,
-                    scope: PrivacyScope.library,
-                    text: entry.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      height: 1.25,
+    return OverlayPortal(
+      controller: _overlayController,
+      overlayChildBuilder: _buildActionOverlay,
+      child: TapRegion(
+        groupId: _tapRegionGroup,
+        onTapOutside: _showActions ? (_) => _dismissActions() : null,
+        child: CompositedTransformTarget(
+          link: _layerLink,
+          child: PrivacyAwareInkWell(
+            movieId: entry.id,
+            scope: PrivacyScope.library,
+            onTap: entry.onTap,
+            onLongPress: _showActionMenu,
+            borderRadius: 16,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 5 / 3,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 背景: 封面就绪后淡入替换品牌渐变
+                    PrivacyMask(
+                      movieId: entry.id,
+                      scope: PrivacyScope.library,
+                      radius: 0,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        layoutBuilder: (currentChild, previousChildren) =>
+                            Stack(
+                              fit: StackFit.expand,
+                              alignment: Alignment.center,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
+                            ),
+                        child: entry.coverUrl != null
+                            ? KeyedSubtree(
+                                key: ValueKey('cover-${entry.id}'),
+                                child: Poster(
+                                  url: entry.coverUrl,
+                                  title: entry.name,
+                                  radius: 0,
+                                  httpHeaders: entry.imageHeaders,
+                                ),
+                              )
+                            : KeyedSubtree(
+                                key: ValueKey('hue-$hue'),
+                                child: _HueGradient(hue: hue),
+                              ),
+                      ),
                     ),
-                  ),
+                    // 封面上的压暗渐变,保证白色文字可读
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black54,
+                            Colors.black87,
+                          ],
+                          stops: [0.35, 0.7, 1.0],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: PrivacyText(
+                          movieId: entry.id,
+                          scope: PrivacyScope.library,
+                          text: entry.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (entry.isRefreshing)
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: _LibraryRefreshProgress(
+                          ratio: entry.refreshProgress,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionOverlay(BuildContext context) {
+    return Align(
+      alignment: Alignment.topLeft,
+      child: CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        targetAnchor: Alignment.topLeft,
+        followerAnchor: Alignment.bottomLeft,
+        offset: const Offset(0, -8),
+        child: TapRegion(
+          groupId: _tapRegionGroup,
+          child: _HomeLibraryActionList(
+            enabled: !widget.entry.isRefreshing,
+            onRefresh: _refresh,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLibraryActionList extends StatelessWidget {
+  const _HomeLibraryActionList({
+    required this.enabled,
+    required this.onRefresh,
+  });
+
+  static const width = 196.0;
+  static const height = 51.0;
+
+  final bool enabled;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final labelColor = enabled ? colors.text : colors.muted;
+    final background = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1B1A24)
+        : Colors.white;
+    return Material(
+      color: background,
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.34),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: colors.cardBorder.withValues(alpha: 0.45),
+          width: 0.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: InkWell(
+          onTap: enabled ? onRefresh : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(Icons.refresh_rounded, color: labelColor, size: 18),
+                const SizedBox(width: 10),
+                Text(
+                  AppL10n.of(context).mediaBrowserRefresh,
+                  style: TextStyle(
+                    color: labelColor,
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryRefreshProgress extends StatelessWidget {
+  const _LibraryRefreshProgress({required this.ratio});
+
+  final double? ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final value = ratio?.clamp(0.0, 1.0).toDouble();
+    return Semantics(
+      container: true,
+      label: AppL10n.of(context).mediaBrowserRefresh,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        alignment: Alignment.center,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.square(
+              dimension: 27,
+              child: CircularProgressIndicator(
+                value: value,
+                strokeWidth: 2.5,
+                color: colors.accent,
+                backgroundColor: Colors.white.withValues(alpha: 0.22),
+              ),
+            ),
+            if (value != null)
+              Text(
+                '${(value * 100).round()}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+          ],
         ),
       ),
     );

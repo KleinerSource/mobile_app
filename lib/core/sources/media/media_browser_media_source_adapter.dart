@@ -9,6 +9,7 @@ import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'media_capabilities.dart';
 import 'media_browser_media_source.dart';
+import 'media_browser_media_operations_source.dart';
 import 'media_models.dart';
 import 'playback_device_profile.dart';
 
@@ -121,7 +122,34 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   );
 
   @override
-  Future<void> refreshLibrary() => _call(() => api.refreshLibrary());
+  Future<void> refreshLibrary({String? libraryId}) =>
+      _call(() => api.refreshLibrary(libraryId: libraryId));
+
+  @override
+  Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
+    MediaBrowserLibraryRefreshTarget target,
+  ) => _call(() async {
+    final tasks = await api.scheduledTasks();
+    final activeTasks = tasks
+        .where(_isActiveLibraryRefreshTask)
+        .toList(growable: false);
+    if (activeTasks.isEmpty) {
+      return const MediaBrowserLibraryRefreshProgress(isRunning: false);
+    }
+
+    final matchedTasks = activeTasks
+        .where((task) => _taskMatchesLibrary(task, target))
+        .toList(growable: false);
+    final tasksToDisplay = matchedTasks.isNotEmpty ? matchedTasks : activeTasks;
+    final hasReliableMatch = matchedTasks.isNotEmpty;
+    final failed = tasksToDisplay.any(_isFailedScheduledTask);
+    final ratio = hasReliableMatch ? _scheduledTaskRatio(tasksToDisplay) : null;
+    return MediaBrowserLibraryRefreshProgress(
+      isRunning: !failed,
+      failed: failed,
+      ratio: ratio,
+    );
+  });
 
   @override
   Future<MediaPage<MediaSummary>> listMovies(MediaQuery query) =>
@@ -640,6 +668,97 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   static bool _isHttpUrl(String value) {
     final lower = value.toLowerCase();
     return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
+  static bool _isActiveLibraryRefreshTask(Map<String, dynamic> task) {
+    if (!_isLibraryRefreshTask(task)) return false;
+    final state = _taskString(task, const ['State', 'state']).toLowerCase();
+    if (state.contains('fail') || state.contains('error')) return true;
+    if (state.contains('run') ||
+        state.contains('queue') ||
+        state.contains('wait') ||
+        state.contains('execut')) {
+      return true;
+    }
+    final percentage = _taskPercentage(task);
+    return state.isEmpty && percentage != null && percentage < 100;
+  }
+
+  static bool _isLibraryRefreshTask(Map<String, dynamic> task) {
+    final text = _taskString(task, const [
+      'Key',
+      'key',
+      'Name',
+      'name',
+      'Description',
+      'description',
+    ]).toLowerCase();
+    return text.contains('refreshlibrary') ||
+        text.contains('refreshmedialibrary') ||
+        text.contains('refresh library') ||
+        text.contains('scan media library') ||
+        text.contains('library scan') ||
+        text.contains('媒体库') ||
+        text.contains('扫描');
+  }
+
+  static bool _isFailedScheduledTask(Map<String, dynamic> task) {
+    final state = _taskString(task, const ['State', 'state']).toLowerCase();
+    return state.contains('fail') || state.contains('error');
+  }
+
+  static bool _taskMatchesLibrary(
+    Map<String, dynamic> task,
+    MediaBrowserLibraryRefreshTarget target,
+  ) {
+    final id = target.id.trim().toLowerCase();
+    final name = target.name.trim().toLowerCase();
+    if (id.isEmpty && name.isEmpty) return false;
+    final text = _taskString(task, const [
+      'Id',
+      'id',
+      'Key',
+      'key',
+      'Name',
+      'name',
+      'Description',
+      'description',
+      'ItemId',
+      'itemId',
+      'LibraryId',
+      'libraryId',
+      'ParentId',
+      'parentId',
+    ]).toLowerCase();
+    return (id.isNotEmpty && text.contains(id)) ||
+        (name.isNotEmpty && text.contains(name));
+  }
+
+  static double? _scheduledTaskRatio(List<Map<String, dynamic>> tasks) {
+    double? highest;
+    for (final task in tasks) {
+      final percentage = _taskPercentage(task);
+      if (percentage == null) continue;
+      if (highest == null || percentage > highest) highest = percentage;
+    }
+    return highest == null ? null : (highest / 100).clamp(0.0, 1.0).toDouble();
+  }
+
+  static double? _taskPercentage(Map<String, dynamic> task) {
+    final value =
+        task['CurrentProgressPercentage'] ??
+        task['currentProgressPercentage'] ??
+        task['Progress'] ??
+        task['progress'];
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  static String _taskString(Map<String, dynamic> task, List<String> keys) {
+    return keys
+        .map((key) => task[key]?.toString().trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .join(' ');
   }
 
   /// 取 URL 路径的文件扩展名（不含点），无扩展名返回 null。strm 条目的
