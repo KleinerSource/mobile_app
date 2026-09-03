@@ -3,11 +3,23 @@
 //   - test/core/auth_session_repository_test.dart
 
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/api/services/auth_api.dart';
+import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/auth/totp_code.dart';
+import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==================== 原 test/core/auth_api_test.dart ====================
 void _main_0() {
@@ -324,7 +336,330 @@ class _MemoryTokenStore implements AuthTokenStore {
   }
 }
 
+// ==================== loginForServer / TOTP 自动算码 ====================
+void _main_2() {
+  const totpSecret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+
+  test('TOTP 密钥按服务器作用域存取，clear 会话不影响密钥', () async {
+    final repository = AuthSessionRepository(store: _MemoryTokenStore());
+    final serverA = repository.forServer('server-a');
+    final serverB = repository.forServer('server-b');
+
+    await serverA.saveTotpSecret(totpSecret);
+    expect(await serverA.readTotpSecret(), totpSecret);
+    expect(await serverB.readTotpSecret(), isNull);
+
+    await serverA.save(
+      const AuthSession(accessToken: 'a', refreshToken: 'r', expiresIn: 3600),
+    );
+    await serverA.clear();
+    expect(await serverA.current(), isNull);
+    // 密钥是长期登录配置，会话失效/登出不应删除它。
+    expect(await serverA.readTotpSecret(), totpSecret);
+
+    await serverA.deleteTotpSecret();
+    expect(await serverA.readTotpSecret(), isNull);
+  });
+
+  test('loginForServer 用密码加 TOTP 密钥自动算码并保存作用域会话', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions);
+    addTearDown(container.dispose);
+
+    final server = _ommProfile(httpServer);
+    await container
+        .read(authControllerProvider.notifier)
+        .loginForServer(
+          server: server,
+          password: 'pw',
+          totpSecret: totpSecret,
+        );
+
+    final login = recorder.log
+        .where((entry) => entry.path.endsWith('/auth/login'))
+        .single;
+    expect(login.method, 'POST');
+    expect(login.body?['password'], 'pw');
+    // 验证码由本地时钟生成，允许跨过 30 秒窗口边界时取相邻窗口的码。
+    final now = DateTime.now();
+    final expected = {
+      tryGenerateTotpCode(totpSecret, now: now),
+      tryGenerateTotpCode(totpSecret, now: now.add(const Duration(seconds: 30))),
+    }.whereType<String>();
+    expect(expected, contains(login.body?['totp_code']));
+
+    final stored = await sessions.forServer(server.id).load();
+    expect(stored?.accessToken, 'access-token');
+    expect(stored?.refreshToken, 'refresh-token');
+    // 密钥持久化由设置页在保存成功后决定，loginForServer 不代劳。
+    expect(await sessions.forServer(server.id).readTotpSecret(), isNull);
+  });
+
+  test('loginForServer 在鉴权未启用时跳过登录', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder, authEnabled: false);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions);
+    addTearDown(container.dispose);
+
+    final server = _ommProfile(httpServer);
+    await container
+        .read(authControllerProvider.notifier)
+        .loginForServer(server: server, password: 'pw');
+
+    expect(recorder.log.single.path, endsWith('/auth/status'));
+    expect(await sessions.forServer(server.id).load(), isNull);
+  });
+
+  test('loginForServer 拒绝非法 TOTP 密钥且不发任何请求', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions);
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container
+          .read(authControllerProvider.notifier)
+          .loginForServer(
+            server: _ommProfileForUrl('http://127.0.0.1:1'),
+            password: 'pw',
+            totpSecret: 'not-base32!!',
+          ),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('loginForServer 走 Emby 用户名密码登录并保存 userId', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => httpServer.close(force: true));
+    httpServer.listen((request) async {
+      final body = await _capture(recorder, request);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'AccessToken': 'tok-1',
+          'User': {'Id': 'u-1', 'Name': 'alice'},
+        }),
+      );
+      await request.response.close();
+      expect(body, isNotNull);
+    });
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions);
+    addTearDown(container.dispose);
+
+    final line = ServerLine(
+      id: 'emby-line',
+      name: '主线路',
+      baseUrl: 'http://${httpServer.address.address}:${httpServer.port}',
+    );
+    final server = ServerProfile(
+      id: 'emby-server',
+      name: 'Emby',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'emby',
+    );
+    await container
+        .read(authControllerProvider.notifier)
+        .loginForServer(
+          server: server,
+          username: 'alice',
+          password: 'pw',
+        );
+
+    expect(
+      recorder.log.single.path,
+      contains('/Users/AuthenticateByName'),
+    );
+    final stored = await sessions.forServer(server.id).load();
+    expect(stored?.accessToken, 'tok-1');
+    expect(stored?.userId, 'u-1');
+  });
+
+  test('login 对已存 TOTP 密钥的服务器自动附加验证码', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+
+    final line = ServerLine(
+      id: 'omm-line',
+      name: '主线路',
+      baseUrl: 'http://${httpServer.address.address}:${httpServer.port}',
+    );
+    final server = ServerProfile(
+      id: 'omm-server',
+      name: 'OMM',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'oh-my-media',
+    );
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final client = ApiClient.fromConfig(config, sessionRepository: sessions);
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      client: client,
+    );
+    addTearDown(container.dispose);
+    await sessions
+        .forServer(server.id, allowLegacyMigration: false)
+        .saveTotpSecret(totpSecret);
+
+    final ok = await container
+        .read(authControllerProvider.notifier)
+        .login(password: 'pw');
+
+    expect(ok, isTrue);
+    final login = recorder.log
+        .where((entry) => entry.path.endsWith('/auth/login'))
+        .single;
+    expect(login.body?['password'], 'pw');
+    final now = DateTime.now();
+    final expected = {
+      tryGenerateTotpCode(totpSecret, now: now),
+      tryGenerateTotpCode(totpSecret, now: now.add(const Duration(seconds: 30))),
+    }.whereType<String>();
+    expect(expected, contains(login.body?['totp_code']));
+    expect(
+      container.read(authControllerProvider).value?.phase,
+      AuthPhase.authenticated,
+    );
+  });
+}
+
+class _RecordedRequest {
+  _RecordedRequest(this.method, this.path, this.body);
+
+  final String method;
+  final String path;
+  final Map<String, dynamic>? body;
+}
+
+class _RequestRecorder {
+  final log = <_RecordedRequest>[];
+}
+
+Future<Map<String, dynamic>?> _capture(
+  _RequestRecorder recorder,
+  HttpRequest request,
+) async {
+  final raw = await utf8.decoder.bind(request).join();
+  Map<String, dynamic>? body;
+  if (raw.isNotEmpty) {
+    try {
+      body = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      body = null;
+    }
+  }
+  recorder.log.add(_RecordedRequest(request.method, request.uri.path, body));
+  return body;
+}
+
+/// 模拟 OMM 服务端：/api/auth/status 与 /api/auth/login 走标准信封。
+Future<HttpServer> _startOmmServer(
+  _RequestRecorder recorder, {
+  bool authEnabled = true,
+}) async {
+  final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  httpServer.listen((request) async {
+    await _capture(recorder, request);
+    request.response.headers.contentType = ContentType.json;
+    if (request.uri.path.endsWith('/auth/login') && authEnabled) {
+      request.response.write(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'access_token': 'access-token',
+            'refresh_token': 'refresh-token',
+            'expires_in': 3600,
+          },
+        }),
+      );
+    } else if (request.uri.path.endsWith('/auth/status')) {
+      request.response.write(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'enabled': authEnabled,
+            'configured': authEnabled,
+            'authenticated': false,
+            'password_login_disabled': false,
+            'refresh_token_expire_days': 7,
+            'max_failed_attempts': 5,
+            'lock_minutes': 30,
+            'totp_configured': false,
+            'webauthn_configured': false,
+          },
+        }),
+      );
+    } else {
+      request.response.statusCode = HttpStatus.notFound;
+      request.response.write(jsonEncode({'success': false}));
+    }
+    await request.response.close();
+  });
+  return httpServer;
+}
+
+ServerProfile _ommProfileForUrl(String baseUrl) {
+  final line = ServerLine(id: 'omm-line', name: '主线路', baseUrl: baseUrl);
+  return ServerProfile(
+    id: 'omm-server',
+    name: 'OMM',
+    lines: [line],
+    activeLineId: line.id,
+    projectName: 'oh-my-media',
+  );
+}
+
+ServerProfile _ommProfile(HttpServer httpServer) => _ommProfileForUrl(
+      'http://${httpServer.address.address}:${httpServer.port}',
+    );
+
+class _FixedServerConfigNotifier extends ServerConfigNotifier {
+  _FixedServerConfigNotifier(this.config);
+
+  final ServerConfig? config;
+
+  @override
+  ServerConfig? build() => config;
+}
+
+/// 构造挂载 AuthController 的容器；默认无配置（unconfigured），
+/// loginForServer 不依赖活动服务器配置。
+Future<ProviderContainer> _authContainer(
+  AuthSessionRepository sessions, {
+  ServerConfig? config,
+  ApiClient? client,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  return ProviderContainer(
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      authSessionRepositoryProvider.overrideWithValue(sessions),
+      if (config != null)
+        serverConfigProvider.overrideWith(
+          () => _FixedServerConfigNotifier(config),
+        ),
+      if (client != null) requiredApiClientProvider.overrideWithValue(client),
+    ],
+  );
+}
+
 void main() {
   group('auth_api', _main_0);
   group('auth_session_repository', _main_1);
+  group('auth_login_for_server', _main_2);
 }

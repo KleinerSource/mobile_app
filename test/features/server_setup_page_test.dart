@@ -3,7 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/server_compatibility.dart';
+import 'package:omm/core/auth/auth_provider.dart';
+import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/auth/auth_session_provider.dart';
+import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/settings/server_list_page.dart';
@@ -31,8 +37,11 @@ void main() {
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
     expect(find.text('路径'), findsNothing);
+    // OMM 密码鉴权没有用户名概念，只有密码 + TOTP 密钥。
     expect(find.text('用户名'), findsNothing);
-    expect(find.text('密码'), findsNothing);
+    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('TOTP 密钥（可选）'), findsOneWidget);
+    expect(find.text('登录凭据（可选）'), findsOneWidget);
   });
 
   testWidgets('切换服务器类型显示对应字段', (tester) async {
@@ -107,7 +116,134 @@ void main() {
     expect(find.text('端口'), findsOneWidget);
     expect(find.text('路径'), findsNothing);
     expect(find.text('用户名'), findsNothing);
-    expect(find.text('密码'), findsNothing);
+    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('TOTP 密钥（可选）'), findsOneWidget);
+  });
+
+  testWidgets('Emby 显示用户名密码而不显示 TOTP 密钥', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'Emby');
+
+    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('TOTP 密钥（可选）'), findsNothing);
+  });
+
+  testWidgets('飞牛与 Jellyfin 登录需要用户名', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'Jellyfin');
+
+    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('TOTP 密钥（可选）'), findsNothing);
+  });
+
+  testWidgets('Emby 填写密码但缺少用户名时报错', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'Emby');
+
+    // Emby 字段顺序：名称、主机、端口、用户名、密码。
+    await tester.enterText(find.byType(TextField).at(0), '我的 Emby');
+    await tester.enterText(find.byType(TextField).at(1), 'example.com');
+    await tester.enterText(find.byType(TextField).at(4), 'secret-pw');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已填写密码，请输入用户名'), findsOneWidget);
+  });
+
+  testWidgets('TOTP 密钥格式非法时报错', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+
+    await tester.enterText(find.byType(TextField).at(0), '我的 OMM');
+    await tester.enterText(find.byType(TextField).at(1), 'example.com');
+    await tester.enterText(find.byType(TextField).at(4), 'not-base32!!');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('TOTP 密钥格式无效（应为 base32 字符串）'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('HTTP 类型之间切换服务器类型时清空已输入的凭据', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+
+    // OMM 字段顺序：名称、主机、端口、密码、TOTP 密钥。
+    await tester.enterText(find.byType(TextField).at(3), 'old-password');
+    await _selectProject(tester, 'Emby');
+
+    final fields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
+    expect(fields[3].controller?.text, isEmpty);
+    expect(fields[4].controller?.text, isEmpty);
+  });
+
+  testWidgets('填写凭据时保存前先登录并持久化 TOTP 密钥', (tester) async {
+    final prefs = await _prefs();
+    final store = _MemoryTokenStore();
+    final sessions = AuthSessionRepository(store: store);
+    final controller = _RecordingAuthController(null);
+    await _pumpSetupWithAuth(
+      tester,
+      prefs,
+      sessions: sessions,
+      controller: controller,
+    );
+
+    await tester.enterText(find.byType(TextField).at(0), '我的 OMM');
+    await tester.enterText(find.byType(TextField).at(1), '192.168.1.10');
+    await tester.enterText(find.byType(TextField).at(3), 'secret-pw');
+    await tester.enterText(
+      find.byType(TextField).at(4),
+      'gezd gnbv gy3tqojq gezd gnbv gy3tqojq',
+    );
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(controller.log.single['username'], isNull);
+    expect(controller.log.single['password'], 'secret-pw');
+    expect(
+      controller.log.single['totpSecret'],
+      'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+    );
+    // 服务器与 TOTP 密钥均已保存。
+    expect(prefs.getString('server.servers'), isNotNull);
+    expect(
+      store.values.values,
+      contains('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'),
+    );
+  });
+
+  testWidgets('登录失败时显示错误且不保存服务器', (tester) async {
+    final prefs = await _prefs();
+    final store = _MemoryTokenStore();
+    final sessions = AuthSessionRepository(store: store);
+    final controller = _RecordingAuthController(
+      ApiException('用户名或密码错误'),
+    );
+    await _pumpSetupWithAuth(
+      tester,
+      prefs,
+      sessions: sessions,
+      controller: controller,
+    );
+
+    await tester.enterText(find.byType(TextField).at(0), '我的 OMM');
+    await tester.enterText(find.byType(TextField).at(1), '192.168.1.10');
+    await tester.enterText(find.byType(TextField).at(3), 'wrong-pw');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('用户名或密码错误'), findsOneWidget);
+    expect(prefs.getString('server.servers'), isNull);
+    expect(store.values, isEmpty);
   });
 
   testWidgets('编辑服务器时拆分回填名称、协议、主机和端口', (tester) async {
@@ -177,6 +313,7 @@ void main() {
     });
     final prefs = await SharedPreferences.getInstance();
 
+    await _enlargeSurface(tester);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -241,11 +378,18 @@ Future<SharedPreferences> _prefs() async {
   return SharedPreferences.getInstance();
 }
 
+/// 凭据区块让表单变高，默认 600px 视口放不下保存按钮（懒加载不构建）。
+Future<void> _enlargeSurface(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(800, 1700));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+}
+
 Future<void> _pumpSetup(
   WidgetTester tester,
   SharedPreferences prefs, {
   bool editing = false,
 }) async {
+  await _enlargeSurface(tester);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
@@ -260,9 +404,88 @@ Future<void> _pumpSetup(
   await tester.pumpAndSettle();
 }
 
+/// 挂上会话仓库与 AuthController 桩、探测直接成功的添加服务器页面。
+Future<void> _pumpSetupWithAuth(
+  WidgetTester tester,
+  SharedPreferences prefs, {
+  required AuthSessionRepository sessions,
+  required _RecordingAuthController controller,
+}) async {
+  await _enlargeSurface(tester);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        authSessionRepositoryProvider.overrideWithValue(sessions),
+        authControllerProvider.overrideWith(() => controller),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              8,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'oh-my-media',
+                version: '2.0.0',
+              ),
+            ),
+          ),
+        ),
+      ],
+      child: const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: Locale('zh'),
+        home: ServerSetupPage(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> _selectProject(WidgetTester tester, String project) async {
   await tester.tap(find.byType(DropdownButton<ServerProject>));
   await tester.pumpAndSettle();
   await tester.tap(find.text(project).last);
   await tester.pumpAndSettle();
+}
+
+/// 记录 loginForServer 调用参数的 AuthController 桩。
+class _RecordingAuthController extends AuthController {
+  _RecordingAuthController(this.error);
+
+  final Object? error;
+  final log = <Map<String, Object?>>[];
+
+  @override
+  Future<AuthState> build() async =>
+      const AuthState(phase: AuthPhase.unconfigured);
+
+  @override
+  Future<void> loginForServer({
+    required ServerProfile server,
+    String? username,
+    required String password,
+    String? totpSecret,
+  }) async {
+    log.add({
+      'serverId': server.id,
+      'username': username,
+      'password': password,
+      'totpSecret': totpSecret,
+    });
+    if (error != null) throw error!;
+  }
+}
+
+class _MemoryTokenStore implements AuthTokenStore {
+  final values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
 }

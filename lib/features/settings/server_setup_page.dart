@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
+import '../../core/auth/auth_provider.dart';
+import '../../core/auth/auth_session_provider.dart';
+import '../../core/auth/totp_code.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_line_probe.dart';
@@ -43,6 +47,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   final _pathController = TextEditingController();
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _totpSecretController = TextEditingController();
 
   String _scheme = 'http';
   String? _editingServerId;
@@ -50,6 +55,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   ServerProject? _project;
   bool _busy = false;
   String? _error;
+  // 编辑模式下是否存在已保存的 TOTP 密钥，以及用户是否要求清除它。
+  bool _hasStoredTotpSecret = false;
+  bool _clearTotpSecret = false;
 
   @override
   void initState() {
@@ -83,6 +91,21 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _fillFileSourceFields(_fileSourceConfig);
     } else {
       _fillHttpFields(server.activeLine?.baseUrl ?? saved.baseUrl, _project!);
+      _loadStoredTotpSecret(server.id);
+    }
+  }
+
+  Future<void> _loadStoredTotpSecret(String serverId) async {
+    try {
+      final secret = await ref
+          .read(authSessionRepositoryProvider)
+          .forServer(serverId, allowLegacyMigration: false)
+          .readTotpSecret();
+      if (mounted && secret != null) {
+        setState(() => _hasStoredTotpSecret = true);
+      }
+    } catch (_) {
+      // 读取失败按未配置处理，不影响编辑其他字段。
     }
   }
 
@@ -94,6 +117,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     _pathController.dispose();
     _userController.dispose();
     _passwordController.dispose();
+    _totpSecretController.dispose();
     super.dispose();
   }
 
@@ -134,6 +158,34 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       return;
     }
 
+    // 可选登录凭据：填写了就在保存前完成登录验证；TOTP 密钥只对
+    // OMM/DBO 的密码鉴权有意义，其他 HTTP 类型没有该概念。
+    final needsUsername =
+        project == ServerProject.emby ||
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu;
+    final passwordAuth =
+        project == ServerProject.ohMyMedia || project == ServerProject.dbOnline;
+    final username = _userController.text.trim();
+    final password = _passwordController.text;
+    final totpSecretRaw = passwordAuth
+        ? _totpSecretController.text.trim()
+        : '';
+    final wantsLogin =
+        password.isNotEmpty || (needsUsername && username.isNotEmpty);
+    if (wantsLogin && needsUsername && username.isEmpty) {
+      _showError(l.serverSetupLoginUsernameRequired);
+      return;
+    }
+    String? normalizedTotpSecret;
+    if (totpSecretRaw.isNotEmpty) {
+      normalizedTotpSecret = normalizeTotpSecret(totpSecretRaw);
+      if (normalizedTotpSecret == null) {
+        _showError(l.serverSetupTotpKeyInvalid);
+        return;
+      }
+    }
+
     setState(() {
       _busy = true;
       _error = null;
@@ -162,9 +214,13 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         );
       }
 
+      // 会话与 TOTP 密钥都按服务器 ID 作用域存储，先固定 ID 再登录，
+      // 保证与最终保存的 ServerProfile 一致。
+      final serverId =
+          editingServer?.id ?? 'server-${DateTime.now().microsecondsSinceEpoch}';
       final server = editingServer == null
           ? ServerProfile(
-              id: 'server-${DateTime.now().microsecondsSinceEpoch}',
+              id: serverId,
               name: _nameController.text.trim(),
               lines: [line],
               activeLineId: line.id,
@@ -178,15 +234,53 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
               projectName: project.projectName,
               serverVersion: probe.versionInfo!.version,
             );
+      if (wantsLogin) {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .loginForServer(
+                server: server,
+                username: needsUsername ? username : null,
+                password: password,
+                totpSecret: normalizedTotpSecret,
+              );
+        } on ApiException catch (error) {
+          final data = error.data;
+          if (data is Map && data['totp_required'] == true) {
+            throw ApiException(l.serverSetupTotpRequired);
+          }
+          rethrow;
+        }
+      }
       await ref
           .read(serverConfigProvider.notifier)
           .saveServer(server, validatedProbe: probe);
+      await _persistTotpSecret(server.id, normalizedTotpSecret);
       AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) setState(() => _error = toApiException(error).message);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 保存/清除服务器作用域的 TOTP 密钥（服务器配置保存成功后调用）。
+  Future<void> _persistTotpSecret(
+    String serverId,
+    String? normalizedSecret,
+  ) async {
+    try {
+      final repository = ref
+          .read(authSessionRepositoryProvider)
+          .forServer(serverId, allowLegacyMigration: false);
+      if (normalizedSecret != null) {
+        await repository.saveTotpSecret(normalizedSecret);
+      } else if (_clearTotpSecret) {
+        await repository.deleteTotpSecret();
+      }
+    } catch (_) {
+      // 密钥持久化失败不影响服务器保存结果，登录页仍可手动输入验证码。
     }
   }
 
@@ -543,6 +637,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final openList = project == ServerProject.openList;
     final httpLike = webDav || openList;
     final fileServer = project.isFileSource;
+    final needsUsername =
+        project == ServerProject.emby ||
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu;
+    final passwordAuth =
+        project == ServerProject.ohMyMedia || project == ServerProject.dbOnline;
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
@@ -580,8 +680,20 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                           value: project,
                           enabled: !_busy && !editing,
                           onChanged: (value) => setState(() {
+                            final previous = _project;
                             _project = value;
                             _error = null;
+                            // 跨文件源/HTTP 或 HTTP 类型之间切换时清空凭据，
+                            // 避免把上一类型的用户名/密码误用到新类型登录。
+                            final bothFileSources =
+                                previous?.isFileSource == true &&
+                                value.isFileSource;
+                            if (!bothFileSources) {
+                              _userController.clear();
+                              _passwordController.clear();
+                              _totpSecretController.clear();
+                              _clearTotpSecret = false;
+                            }
                             if (value == ServerProject.openList &&
                                 _pathController.text.trim().isEmpty) {
                               _pathController.text = '/';
@@ -688,6 +800,70 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                               prefixIcon: const Icon(Icons.lock_outline),
                             ),
                           ),
+                        ],
+                        if (httpServer) ...[
+                          const SizedBox(height: 18),
+                          Text(
+                            l.serverSetupCredentialTitle,
+                            style: AppText.cardTitle(context),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l.serverSetupCredentialHint,
+                            style: AppText.meta(context).copyWith(height: 1.4),
+                          ),
+                          const SizedBox(height: 12),
+                          if (needsUsername) ...[
+                            TextField(
+                              controller: _userController,
+                              enabled: !_busy,
+                              autocorrect: false,
+                              decoration: InputDecoration(
+                                labelText: l.serverSetupUserLabel,
+                                prefixIcon: const Icon(Icons.person_outline),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          TextField(
+                            controller: _passwordController,
+                            enabled: !_busy,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: l.serverSetupPasswordLabel,
+                              prefixIcon: const Icon(Icons.lock_outline),
+                            ),
+                          ),
+                          if (passwordAuth) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _totpSecretController,
+                              enabled: !_busy,
+                              autocorrect: false,
+                              onChanged: (_) => setState(() {}),
+                              decoration: InputDecoration(
+                                labelText: l.serverSetupTotpKeyLabel,
+                                helperText: l.serverSetupTotpKeyHint,
+                                prefixIcon: const Icon(Icons.password_outlined),
+                                suffixIcon:
+                                    _hasStoredTotpSecret &&
+                                        _totpSecretController.text.isEmpty
+                                    ? IconButton(
+                                        tooltip: l.serverSetupTotpClearStored,
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                        ),
+                                        onPressed: _busy
+                                            ? null
+                                            : () => setState(() {
+                                                _clearTotpSecret = true;
+                                                _hasStoredTotpSecret = false;
+                                              }),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ],
                         ],
                         if (_error != null) ...[
                           const SizedBox(height: 12),

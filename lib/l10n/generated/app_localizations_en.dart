@@ -2252,6 +2252,13 @@ class AppL10nEn extends AppL10n {
   String get serverSetupConnectTitle => 'Connect';
 
   @override
+  String get serverSetupCredentialHint =>
+      'If provided, credentials are verified at save time; leave empty to sign in later';
+
+  @override
+  String get serverSetupCredentialTitle => 'Login credentials (optional)';
+
+  @override
   String serverSetupDuplicate(String name) {
     return 'A server with the same connection already exists: $name';
   }
@@ -2268,6 +2275,10 @@ class AppL10nEn extends AppL10n {
   @override
   String get serverSetupInvalidFileConfig =>
       'Invalid file source configuration';
+
+  @override
+  String get serverSetupLoginUsernameRequired =>
+      'Username is required when a password is provided';
 
   @override
   String get serverSetupNameLabel => 'Name';
@@ -2313,6 +2324,24 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get serverSetupSelectProject => 'Select server type';
+
+  @override
+  String get serverSetupTotpClearStored => 'Clear saved secret';
+
+  @override
+  String get serverSetupTotpKeyHint =>
+      'For servers with 2FA; verification codes are generated automatically at sign-in';
+
+  @override
+  String get serverSetupTotpKeyInvalid =>
+      'Invalid TOTP secret (expected a base32 string)';
+
+  @override
+  String get serverSetupTotpKeyLabel => 'TOTP secret (optional)';
+
+  @override
+  String get serverSetupTotpRequired =>
+      'This server requires two-step verification. Provide a TOTP secret, or clear the password and sign in from the login page.';
 
   @override
   String get serverSetupUserAnonymousLabel =>

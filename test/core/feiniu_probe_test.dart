@@ -77,6 +77,7 @@ void main() {
         '/api/version',
         '/System/Info/Public',
         '/emby/System/Info/Public',
+        '/graphql',
         '/v/api/v1/sys/version',
       ]);
     } finally {

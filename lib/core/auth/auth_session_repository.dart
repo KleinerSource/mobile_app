@@ -51,6 +51,7 @@ class AuthSessionRepository {
   static const _expiresKey = 'omm.auth.expires_in';
   static const _userIdKey = 'omm.auth.user_id';
   static const _cookieKey = 'omm.auth.cookie';
+  static const _totpSecretKey = 'omm.auth.totp_secret';
 
   final AuthTokenStore _store;
   final _AuthSessionState _state;
@@ -139,6 +140,28 @@ class AuthSessionRepository {
     final cacheKey = _cacheKey(serverId);
     _state.cache[cacheKey] = null;
     _state.loaded.add(cacheKey);
+  }
+
+  /// 读取当前服务器作用域的 TOTP 密钥。
+  ///
+  /// 密钥属于长期登录配置，不参与会话缓存，也不随 [clear] 删除——登出或
+  /// 会话过期后重新登录仍要用它自动生成验证码。
+  Future<String?> readTotpSecret() async {
+    final value = await _store.read(_keyFor(_totpSecretKey, _activeServerId));
+    return _stringOrNull(value);
+  }
+
+  Future<void> saveTotpSecret(String secret) async {
+    final normalized = secret.trim();
+    if (normalized.isEmpty) return;
+    await _store.write(
+      _keyFor(_totpSecretKey, _activeServerId),
+      normalized,
+    );
+  }
+
+  Future<void> deleteTotpSecret() async {
+    await _store.delete(_keyFor(_totpSecretKey, _activeServerId));
   }
 
   Future<AuthSession?> _readSession({

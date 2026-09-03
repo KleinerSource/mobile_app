@@ -17,6 +17,7 @@ import '../config/server_line_probe.dart';
 import 'auth_session.dart';
 import 'auth_session_repository.dart';
 import 'auth_session_provider.dart';
+import 'totp_code.dart';
 import '../platform/device_id.dart';
 
 final authControllerProvider = AsyncNotifierProvider<AuthController, AuthState>(
@@ -280,24 +281,18 @@ class AuthController extends AsyncNotifier<AuthState> {
     // 登录请求期间保留 needsLogin 状态（页面有自己的 busy 指示），避免根
     // 路由进入 loading 分支重建登录页。
     try {
-      final session = await client.auth.login(
+      var code = totpCode?.trim() ?? '';
+      if (code.isEmpty) {
+        // 已配置 TOTP 密钥的服务器直接本地生成验证码，用户无需手输。
+        code = await _autoTotpCode(sessionRepository) ?? '';
+      }
+      await _completePasswordLogin(
+        client,
+        sessionRepository: sessionRepository,
+        isDbOnline: isDbOnline,
         password: password,
-        totpCode: totpCode,
+        totpCode: code.isEmpty ? null : code,
       );
-      if (isDbOnline ? !session.hasAccessToken : !session.isUsable) {
-        throw ApiException('登录响应缺少有效会话');
-      }
-      await sessionRepository.save(session);
-      if (isDbOnline) {
-        try {
-          if (!await client.auth.verify()) {
-            throw ApiException('登录响应令牌无效');
-          }
-        } catch (_) {
-          await sessionRepository.clear();
-          rethrow;
-        }
-      }
       final status = await client.auth.status();
       state = AsyncData(
         AuthState(phase: AuthPhase.authenticated, status: status),
@@ -450,29 +445,11 @@ class AuthController extends AsyncNotifier<AuthState> {
       return false;
     }
     try {
-      final token = await client.feiniu.login(
+      await _completeFeiniuLogin(
+        client,
+        sessionRepository: sessionRepository,
         username: user,
         password: password,
-      );
-      final cookie = client.feiniu.lastLoginCookie;
-      await sessionRepository.save(
-        AuthSession(
-          accessToken: token,
-          refreshToken: '',
-          expiresIn: 0,
-          cookie: cookie,
-        ),
-      );
-      final profile = await client.feiniu.userInfo();
-      if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
-      await sessionRepository.save(
-        AuthSession(
-          accessToken: token,
-          refreshToken: '',
-          expiresIn: 0,
-          userId: profile.id,
-          cookie: cookie,
-        ),
       );
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
@@ -510,26 +487,12 @@ class AuthController extends AsyncNotifier<AuthState> {
       return false;
     }
     try {
-      final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
-      final result = await client
-          .mediaBrowserFor(config)
-          .authenticateByName(
-            username: user,
-            password: password,
-            deviceId: deviceId,
-            deviceName: Platform.operatingSystem,
-            appVersion: await _appVersion(),
-          );
-      if (result.accessToken.isEmpty || result.user.id.isEmpty) {
-        throw ApiException('登录响应缺少有效会话');
-      }
-      await sessionRepository.save(
-        AuthSession(
-          accessToken: result.accessToken,
-          refreshToken: '',
-          expiresIn: 0,
-          userId: result.user.id,
-        ),
+      await _completeMediaBrowserLogin(
+        client,
+        sessionRepository: sessionRepository,
+        config: config,
+        username: user,
+        password: password,
       );
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
@@ -543,6 +506,186 @@ class AuthController extends AsyncNotifier<AuthState> {
         ),
       );
       throw exception;
+    }
+  }
+
+  /// 添加/编辑服务器时用一次性凭据登录目标服务器并保存会话。
+  ///
+  /// 目标服务器通常尚未激活，这里构造仅包含它的临时配置来建客户端，
+  /// 会话写入该服务器的作用域，不改变当前登录状态；TOTP 密钥只用于
+  /// 本次算码，是否持久化由调用方决定。失败抛 [ApiException]；OMM/DBO
+  /// 鉴权未启用时视为无需登录直接返回。
+  Future<void> loginForServer({
+    required ServerProfile server,
+    String? username,
+    required String password,
+    String? totpSecret,
+  }) async {
+    final project = server.project;
+    if (project == null) throw ApiException('服务器类型无效');
+    final line = server.activeLine ?? server.lines.first;
+    final rawSecret = totpSecret?.trim() ?? '';
+    final normalizedSecret = rawSecret.isEmpty ? null : normalizeTotpSecret(rawSecret);
+    if (rawSecret.isNotEmpty && normalizedSecret == null) {
+      throw ApiException('TOTP 密钥格式无效（应为 base32 字符串）');
+    }
+
+    final sessionRepository = ref
+        .read(authSessionRepositoryProvider)
+        .forServer(server.id, allowLegacyMigration: false);
+    final client = ApiClient.fromConfig(
+      ServerConfig(
+        baseUrl: line.baseUrl,
+        lines: server.lines,
+        servers: [server],
+        activeServerId: server.id,
+      ),
+      sessionRepository: sessionRepository,
+    );
+
+    final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+    if (project == ServerProject.feiniu) {
+      final user = username?.trim() ?? '';
+      if (user.isEmpty) throw ApiException('请输入用户名');
+      await _completeFeiniuLogin(
+        client,
+        sessionRepository: sessionRepository,
+        username: user,
+        password: password,
+      );
+      return;
+    }
+    if (mediaBrowserConfig != null) {
+      final user = username?.trim() ?? '';
+      if (user.isEmpty) throw ApiException('请输入用户名');
+      await _completeMediaBrowserLogin(
+        client,
+        sessionRepository: sessionRepository,
+        config: mediaBrowserConfig,
+        username: user,
+        password: password,
+      );
+      return;
+    }
+
+    // OMM/DBO：鉴权未启用或尚未配置密码的服务器无需登录。
+    final status = await client.auth.status();
+    if (!status.enabled || !status.configured) return;
+    final effectiveSecret =
+        normalizedSecret ?? await sessionRepository.readTotpSecret();
+    await _completePasswordLogin(
+      client,
+      sessionRepository: sessionRepository,
+      isDbOnline: project == ServerProject.dbOnline,
+      password: password,
+      totpCode: effectiveSecret == null
+          ? null
+          : tryGenerateTotpCode(effectiveSecret),
+    );
+  }
+
+  /// OMM/DBO 密码登录内核：换取会话并校验，DBO 追加令牌 verify。
+  /// 成功后保存会话；失败抛 [ApiException]，由调用方决定状态呈现。
+  Future<void> _completePasswordLogin(
+    ApiClient client, {
+    required AuthSessionRepository sessionRepository,
+    required bool isDbOnline,
+    required String password,
+    String? totpCode,
+  }) async {
+    final session = await client.auth.login(
+      password: password,
+      totpCode: totpCode,
+    );
+    if (isDbOnline ? !session.hasAccessToken : !session.isUsable) {
+      throw ApiException('登录响应缺少有效会话');
+    }
+    await sessionRepository.save(session);
+    if (isDbOnline) {
+      try {
+        if (!await client.auth.verify()) {
+          throw ApiException('登录响应令牌无效');
+        }
+      } catch (_) {
+        await sessionRepository.clear();
+        rethrow;
+      }
+    }
+  }
+
+  /// 飞牛登录内核：换 token → 存会话 → userInfo 回填 userId 再存。
+  Future<void> _completeFeiniuLogin(
+    ApiClient client, {
+    required AuthSessionRepository sessionRepository,
+    required String username,
+    required String password,
+  }) async {
+    final token = await client.feiniu.login(
+      username: username,
+      password: password,
+    );
+    final cookie = client.feiniu.lastLoginCookie;
+    await sessionRepository.save(
+      AuthSession(
+        accessToken: token,
+        refreshToken: '',
+        expiresIn: 0,
+        cookie: cookie,
+      ),
+    );
+    final profile = await client.feiniu.userInfo();
+    if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
+    await sessionRepository.save(
+      AuthSession(
+        accessToken: token,
+        refreshToken: '',
+        expiresIn: 0,
+        userId: profile.id,
+        cookie: cookie,
+      ),
+    );
+  }
+
+  /// Emby/Jellyfin 登录内核：AuthenticateByName 换令牌并保存会话。
+  Future<void> _completeMediaBrowserLogin(
+    ApiClient client, {
+    required AuthSessionRepository sessionRepository,
+    required MediaBrowserConfig config,
+    required String username,
+    required String password,
+  }) async {
+    final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
+    final result = await client
+        .mediaBrowserFor(config)
+        .authenticateByName(
+          username: username,
+          password: password,
+          deviceId: deviceId,
+          deviceName: Platform.operatingSystem,
+          appVersion: await _appVersion(),
+        );
+    if (result.accessToken.isEmpty || result.user.id.isEmpty) {
+      throw ApiException('登录响应缺少有效会话');
+    }
+    await sessionRepository.save(
+      AuthSession(
+        accessToken: result.accessToken,
+        refreshToken: '',
+        expiresIn: 0,
+        userId: result.user.id,
+      ),
+    );
+  }
+
+  /// 已配置 TOTP 密钥时生成当前验证码；读取或解码失败按未配置处理，
+  /// 让服务端 totp_required 流程兜底。
+  Future<String?> _autoTotpCode(AuthSessionRepository sessionRepository) async {
+    try {
+      final secret = await sessionRepository.readTotpSecret();
+      if (secret == null) return null;
+      return tryGenerateTotpCode(secret);
+    } catch (_) {
+      return null;
     }
   }
 

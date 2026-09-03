@@ -45,6 +45,9 @@ void main() {
   testWidgets('创建服务器保存后返回选择器且保留用户选择的类型', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    // 添加页凭据区块加高表单，放大画布保证保存按钮进入懒加载视口。
+    await tester.binding.setSurfaceSize(const Size(800, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -80,6 +83,9 @@ void main() {
   testWidgets('新增服务器拒绝重复的类型和连接地址', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    // 添加页凭据区块加高表单，放大画布保证保存按钮进入懒加载视口。
+    await tester.binding.setSurfaceSize(const Size(800, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -125,6 +131,9 @@ void main() {
   testWidgets('初始化页连续添加两台服务器时保留第一台', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    // 添加页凭据区块加高表单，放大画布保证保存按钮进入懒加载视口。
+    await tester.binding.setSurfaceSize(const Size(800, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -197,6 +206,9 @@ void main() {
       'server.active_server_id': 'saved',
     });
     final prefs = await SharedPreferences.getInstance();
+    // 添加页凭据区块加高表单，放大画布保证保存按钮进入懒加载视口。
+    await tester.binding.setSurfaceSize(const Size(800, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -225,7 +237,8 @@ void main() {
 
     expect(find.text('连接到服务器'), findsOneWidget);
     expect(find.text('Oh My Media'), findsOneWidget);
-    expect(find.byType(TextField), findsNWidgets(3));
+    // 名称/主机/端口 + 可选的密码与 TOTP 密钥。
+    expect(find.byType(TextField), findsNWidgets(5));
     expect(
       tester
           .widgetList<TextField>(find.byType(TextField))
@@ -320,6 +333,9 @@ void main() {
       'server.active_server_id': 'saved',
     });
     final prefs = await SharedPreferences.getInstance();
+    // 添加页凭据区块加高表单，放大画布保证保存按钮进入懒加载视口。
+    await tester.binding.setSurfaceSize(const Size(800, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(

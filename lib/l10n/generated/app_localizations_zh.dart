@@ -2215,6 +2215,12 @@ class AppL10nZh extends AppL10n {
   String get serverSetupConnectTitle => '连接到服务器';
 
   @override
+  String get serverSetupCredentialHint => '填写后将在保存时验证并登录，留空则稍后在登录页登录';
+
+  @override
+  String get serverSetupCredentialTitle => '登录凭据（可选）';
+
+  @override
   String serverSetupDuplicate(String name) {
     return '已存在相同连接的 $name 服务器';
   }
@@ -2230,6 +2236,9 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get serverSetupInvalidFileConfig => '文件服务器配置无效';
+
+  @override
+  String get serverSetupLoginUsernameRequired => '已填写密码，请输入用户名';
 
   @override
   String get serverSetupNameLabel => '服务器名称';
@@ -2275,6 +2284,22 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get serverSetupSelectProject => '请选择服务器类型';
+
+  @override
+  String get serverSetupTotpClearStored => '清除已保存的密钥';
+
+  @override
+  String get serverSetupTotpKeyHint => '开启两步验证的服务器填入，登录时将自动生成验证码';
+
+  @override
+  String get serverSetupTotpKeyInvalid => 'TOTP 密钥格式无效（应为 base32 字符串）';
+
+  @override
+  String get serverSetupTotpKeyLabel => 'TOTP 密钥（可选）';
+
+  @override
+  String get serverSetupTotpRequired =>
+      '该服务器开启了两步验证，请填写 TOTP 密钥或清空密码保存后再从登录页登录';
 
   @override
   String get serverSetupUserAnonymousLabel => '用户名（留空匿名访问）';

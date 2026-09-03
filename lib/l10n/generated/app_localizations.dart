@@ -4237,6 +4237,18 @@ abstract class AppL10n {
   /// **'连接到服务器'**
   String get serverSetupConnectTitle;
 
+  /// No description provided for @serverSetupCredentialHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'填写后将在保存时验证并登录，留空则稍后在登录页登录'**
+  String get serverSetupCredentialHint;
+
+  /// No description provided for @serverSetupCredentialTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录凭据（可选）'**
+  String get serverSetupCredentialTitle;
+
   /// No description provided for @serverSetupDuplicate.
   ///
   /// In zh, this message translates to:
@@ -4266,6 +4278,12 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'文件服务器配置无效'**
   String get serverSetupInvalidFileConfig;
+
+  /// No description provided for @serverSetupLoginUsernameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'已填写密码，请输入用户名'**
+  String get serverSetupLoginUsernameRequired;
 
   /// No description provided for @serverSetupNameLabel.
   ///
@@ -4356,6 +4374,36 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'请选择服务器类型'**
   String get serverSetupSelectProject;
+
+  /// No description provided for @serverSetupTotpClearStored.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除已保存的密钥'**
+  String get serverSetupTotpClearStored;
+
+  /// No description provided for @serverSetupTotpKeyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启两步验证的服务器填入，登录时将自动生成验证码'**
+  String get serverSetupTotpKeyHint;
+
+  /// No description provided for @serverSetupTotpKeyInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'TOTP 密钥格式无效（应为 base32 字符串）'**
+  String get serverSetupTotpKeyInvalid;
+
+  /// No description provided for @serverSetupTotpKeyLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'TOTP 密钥（可选）'**
+  String get serverSetupTotpKeyLabel;
+
+  /// No description provided for @serverSetupTotpRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'该服务器开启了两步验证，请填写 TOTP 密钥或清空密码保存后再从登录页登录'**
+  String get serverSetupTotpRequired;
 
   /// No description provided for @serverSetupUserAnonymousLabel.
   ///
