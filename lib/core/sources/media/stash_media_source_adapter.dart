@@ -413,9 +413,40 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
           sizeInBytes: file?.size,
           supportsDirectPlay: true,
           supportsDirectStream: true,
+          mediaStreams: _mediaStreamsForFile(file),
         ),
       ],
     );
+  }
+
+  List<MediaBrowserMediaStream> _mediaStreamsForFile(StashSceneFile? file) {
+    if (file == null) return const <MediaBrowserMediaStream>[];
+
+    final hasVideo =
+        file.videoCodec?.trim().isNotEmpty == true ||
+        file.width != null ||
+        file.height != null ||
+        file.frameRate != null ||
+        file.bitRate != null;
+    final hasAudio = file.audioCodec?.trim().isNotEmpty == true;
+    return [
+      if (hasVideo)
+        MediaBrowserMediaStream(
+          index: 0,
+          type: 'Video',
+          codec: file.videoCodec,
+          width: file.width,
+          height: file.height,
+          frameRate: file.frameRate?.toString(),
+          bitRate: file.bitRate,
+        ),
+      if (hasAudio)
+        MediaBrowserMediaStream(
+          index: 1,
+          type: 'Audio',
+          codec: file.audioCodec,
+        ),
+    ];
   }
 
   MediaSummary _summaryFromItem(MediaBrowserItem item) => MediaSummary(

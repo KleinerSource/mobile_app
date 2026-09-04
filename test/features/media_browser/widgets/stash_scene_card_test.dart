@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -79,9 +80,13 @@ MediaBrowserServerUrls _urls() => MediaBrowserServerUrls(
   token: 'stash-key',
 );
 
-Widget _app({required Widget child}) => ProviderScope(
+Widget _app({
+  required Widget child,
+  Brightness brightness = Brightness.light,
+}) => ProviderScope(
   overrides: [privacyShieldProvider.overrideWith(_PrivacyState.new)],
   child: MaterialApp(
+    theme: ThemeData(brightness: brightness),
     locale: const Locale('zh'),
     localizationsDelegates: AppL10n.localizationsDelegates,
     supportedLocales: AppL10n.supportedLocales,
@@ -158,9 +163,11 @@ void main() {
     final size = tester.getSize(find.byType(StashSceneCard));
     expect(size.width, 356);
     expect(size.height, greaterThan(200));
-    expect(find.text('番号 ABC-123'), findsOneWidget);
+    expect(find.text('[ABC-123] 测试 Scene'), findsOneWidget);
     expect(find.text('剧情 · 高清 · 新作'), findsOneWidget);
     expect(find.text('演员一、演员二'), findsOneWidget);
+    expect(find.byIcon(Icons.local_offer_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.people_alt_outlined), findsOneWidget);
   });
 
   testWidgets('Stash 竖版卡片右对齐并只显示两行名称与元信息', (tester) async {
@@ -179,10 +186,37 @@ void main() {
     final size = tester.getSize(find.byType(StashScenePortraitCard));
     expect(size.width, 132);
     expect(size.height, greaterThan(190));
-    expect(find.text('番号 ABC-123'), findsOneWidget);
+    expect(find.text('[ABC-123] 测试 Scene'), findsOneWidget);
     expect(find.text('演员一、演员二'), findsNothing);
     expect(find.text('电影'), findsNothing);
     expect(find.text('2024 · 2 分钟'), findsOneWidget);
+  });
+
+  testWidgets('Stash 卡片暗色主题使用暗色卡片色板', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        brightness: Brightness.dark,
+        child: StashSceneCard(
+          item: _item(),
+          urls: _urls(),
+          width: 356,
+          onTap: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final card = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byType(StashSceneCard),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    final decoration = card.decoration! as BoxDecoration;
+    expect(decoration.color, AppColors.dark.surface);
+    expect(find.text('[ABC-123] 测试 Scene'), findsOneWidget);
   });
 
   testWidgets('标记为顶部候选时自动启动预览，取消候选时释放', (tester) async {

@@ -68,6 +68,12 @@ Map<String, dynamic> _scene() => {
       'size': 1024,
       'duration': 60,
       'format': 'mp4',
+      'width': 1920,
+      'height': 1080,
+      'video_codec': 'h264',
+      'audio_codec': 'aac',
+      'frame_rate': 23.976,
+      'bit_rate': 4200000,
     },
   ],
   'paths': {
@@ -157,6 +163,16 @@ void main() {
     expect(item.backdropImageTags, ['/images/scene-1.jpg']);
     expect(item.people.single.name, 'Actor One');
     expect(item.genres, ['Drama']);
+    final streams = item.mediaSources.single.mediaStreams;
+    expect(streams, hasLength(2));
+    expect(streams[0].type, 'Video');
+    expect(streams[0].codec, 'h264');
+    expect(streams[0].width, 1920);
+    expect(streams[0].height, 1080);
+    expect(streams[0].frameRate, '23.976');
+    expect(streams[0].bitRate, 4200000);
+    expect(streams[1].type, 'Audio');
+    expect(streams[1].codec, 'aac');
 
     final descriptor = await source.resolvePlayback(
       const MediaRef(sourceId: SourceId('stash'), value: 'scene-1'),

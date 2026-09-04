@@ -431,7 +431,7 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
       width: widget.width,
       child: Container(
         decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.72),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: colors.cardBorder),
         ),
@@ -601,7 +601,7 @@ class StashScenePortraitCard extends StatelessWidget {
 
 /// Stash 影片的紧凑信息区：首页、搜索、媒体库和详情页共用。
 ///
-/// 横版为「番号 + 名称一行 / 标签 badge + 演员 / 年份 · 时长」，
+/// 横版为「番号 + 名称一行 / 标签 / 演员 / 年份 · 时长」，
 /// 竖版为「番号 + 名称两行 / 年份 · 时长」。
 class StashSceneInfo extends StatelessWidget {
   const StashSceneInfo({
@@ -618,7 +618,6 @@ class StashSceneInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final l = AppL10n.of(context);
     final code = item.code?.trim();
     final tags = item.genres
         .map((tag) => tag.trim())
@@ -628,70 +627,45 @@ class StashSceneInfo extends StatelessWidget {
         .map((person) => person.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
-    final name = item.name.trim().isEmpty ? (code ?? '') : item.name;
+    final name = item.name.trim();
+    final displayTitle = [
+      if (code?.isNotEmpty == true) '[${code!}]',
+      if (name.isNotEmpty && name != code) name,
+    ].join(' ');
     return Padding(
       padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final codeWidth = (constraints.maxWidth * 0.42)
-                  .clamp(80.0, 136.0)
-                  .toDouble();
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (code?.isNotEmpty == true) ...[
-                    _StashNumberBadge(
-                      text: '${l.movieEditorNumber} $code',
-                      privacyId: item.id,
-                      maxWidth: codeWidth,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: PrivacyText(
-                      movieId: item.id,
-                      text: name,
-                      maxLines: landscape ? 1 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.cardTitle(context).copyWith(
-                        color: colors.text,
-                        fontSize: landscape ? 15 : 14,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+          PrivacyText(
+            movieId: item.id,
+            text: displayTitle,
+            maxLines: landscape ? 1 : 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.cardTitle(context).copyWith(
+              color: colors.text,
+              fontSize: landscape ? 15 : 14,
+              height: 1.2,
+            ),
           ),
-          if (landscape && (tags.isNotEmpty || performers.isNotEmpty)) ...[
+          if (landscape && tags.isNotEmpty) ...[
             const SizedBox(height: 7),
             _StashCompactIconLine(
-              icon: performers.isNotEmpty
-                  ? Icons.people_alt_outlined
-                  : Icons.local_offer_outlined,
-              child: Row(
-                children: [
-                  if (tags.isNotEmpty)
-                    _StashTagBadge(
-                      text: tags.join(' · '),
-                      privacyId: item.id,
-                      hue: AppHues.all.first,
-                    ),
-                  if (tags.isNotEmpty && performers.isNotEmpty)
-                    const SizedBox(width: 6),
-                  if (performers.isNotEmpty)
-                    Expanded(
-                      child: _StashPerformerRow(
-                        names: performers,
-                        privacyId: item.id,
-                      ),
-                    ),
-                ],
+              icon: Icons.local_offer_outlined,
+              child: PrivacyText(
+                movieId: item.id,
+                text: tags.join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.meta(context).copyWith(color: colors.text2),
               ),
+            ),
+          ],
+          if (landscape && performers.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _StashCompactIconLine(
+              icon: Icons.people_alt_outlined,
+              child: _StashPerformerRow(names: performers, privacyId: item.id),
             ),
           ],
           if (_stashMetaText(context, item) != null) ...[
@@ -732,44 +706,6 @@ String? _stashMetaText(BuildContext context, MediaBrowserItem item) {
   return values.isEmpty ? null : values.join(' · ');
 }
 
-class _StashNumberBadge extends StatelessWidget {
-  const _StashNumberBadge({
-    required this.text,
-    required this.privacyId,
-    required this.maxWidth,
-  });
-
-  final String text;
-  final String privacyId;
-  final double maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceAlt,
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: PrivacyText(
-            movieId: privacyId,
-            text: text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.meta(
-              context,
-            ).copyWith(color: colors.text2, fontWeight: FontWeight.w700),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _StashCompactIconLine extends StatelessWidget {
   const _StashCompactIconLine({required this.icon, required this.child});
 
@@ -808,48 +744,6 @@ class _StashPerformerRow extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: style,
-    );
-  }
-}
-
-class _StashTagBadge extends StatelessWidget {
-  const _StashTagBadge({
-    required this.text,
-    required this.privacyId,
-    required this.hue,
-  });
-
-  final String text;
-  final String privacyId;
-  final int hue;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final textColor = AppHues.chipText(hue, brightness);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 112),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppHues.chipBg(hue, brightness),
-          border: Border.all(color: AppHues.chipBorder(hue)),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          child: PrivacyText(
-            movieId: privacyId,
-            text: text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.meta(context).copyWith(
-              color: textColor,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
