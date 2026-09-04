@@ -29,7 +29,7 @@ String? serverProjectAvatarAsset(ServerProject? project) {
     ServerProject.emby => 'assets/server_avatars/emby.png',
     ServerProject.jellyfin => 'assets/server_avatars/jellyfin.png',
     ServerProject.feiniu => 'assets/server_avatars/fnos.png',
-    ServerProject.feiniu => 'assets/server_avatars/stash.png',
+    ServerProject.stash => 'assets/server_avatars/stash.png',
     _ => null,
   };
 }
