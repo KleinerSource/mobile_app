@@ -5,12 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -28,10 +31,20 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
+  static const _viewModeKey = 'omm.search.view_mode.v1';
   final _controller = TextEditingController();
   final _debounce = Debouncer();
   String _query = '';
   MovieSearchType _searchType = MovieSearchType.title;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
+  }
 
   @override
   void dispose() {
@@ -44,6 +57,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _debounce.run(() {
       if (mounted) setState(() => _query = v.trim());
     });
+  }
+
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref
+        .read(sharedPrefsProvider)
+        .setString(
+          _viewModeKey,
+          mode == MediaViewMode.portrait ? 'grid' : mode.name,
+        );
   }
 
   @override
@@ -141,6 +165,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: MediaViewModeToggle(
+                  mode: _viewMode,
+                  onChanged: (mode) => unawaited(_setViewMode(mode)),
+                ),
+              ),
+            ),
             Expanded(
               child: _query.isEmpty
                   ? _EmptyHint()
@@ -148,6 +182,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       key: ValueKey('${_searchType.queryValue}:$_query'),
                       query: _query,
                       searchType: _searchType,
+                      viewMode: _viewMode,
                     ),
             ),
           ],
@@ -207,9 +242,11 @@ class _SearchResults extends ConsumerStatefulWidget {
     super.key,
     required this.query,
     required this.searchType,
+    required this.viewMode,
   });
   final String query;
   final MovieSearchType searchType;
+  final MediaViewMode viewMode;
 
   @override
   ConsumerState<_SearchResults> createState() => _SearchResultsState();
@@ -303,52 +340,106 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   @override
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
+    final isPortrait = widget.viewMode == MediaViewMode.portrait;
+    final isLandscape = widget.viewMode == MediaViewMode.landscape;
     return CustomScrollView(
       controller: _scrollController,
       primary: false,
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, MovieListItem>(
-            pagingController: _controller,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 14,
-            ),
-            builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-              itemBuilder: (ctx, movie, _) => MovieCard(
-                key: ValueKey(movie.id),
-                movie: movie,
-                posterUrlBuilder: urlBuilder,
-                onTap: () => unawaited(_openMovie(movie.id)),
-              ),
-              firstPageProgressIndicatorBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-              firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message:
-                    _controller.error?.toString() ??
-                    AppL10n.of(context).loadFailed,
-                onRetry: _controller.refresh,
-              ),
-              newPageErrorIndicatorBuilder: (_) =>
-                  PaginationRetry(onRetry: _controller.retryLastFailedRequest),
-              noItemsFoundIndicatorBuilder: (_) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    AppL10n.of(context).searchNoResult,
-                    style: AppText.body(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
+          sliver: isPortrait
+              ? PagedSliverGrid<int, MovieListItem>(
+                  pagingController: _controller,
+                  showNoMoreItemsIndicatorAsGridChild: false,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 14,
+                  ),
+                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                    itemBuilder: (ctx, movie, _) => MovieCard(
+                      key: ValueKey(movie.id),
+                      movie: movie,
+                      posterUrlBuilder: urlBuilder,
+                      onTap: () => unawaited(_openMovie(movie.id)),
+                    ),
+                    firstPageProgressIndicatorBuilder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
+                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                      message:
+                          _controller.error?.toString() ??
+                          AppL10n.of(context).loadFailed,
+                      onRetry: _controller.refresh,
+                    ),
+                    newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                      onRetry: _controller.retryLastFailedRequest,
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          AppL10n.of(context).searchNoResult,
+                          style: AppText.body(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+                  ),
+                )
+              : PagedSliverList<int, MovieListItem>(
+                  pagingController: _controller,
+                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                    itemBuilder: (ctx, movie, _) => isLandscape
+                        ? MovieCard(
+                            key: ValueKey(movie.id),
+                            movie: movie,
+                            posterUrlBuilder: urlBuilder,
+                            landscape: true,
+                            onTap: () => unawaited(_openMovie(movie.id)),
+                          )
+                        : CatalogListMovieCard(
+                            key: ValueKey(movie.id),
+                            title: movie.title,
+                            imageUrl: movie.posterUuid == null
+                                ? null
+                                : urlBuilder(movie.posterUuid!),
+                            meta: formatMediaCardMeta(
+                              AppL10n.of(context),
+                              year: movie.year,
+                              duration: movie.runtime,
+                            ),
+                            privacyId: movie.id,
+                            onTap: () => unawaited(_openMovie(movie.id)),
+                          ),
+                    firstPageProgressIndicatorBuilder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
+                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                      message:
+                          _controller.error?.toString() ??
+                          AppL10n.of(context).loadFailed,
+                      onRetry: _controller.refresh,
+                    ),
+                    newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                      onRetry: _controller.retryLastFailedRequest,
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          AppL10n.of(context).searchNoResult,
+                          style: AppText.body(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 ),
-              ),
-              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-            ),
-          ),
         ),
       ],
     );

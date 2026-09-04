@@ -23,6 +23,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -69,6 +70,7 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
 class _MediaBrowserLibraryPageState
     extends ConsumerState<MediaBrowserLibraryPage> {
   static const _pageSize = 24;
+  static const _viewModeKey = 'media_browser.library.view_mode.v1';
   static final _videoTypeOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: 'Movie,Series', label: (l) => l.filterAll),
@@ -97,6 +99,7 @@ class _MediaBrowserLibraryPageState
   String _includeItemTypes = 'Movie,Series';
   String _sortBy = 'DateCreated';
   String _sortOrder = 'Descending';
+  MediaViewMode _viewMode = MediaViewMode.portrait;
   int _requestSerial = 0;
   bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
@@ -137,6 +140,9 @@ class _MediaBrowserLibraryPageState
     _parentId = widget.initialViewId;
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
     _controller.addPageRequestListener(_fetchPage);
     _scrollController.addListener(_scheduleAutoPreviewUpdate);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -157,6 +163,12 @@ class _MediaBrowserLibraryPageState
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   Future<void> _fetchPage(int startIndex) async {
@@ -524,6 +536,8 @@ class _MediaBrowserLibraryPageState
     final cardAspectRatio = _isMusicGrid
         ? itemWidth / (itemWidth + 62)
         : MediaCardTemplate.gridChildAspectRatio;
+    final isPortrait = _viewMode == MediaViewMode.portrait;
+    final isLandscape = _viewMode == MediaViewMode.landscape;
 
     // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
@@ -602,6 +616,14 @@ class _MediaBrowserLibraryPageState
                                     _typeOptions.first.value,
                                 onTap: () => _openTypeMenu(context),
                               ),
+                            if (!isStash) ...[
+                              const SizedBox(width: 8),
+                              MediaViewModeToggle(
+                                mode: _viewMode,
+                                onChanged: (mode) =>
+                                    unawaited(_setViewMode(mode)),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -646,7 +668,7 @@ class _MediaBrowserLibraryPageState
                             child: PagedSelectionScope<MediaBrowserItem>(
                               selection: _selection,
                               scrollController: _scrollController,
-                              layout: isStash
+                              layout: isStash || !isPortrait
                                   ? DragSelectionLayout.list
                                   : DragSelectionLayout.grid,
                               child: CustomScrollView(
@@ -660,102 +682,115 @@ class _MediaBrowserLibraryPageState
                                     ),
                                     sliver: urls.maybeWhen(
                                       data: (value) {
-                                        final delegate =
-                                            PagedChildBuilderDelegate<
-                                              MediaBrowserItem
-                                            >(
-                                              itemBuilder:
-                                                  (
-                                                    context,
-                                                    item,
-                                                    index,
-                                                  ) => isStash
-                                                  ? Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            bottom: 14,
-                                                          ),
-                                                      child: StashSceneCard(
-                                                        key: _itemKeys
-                                                            .putIfAbsent(
-                                                              item.id,
-                                                              GlobalKey.new,
-                                                            ),
-                                                        item: item,
-                                                        urls: value,
-                                                        width: width - 44,
-                                                        autoPlayPreview:
-                                                            item.id ==
-                                                            _autoPreviewId,
-                                                        onTap: () => unawaited(
-                                                          _openItem(item),
-                                                        ),
+                                        final delegate = PagedChildBuilderDelegate<MediaBrowserItem>(
+                                          itemBuilder: (context, item, index) =>
+                                              isStash
+                                              ? Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 14,
                                                       ),
-                                                    )
-                                                  : mediaBrowserSelectableGridItem(
-                                                      selection: _selection,
-                                                      item: item,
-                                                      urls: value,
-                                                      width: itemWidth,
-                                                      index: index,
-                                                      square: _isMusicGrid,
-                                                      showFavoriteBadge:
-                                                          !isStash,
-                                                      selectionEnabled:
-                                                          !isStash,
-                                                      onOpen: _openItem,
+                                                  child: StashSceneCard(
+                                                    key: _itemKeys.putIfAbsent(
+                                                      item.id,
+                                                      GlobalKey.new,
                                                     ),
-                                              firstPageProgressIndicatorBuilder:
-                                                  (_) => Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          top: 56,
-                                                        ),
-                                                    child: Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            color:
-                                                                colors.accent,
-                                                          ),
+                                                    item: item,
+                                                    urls: value,
+                                                    width: width - 44,
+                                                    autoPlayPreview:
+                                                        item.id ==
+                                                        _autoPreviewId,
+                                                    onTap: () => unawaited(
+                                                      _openItem(item),
                                                     ),
                                                   ),
-                                              newPageProgressIndicatorBuilder:
-                                                  (_) => const Padding(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          vertical: 18,
-                                                        ),
-                                                    child: Center(
-                                                      child:
-                                                          CircularProgressIndicator(),
-                                                    ),
-                                                  ),
-                                              firstPageErrorIndicatorBuilder:
-                                                  (_) => _LibraryListError(
-                                                    message:
-                                                        _controller.error
-                                                            ?.toString() ??
-                                                        AppL10n.of(
-                                                          context,
-                                                        ).loadFailed,
-                                                    onRetry: _controller
-                                                        .retryLastFailedRequest,
-                                                  ),
-                                              newPageErrorIndicatorBuilder:
-                                                  (_) => PaginationRetry(
-                                                    onRetry: _controller
-                                                        .retryLastFailedRequest,
-                                                  ),
-                                              noItemsFoundIndicatorBuilder: (_) =>
-                                                  MediaBrowserEmptyPlaceholder(
-                                                    text: AppL10n.of(
+                                                )
+                                              : isLandscape
+                                              ? mediaBrowserSelectableLandscapeItem(
+                                                  selection: _selection,
+                                                  item: item,
+                                                  urls: value,
+                                                  width: width - 44,
+                                                  showFavoriteBadge: true,
+                                                  selectionEnabled: true,
+                                                  onOpen: _openItem,
+                                                )
+                                              : !isPortrait
+                                              ? mediaBrowserSelectableListItem(
+                                                  selection: _selection,
+                                                  item: item,
+                                                  urls: value,
+                                                  onOpen: _openItem,
+                                                )
+                                              : mediaBrowserSelectableGridItem(
+                                                  selection: _selection,
+                                                  item: item,
+                                                  urls: value,
+                                                  width: itemWidth,
+                                                  index: index,
+                                                  square: _isMusicGrid,
+                                                  showFavoriteBadge: true,
+                                                  selectionEnabled: true,
+                                                  onOpen: _openItem,
+                                                ),
+                                          firstPageProgressIndicatorBuilder:
+                                              (_) => Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 56,
+                                                ),
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        color: colors.accent,
+                                                      ),
+                                                ),
+                                              ),
+                                          newPageProgressIndicatorBuilder:
+                                              (_) => const Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  vertical: 18,
+                                                ),
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                ),
+                                              ),
+                                          firstPageErrorIndicatorBuilder: (_) =>
+                                              _LibraryListError(
+                                                message:
+                                                    _controller.error
+                                                        ?.toString() ??
+                                                    AppL10n.of(
                                                       context,
-                                                    ).mediaBrowserNoMatchingItems,
-                                                  ),
-                                              noMoreItemsIndicatorBuilder:
-                                                  (_) => const NoMoreContent(),
-                                            );
+                                                    ).loadFailed,
+                                                onRetry: _controller
+                                                    .retryLastFailedRequest,
+                                              ),
+                                          newPageErrorIndicatorBuilder: (_) =>
+                                              PaginationRetry(
+                                                onRetry: _controller
+                                                    .retryLastFailedRequest,
+                                              ),
+                                          noItemsFoundIndicatorBuilder: (_) =>
+                                              MediaBrowserEmptyPlaceholder(
+                                                text: AppL10n.of(
+                                                  context,
+                                                ).mediaBrowserNoMatchingItems,
+                                              ),
+                                          noMoreItemsIndicatorBuilder: (_) =>
+                                              const NoMoreContent(),
+                                        );
                                         if (isStash) {
+                                          return PagedSliverList<
+                                            int,
+                                            MediaBrowserItem
+                                          >(
+                                            pagingController: _controller,
+                                            builderDelegate: delegate,
+                                          );
+                                        }
+                                        if (!isPortrait) {
                                           return PagedSliverList<
                                             int,
                                             MediaBrowserItem

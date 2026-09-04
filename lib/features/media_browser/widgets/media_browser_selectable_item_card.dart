@@ -23,6 +23,7 @@ class MediaBrowserSelectableItemCard extends StatelessWidget {
     required this.selecting,
     required this.onTap,
     this.square = false,
+    this.landscape = false,
     this.showFavoriteBadge = false,
   });
 
@@ -30,6 +31,7 @@ class MediaBrowserSelectableItemCard extends StatelessWidget {
   final MediaBrowserServerUrls urls;
   final double width;
   final bool square;
+  final bool landscape;
   final bool showFavoriteBadge;
   final bool selected;
   final bool selecting;
@@ -43,14 +45,22 @@ class MediaBrowserSelectableItemCard extends StatelessWidget {
         AnimatedOpacity(
           duration: const Duration(milliseconds: 180),
           opacity: selecting && !selected ? 0.55 : 1.0,
-          child: MediaBrowserItemCard(
-            item: item,
-            urls: urls,
-            width: width,
-            square: square,
-            showFavoriteBadge: showFavoriteBadge,
-            onTap: onTap,
-          ),
+          child: landscape
+              ? MediaBrowserLandscapeCard(
+                  item: item,
+                  urls: urls,
+                  width: width,
+                  showFavoriteBadge: showFavoriteBadge,
+                  onTap: onTap,
+                )
+              : MediaBrowserItemCard(
+                  item: item,
+                  urls: urls,
+                  width: width,
+                  square: square,
+                  showFavoriteBadge: showFavoriteBadge,
+                  onTap: onTap,
+                ),
         ),
         if (selecting)
           Positioned(

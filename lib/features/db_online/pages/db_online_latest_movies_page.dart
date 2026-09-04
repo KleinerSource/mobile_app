@@ -11,6 +11,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
@@ -34,14 +35,19 @@ class DbOnlineLatestMoviesPage extends ConsumerStatefulWidget {
 class _DbOnlineLatestMoviesPageState
     extends ConsumerState<DbOnlineLatestMoviesPage> {
   static const _pageSize = 24;
+  static const _viewModeKey = 'db_online.latest.view_mode.v1';
 
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
 
   @override
   void initState() {
     super.initState();
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
     _controller.addPageRequestListener(_fetchPage);
   }
 
@@ -106,6 +112,12 @@ class _DbOnlineLatestMoviesPageState
     if (completer != null && !completer.isCompleted) completer.complete();
   }
 
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -127,6 +139,35 @@ class _DbOnlineLatestMoviesPageState
     final title = widget.sortBy == 'release'
         ? l.dbOnlineLatestReleased
         : l.dbOnlineRecentUpdated;
+    final isPortrait = _viewMode == MediaViewMode.portrait;
+    final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
+      itemBuilder: (context, movie, _) => DbOnlineMovieCard(
+        key: ValueKey(_movieKey(movie)),
+        movie: movie,
+        config: config,
+        width: isPortrait ? itemWidth : width - 44,
+        landscape: _viewMode == MediaViewMode.landscape,
+        compact: _viewMode == MediaViewMode.list,
+        onTap: () => openDbOnlineMovieUnawaited(context, movie),
+      ),
+      firstPageProgressIndicatorBuilder: (_) => Padding(
+        padding: const EdgeInsets.only(top: 56),
+        child: Center(child: CircularProgressIndicator(color: colors.accent)),
+      ),
+      newPageProgressIndicatorBuilder: (_) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      firstPageErrorIndicatorBuilder: (context) => _ListError(
+        message:
+            _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
+        onRetry: _controller.retryLastFailedRequest,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _controller.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) => const _ListEmpty(),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
 
     return Scaffold(
       backgroundColor: colors.bg,
@@ -145,55 +186,39 @@ class _DbOnlineLatestMoviesPageState
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    sliver: PagedSliverGrid<int, DbOnlineMovie>(
-                      pagingController: _controller,
-                      // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
-                      showNoMoreItemsIndicatorAsGridChild: false,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        childAspectRatio:
-                            MediaCardTemplate.gridChildAspectRatio,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: spacing,
-                      ),
-                      builderDelegate: PagedChildBuilderDelegate<DbOnlineMovie>(
-                        itemBuilder: (context, movie, index) =>
-                            DbOnlineMovieCard(
-                              key: ValueKey(_movieKey(movie)),
-                              movie: movie,
-                              config: config,
-                              width: itemWidth,
-                              onTap: () =>
-                                  openDbOnlineMovieUnawaited(context, movie),
-                            ),
-                        firstPageProgressIndicatorBuilder: (_) => Padding(
-                          padding: const EdgeInsets.only(top: 56),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: colors.accent,
-                            ),
-                          ),
+                  SliverToBoxAdapter(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                        child: MediaViewModeToggle(
+                          mode: _viewMode,
+                          onChanged: (mode) => unawaited(_setViewMode(mode)),
                         ),
-                        newPageProgressIndicatorBuilder: (_) => const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 18),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                        firstPageErrorIndicatorBuilder: (context) => _ListError(
-                          message:
-                              _controller.error?.toString() ??
-                              AppL10n.of(context).loadFailed,
-                          onRetry: _controller.retryLastFailedRequest,
-                        ),
-                        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                          onRetry: _controller.retryLastFailedRequest,
-                        ),
-                        noItemsFoundIndicatorBuilder: (_) => const _ListEmpty(),
-                        noMoreItemsIndicatorBuilder: (_) =>
-                            const NoMoreContent(),
                       ),
                     ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    sliver: isPortrait
+                        ? PagedSliverGrid<int, DbOnlineMovie>(
+                            pagingController: _controller,
+                            // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
+                            showNoMoreItemsIndicatorAsGridChild: false,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  childAspectRatio:
+                                      MediaCardTemplate.gridChildAspectRatio,
+                                  mainAxisSpacing: 14,
+                                  crossAxisSpacing: spacing,
+                                ),
+                            builderDelegate: delegate,
+                          )
+                        : PagedSliverList<int, DbOnlineMovie>(
+                            pagingController: _controller,
+                            builderDelegate: delegate,
+                          ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],

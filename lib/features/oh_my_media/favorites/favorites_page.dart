@@ -17,6 +17,7 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/selection_controller.dart';
@@ -38,8 +39,6 @@ import 'package:omm/features/oh_my_media/movies/resource_scan_progress_sheet.dar
 import 'package:omm/features/settings/settings_page.dart';
 import 'favorites_providers.dart';
 import 'media_favorites_repository.dart';
-
-enum FavoritesViewMode { grid, list }
 
 const _favoritesViewModeKey = 'favorites.view_mode.v1';
 
@@ -81,7 +80,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
-  FavoritesViewMode _viewMode = FavoritesViewMode.grid;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
   late final SelectionController<int> _selection;
@@ -101,19 +100,21 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     _scrollController.addListener(_closeSwipeOnScroll);
   }
 
-  FavoritesViewMode _loadViewMode() {
-    return ref.read(sharedPrefsProvider).getString(_favoritesViewModeKey) ==
-            FavoritesViewMode.list.name
-        ? FavoritesViewMode.list
-        : FavoritesViewMode.grid;
+  MediaViewMode _loadViewMode() {
+    return mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_favoritesViewModeKey),
+    );
   }
 
-  Future<void> _setViewMode(FavoritesViewMode mode) async {
+  Future<void> _setViewMode(MediaViewMode mode) async {
     if (_viewMode == mode) return;
     setState(() => _viewMode = mode);
     await ref
         .read(sharedPrefsProvider)
-        .setString(_favoritesViewModeKey, mode.name);
+        .setString(
+          _favoritesViewModeKey,
+          mode == MediaViewMode.portrait ? 'grid' : mode.name,
+        );
   }
 
   @override
@@ -553,7 +554,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           onRefresh: _refresh,
                           child: DragSelectionScope<int>(
                             scrollController: _scrollController,
-                            selectionLayout: _viewMode == FavoritesViewMode.grid
+                            selectionLayout: _viewMode == MediaViewMode.portrait
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
                             isSelected: _selection.contains,
@@ -654,9 +655,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                             onTap: _showSortSheet,
                                           ),
                                           const SizedBox(width: 6),
-                                          _ViewToggle(
+                                          MediaViewModeToggle(
                                             mode: _viewMode,
-                                            onChange: (m) =>
+                                            onChanged: (m) =>
                                                 unawaited(_setViewMode(m)),
                                           ),
                                         ],
@@ -670,7 +671,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 22,
                                   ),
-                                  sliver: _viewMode == FavoritesViewMode.grid
+                                  sliver: _viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,
                                           showNoMoreItemsIndicatorAsGridChild:
@@ -686,6 +687,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                               ),
                                           builderDelegate: _buildGridDelegate(
                                             urlBuilder,
+                                          ),
+                                        )
+                                      : _viewMode == MediaViewMode.landscape
+                                      ? PagedSliverList<int, MovieListItem>(
+                                          pagingController: _controller,
+                                          builderDelegate: _buildGridDelegate(
+                                            urlBuilder,
+                                            landscape: true,
                                           ),
                                         )
                                       : PagedSliverList<int, MovieListItem>(
@@ -738,18 +747,23 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   PagedChildBuilderDelegate<MovieListItem> _buildGridDelegate(
-    String Function(String) urlBuilder,
-  ) {
+    String Function(String) urlBuilder, {
+    bool landscape = false,
+  }) {
     return PagedChildBuilderDelegate<MovieListItem>(
       itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
         key: ValueKey(m.id),
         id: m.id,
-        selectionIndex: idx,
+        selectionIndex: landscape ? null : idx,
+        selectionHandleAlignment: landscape
+            ? Alignment.centerLeft
+            : Alignment.topLeft,
         child: ValueListenableBuilder<Set<int>>(
           valueListenable: _selection.selectedListenable,
           builder: (context, selected, _) => SelectableMovieCard(
             movie: m,
             posterUrlBuilder: urlBuilder,
+            landscape: landscape,
             selected: selected.contains(m.id),
             selecting: _selecting,
             onTap: () {
@@ -925,46 +939,6 @@ class _SortPill extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ViewToggle extends StatelessWidget {
-  const _ViewToggle({required this.mode, required this.onChange});
-  final FavoritesViewMode mode;
-  final ValueChanged<FavoritesViewMode> onChange;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    Widget btn(IconData icon, FavoritesViewMode m) {
-      final active = mode == m;
-      return GestureDetector(
-        onTap: () => onChange(m),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: active ? c.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(icon, size: 15, color: active ? c.text : c.muted),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: c.chipBg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          btn(Icons.grid_view_rounded, FavoritesViewMode.grid),
-          btn(Icons.view_list_rounded, FavoritesViewMode.list),
-        ],
       ),
     );
   }

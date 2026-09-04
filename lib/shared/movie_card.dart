@@ -43,6 +43,7 @@ class MovieCard extends ConsumerWidget {
     this.restricted = false,
     this.selectionMode = false,
     this.selected = false,
+    this.landscape = false,
   });
 
   final MovieListItem movie;
@@ -52,6 +53,7 @@ class MovieCard extends ConsumerWidget {
   final bool restricted;
   final bool selectionMode;
   final bool selected;
+  final bool landscape;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -131,153 +133,170 @@ class MovieCard extends ConsumerWidget {
       byCorner[positions.newResources]!.add(const NewResourcesIcon());
     }
 
+    final poster = Stack(
+      children: [
+        PrivacyMask(
+          movieId: movie.id,
+          radius: landscape ? 0 : MediaCardTemplate.posterRadius,
+          child: Poster(
+            url: movie.posterUuid != null
+                ? posterUrlBuilder(movie.posterUuid!)
+                : null,
+            title: movie.title,
+            year: movie.year,
+            restricted: restricted,
+            aspectRatio: landscape ? 16 / 9 : 2 / 3,
+          ),
+        ),
+        // 选择模式遮罩 + 对勾
+        if (selectionMode)
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                color: selected
+                    ? c.accent.withValues(alpha: 0.35)
+                    : Colors.black.withValues(alpha: 0.15),
+              ),
+            ),
+          ),
+        if (selectionMode)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: selected ? c.accent : Colors.black54,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
+            ),
+          ),
+        // R18 角标 (固定右上)
+        if (!masked && restricted)
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: c.warning.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'R18',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'monospace',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+          ),
+        // 已看完 (固定左上, 与选择模式 / 配置 badge 错开)
+        if (!masked && !selectionMode && !restricted && completed)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                l.watchedDone,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        // 进度条 (固定贴底部边缘, 不占独立空间, badge 位置不受影响)
+        if (!masked && !restricted && !completed && progress > 0)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(landscape ? 0 : 10),
+                bottomRight: Radius.circular(landscape ? 0 : 10),
+              ),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                minHeight: 3,
+                backgroundColor: Colors.black.withValues(alpha: 0.45),
+                valueColor: AlwaysStoppedAnimation(c.accent),
+              ),
+            ),
+          ),
+        // 4 个角的 badge 集合
+        for (final corner in BadgeCorner.values)
+          if (byCorner[corner]!.isNotEmpty)
+            _CornerBadges(
+              corner: corner,
+              completed: completed,
+              // 进度条已贴底, badge 不再让位, 位置保持一致
+              skipTopLeftForSelection: selectionMode,
+              offset: positions.offsetOf(corner),
+              children: byCorner[corner]!,
+            ),
+      ],
+    );
+    final info = _MediaCardInfo(
+      title: restricted ? l.movieCardRestricted : movie.title,
+      meta: restricted ? '' : _meta(l, movie),
+      privacyId: movie.id,
+      showMeta: !restricted && (movie.year != null || movie.runtime != null),
+      titleStyle: AppText.movieCardTitle(context).copyWith(
+        color: restricted ? c.muted : c.text,
+        fontStyle: restricted ? FontStyle.italic : FontStyle.normal,
+      ),
+    );
+    final content = landscape
+        ? Container(
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: c.cardBorder),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                poster,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: info,
+                ),
+              ],
+            ),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              poster,
+              const SizedBox(height: MediaCardTemplate.posterInfoGap),
+              info,
+            ],
+          );
+
     return PrivacyAwareInkWell(
       movieId: movie.id,
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            children: [
-              PrivacyMask(
-                movieId: movie.id,
-                radius: MediaCardTemplate.posterRadius,
-                child: Poster(
-                  url: movie.posterUuid != null
-                      ? posterUrlBuilder(movie.posterUuid!)
-                      : null,
-                  title: movie.title,
-                  year: movie.year,
-                  restricted: restricted,
-                ),
-              ),
-              // 选择模式遮罩 + 对勾
-              if (selectionMode)
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      color: selected
-                          ? c.accent.withValues(alpha: 0.35)
-                          : Colors.black.withValues(alpha: 0.15),
-                    ),
-                  ),
-                ),
-              if (selectionMode)
-                Positioned(
-                  top: 6,
-                  left: 6,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: selected ? c.accent : Colors.black54,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 14)
-                        : null,
-                  ),
-                ),
-              // R18 角标 (固定右上)
-              if (!masked && restricted)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: c.warning.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'R18',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                ),
-              // 已看完 (固定左上, 与选择模式 / 配置 badge 错开)
-              if (!masked && !selectionMode && !restricted && completed)
-                Positioned(
-                  top: 6,
-                  left: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      l.watchedDone,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              // 进度条 (固定贴底部边缘, 不占独立空间, badge 位置不受影响)
-              if (!masked && !restricted && !completed && progress > 0)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(10),
-                      bottomRight: Radius.circular(10),
-                    ),
-                    child: LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      minHeight: 3,
-                      backgroundColor: Colors.black.withValues(alpha: 0.45),
-                      valueColor: AlwaysStoppedAnimation(c.accent),
-                    ),
-                  ),
-                ),
-              // 4 个角的 badge 集合
-              for (final corner in BadgeCorner.values)
-                if (byCorner[corner]!.isNotEmpty)
-                  _CornerBadges(
-                    corner: corner,
-                    completed: completed,
-                    // 进度条已贴底, badge 不再让位, 位置保持一致
-                    skipTopLeftForSelection: selectionMode,
-                    offset: positions.offsetOf(corner),
-                    children: byCorner[corner]!,
-                  ),
-            ],
-          ),
-          const SizedBox(height: MediaCardTemplate.posterInfoGap),
-          _MediaCardInfo(
-            title: restricted ? l.movieCardRestricted : movie.title,
-            meta: restricted ? '' : _meta(l, movie),
-            privacyId: movie.id,
-            showMeta:
-                !restricted && (movie.year != null || movie.runtime != null),
-            titleStyle: AppText.movieCardTitle(context).copyWith(
-              color: restricted ? c.muted : c.text,
-              fontStyle: restricted ? FontStyle.italic : FontStyle.normal,
-            ),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 
@@ -409,6 +428,7 @@ class CatalogMovieCard extends ConsumerWidget {
     this.showMeta = true,
     this.posterAspectRatio = 2 / 3,
     this.imageHeaders,
+    this.landscape = false,
   });
 
   final String title;
@@ -438,6 +458,9 @@ class CatalogMovieCard extends ConsumerWidget {
   /// 海报宽高比；音乐专辑等方形封面传 1。
   final double posterAspectRatio;
   final Map<String, String>? imageHeaders;
+
+  /// 横屏目录卡片：16:9 封面 + 玻璃容器内的信息区，参考 Stash。
+  final bool landscape;
 
   /// 为非 OMM 影片提供隐私遮罩键；为空时保持普通目录卡片行为。
   final Object? privacyId;
@@ -481,8 +504,8 @@ class CatalogMovieCard extends ConsumerWidget {
           url: imageUrl,
           title: displayTitle,
           year: year,
-          radius: MediaCardTemplate.posterRadius,
-          aspectRatio: posterAspectRatio,
+          radius: landscape ? 0 : MediaCardTemplate.posterRadius,
+          aspectRatio: landscape ? 16 / 9 : posterAspectRatio,
           httpHeaders: imageHeaders,
         ),
         // 已看完 (固定左上, 与 OMM 卡片一致)
@@ -513,9 +536,9 @@ class CatalogMovieCard extends ConsumerWidget {
             right: 0,
             bottom: 0,
             child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(10),
-                bottomRight: Radius.circular(10),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(landscape ? 0 : 10),
+                bottomRight: Radius.circular(landscape ? 0 : 10),
               ),
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
@@ -536,14 +559,38 @@ class CatalogMovieCard extends ConsumerWidget {
             ),
       ],
     );
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(MediaCardTemplate.posterRadius),
-          child: Column(
+    final content = landscape
+        ? Container(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: colors.cardBorder),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                privacyId == null
+                    ? poster
+                    : PrivacyMask(movieId: privacyId!, child: poster),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: _MediaCardInfo(
+                    title: displayTitle,
+                    code: displayCode,
+                    meta: displayMeta,
+                    privacyId: privacyId,
+                    showTitle: showTitle,
+                    showMeta: showMeta,
+                    titleStyle: AppText.cardTitle(
+                      context,
+                    ).copyWith(color: colors.text, fontSize: 15, height: 1.2),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -558,6 +605,130 @@ class CatalogMovieCard extends ConsumerWidget {
                 privacyId: privacyId,
                 showTitle: showTitle,
                 showMeta: showMeta,
+              ),
+            ],
+          );
+
+    return SizedBox(
+      width: width,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(MediaCardTemplate.posterRadius),
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+/// 目录影片的紧凑列表行；缩略图比例和文字层级与 MediaBrowser 收藏页一致。
+class CatalogListMovieCard extends ConsumerWidget {
+  const CatalogListMovieCard({
+    super.key,
+    required this.title,
+    required this.imageUrl,
+    required this.meta,
+    this.code,
+    this.width = double.infinity,
+    this.onTap,
+    this.privacyId,
+    this.imageHeaders,
+  });
+
+  final String title;
+  final String? imageUrl;
+  final String meta;
+  final String? code;
+  final double width;
+  final VoidCallback? onTap;
+  final Object? privacyId;
+  final Map<String, String>? imageHeaders;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = appColors(context);
+    final l = AppL10n.of(context);
+    final displayTitle = title.trim().isEmpty
+        ? l.movieCardUntitledTitle
+        : title.trim();
+    final displayCode = code?.trim();
+    final displayText = displayCode?.isNotEmpty == true
+        ? '[${displayCode!}] $displayTitle'
+        : displayTitle;
+
+    Widget text({required String value, required TextStyle style}) {
+      if (privacyId == null) {
+        return Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+      }
+      return PrivacyText(
+        movieId: privacyId!,
+        text: value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    final thumbnail = SizedBox(
+      width: 52,
+      child: privacyId == null
+          ? Poster(
+              url: imageUrl,
+              title: displayTitle,
+              radius: 8,
+              httpHeaders: imageHeaders,
+            )
+          : PrivacyMask(
+              movieId: privacyId!,
+              radius: 8,
+              child: Poster(
+                url: imageUrl,
+                title: displayTitle,
+                radius: 8,
+                httpHeaders: imageHeaders,
+              ),
+            ),
+    );
+
+    return SizedBox(
+      width: width,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: colors.divider)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              thumbnail,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    text(
+                      value: displayText,
+                      style: TextStyle(
+                        color: colors.text,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    text(value: meta, style: AppText.meta(context)),
+                  ],
+                ),
               ),
             ],
           ),
@@ -578,6 +749,7 @@ class SelectableMovieCard extends StatelessWidget {
     required this.selecting,
     required this.selected,
     this.onTap,
+    this.landscape = false,
   });
 
   final MovieListItem movie;
@@ -585,6 +757,7 @@ class SelectableMovieCard extends StatelessWidget {
   final bool selecting;
   final bool selected;
   final VoidCallback? onTap;
+  final bool landscape;
 
   @override
   Widget build(BuildContext context) {
@@ -597,6 +770,7 @@ class SelectableMovieCard extends StatelessWidget {
           child: MovieCard(
             movie: movie,
             posterUrlBuilder: posterUrlBuilder,
+            landscape: landscape,
             onTap: onTap,
           ),
         ),

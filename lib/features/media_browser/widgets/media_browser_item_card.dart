@@ -4,9 +4,11 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
+import 'package:omm/shared/poster.dart';
 
 /// Emby/Jellyfin/FNOS 条目卡片。
 ///
@@ -80,6 +82,159 @@ class MediaBrowserItemCard extends StatelessWidget {
       ],
     );
     return card;
+  }
+}
+
+/// MediaBrowser 横屏卡片：复用目录卡片的共享字段和 Stash 的 16:9 信息区。
+class MediaBrowserLandscapeCard extends StatelessWidget {
+  const MediaBrowserLandscapeCard({
+    super.key,
+    required this.item,
+    required this.urls,
+    required this.width,
+    this.showFavoriteBadge = false,
+    this.onTap,
+  });
+
+  final MediaBrowserItem item;
+  final MediaBrowserServerUrls urls;
+  final double width;
+  final bool showFavoriteBadge;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: CatalogMovieCard(
+        title: item.name,
+        code: null,
+        imageUrl: item.primaryImageTag == null
+            ? urls.heroImage(item)
+            : urls.poster(item.id, tag: item.primaryImageTag),
+        imageHeaders: urls.imageHeaders,
+        meta: mediaBrowserItemMetaText(context, item),
+        width: width,
+        rating: normalizeMediaRating(item.communityRating),
+        played: item.userData.played,
+        progress: item.userData.played ? 0 : _progressOf(item),
+        year: normalizeMediaYear(item.productionYear),
+        privacyId: item.id,
+        landscape: true,
+      ),
+    );
+    return Stack(
+      children: [
+        card,
+        if (showFavoriteBadge && item.userData.isFavorite)
+          const Positioned(top: 12, left: 12, child: _FavoriteBadge()),
+      ],
+    );
+  }
+}
+
+/// MediaBrowser 紧凑列表行；库页和搜索页使用，收藏页保留自己的左滑行。
+class MediaBrowserListRow extends StatelessWidget {
+  const MediaBrowserListRow({
+    super.key,
+    required this.item,
+    required this.urls,
+    required this.onTap,
+    this.selected = false,
+    this.selecting = false,
+  });
+
+  final MediaBrowserItem item;
+  final MediaBrowserServerUrls urls;
+  final VoidCallback onTap;
+  final bool selected;
+  final bool selecting;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          if (selecting) ...[
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? colors.accent : Colors.transparent,
+                border: Border.all(
+                  color: selected ? colors.accent : colors.muted2,
+                  width: 1.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
+            ),
+            const SizedBox(width: 14),
+          ],
+          SizedBox(
+            width: 52,
+            child: PrivacyMask(
+              movieId: item.id,
+              radius: 8,
+              child: Poster(
+                url: item.primaryImageTag == null
+                    ? urls.heroImage(item)
+                    : urls.poster(item.id, tag: item.primaryImageTag),
+                title: item.name,
+                year: item.productionYear,
+                radius: 8,
+                httpHeaders: urls.imageHeaders,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrivacyText(
+                  movieId: item.id,
+                  text: item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.text,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  mediaBrowserItemMetaText(context, item),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.meta(context),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final row = selecting
+        ? InkWell(onTap: onTap, child: content)
+        : PrivacyAwareInkWell(movieId: item.id, onTap: onTap, child: content);
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.divider)),
+      ),
+      child: row,
+    );
   }
 }
 

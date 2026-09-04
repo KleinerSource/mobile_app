@@ -13,6 +13,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
@@ -250,15 +251,20 @@ class _DbOnlineSearchResults extends ConsumerStatefulWidget {
 class _DbOnlineSearchResultsState
     extends ConsumerState<_DbOnlineSearchResults> {
   static const _pageSize = 24;
+  static const _viewModeKey = 'db_online.search.view_mode.v1';
 
   final _pagingController = PagingController<int, DbOnlineMovie>(
     firstPageKey: 1,
   );
   final _scrollController = ScrollController();
+  MediaViewMode _viewMode = MediaViewMode.portrait;
 
   @override
   void initState() {
     super.initState();
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
     _pagingController.addPageRequestListener(_fetchPage);
   }
 
@@ -307,60 +313,85 @@ class _DbOnlineSearchResultsState
     return 'number:${movie.number.trim()}';
   }
 
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(serverConfigProvider);
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
+    final isPortrait = _viewMode == MediaViewMode.portrait;
+
+    final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
+      itemBuilder: (context, movie, _) => DbOnlineMovieCard(
+        key: ValueKey(_movieKey(movie)),
+        movie: movie,
+        config: config,
+        width: isPortrait ? itemWidth : width - 44,
+        landscape: _viewMode == MediaViewMode.landscape,
+        compact: _viewMode == MediaViewMode.list,
+        onTap: () => openDbOnlineMovieUnawaited(context, movie),
+      ),
+      firstPageProgressIndicatorBuilder: (_) =>
+          const Center(child: CircularProgressIndicator()),
+      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+        message:
+            _pagingController.error?.toString() ??
+            AppL10n.of(context).loadFailed,
+        onRetry: _pagingController.refresh,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _pagingController.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            AppL10n.of(context).searchNoResult,
+            style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
 
     return CustomScrollView(
       controller: _scrollController,
       primary: false,
       slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, DbOnlineMovie>(
-            pagingController: _pagingController,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 14,
-            ),
-            builderDelegate: PagedChildBuilderDelegate<DbOnlineMovie>(
-              itemBuilder: (context, movie, _) => DbOnlineMovieCard(
-                key: ValueKey(_movieKey(movie)),
-                movie: movie,
-                config: config,
-                width: itemWidth,
-                onTap: () => openDbOnlineMovieUnawaited(context, movie),
+        SliverToBoxAdapter(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+              child: MediaViewModeToggle(
+                mode: _viewMode,
+                onChanged: (mode) => unawaited(_setViewMode(mode)),
               ),
-              firstPageProgressIndicatorBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-              firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message:
-                    _pagingController.error?.toString() ??
-                    AppL10n.of(context).loadFailed,
-                onRetry: _pagingController.refresh,
-              ),
-              newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                onRetry: _pagingController.retryLastFailedRequest,
-              ),
-              noItemsFoundIndicatorBuilder: (_) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    AppL10n.of(context).searchNoResult,
-                    style: AppText.body(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
             ),
           ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+          sliver: isPortrait
+              ? PagedSliverGrid<int, DbOnlineMovie>(
+                  pagingController: _pagingController,
+                  showNoMoreItemsIndicatorAsGridChild: false,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 14,
+                  ),
+                  builderDelegate: delegate,
+                )
+              : PagedSliverList<int, DbOnlineMovie>(
+                  pagingController: _pagingController,
+                  builderDelegate: delegate,
+                ),
         ),
       ],
     );

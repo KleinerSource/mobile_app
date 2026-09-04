@@ -20,6 +20,7 @@ import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -38,8 +39,6 @@ import 'movie_data_changes.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
 import 'resource_scan_progress_sheet.dart';
-
-enum _ViewMode { grid, list }
 
 const _moviesViewModeKey = 'movies.view_mode.v1';
 
@@ -65,7 +64,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _controller,
   );
   late MovieFilter _currentFilter;
-  _ViewMode _viewMode = _ViewMode.grid;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
   int _totalCount = 0;
 
   late final SelectionController<int> _selection;
@@ -84,19 +83,21 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _scrollController.addListener(_closeSwipeOnScroll);
   }
 
-  _ViewMode _loadViewMode() {
-    return ref.read(sharedPrefsProvider).getString(_moviesViewModeKey) ==
-            _ViewMode.list.name
-        ? _ViewMode.list
-        : _ViewMode.grid;
+  MediaViewMode _loadViewMode() {
+    return mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_moviesViewModeKey),
+    );
   }
 
-  Future<void> _setViewMode(_ViewMode mode) async {
+  Future<void> _setViewMode(MediaViewMode mode) async {
     if (_viewMode == mode) return;
     setState(() => _viewMode = mode);
     await ref
         .read(sharedPrefsProvider)
-        .setString(_moviesViewModeKey, mode.name);
+        .setString(
+          _moviesViewModeKey,
+          mode == MediaViewMode.portrait ? 'grid' : mode.name,
+        );
   }
 
   @override
@@ -358,7 +359,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             onTap: _openAdvancedFilter,
                           ),
                           const SizedBox(width: 8),
-                          _ViewModeToggle(
+                          MediaViewModeToggle(
                             mode: _viewMode,
                             onChanged: (m) => unawaited(_setViewMode(m)),
                           ),
@@ -434,7 +435,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                           onRefresh: _refreshMovies,
                           child: DragSelectionScope<int>(
                             scrollController: _scrollController,
-                            selectionLayout: _viewMode == _ViewMode.grid
+                            selectionLayout: _viewMode == MediaViewMode.portrait
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
                             isSelected: _selection.contains,
@@ -450,7 +451,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 22,
                                   ),
-                                  sliver: _viewMode == _ViewMode.grid
+                                  sliver: _viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,
                                           showNoMoreItemsIndicatorAsGridChild:
@@ -467,6 +468,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                           builderDelegate: _buildDelegate(
                                             urlBuilder,
                                             crossAxisCount: crossAxisCount,
+                                          ),
+                                        )
+                                      : _viewMode == MediaViewMode.landscape
+                                      ? PagedSliverList<int, MovieListItem>(
+                                          pagingController: _controller,
+                                          builderDelegate: _buildDelegate(
+                                            urlBuilder,
+                                            crossAxisCount: crossAxisCount,
+                                            landscape: true,
                                           ),
                                         )
                                       : PagedSliverList<int, MovieListItem>(
@@ -546,18 +556,23 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   PagedChildBuilderDelegate<MovieListItem> _buildDelegate(
     String Function(String) urlBuilder, {
     required int crossAxisCount,
+    bool landscape = false,
   }) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
       itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
         key: ValueKey(item.id),
         id: item.id,
-        selectionIndex: idx,
+        selectionIndex: landscape ? null : idx,
+        selectionHandleAlignment: landscape
+            ? Alignment.centerLeft
+            : Alignment.topLeft,
         child: ValueListenableBuilder<Set<int>>(
           valueListenable: _selection.selectedListenable,
           builder: (context, selected, _) => SelectableMovieCard(
             movie: item,
             posterUrlBuilder: urlBuilder,
+            landscape: landscape,
             selecting: _selectionMode,
             selected: selected.contains(item.id),
             onTap: () => _handleMovieTap(item),
@@ -859,55 +874,6 @@ String _sortOrderLabel(AppL10n l, String value) =>
 
 String _movieRuntimeLabel(AppL10n l, int minutes) =>
     l.mediaDurationMinutes(minutes);
-
-class _ViewModeToggle extends StatelessWidget {
-  const _ViewModeToggle({required this.mode, required this.onChanged});
-  final _ViewMode mode;
-  final ValueChanged<_ViewMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    Widget btn(IconData icon, _ViewMode m) {
-      final active = mode == m;
-      return GestureDetector(
-        onTap: () => onChanged(m),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: active ? c.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-            boxShadow: active
-                ? const [
-                    BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 3,
-                      offset: Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Icon(icon, size: 15, color: active ? c.text : c.muted),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: c.chipBg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          btn(Icons.grid_view_rounded, _ViewMode.grid),
-          btn(Icons.view_list_rounded, _ViewMode.list),
-        ],
-      ),
-    );
-  }
-}
 
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.activeCount, required this.onTap});

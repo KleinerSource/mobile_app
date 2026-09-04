@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/paged_selection.dart';
 
@@ -50,6 +51,79 @@ Widget mediaBrowserSelectableGridItem({
       width: width,
       square: square,
       showFavoriteBadge: showFavoriteBadge,
+      selected: selected,
+      selecting: selection.isActive,
+      onTap: () {
+        if (selection.isActive) {
+          selection.toggle(selection.idOf(item));
+        } else {
+          unawaited(onOpen(item));
+        }
+      },
+    ),
+  );
+}
+
+/// 横屏条目的拖选装配：使用 Stash 风格的 16:9 卡片，但不启用 Stash 预览。
+Widget mediaBrowserSelectableLandscapeItem({
+  required PagedSelectionController<MediaBrowserItem> selection,
+  required MediaBrowserItem item,
+  required MediaBrowserServerUrls urls,
+  required double width,
+  int? index,
+  bool showFavoriteBadge = false,
+  bool selectionEnabled = true,
+  required Future<void> Function(MediaBrowserItem item) onOpen,
+}) {
+  if (!selectionEnabled) {
+    return MediaBrowserSelectableItemCard(
+      item: item,
+      urls: urls,
+      width: width,
+      landscape: true,
+      showFavoriteBadge: showFavoriteBadge,
+      selected: false,
+      selecting: false,
+      onTap: () => unawaited(onOpen(item)),
+    );
+  }
+  return PagedSelectionItem<MediaBrowserItem>(
+    selection: selection,
+    item: item,
+    selectionIndex: index,
+    cardBuilder: (context, item, selected) => MediaBrowserSelectableItemCard(
+      item: item,
+      urls: urls,
+      width: width,
+      landscape: true,
+      showFavoriteBadge: showFavoriteBadge,
+      selected: selected,
+      selecting: selection.isActive,
+      onTap: () {
+        if (selection.isActive) {
+          selection.toggle(selection.idOf(item));
+        } else {
+          unawaited(onOpen(item));
+        }
+      },
+    ),
+  );
+}
+
+/// 列表条目的拖选装配；列表以纵向左缘为选择热区。
+Widget mediaBrowserSelectableListItem({
+  required PagedSelectionController<MediaBrowserItem> selection,
+  required MediaBrowserItem item,
+  required MediaBrowserServerUrls urls,
+  required Future<void> Function(MediaBrowserItem item) onOpen,
+}) {
+  return PagedSelectionItem<MediaBrowserItem>(
+    selection: selection,
+    item: item,
+    selectionHandleAlignment: Alignment.centerLeft,
+    cardBuilder: (context, item, selected) => MediaBrowserListRow(
+      item: item,
+      urls: urls,
       selected: selected,
       selecting: selection.isActive,
       onTap: () {

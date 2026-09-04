@@ -22,6 +22,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -29,8 +30,6 @@ import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
-
-enum _FavoritesViewMode { grid, list }
 
 const _viewModeKey = 'media_browser.favorites.view_mode.v1';
 
@@ -89,7 +88,7 @@ class _MediaBrowserFavoritesPageState
 
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
-  _FavoritesViewMode _viewMode = _FavoritesViewMode.grid;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
   String _includeItemTypes = _typeOptions.first.value;
   int _sortIndex = 0;
   int _totalCount = 0;
@@ -116,14 +115,13 @@ class _MediaBrowserFavoritesPageState
     _scrollController.addListener(_closeSwipeOnScroll);
   }
 
-  _FavoritesViewMode _loadViewMode() {
-    return ref.read(sharedPrefsProvider).getString(_viewModeKey) ==
-            _FavoritesViewMode.list.name
-        ? _FavoritesViewMode.list
-        : _FavoritesViewMode.grid;
+  MediaViewMode _loadViewMode() {
+    return mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
   }
 
-  Future<void> _setViewMode(_FavoritesViewMode mode) async {
+  Future<void> _setViewMode(MediaViewMode mode) async {
     if (_viewMode == mode) return;
     setState(() => _viewMode = mode);
     await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
@@ -490,7 +488,7 @@ class _MediaBrowserFavoritesPageState
                           child: PagedSelectionScope<MediaBrowserItem>(
                             selection: _selection,
                             scrollController: _scrollController,
-                            layout: _viewMode == _FavoritesViewMode.grid
+                            layout: _viewMode == MediaViewMode.portrait
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
                             child: CustomScrollView(
@@ -563,9 +561,9 @@ class _MediaBrowserFavoritesPageState
                                                 unawaited(_showSortSheet()),
                                           ),
                                           const SizedBox(width: 6),
-                                          _ViewToggle(
+                                          MediaViewModeToggle(
                                             mode: _viewMode,
-                                            onChange: (mode) =>
+                                            onChanged: (mode) =>
                                                 unawaited(_setViewMode(mode)),
                                           ),
                                         ],
@@ -574,13 +572,90 @@ class _MediaBrowserFavoritesPageState
                                   ),
                                 ),
                                 // ===== 收藏网格 / 列表 =====
+                                if (_viewMode == MediaViewMode.landscape)
+                                  SliverPadding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 22,
+                                    ),
+                                    sliver: urls.maybeWhen(
+                                      data: (value) => PagedSliverList<int, MediaBrowserItem>(
+                                        pagingController: _controller,
+                                        builderDelegate:
+                                            PagedChildBuilderDelegate<
+                                              MediaBrowserItem
+                                            >(
+                                              itemBuilder: (context, item, _) =>
+                                                  mediaBrowserSelectableLandscapeItem(
+                                                    selection: _selection,
+                                                    item: item,
+                                                    urls: value,
+                                                    width: width - 44,
+                                                    showFavoriteBadge: false,
+                                                    onOpen: _openItem,
+                                                  ),
+                                              firstPageProgressIndicatorBuilder:
+                                                  (_) => Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 56,
+                                                        ),
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            color:
+                                                                colors.accent,
+                                                          ),
+                                                    ),
+                                                  ),
+                                              newPageProgressIndicatorBuilder:
+                                                  (_) => const Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 18,
+                                                        ),
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(),
+                                                    ),
+                                                  ),
+                                              firstPageErrorIndicatorBuilder:
+                                                  (_) => _FavoritesError(
+                                                    message:
+                                                        _controller.error
+                                                            ?.toString() ??
+                                                        AppL10n.of(
+                                                          context,
+                                                        ).loadFailed,
+                                                    onRetry: _controller
+                                                        .retryLastFailedRequest,
+                                                  ),
+                                              newPageErrorIndicatorBuilder:
+                                                  (_) => PaginationRetry(
+                                                    onRetry: _controller
+                                                        .retryLastFailedRequest,
+                                                  ),
+                                              noItemsFoundIndicatorBuilder:
+                                                  (_) => const _EmptyState(),
+                                              noMoreItemsIndicatorBuilder:
+                                                  (_) => const NoMoreContent(),
+                                            ),
+                                      ),
+                                      orElse: () => const SliverToBoxAdapter(
+                                        child: SizedBox.shrink(),
+                                      ),
+                                    ),
+                                  ),
                                 SliverPadding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 22,
                                   ),
                                   sliver: urls.maybeWhen(
                                     data: (value) =>
-                                        _viewMode == _FavoritesViewMode.grid
+                                        _viewMode == MediaViewMode.landscape
+                                        ? const SliverToBoxAdapter(
+                                            child: SizedBox.shrink(),
+                                          )
+                                        : _viewMode == MediaViewMode.portrait
                                         ? PagedSliverGrid<
                                             int,
                                             MediaBrowserItem
@@ -1111,51 +1186,6 @@ class _SortPill extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ViewToggle extends StatelessWidget {
-  const _ViewToggle({required this.mode, required this.onChange});
-
-  final _FavoritesViewMode mode;
-  final ValueChanged<_FavoritesViewMode> onChange;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    Widget btn(IconData icon, _FavoritesViewMode m) {
-      final active = mode == m;
-      return GestureDetector(
-        onTap: () => onChange(m),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: active ? colors.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            icon,
-            size: 15,
-            color: active ? colors.text : colors.muted,
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: colors.chipBg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          btn(Icons.grid_view_rounded, _FavoritesViewMode.grid),
-          btn(Icons.view_list_rounded, _FavoritesViewMode.list),
-        ],
       ),
     );
   }

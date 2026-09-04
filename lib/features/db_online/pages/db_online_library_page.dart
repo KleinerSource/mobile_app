@@ -6,6 +6,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -13,6 +14,7 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
@@ -33,6 +35,7 @@ class DbOnlineLibraryPage extends ConsumerStatefulWidget {
 
 class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   static const _pageSize = 24;
+  static const _viewModeKey = 'db_online.library.view_mode.v1';
   static final _categoryOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: '0', label: (l) => l.dbOnlineCategoryCensored),
@@ -53,6 +56,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   String _category = '0';
   String _sortBy = 'update';
   String _orderBy = 'desc';
+  MediaViewMode _viewMode = MediaViewMode.portrait;
   int _requestSerial = 0;
 
   String get _filterBy => '$_category:t:p::::';
@@ -60,6 +64,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   @override
   void initState() {
     super.initState();
+    _loadViewMode();
     _controller.addPageRequestListener(_fetchPage);
   }
 
@@ -129,6 +134,18 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     final completer = _refreshCompleter;
     _refreshCompleter = null;
     if (completer != null && !completer.isCompleted) completer.complete();
+  }
+
+  void _loadViewMode() {
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
+  }
+
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   void _reloadWith({String? category, String? sortBy, String? orderBy}) {
@@ -237,6 +254,45 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     );
   }
 
+  PagedChildBuilderDelegate<DbOnlineMovie> _movieDelegate({
+    required BuildContext context,
+    required ServerConfig? config,
+    required double itemWidth,
+    required double landscapeWidth,
+    required Color progressColor,
+  }) {
+    return PagedChildBuilderDelegate<DbOnlineMovie>(
+      itemBuilder: (context, movie, index) => DbOnlineMovieCard(
+        key: ValueKey(_movieKey(movie)),
+        movie: movie,
+        config: config,
+        width: _viewMode == MediaViewMode.landscape
+            ? landscapeWidth
+            : itemWidth,
+        landscape: _viewMode == MediaViewMode.landscape,
+        compact: _viewMode == MediaViewMode.list,
+        onTap: () => openDbOnlineMovieUnawaited(context, movie),
+      ),
+      firstPageProgressIndicatorBuilder: (_) => Padding(
+        padding: const EdgeInsets.only(top: 56),
+        child: Center(child: CircularProgressIndicator(color: progressColor)),
+      ),
+      newPageProgressIndicatorBuilder: (_) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      firstPageErrorIndicatorBuilder: (_) => _LibraryListError(
+        message:
+            _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
+        onRetry: _controller.retryLastFailedRequest,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _controller.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) => const _LibraryListEmpty(),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -254,6 +310,14 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     final itemWidth =
         ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
         crossAxisCount;
+    final isPortrait = _viewMode == MediaViewMode.portrait;
+    final delegate = _movieDelegate(
+      context: context,
+      config: config,
+      itemWidth: itemWidth,
+      landscapeWidth: width - 44,
+      progressColor: colors.accent,
+    );
 
     return GlowBackground(
       child: SafeArea(
@@ -287,6 +351,11 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                     active: _category != '0',
                     onTap: () => _openCategoryMenu(context),
                   ),
+                  const SizedBox(width: 8),
+                  MediaViewModeToggle(
+                    mode: _viewMode,
+                    onChanged: (mode) => unawaited(_setViewMode(mode)),
+                  ),
                 ],
               ),
             ),
@@ -301,68 +370,25 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                     slivers: [
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 22),
-                        sliver: PagedSliverGrid<int, DbOnlineMovie>(
-                          pagingController: _controller,
-                          // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
-                          showNoMoreItemsIndicatorAsGridChild: false,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                childAspectRatio:
-                                    MediaCardTemplate.gridChildAspectRatio,
-                                mainAxisSpacing: 14,
-                                crossAxisSpacing: spacing,
+                        sliver: isPortrait
+                            ? PagedSliverGrid<int, DbOnlineMovie>(
+                                pagingController: _controller,
+                                // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
+                                showNoMoreItemsIndicatorAsGridChild: false,
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: crossAxisCount,
+                                      childAspectRatio: MediaCardTemplate
+                                          .gridChildAspectRatio,
+                                      mainAxisSpacing: 14,
+                                      crossAxisSpacing: spacing,
+                                    ),
+                                builderDelegate: delegate,
+                              )
+                            : PagedSliverList<int, DbOnlineMovie>(
+                                pagingController: _controller,
+                                builderDelegate: delegate,
                               ),
-                          builderDelegate:
-                              PagedChildBuilderDelegate<DbOnlineMovie>(
-                                itemBuilder: (context, movie, index) =>
-                                    DbOnlineMovieCard(
-                                      key: ValueKey(_movieKey(movie)),
-                                      movie: movie,
-                                      config: config,
-                                      width: itemWidth,
-                                      onTap: () => openDbOnlineMovieUnawaited(
-                                        context,
-                                        movie,
-                                      ),
-                                    ),
-                                firstPageProgressIndicatorBuilder: (_) =>
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 56),
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          color: colors.accent,
-                                        ),
-                                      ),
-                                    ),
-                                newPageProgressIndicatorBuilder: (_) =>
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 18,
-                                      ),
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    ),
-                                firstPageErrorIndicatorBuilder: (_) =>
-                                    _LibraryListError(
-                                      message:
-                                          _controller.error?.toString() ??
-                                          AppL10n.of(context).loadFailed,
-                                      onRetry:
-                                          _controller.retryLastFailedRequest,
-                                    ),
-                                newPageErrorIndicatorBuilder: (_) =>
-                                    PaginationRetry(
-                                      onRetry:
-                                          _controller.retryLastFailedRequest,
-                                    ),
-                                noItemsFoundIndicatorBuilder: (_) =>
-                                    const _LibraryListEmpty(),
-                                noMoreItemsIndicatorBuilder: (_) =>
-                                    const NoMoreContent(),
-                              ),
-                        ),
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],

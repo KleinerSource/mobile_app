@@ -22,6 +22,8 @@ class DbOnlineMovieCard extends ConsumerWidget {
     this.width = 112,
     this.onTap,
     this.codeOnly = false,
+    this.landscape = false,
+    this.compact = false,
   });
 
   final DbOnlineMovie movie;
@@ -29,6 +31,8 @@ class DbOnlineMovieCard extends ConsumerWidget {
   final double width;
   final VoidCallback? onTap;
   final bool codeOnly;
+  final bool landscape;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,18 +46,35 @@ class DbOnlineMovieCard extends ConsumerWidget {
         : movie.id.trim();
     final privacyEnabled = ref.watch(privacyShieldProvider);
     final revealed = ref.watch(revealedMoviesProvider).contains(privacyId);
+    void handleTap() {
+      if (privacyEnabled && !revealed) {
+        ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
+        return;
+      }
+      onTap?.call();
+    }
+
+    if (compact) {
+      return CatalogListMovieCard(
+        title: movie.title.trim().isEmpty
+            ? l.movieCardUntitledTitle
+            : movie.title,
+        code: movie.number,
+        imageUrl: imageUrl,
+        imageHeaders: null,
+        meta: _metaText(context, movie),
+        width: width,
+        privacyId: privacyId,
+        onTap: handleTap,
+      );
+    }
+
     // dbonline 没有 OMM 影片库的多选链路，因此卡片长按不应出现按压反馈。
     // 保留共享卡片的展示层，把点击交给外层 GestureDetector，避免
     // CatalogMovieCard 内部 InkWell 在长按时产生额外的 Material 特效。
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (privacyEnabled && !revealed) {
-          ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
-          return;
-        }
-        onTap?.call();
-      },
+      onTap: handleTap,
       child: CatalogMovieCard(
         title: movie.title.trim().isEmpty
             ? l.movieCardUntitledTitle
@@ -68,6 +89,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         privacyId: privacyId,
         showTitle: !codeOnly,
         showMeta: !codeOnly,
+        landscape: landscape,
       ),
     );
   }

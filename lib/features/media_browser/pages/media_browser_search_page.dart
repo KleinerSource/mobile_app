@@ -21,6 +21,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -216,6 +217,7 @@ class _MediaBrowserSearchResults extends ConsumerStatefulWidget {
 class _MediaBrowserSearchResultsState
     extends ConsumerState<_MediaBrowserSearchResults> {
   static const _pageSize = 24;
+  static const _viewModeKey = 'media_browser.search.view_mode.v1';
 
   bool get _isStash =>
       ref.read(mediaBrowserConfigProvider)?.project == ServerProject.stash;
@@ -229,6 +231,7 @@ class _MediaBrowserSearchResultsState
   final _scrollController = ScrollController();
   late final PagedSelectionController<MediaBrowserItem> _selection;
   bool _batchBusy = false;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
   String? _autoPreviewId;
   bool _autoPreviewUpdateScheduled = false;
   final _listViewportKey = GlobalKey();
@@ -239,6 +242,9 @@ class _MediaBrowserSearchResultsState
     super.initState();
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
     _pagingController.addPageRequestListener(_fetchPage);
     _scrollController.addListener(_scheduleAutoPreviewUpdate);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -257,6 +263,12 @@ class _MediaBrowserSearchResultsState
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   Future<void> _openItem(MediaBrowserItem item) async {
@@ -403,6 +415,8 @@ class _MediaBrowserSearchResultsState
         ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
+    final isPortrait = _viewMode == MediaViewMode.portrait;
+    final isLandscape = _viewMode == MediaViewMode.landscape;
     final content = PagedSelectionPopScope<MediaBrowserItem>(
       selection: _selection,
       child: Stack(
@@ -418,6 +432,19 @@ class _MediaBrowserSearchResultsState
               controller: _scrollController,
               primary: false,
               slivers: [
+                if (!isStash)
+                  SliverToBoxAdapter(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                        child: MediaViewModeToggle(
+                          mode: _viewMode,
+                          onChanged: (mode) => unawaited(_setViewMode(mode)),
+                        ),
+                      ),
+                    ),
+                  ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
                   sliver: urls.maybeWhen(
@@ -439,6 +466,22 @@ class _MediaBrowserSearchResultsState
                                           item.id == _autoPreviewId,
                                       onTap: () => unawaited(_openItem(item)),
                                     ),
+                                  )
+                                : isLandscape
+                                ? mediaBrowserSelectableLandscapeItem(
+                                    selection: _selection,
+                                    item: item,
+                                    urls: value,
+                                    width: width - 44,
+                                    showFavoriteBadge: true,
+                                    onOpen: _openItem,
+                                  )
+                                : !isPortrait
+                                ? mediaBrowserSelectableListItem(
+                                    selection: _selection,
+                                    item: item,
+                                    urls: value,
+                                    onOpen: _openItem,
                                   )
                                 : mediaBrowserSelectableGridItem(
                                     selection: _selection,
@@ -479,6 +522,12 @@ class _MediaBrowserSearchResultsState
                                 const NoMoreContent(),
                           );
                       if (isStash) {
+                        return PagedSliverList<int, MediaBrowserItem>(
+                          pagingController: _pagingController,
+                          builderDelegate: delegate,
+                        );
+                      }
+                      if (!isPortrait) {
                         return PagedSliverList<int, MediaBrowserItem>(
                           pagingController: _pagingController,
                           builderDelegate: delegate,
