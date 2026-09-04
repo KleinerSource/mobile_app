@@ -427,6 +427,89 @@ void _main_4() {
       'detail-undated',
     ]);
   });
+
+  test('相同 magnet hash 忽略参数差异并保留日期更早的资源', () {
+    final newer = {
+      'name': 'newer',
+      'magnet': 'magnet:?xt=urn:btih:abcdef1234567890&dn=newer',
+      'date': '2025-01-01',
+    };
+    final older = {
+      'name': 'older',
+      'magnet': 'magnet:?dn=older&xt=urn:btih:ABCDEF1234567890',
+      'publish_date': '2024-01-01',
+    };
+
+    final result = mergeResourcesBySource({
+      'detail': [newer],
+      'custom': [older],
+    });
+
+    expect(result, hasLength(1));
+    expect(result.single['name'], 'older');
+    expect(result.single['magnet'], older['magnet']);
+  });
+
+  test('相同 ed2k hash 忽略文件信息并保留日期更早的资源', () {
+    final newer = {
+      'name': 'newer',
+      'ed2k': 'ed2k://|file|new-name.mkv|200|ABCDEF1234567890|/',
+      'date': '2025-01-01',
+    };
+    final older = {
+      'name': 'older',
+      'ed2k': 'ed2k://|file|old-name.mkv|100|abcdef1234567890|/',
+      'date': '2024-01-01',
+    };
+
+    final result = mergeResourcesBySource({
+      'detail': [newer],
+      'nyaa': [older],
+    });
+
+    expect(result, hasLength(1));
+    expect(result.single['name'], 'older');
+    expect(result.single['ed2k'], older['ed2k']);
+  });
+
+  test('不同 hash 和无法提取 hash 的资源不会误去重', () {
+    final result = mergeResourcesBySource({
+      'detail': [
+        {'name': 'no-hash-a', 'magnet': 'not-a-magnet'},
+        {'name': 'no-hash-b', 'magnet': 'not-a-magnet'},
+        {'name': 'hash-a', 'magnet': 'magnet:?xt=urn:btih:hashA'},
+        {'name': 'hash-b', 'magnet': 'magnet:?xt=urn:btih:hashB'},
+      ],
+    });
+
+    expect(result.map((item) => item['name']).toList(), [
+      'no-hash-a',
+      'no-hash-b',
+      'hash-a',
+      'hash-b',
+    ]);
+  });
+
+  test('相同日期的重复资源保留固定渠道顺序中的第一条', () {
+    final detail = {
+      'name': 'detail',
+      'magnet': 'magnet:?xt=urn:btih:abcdef1234567890&dn=detail',
+      'date': '2024-01-01',
+    };
+    final custom = {
+      'name': 'custom',
+      'magnet': 'magnet:?xt=urn:btih:ABCDEF1234567890&dn=custom',
+      'date': '2024-01-01',
+    };
+
+    final result = mergeResourcesBySource({
+      'custom': [custom],
+      'detail': [detail],
+    });
+
+    expect(result, hasLength(1));
+    expect(result.single['name'], 'detail');
+  });
 }
 
 void main() {

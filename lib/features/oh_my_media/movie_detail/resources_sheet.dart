@@ -94,7 +94,10 @@ List<Map<String, dynamic>> sortResourcesByDateDesc(
   return [for (final entry in decorated) entry.item];
 }
 
-/// 按固定渠道顺序合并再排序,保证最终列表与各渠道返回先后无关。
+/// 按固定渠道顺序合并、按资源 hash 去重再排序。
+///
+/// 相同 hash 保留日期更早的记录；日期相同或都无日期时，保留固定渠道
+/// 顺序中的第一条。无法提取 hash 的记录不参与去重。
 List<Map<String, dynamic>> mergeResourcesBySource(
   Map<String, List<Map<String, dynamic>>> bySource,
 ) {
@@ -102,7 +105,43 @@ List<Map<String, dynamic>> mergeResourcesBySource(
   for (final source in _kResourceSources) {
     merged.addAll(bySource[source] ?? const []);
   }
-  return sortResourcesByDateDesc(merged);
+  return sortResourcesByDateDesc(_deduplicateResourcesByHash(merged));
+}
+
+List<Map<String, dynamic>> _deduplicateResourcesByHash(
+  List<Map<String, dynamic>> items,
+) {
+  final result = <Map<String, dynamic>>[];
+  final indexByHash = <String, int>{};
+
+  for (final item in items) {
+    final hash = _resourceHashForDedup(item);
+    if (hash.isEmpty) {
+      result.add(item);
+      continue;
+    }
+
+    final existingIndex = indexByHash[hash];
+    if (existingIndex == null) {
+      indexByHash[hash] = result.length;
+      result.add(item);
+    } else if (_isOlderResource(item, result[existingIndex])) {
+      result[existingIndex] = item;
+    }
+  }
+
+  return result;
+}
+
+bool _isOlderResource(
+  Map<String, dynamic> candidate,
+  Map<String, dynamic> current,
+) {
+  final candidateDate = parseResourceDate(candidate);
+  final currentDate = parseResourceDate(current);
+  if (candidateDate == null) return false;
+  if (currentDate == null) return true;
+  return candidateDate.isBefore(currentDate);
 }
 
 class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
@@ -586,6 +625,38 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
 String _pickUrl(Map<String, dynamic> item) {
   return (item['url'] ?? item['link'] ?? item['magnet'] ?? item['ed2k'] ?? '')
       .toString();
+}
+
+String _resourceHashForDedup(Map<String, dynamic> item) {
+  final magnet = item['magnet']?.toString().trim() ?? '';
+  final magnetHash = _magnetHashOnly(magnet);
+  if (magnetHash.isNotEmpty) return 'magnet:$magnetHash';
+
+  final ed2k = item['ed2k']?.toString().trim() ?? '';
+  final ed2kHash = _ed2kHashOnly(ed2k);
+  if (ed2kHash.isNotEmpty) return 'ed2k:$ed2kHash';
+
+  final url = _pickUrl(item).trim();
+  if (url.toLowerCase().startsWith('ed2k:')) {
+    final hash = _ed2kHashOnly(url);
+    if (hash.isNotEmpty) return 'ed2k:$hash';
+  }
+  final hash = _magnetHashOnly(url);
+  return hash.isEmpty ? '' : 'magnet:$hash';
+}
+
+String _magnetHashOnly(String value) {
+  final match = RegExp(
+    r'(?:^|[?&])xt=urn:btih:([A-Za-z0-9]+)',
+    caseSensitive: false,
+  ).firstMatch(value);
+  return match?.group(1)?.toUpperCase() ?? '';
+}
+
+String _ed2kHashOnly(String value) {
+  final parts = value.split('|');
+  if (parts.length < 5) return '';
+  return parts[4].trim().toUpperCase();
 }
 
 String _extractMagnetHash(String magnet) {
