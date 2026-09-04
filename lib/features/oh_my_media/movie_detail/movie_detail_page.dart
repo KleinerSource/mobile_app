@@ -11,7 +11,6 @@ import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/watch_record.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/actor_avatar.dart';
@@ -27,16 +26,16 @@ import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/features/player/common/player_queue.dart';
 import 'package:omm/features/player/video/video_player_session_factory.dart';
 import 'package:omm/features/player/common/player_settings.dart';
-import 'package:omm/features/oh_my_media/resources/resource_movies_page.dart';
 import 'package:omm/features/oh_my_media/person_detail/person_detail_page.dart';
+import 'package:omm/features/oh_my_media/resources/resource_movies_page.dart';
 import 'dbo_diff_sheet.dart';
 import 'resources_sheet.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
 import 'movie_detail_formatters.dart';
 import 'movie_detail_media_viewers.dart';
-import 'movie_detail_scaffold.dart';
-import 'cast_section.dart';
+import 'package:omm/shared/movie_detail_components.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
@@ -249,31 +248,44 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         // 分组显示 series / genres / tags
         if (movie.series != null)
           SliverToBoxAdapter(
-            child: _TaxonomySection(
-              label: l.movieEditorSeries,
-              items: [movie.series!],
-              kind: ResourceKind.series,
-              hueOffset: 0,
+            child: MediaTaxonomySection(
+              title: l.movieEditorSeries,
+              items: [movie.series!.name],
               prefix: '◇ ',
+              onTap: (name) => _openResource(
+                context,
+                kind: ResourceKind.series,
+                items: [movie.series!],
+                name: name,
+              ),
             ),
           ),
         if (movie.genres.isNotEmpty)
           SliverToBoxAdapter(
-            child: _TaxonomySection(
-              label: l.movieEditorGenre,
-              items: movie.genres,
-              kind: ResourceKind.genre,
-              hueOffset: 0,
+            child: MediaTaxonomySection(
+              title: l.movieEditorGenre,
+              items: [for (final item in movie.genres) item.name],
+              onTap: (name) => _openResource(
+                context,
+                kind: ResourceKind.genre,
+                items: movie.genres,
+                name: name,
+              ),
             ),
           ),
         if (movie.tags.isNotEmpty)
           SliverToBoxAdapter(
-            child: _TaxonomySection(
-              label: l.movieEditorTag,
-              items: movie.tags,
-              kind: ResourceKind.tag,
+            child: MediaTaxonomySection(
+              title: l.movieEditorTag,
+              items: [for (final item in movie.tags) item.name],
               hueOffset: 2,
               prefix: '# ',
+              onTap: (name) => _openResource(
+                context,
+                kind: ResourceKind.tag,
+                items: movie.tags,
+                name: name,
+              ),
             ),
           ),
         SliverToBoxAdapter(child: _DetailsTable(movie: movie)),
@@ -740,57 +752,26 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
   }
 }
 
-/// 单类 taxonomy 分组 (系列 / 分类 / 标签),带 label + Wrap 多彩 chips。
-/// 每个 chip 点击跳 ResourceMoviesPage 按该维度过滤。
-class _TaxonomySection extends StatelessWidget {
-  const _TaxonomySection({
-    required this.label,
-    required this.items,
-    required this.kind,
-    this.hueOffset = 0,
-    this.prefix = '',
-  });
-
-  final String label;
-  final List<ResourceItem> items;
-  final ResourceKind kind;
-  final int hueOffset;
-  final String prefix;
-
-  void _open(BuildContext context, ResourceItem r) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ResourceMoviesPage(kind: kind, resource: r),
-      ),
-    );
+void _openResource(
+  BuildContext context, {
+  required ResourceKind kind,
+  required List<ResourceItem> items,
+  required String name,
+}) {
+  final normalizedName = name.trim().toLowerCase();
+  ResourceItem? resource;
+  for (final item in items) {
+    if (item.name.trim().toLowerCase() == normalizedName) {
+      resource = item;
+      break;
+    }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: AppText.sectionTitle(context)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var i = 0; i < items.length; i++)
-                HueChip(
-                  label: '$prefix${items[i].name}',
-                  hue: AppHues.all[(i + hueOffset) % AppHues.all.length],
-                  onTap: () => _open(context, items[i]),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  if (resource == null) return;
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ResourceMoviesPage(kind: kind, resource: resource!),
+    ),
+  );
 }
 
 /// 相关文件 section · 优先展示 related_files (含 label+path),

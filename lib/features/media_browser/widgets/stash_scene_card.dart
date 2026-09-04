@@ -14,6 +14,7 @@ import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 
 /// Stash 预览播放器的最小协议，便于页面测试注入 Fake 实现。
 abstract interface class StashPreviewPlayer {
@@ -619,7 +620,7 @@ class StashSceneInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final code = item.code?.trim();
-    final tags = item.genres
+    final tags = (item.tags.isNotEmpty ? item.tags : item.genres)
         .map((tag) => tag.trim())
         .where((tag) => tag.isNotEmpty)
         .toList(growable: false);
@@ -699,11 +700,12 @@ class _StashInfoWrap extends StatelessWidget {
 
 String? _stashMetaText(BuildContext context, MediaBrowserItem item) {
   final l = AppL10n.of(context);
-  final values = <String>[
-    if (item.productionYear != null) '${item.productionYear}',
-    if (item.runtimeMinutes > 0) l.mediaDurationMinutes(item.runtimeMinutes),
-  ];
-  return values.isEmpty ? null : values.join(' · ');
+  final value = formatMediaCardMeta(
+    l,
+    year: item.productionYear,
+    duration: item.runtimeMinutes,
+  );
+  return value.isEmpty ? null : value;
 }
 
 class _StashCompactIconLine extends StatelessWidget {

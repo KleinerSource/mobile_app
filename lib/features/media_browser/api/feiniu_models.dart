@@ -219,6 +219,7 @@ class FeiniuItem {
     this.airDate,
     this.originalTitle,
     this.genres = const <String>[],
+    this.tags = const <String>[],
     this.people = const <MediaBrowserPerson>[],
     this.runtimeMinutes = 0,
     this.durationSeconds = 0,
@@ -256,6 +257,7 @@ class FeiniuItem {
   final String? airDate;
   final String? originalTitle;
   final List<String> genres;
+  final List<String> tags;
   final List<MediaBrowserPerson> people;
   final int runtimeMinutes;
   final int durationSeconds;
@@ -340,6 +342,7 @@ class FeiniuItem {
       ),
       originalTitle: _optional(json['original_title'] ?? json['original_name']),
       genres: _stringList(json['genres'] ?? json['genre'], genreNames),
+      tags: _stringList(json['tags'] ?? json['tag']),
       people: _people(json['people'] ?? json['cast_and_crew']),
       runtimeMinutes: runtime,
       durationSeconds: duration > 0 ? duration : runtime * 60,
@@ -468,6 +471,7 @@ class FeiniuItem {
       runTimeTicks: secondsToMediaBrowserTicks(seconds),
       overview: overview,
       genres: resolvedGenres ?? genres,
+      tags: tags,
       people: resolvedPeople ?? people,
       userData: MediaBrowserUserData(
         playbackPositionTicks: secondsToMediaBrowserTicks(resumeSeconds),
@@ -491,6 +495,7 @@ class FeiniuItem {
       partCount: orderedFiles.isEmpty ? null : orderedFiles.length,
       additionalParts: additionalParts,
       mediaSources: mediaSource,
+      payload: this,
     );
   }
 

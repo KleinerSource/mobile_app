@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 
 /// dbonline 字段适配器。
@@ -60,7 +62,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         imageUrl: imageUrl,
         meta: _metaText(context, movie),
         width: width,
-        rating: movie.score,
+        rating: normalizeMediaRating(movie.score),
         canPlay: movie.canPlay,
         hasSubtitle: movie.hasCnsub,
         privacyId: privacyId,
@@ -73,22 +75,10 @@ class DbOnlineMovieCard extends ConsumerWidget {
 
 String _metaText(BuildContext context, DbOnlineMovie movie) {
   final l = AppL10n.of(context);
-  final parts = <String>[];
-  final year = _yearFromDate(movie.releaseDate);
-  if (year != null) parts.add('$year');
-  final duration = _durationMinutes(movie.duration);
-  if (duration != null && duration > 0) {
-    parts.add(l.mediaDurationMinutes(duration));
-  }
-  return parts.isEmpty ? l.dbOnlineNoMeta : parts.join(' · ');
-}
-
-int? _yearFromDate(String? value) {
-  final match = RegExp(r'^(\d{4})').firstMatch(value?.trim() ?? '');
-  return match == null ? null : int.tryParse(match.group(1)!);
-}
-
-int? _durationMinutes(String? value) {
-  final match = RegExp(r'\d+').firstMatch(value?.trim() ?? '');
-  return match == null ? null : int.tryParse(match.group(0)!);
+  return formatMediaCardMeta(
+    l,
+    year: normalizeMediaYear(movie.releaseDate),
+    duration: dboDurationToMinutes(movie.duration),
+    emptyText: l.dbOnlineNoMeta,
+  );
 }

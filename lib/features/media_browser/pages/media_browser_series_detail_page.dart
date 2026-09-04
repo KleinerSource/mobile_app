@@ -15,7 +15,8 @@ import 'package:omm/features/media_browser/widgets/media_browser_next_up_section
 import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/continue_watching_section.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/shared/movie_detail_components.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -170,7 +171,11 @@ class _MediaBrowserSeriesDetailPageState
                   padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
                   child: MovieDetailTitle(
                     title: series.name,
+                    originalTitle: series.originalTitle,
                     year: series.productionYear,
+                    runtime: series.runtimeMinutes > 0
+                        ? series.runtimeMinutes
+                        : null,
                     rating: series.communityRating,
                   ),
                 ),
@@ -215,6 +220,20 @@ class _MediaBrowserSeriesDetailPageState
                             personId: person.id,
                             personName: person.name,
                           ),
+                  ),
+                ),
+              if (series.genres.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: MediaTaxonomySection(
+                    title: AppL10n.of(context).mediaBrowserGenres,
+                    items: series.genres,
+                  ),
+                ),
+              if (series.tags.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: MediaTaxonomySection(
+                    title: AppL10n.of(context).movieEditorTag,
+                    items: series.tags,
                   ),
                 ),
               // 剧集条目一般没有文件级媒体源；有（如单文件剧集）才展示。

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
-import 'package:omm/features/oh_my_media/movie_detail/cast_section.dart';
+import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Emby/Jellyfin/Stash/fnos 演员区 · 直接复用 OMM 详情页的 [CastSection],

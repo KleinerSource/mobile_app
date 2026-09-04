@@ -11,6 +11,7 @@ import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'media_capabilities.dart';
+import 'media_metadata_normalizer.dart';
 import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_audio_operations_source.dart';
@@ -540,11 +541,11 @@ class OmmMediaSourceAdapter
 
   MediaSummary _summaryFromMovie(MovieListItem movie) => MediaSummary(
     ref: MediaRef(sourceId: _sourceId, value: '${movie.id}'),
-    title: movie.title,
-    code: movie.num,
-    year: movie.year,
-    rating: movie.rating,
-    duration: movie.runtime,
+    title: normalizeMediaText(movie.title) ?? '',
+    code: normalizeMediaText(movie.num),
+    year: normalizeMediaYear(movie.year),
+    rating: normalizeMediaRating(movie.rating),
+    duration: normalizeMediaDurationMinutes(movie.runtime),
     poster: movie.posterUuid,
     thumbnail: movie.thumbUuid,
     fanart: movie.fanartUuid,
@@ -563,11 +564,11 @@ class OmmMediaSourceAdapter
   MediaDetails _detailsFromMovie(MovieDetail movie) {
     final summary = MediaSummary(
       ref: MediaRef(sourceId: _sourceId, value: '${movie.id}'),
-      title: movie.title,
-      code: movie.num,
-      year: movie.year,
-      rating: movie.rating,
-      duration: movie.runtime,
+      title: normalizeMediaText(movie.title) ?? '',
+      code: normalizeMediaText(movie.num),
+      year: normalizeMediaYear(movie.year),
+      rating: normalizeMediaRating(movie.rating),
+      duration: normalizeMediaDurationMinutes(movie.runtime),
       poster: movie.posterUuid,
       thumbnail: movie.thumbUuid,
       fanart: movie.fanartUuid,
@@ -584,13 +585,14 @@ class OmmMediaSourceAdapter
     );
     return MediaDetails(
       summary: summary,
-      originalTitle: movie.originalTitle,
-      overview: movie.plot ?? movie.outline,
+      originalTitle: normalizeMediaText(movie.originalTitle),
+      overview:
+          normalizeMediaText(movie.plot) ?? normalizeMediaText(movie.outline),
       filePath: movie.filePath,
       fileSize: movie.fileSize,
-      tags: movie.tags.map((item) => item.name).toList(growable: false),
-      genres: movie.genres.map((item) => item.name).toList(growable: false),
-      actors: movie.actors.map((item) => item.name).toList(growable: false),
+      tags: normalizeMediaLabels(movie.tags.map((item) => item.name)),
+      genres: normalizeMediaLabels(movie.genres.map((item) => item.name)),
+      actors: normalizeMediaLabels(movie.actors.map((item) => item.name)),
       payload: movie,
     );
   }

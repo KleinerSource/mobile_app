@@ -8,7 +8,7 @@ import 'package:omm/features/media_browser/navigation/media_browser_navigation.d
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// MediaBrowser 条目详情页的「更多类似」横向海报列表。

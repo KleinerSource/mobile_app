@@ -196,14 +196,14 @@ void main() {
           'GET $base/Users/user-1/Items'
               '?ParentId=lib-1&IncludeItemTypes=Movie%2CSeries&Recursive=true'
               '&SortBy=DateCreated&SortOrder=Descending&StartIndex=24&Limit=24'
-              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus',
+              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags',
           'GET $base/Users/user-1/Items/Latest'
               '?ParentId=lib-1&Limit=16&Fields=ItemCounts%2CProductionYear%2C'
-              'PremiereDate%2CEndDate%2CStatus&EnableImages=true',
+              'PremiereDate%2CEndDate%2CStatus%2CTags&EnableImages=true',
           'GET $base/Users/user-1/Items/Resume?MediaTypes=Video&Limit=6',
           'GET $base/Shows/NextUp?UserId=user-1&Limit=12',
           'GET $base/Items/series-1/Similar?UserId=user-1&Limit=12'
-              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus',
+              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags',
           'GET $base/Shows/series-1/Seasons?UserId=user-1',
           'GET $base/Shows/series-1/Episodes'
               '?UserId=user-1&SeasonId=season-1&Fields=Overview%2CMediaSources'

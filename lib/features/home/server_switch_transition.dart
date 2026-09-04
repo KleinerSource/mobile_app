@@ -11,6 +11,7 @@ import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_profile_runtime_loader.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -414,6 +415,8 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       state = const ServerSwitchState.idle();
       return;
     }
+    await _prefetchTargetMediaBrowserProfile(targetServerId);
+    if (!_isCurrent(operation)) return;
     void beginFinishing() {
       if (!_isCurrent(operation)) return;
       state = ServerSwitchState.finishing(
@@ -456,6 +459,32 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     );
     beginFinishing();
     unawaited(refresh);
+  }
+
+  Future<void> _prefetchTargetMediaBrowserProfile(String serverId) async {
+    final config =
+        ref.read(serverConfigProvider) ??
+        ref.read(serverConfigRepoProvider).load();
+    ServerProfile? target;
+    for (final server in config?.servers ?? const <ServerProfile>[]) {
+      if (server.id == serverId) {
+        target = server;
+        break;
+      }
+    }
+    if (target?.project != ServerProject.emby &&
+        target?.project != ServerProject.jellyfin) {
+      return;
+    }
+    final cachedProfile = ref
+        .read(serverProfileCacheRepoProvider)
+        .load(serverId);
+    if (cachedProfile?.userAvatarUrl?.trim().isNotEmpty == true) return;
+    try {
+      await loadMediaBrowserUserProfile(ref.read, target!);
+    } catch (_) {
+      // 资料加载失败时继续转场，由头像组件使用服务器 Logo 兜底。
+    }
   }
 
   /// 登录成功后的内容放大转场结束后，由遮罩层解除切换状态。

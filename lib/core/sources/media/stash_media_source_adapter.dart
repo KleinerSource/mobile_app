@@ -9,6 +9,7 @@ import '../common/source_id.dart';
 import 'media_browser_media_operations_source.dart';
 import 'media_browser_media_source.dart';
 import 'media_capabilities.dart';
+import 'media_metadata_normalizer.dart';
 import 'media_models.dart';
 
 /// Stash Scene 媒体源。
@@ -72,15 +73,13 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     final file = _primaryFile(scene);
     return MediaDetails(
       summary: summary,
-      originalTitle: scene.code,
-      overview: scene.details,
+      overview: normalizeMediaText(scene.details),
       filePath: file?.path,
       fileSize: file?.size,
-      tags: scene.tags,
-      actors: [
-        for (final performer in scene.performers)
-          if (performer.name.isNotEmpty) performer.name,
-      ],
+      tags: normalizeMediaLabels(scene.tags),
+      actors: normalizeMediaLabels(
+        scene.performers.map((performer) => performer.name),
+      ),
       attributes: <String, Object?>{
         'type': 'Movie',
         'studio': scene.studio?.name,
@@ -357,25 +356,20 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
   MediaBrowserItem _itemFromScene(StashScene scene) {
     _sceneCache[scene.id] = scene;
     final file = _primaryFile(scene);
-    final title = scene.title.trim();
-    final fallbackCode = scene.code?.trim();
-    final code = title.isNotEmpty ? title : fallbackCode;
-    final details = scene.details?.trim() ?? '';
-    final name = details.isNotEmpty
-        ? details
-        : code?.isNotEmpty == true
-        ? code!
-        : scene.id;
+    final title = normalizeMediaText(scene.title);
+    final code = normalizeMediaText(scene.code);
+    final name = title ?? code ?? scene.id;
     return MediaBrowserItem(
       id: scene.id,
       name: name,
       type: 'Movie',
       code: code,
-      productionYear: _year(scene.date),
-      communityRating: scene.rating100 == null ? null : scene.rating100! / 10,
+      productionYear: normalizeMediaYear(scene.date),
+      communityRating: stashRating100ToTen(scene.rating100),
       runTimeTicks: _ticks(sceneDuration(scene)),
-      overview: scene.details,
-      genres: scene.tags,
+      overview: normalizeMediaText(scene.details),
+      genres: const <String>[],
+      tags: normalizeMediaLabels(scene.tags),
       tagIds: scene.tagIds,
       people: [
         for (final performer in scene.performers)
@@ -408,6 +402,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
           mediaStreams: _mediaStreamsForFile(file),
         ),
       ],
+      payload: scene,
     );
   }
 
@@ -443,10 +438,11 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
 
   MediaSummary _summaryFromItem(MediaBrowserItem item) => MediaSummary(
     ref: MediaRef(sourceId: _sourceId, value: item.id),
-    title: item.name,
-    year: item.productionYear,
-    rating: item.communityRating,
-    duration: item.runtimeMinutes,
+    title: normalizeMediaText(item.name) ?? '',
+    code: normalizeMediaText(item.code),
+    year: normalizeMediaYear(item.productionYear),
+    rating: normalizeMediaRating(item.communityRating),
+    duration: mediaBrowserTicksToMinutes(item.runTimeTicks),
     poster: _assetUrl(item.primaryImageTag),
     thumbnail: _assetUrl(item.primaryImageTag),
     fanart: item.backdropImageTags.isEmpty
@@ -460,7 +456,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
       'resumeSeconds': item.userData.resumeSeconds,
       'playCount': item.userData.playCount,
     },
-    payload: item,
+    payload: item.payload ?? item,
   );
 
   MediaSummary _summaryFromScene(StashScene scene) =>
@@ -591,11 +587,6 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
       startIndex: 0,
       limit: limit,
     );
-  }
-
-  int? _year(String? value) {
-    final match = RegExp(r'^(\d{4})').firstMatch(value?.trim() ?? '');
-    return match == null ? null : int.tryParse(match.group(1)!);
   }
 
   int _ticks(double seconds) {

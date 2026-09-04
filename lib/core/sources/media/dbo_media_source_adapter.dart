@@ -6,6 +6,7 @@ import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'media_capabilities.dart';
+import 'media_metadata_normalizer.dart';
 import 'media_models.dart';
 import 'dbo_media_source.dart';
 
@@ -104,10 +105,11 @@ class DboMediaSourceAdapter implements DboMediaSource {
     );
     final summary = MediaSummary(
       ref: summaryRef,
-      title: detail.title,
-      code: detail.code,
-      duration: detail.duration,
-      rating: detail.score,
+      title: normalizeMediaText(detail.title) ?? '',
+      code: normalizeMediaText(detail.code),
+      year: normalizeMediaYear(detail.date),
+      duration: normalizeMediaDurationMinutes(detail.duration),
+      rating: normalizeMediaRating(detail.score),
       poster: detail.coverUrl,
       thumbnail: detail.thumbUrl,
       canPlay: detail.canPlay,
@@ -118,12 +120,15 @@ class DboMediaSourceAdapter implements DboMediaSource {
         'library': detail.library,
         'play_sources': detail.playSources,
       },
+      payload: detail,
     );
     return MediaDetails(
       summary: summary,
-      originalTitle: detail.originTitle,
-      overview: detail.overview,
-      actors: detail.actors.map((item) => item.name).toList(growable: false),
+      originalTitle: normalizeMediaText(detail.originTitle),
+      overview: normalizeMediaText(detail.overview),
+      tags: normalizeMediaLabels(detail.tags),
+      genres: normalizeMediaLabels(detail.categories.map((item) => item.name)),
+      actors: normalizeMediaLabels(detail.actors.map((item) => item.name)),
       attributes: {
         'categories': detail.categories,
         'series': detail.series,
@@ -251,9 +256,11 @@ class DboMediaSourceAdapter implements DboMediaSource {
       value: movie.id,
       alternateValue: movie.number.isEmpty ? null : movie.number,
     ),
-    title: movie.title,
-    code: movie.number,
-    rating: movie.score,
+    title: normalizeMediaText(movie.title) ?? '',
+    code: normalizeMediaText(movie.number),
+    year: normalizeMediaYear(movie.releaseDate),
+    duration: normalizeMediaDurationMinutes(movie.duration),
+    rating: normalizeMediaRating(movie.score),
     poster: movie.coverUrl,
     thumbnail: movie.thumbUrl,
     canPlay: movie.canPlay,

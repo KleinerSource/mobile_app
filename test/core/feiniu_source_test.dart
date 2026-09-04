@@ -10,6 +10,7 @@ import 'package:omm/core/sources/media/feiniu_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/features/media_browser/api/feiniu_api.dart';
+import 'package:omm/features/media_browser/api/feiniu_models.dart';
 
 void main() {
   test('飞牛适配器分页并生成带鉴权头的播放描述', () async {
@@ -33,6 +34,7 @@ void main() {
     );
 
     expect(page.items.single.title, '示例影片');
+    expect(page.items.single.code, isNull);
     expect(page.total, 1);
     expect(
       descriptor.uri.toString(),
@@ -93,6 +95,9 @@ void main() {
 
     final views = await source.views();
     final item = await source.getItem('item-1');
+    final details = await source.getMovie(
+      const MediaRef(sourceId: SourceId('feiniu'), value: 'item-1'),
+    );
 
     expect(views.single.primaryImageTag, '/mediadb/library-1/poster.jpg');
     expect(item.primaryImageTag, '/mediadb/item-1/poster.jpg');
@@ -105,6 +110,13 @@ void main() {
     expect(item.people.first.type, 'Director');
     expect(item.people.last.role, '主角');
     expect(item.people.last.profilePath, '/person/p2.webp');
+    expect(details.summary.code, isNull);
+    expect(details.summary.payload, isA<FeiniuItem>());
+    expect(details.originalTitle, 'Example Movie');
+    expect(details.overview, '影片简介');
+    expect(details.genres, ['科幻', '动作']);
+    expect(details.actors, ['演员一']);
+    expect(details.payload, isA<FeiniuItem>());
   });
 
   test('飞牛适配器通过原生季列表返回完整季条目', () async {

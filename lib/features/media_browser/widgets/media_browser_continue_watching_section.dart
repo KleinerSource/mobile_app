@@ -70,9 +70,5 @@ String _metaText(AppL10n l, MediaBrowserItem item) {
 }
 
 String _displayTitle(MediaBrowserItem item) {
-  final name = item.name.trim();
-  final code = item.code?.trim() ?? '';
-  if (code.isEmpty) return name;
-  if (name.isEmpty || name == code) return '[$code]';
-  return '[$code] $name';
+  return item.name.trim();
 }

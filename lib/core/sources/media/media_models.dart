@@ -149,10 +149,20 @@ class MediaSummary {
   });
 
   final MediaRef ref;
+
+  /// 主标题；来源无法提供标题时使用空字符串，由展示层决定占位文案。
   final String title;
+
+  /// 番号或来源编号，与 [MediaDetails.originalTitle] 严格区分。
   final String? code;
+
+  /// 公历年份，不承载完整日期。
   final int? year;
+
+  /// 0–10 的公共评分；缺失或非正数时为 null。
   final double? rating;
+
+  /// 分钟数；来源的秒数/ticks 等精度保留在 [payload] 或 attributes 中。
   final int? duration;
   final String? poster;
   final String? thumbnail;
@@ -178,12 +188,20 @@ class MediaDetails {
   });
 
   final MediaSummary summary;
+
+  /// 原始标题，详情页统一作为主标题下的副标题。
   final String? originalTitle;
   final String? overview;
   final String? filePath;
   final int? fileSize;
+
+  /// 独立标签集合，不与 [genres] 混用。
   final List<String> tags;
+
+  /// 分类/类型集合。
   final List<String> genres;
+
+  /// 公共演员名称列表；角色、头像和来源 ID 放在来源 DTO 或 attributes/payload。
   final List<String> actors;
   final Map<String, Object?> attributes;
   final Object? payload;

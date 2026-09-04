@@ -612,21 +612,21 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     ServerProject project,
   ) async {
     if (project == ServerProject.emby || project == ServerProject.jellyfin) {
-      return loadMediaBrowserUserProfile(ref, server);
+      return loadMediaBrowserUserProfile(ref.read, server);
     }
 
     final sessionRepository = ref
         .read(authSessionRepositoryProvider)
         .forServer(server.id, allowLegacyMigration: false);
-    final session = await sessionRepository.load();
-    if (session == null || !session.hasAccessToken) {
-      return _fallbackProfile(server);
-    }
 
     final line = server.activeLine;
     if (line == null) return _fallbackProfile(server);
 
     try {
+      final session = await sessionRepository.load();
+      if (session == null || !session.hasAccessToken) {
+        return _fallbackProfile(server);
+      }
       final client = ApiClient.fromConfig(
         ServerConfig(
           baseUrl: line.baseUrl,

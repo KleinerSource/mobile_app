@@ -100,7 +100,7 @@ class _HomeServerSwitcherMenuState
   Future<ServerProfileData?> _loadActiveProfile(ServerProfile server) async {
     final project = server.project;
     if (project == ServerProject.emby || project == ServerProject.jellyfin) {
-      return loadMediaBrowserUserProfile(ref, server);
+      return loadMediaBrowserUserProfile(ref.read, server);
     }
     return _profileFor(server);
   }

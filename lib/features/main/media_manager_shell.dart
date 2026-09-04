@@ -85,7 +85,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     }
     if (target?.project == ServerProject.emby ||
         target?.project == ServerProject.jellyfin) {
-      await loadMediaBrowserUserProfile(ref, target!);
+      await loadMediaBrowserUserProfile(ref.read, target!);
     }
     await ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId);
   }

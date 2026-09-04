@@ -10,6 +10,7 @@ import '../common/source_id.dart';
 import 'media_capabilities.dart';
 import 'media_browser_media_source.dart';
 import 'media_browser_media_operations_source.dart';
+import 'media_metadata_normalizer.dart';
 import 'media_models.dart';
 import 'playback_device_profile.dart';
 
@@ -463,10 +464,10 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   Future<MediaSummary> _summaryFromItem(MediaBrowserItem item) async {
     return MediaSummary(
       ref: _refFor(item),
-      title: item.name,
-      year: item.productionYear,
-      rating: item.communityRating,
-      duration: mediaBrowserTicksToSeconds(item.runTimeTicks),
+      title: normalizeMediaText(item.name) ?? '',
+      year: normalizeMediaYear(item.productionYear),
+      rating: normalizeMediaRating(item.communityRating),
+      duration: mediaBrowserTicksToMinutes(item.runTimeTicks),
       poster: await imageUrl(item.id, maxWidth: 440, tag: item.primaryImageTag),
       thumbnail: item.thumbImageTag == null
           ? null
@@ -517,19 +518,19 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   Future<MediaDetails> _detailsFromItem(MediaBrowserItem item) async {
     return MediaDetails(
       summary: await _summaryFromItem(item),
-      overview: item.overview,
+      originalTitle: normalizeMediaText(item.originalTitle),
+      overview: normalizeMediaText(item.overview),
       filePath: item.mediaSources.isEmpty ? null : item.mediaSources.first.path,
       fileSize: item.mediaSources.isEmpty
           ? null
           : item.mediaSources.first.sizeInBytes,
-      genres: item.genres,
-      actors: [
-        for (final person in item.people)
-          if (person.name.isNotEmpty)
-            person.role?.trim().isNotEmpty == true
-                ? '${person.name}（${person.role}）'
-                : person.name,
-      ],
+      genres: normalizeMediaLabels(item.genres),
+      tags: normalizeMediaLabels(item.tags),
+      actors: normalizeMediaLabels(
+        item.people
+            .where((person) => person.type.isEmpty || person.type == 'Actor')
+            .map((person) => person.name),
+      ),
       attributes: {
         'type': item.type,
         'series_id': item.seriesId,

@@ -5,12 +5,12 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
-import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
@@ -23,7 +23,8 @@ import 'package:omm/features/player/video/video_player_session_factory.dart';
 import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/settings/settings_common.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/shared/movie_detail_components.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
@@ -194,12 +195,15 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
     final movie = widget.movie;
     final config = widget.config;
     final image = movie.coverUrl ?? movie.thumbUrl;
-    final displayTitle = _dbOnlineDisplayTitle(movie);
+    final l = AppL10n.of(context);
+    final displayTitle =
+        normalizeMediaText(movie.title) ??
+        normalizeMediaText(movie.code) ??
+        l.movieCardUntitledTitle;
     final imageUrl = config == null || image == null
         ? null
         : resolveServerUrl(config, image);
     final posterBadgeVisibility = ref.watch(posterBadgeVisibilityProvider);
-    final l = AppL10n.of(context);
     final heroBadges = <Widget>[
       if (movie.hasCnsub &&
           posterBadgeVisibility.isEnabled(PosterBadgeKind.subtitle))
@@ -222,7 +226,7 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
       hero: MovieDetailHero(
         imageUrl: imageUrl,
         title: displayTitle,
-        year: _yearFromDate(movie.date),
+        year: normalizeMediaYear(movie.date),
         bottomOverlay: heroBadges.isEmpty
             ? null
             : Wrap(spacing: 6, runSpacing: 6, children: heroBadges),
@@ -233,10 +237,10 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
             child: MovieDetailTitle(
               title: displayTitle,
-              originalTitle: movie.originTitle,
-              year: _yearFromDate(movie.date),
-              runtime: movie.duration,
-              rating: movie.score,
+              originalTitle: normalizeMediaText(movie.originTitle),
+              year: normalizeMediaYear(movie.date),
+              runtime: normalizeMediaDurationMinutes(movie.duration),
+              rating: normalizeMediaRating(movie.score),
             ),
           ),
         ),
@@ -269,30 +273,43 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
           ),
         if (movie.actors.isNotEmpty)
           SliverToBoxAdapter(
-            child: _DbOnlineChipSection(
+            child: CastSection(
               title: l.detailCast,
-              labels: [
+              entries: [
                 for (final actor in movie.actors)
-                  if (actor.name.trim().isNotEmpty) _actorLabel(l, actor),
+                  if (actor.name.trim().isNotEmpty)
+                    CastEntry(
+                      name: actor.name,
+                      imageUrl: config == null || actor.avatarUrl == null
+                          ? null
+                          : resolveServerUrl(config, actor.avatarUrl!),
+                    ),
               ],
             ),
           ),
         if (_hasPersonName(movie.series))
           SliverToBoxAdapter(
-            child: _DbOnlineChipSection(
+            child: MediaTaxonomySection(
               title: l.dbOnlineSeriesSection,
-              labels: [movie.series!.name],
+              items: [movie.series!.name],
               prefix: '◇ ',
             ),
           ),
         if (movie.categories.isNotEmpty)
           SliverToBoxAdapter(
-            child: _DbOnlineChipSection(
+            child: MediaTaxonomySection(
               title: l.dbOnlineCategorySection,
-              labels: [
+              items: [
                 for (final category in movie.categories)
                   if (category.name.trim().isNotEmpty) category.name,
               ],
+            ),
+          ),
+        if (movie.tags.isNotEmpty)
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.movieEditorTag,
+              items: movie.tags,
             ),
           ),
         if (movie.relativeMovies.isNotEmpty && config != null)
@@ -338,19 +355,6 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
 
 int _stableHeroId(String value) {
   return value.codeUnits.fold(0, (result, codeUnit) => result * 31 + codeUnit);
-}
-
-String _dbOnlineDisplayTitle(DbOnlineMovieDetail movie) {
-  final title = movie.title.trim();
-  final code = movie.code.trim();
-  if (title.isEmpty) return code;
-  if (code.isEmpty) return title;
-  return '[$code] $title';
-}
-
-int? _yearFromDate(String? date) {
-  final match = RegExp(r'^(\d{4})').firstMatch(date?.trim() ?? '');
-  return match == null ? null : int.tryParse(match.group(1)!);
 }
 
 class _DbOnlinePreviewRow extends StatelessWidget {
@@ -405,51 +409,9 @@ bool _hasPersonName(DbOnlinePerson? person) =>
     person?.name.trim().isNotEmpty == true;
 
 bool _hasDetails(DbOnlineMovieDetail movie) =>
+    movie.code.trim().isNotEmpty ||
     movie.date?.trim().isNotEmpty == true ||
     (movie.watchedCount != null && movie.watchedCount! > 0);
-
-class _DbOnlineChipSection extends StatelessWidget {
-  const _DbOnlineChipSection({
-    required this.title,
-    required this.labels,
-    this.prefix = '',
-  });
-
-  final String title;
-  final List<String> labels;
-  final String prefix;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = labels.where((item) => item.trim().isNotEmpty).toList();
-    if (items.isEmpty) return const SizedBox.shrink();
-    return MovieDetailSection(
-      title: title,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (var i = 0; i < items.length; i++)
-            HueChip(
-              label: '$prefix${items[i]}',
-              hue: AppHues.all[i % AppHues.all.length],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-String _actorLabel(AppL10n l, DbOnlinePerson actor) {
-  final labels = <String>[actor.name];
-  if (actor.nameZht?.isNotEmpty == true && actor.nameZht != actor.name) {
-    labels.add(actor.nameZht!);
-  }
-  if (actor.otherName?.isNotEmpty == true) labels.add('(${actor.otherName})');
-  if (actor.gender?.isNotEmpty == true) labels.add(actor.gender!);
-  if (actor.uncensored) labels.add(l.dbOnlineUncensored);
-  return labels.join(' ');
-}
 
 class _RelatedMovieSection extends StatelessWidget {
   const _RelatedMovieSection({
@@ -464,7 +426,6 @@ class _RelatedMovieSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return MovieDetailFullBleedSection(
       header: Text(title, style: AppText.sectionTitle(context)),
       child: SizedBox(
@@ -487,10 +448,8 @@ class _RelatedMovieSection extends StatelessWidget {
                 coverUrl: movie.coverUrl,
                 thumbUrl: movie.thumbUrl,
                 releaseDate: movie.releaseDate,
-                duration: movie.duration == null
-                    ? null
-                    : l.mediaDurationMinutes(movie.duration!),
-                score: score,
+                duration: movie.duration?.toString(),
+                score: normalizeMediaRating(score),
                 canPlay: movie.canPlay,
               ),
               config: config,
@@ -614,6 +573,9 @@ class _DetailsTable extends StatelessWidget {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final rows = <(String, String)>[];
+    if (movie.code.trim().isNotEmpty) {
+      rows.add((l.detailNumber, movie.code.trim()));
+    }
     if (movie.date?.trim().isNotEmpty == true) {
       rows.add((l.dbOnlineDetailDate, movie.date!));
     }

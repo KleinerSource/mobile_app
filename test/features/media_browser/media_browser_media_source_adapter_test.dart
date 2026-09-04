@@ -288,8 +288,11 @@ void main() {
                 'Id': 'item-1',
                 'Name': '电影一',
                 'Type': 'Movie',
+                'Code': 'SHOULD-NOT-BE-PUBLIC',
                 'ProductionYear': 2024,
                 'RunTimeTicks': 6000000000,
+                'Tags': ['标签一', '标签二'],
+                'TagIds': ['tag-1', 'tag-2'],
                 'ImageTags': {'Primary': 'img-tag-1'},
               },
             ],
@@ -312,8 +315,9 @@ void main() {
 
         expect(page.total, 1);
         expect(page.items.single.title, '电影一');
+        expect(page.items.single.code, isNull);
         expect(page.items.single.year, 2024);
-        expect(page.items.single.duration, 600);
+        expect(page.items.single.duration, 10);
         expect(page.items.single.poster, contains('tag=img-tag-1'));
         // 缓存 URL 不带 token，token 轮换不会打穿图片缓存。
         expect(
@@ -333,8 +337,12 @@ void main() {
               'Id': 'item-1',
               'Name': '电影一',
               'Type': 'Movie',
+              'Code': 'SHOULD-NOT-BE-PUBLIC',
+              'OriginalTitle': 'Original Movie',
               'Overview': '简介',
               'Genres': ['科幻'],
+              'Tags': ['标签一', '标签二'],
+              'TagIds': ['tag-1', 'tag-2'],
               'People': [
                 {'Id': 'p1', 'Name': '演员一', 'Type': 'Actor', 'Role': '主角'},
               ],
@@ -347,9 +355,12 @@ void main() {
         );
 
         expect(details.summary.title, '电影一');
+        expect(details.summary.code, isNull);
+        expect(details.originalTitle, 'Original Movie');
         expect(details.overview, '简介');
         expect(details.genres, ['科幻']);
-        expect(details.actors, ['演员一（主角）']);
+        expect(details.tags, ['标签一', '标签二']);
+        expect(details.actors, ['演员一']);
         expect(details.payload, isA<MediaBrowserItem>());
       });
 

@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../api/api_client.dart';
 import '../api/server_compatibility.dart';
@@ -9,11 +9,13 @@ import '../../features/media_browser/api/media_browser_config.dart';
 import 'server_config.dart';
 import 'server_config_provider.dart';
 
+typedef ProviderReader = T Function<T>(ProviderListenable<T> provider);
+
 /// 加载 Emby/Jellyfin 当前用户资料并写入进程内缓存。
 ///
 /// 用户头像 URL 可能包含访问令牌，只通过运行时资料传递，不写入磁盘。
 Future<ServerProfileData?> loadMediaBrowserUserProfile(
-  WidgetRef ref,
+  ProviderReader read,
   ServerProfile server,
 ) async {
   final project = server.project;
@@ -21,7 +23,7 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
     return null;
   }
 
-  final repository = ref.read(serverProfileCacheRepoProvider);
+  final repository = read(serverProfileCacheRepoProvider);
   final cached = repository.load(server.id);
   final fallback = ServerProfileData(
     name: server.name,
@@ -42,9 +44,9 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
     return fallback;
   }
 
-  final sessionRepository = ref
-      .read(authSessionRepositoryProvider)
-      .forServer(server.id, allowLegacyMigration: false);
+  final sessionRepository = read(
+    authSessionRepositoryProvider,
+  ).forServer(server.id, allowLegacyMigration: false);
 
   try {
     final session = await sessionRepository.load();
@@ -61,7 +63,7 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
         activeServerId: server.id,
       ),
       sessionRepository: sessionRepository,
-      stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
+      stashApiKeyRepository: read(stashApiKeyRepositoryProvider),
     ).mediaBrowserFor(mediaBrowserConfig).validateSession(session.userId);
 
     final userId = user.id.trim();

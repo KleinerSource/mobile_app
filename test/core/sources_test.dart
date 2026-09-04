@@ -18,6 +18,7 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/sources/files/file_playback_progress.dart';
 import 'package:omm/core/sources/sources.dart';
 import 'package:omm/features/db_online/api/db_online_api.dart';
+import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -135,6 +136,20 @@ void _main_0() {
                 'code': 'DBO-001',
                 'video_id': 'video-1',
                 'title': 'DBO 影片',
+                'origin_title': 'Original DBO Movie',
+                'date': '2024-07-01',
+                'duration': 95,
+                'score': 8.4,
+                'overview': 'DBO 简介',
+                'categories': [
+                  {'name': '剧情'},
+                  {'name': '剧情'},
+                ],
+                'tags': ['精选', ' 精选 ', '测试'],
+                'actors': [
+                  {'name': '演员一'},
+                  {'name': ' '},
+                ],
                 'can_play': true,
                 'magnets': [
                   {'name': '资源 1', 'magnet': 'magnet:?xt=urn:btih:1'},
@@ -169,6 +184,15 @@ void _main_0() {
 
       expect(page.items.single.ref.stableKey, 'dbo:video-1:DBO-001');
       expect(detail.summary.ref.stableKey, 'dbo:video-1:DBO-001');
+      expect(detail.summary.year, 2024);
+      expect(detail.summary.duration, 95);
+      expect(detail.summary.rating, 8.4);
+      expect(detail.originalTitle, 'Original DBO Movie');
+      expect(detail.overview, 'DBO 简介');
+      expect(detail.genres, ['剧情']);
+      expect(detail.tags, ['精选', '测试']);
+      expect(detail.actors, ['演员一']);
+      expect(detail.payload, isA<DbOnlineMovieDetail>());
       expect(
         resources.map((item) => item.kind),
         containsAll(<MediaResourceKind>[

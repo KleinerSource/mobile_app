@@ -5,7 +5,7 @@ import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 const _mediaBrowserCardFields =
-    'ItemCounts,ProductionYear,PremiereDate,EndDate,Status';
+    'ItemCounts,ProductionYear,PremiereDate,EndDate,Status,Tags';
 
 /// MediaBrowser（Emby / Jellyfin）REST API 客户端。
 ///
@@ -269,6 +269,7 @@ class MediaBrowserApi {
       'PremiereDate',
       'EndDate',
       'Status',
+      'Tags',
     };
     if (fields != null) requestedFields.addAll(fields);
     return _itemPage(_p('/Users/${_segment(userId)}/Items'), <String, dynamic>{

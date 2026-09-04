@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
+
 /// Emby / Jellyfin 共用的 MediaBrowser 协议 DTO。
 ///
 /// Jellyfin fork 自 Emby，两家的 JSON wire format 完全一致，差异仅在
@@ -468,6 +470,7 @@ class MediaBrowserItem {
     this.runTimeTicks,
     this.overview,
     this.genres = const <String>[],
+    this.tags = const <String>[],
     this.tagIds = const <String>[],
     this.people = const <MediaBrowserPerson>[],
     this.userData = const MediaBrowserUserData(),
@@ -490,6 +493,7 @@ class MediaBrowserItem {
     this.partCount,
     this.additionalParts = const <MediaBrowserVideoPart>[],
     this.mediaSources = const <MediaBrowserMediaSourceDto>[],
+    this.payload,
   });
 
   final String id;
@@ -502,6 +506,8 @@ class MediaBrowserItem {
   final String? collectionType;
   final String name;
   final String? originalTitle;
+
+  /// Stash 场景番号；Emby/Jellyfin/FNOS 适配器不会将其映射到公共模型。
   final String? code;
   final int? productionYear;
   final int? endYear;
@@ -511,6 +517,9 @@ class MediaBrowserItem {
   final int? runTimeTicks;
   final String? overview;
   final List<String> genres;
+
+  /// Emby/Jellyfin 返回的标签名称；[tagIds] 保留服务端原始 ID。
+  final List<String> tags;
   final List<String> tagIds;
   final List<MediaBrowserPerson> people;
   final MediaBrowserUserData userData;
@@ -543,6 +552,9 @@ class MediaBrowserItem {
   final int? partCount;
   final List<MediaBrowserVideoPart> additionalParts;
   final List<MediaBrowserMediaSourceDto> mediaSources;
+
+  /// 来源适配器转换前的原始 DTO；Emby/Jellyfin 直接使用本模型本身。
+  final Object? payload;
 
   bool get isMovie => type == 'Movie';
   bool get isSeries => type == 'Series';
@@ -586,6 +598,7 @@ class MediaBrowserItem {
     runTimeTicks: runTimeTicks,
     overview: overview,
     genres: genres,
+    tags: tags,
     tagIds: tagIds,
     people: people,
     userData: userData,
@@ -608,6 +621,7 @@ class MediaBrowserItem {
     partCount: partCount ?? this.partCount,
     additionalParts: parts,
     mediaSources: mediaSources,
+    payload: payload,
   );
 
   /// 音乐条目的展示艺术家：专辑艺术家优先，缺省时合并参与艺术家。
@@ -620,8 +634,7 @@ class MediaBrowserItem {
     return joined.isEmpty ? null : joined;
   }
 
-  int get runtimeMinutes =>
-      (mediaBrowserTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
+  int get runtimeMinutes => mediaBrowserTicksToMinutes(runTimeTicks) ?? 0;
 
   /// 剧集总集数。Emby/Jellyfin 的剧集列表通常通过 [childCount] 返回，
   /// Emby 也可能只在 UserData 中返回已看与未看数量之和。
@@ -640,6 +653,7 @@ class MediaBrowserItem {
   factory MediaBrowserItem.fromJson(Map<String, dynamic> json) {
     final genres = json['Genres'];
     final people = json['People'];
+    final tags = json['Tags'];
     final backdrops = json['BackdropImageTags'];
     final sources = json['MediaSources'];
     final imageTags = json['ImageTags'];
@@ -662,6 +676,9 @@ class MediaBrowserItem {
       overview: _stringOrNull(json['Overview']),
       genres: genres is List
           ? genres.map((item) => item.toString()).toList(growable: false)
+          : const <String>[],
+      tags: tags is List
+          ? tags.map((item) => item.toString()).toList(growable: false)
           : const <String>[],
       tagIds: _stringList(json['TagIds'] ?? json['tagIds'] ?? json['tag_ids']),
       people: people is List

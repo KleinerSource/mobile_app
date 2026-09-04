@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 
 /// Emby/Jellyfin/FNOS 条目卡片。
 ///
@@ -65,10 +67,10 @@ class MediaBrowserItemCard extends StatelessWidget {
             imageHeaders: urls.imageHeaders,
             meta: mediaBrowserItemMetaText(context, item),
             width: width,
-            rating: item.communityRating,
+            rating: normalizeMediaRating(item.communityRating),
             played: played,
             progress: played ? 0 : _progressOf(item),
-            year: item.productionYear,
+            year: normalizeMediaYear(item.productionYear),
             privacyId: item.id,
             posterAspectRatio: square ? 1 : 2 / 3,
           ),
@@ -148,10 +150,11 @@ String mediaBrowserItemMetaText(BuildContext context, MediaBrowserItem item) {
     if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
     return parts.join(' · ');
   }
-  if (item.productionYear != null) parts.add('${item.productionYear}');
-  final minutes = item.runtimeMinutes;
-  if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
-  return parts.join(' · ');
+  return formatMediaCardMeta(
+    l,
+    year: item.productionYear,
+    duration: item.runtimeMinutes,
+  );
 }
 
 String? _seriesYearText(AppL10n l, MediaBrowserItem item) {

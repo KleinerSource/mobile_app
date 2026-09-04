@@ -9,6 +9,7 @@ import 'package:omm/core/sources/media/media_capabilities.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/stash_media_source_adapter.dart';
 import 'package:omm/features/media_browser/api/stash_api.dart';
+import 'package:omm/features/media_browser/api/stash_models.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 class _MemoryTokenStore implements AuthTokenStore {
@@ -159,8 +160,8 @@ void main() {
     });
     expect(item.type, 'Movie');
     expect(item.id, 'scene-1');
-    expect(item.name, 'Scene details');
-    expect(item.code, 'Test Scene');
+    expect(item.name, 'Test Scene');
+    expect(item.code, 'SC-001');
     expect(item.productionYear, 2024);
     expect(item.communityRating, 8.6);
     expect(item.runTimeTicks, secondsToMediaBrowserTicks(60));
@@ -170,8 +171,19 @@ void main() {
     expect(item.previewPath, '/previews/scene-1.mp4');
     expect(item.backdropImageTags, ['/images/scene-1.jpg']);
     expect(item.people.single.name, 'Actor One');
-    expect(item.genres, ['Drama']);
+    expect(item.genres, isEmpty);
+    expect(item.tags, ['Drama']);
     expect(item.tagIds, ['tag-1']);
+
+    final details = await source.getMovie(
+      const MediaRef(sourceId: SourceId('stash'), value: 'scene-1'),
+    );
+    expect(details.summary.title, 'Test Scene');
+    expect(details.summary.code, 'SC-001');
+    expect(details.summary.payload, isA<StashScene>());
+    expect(details.overview, 'Scene details');
+    expect(details.tags, ['Drama']);
+    expect(details.payload, isA<StashScene>());
     final streams = item.mediaSources.single.mediaStreams;
     expect(streams, hasLength(2));
     expect(streams[0].type, 'Video');

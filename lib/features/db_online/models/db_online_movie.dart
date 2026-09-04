@@ -303,6 +303,7 @@ class DbOnlineMovieDetail {
     this.series,
     this.score,
     this.watchedCount,
+    this.tags = const <String>[],
     this.categories = const <DbOnlinePerson>[],
     this.actors = const <DbOnlinePerson>[],
     this.relativeMovies = const <DbOnlineRecommendedMovie>[],
@@ -331,6 +332,7 @@ class DbOnlineMovieDetail {
   final DbOnlinePerson? series;
   final double? score;
   final int? watchedCount;
+  final List<String> tags;
   final List<DbOnlinePerson> categories;
   final List<DbOnlinePerson> actors;
   final List<DbOnlineRecommendedMovie> relativeMovies;
@@ -362,6 +364,7 @@ class DbOnlineMovieDetail {
       series: _personOrNull(json['series']),
       score: _doubleValue(json['score']),
       watchedCount: _intValue(json['watched_count']),
+      tags: _stringList(json['tags']),
       categories: _personList(json['categories']),
       actors: _personList(json['actors']),
       relativeMovies: _recommendedMovieList(json['relative_movies']),

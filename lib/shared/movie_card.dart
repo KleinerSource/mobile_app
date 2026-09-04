@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/movie.dart';
 import '../core/platform/app_theme.dart';
+import '../core/sources/media/media_metadata_normalizer.dart';
 import '../features/i18n/badge_position_provider.dart';
 import '../features/privacy/privacy_mask.dart';
 import '../features/privacy/privacy_providers.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'media_metadata_widgets.dart';
 import 'poster.dart';
 import 'stacked_badges.dart';
 
@@ -280,12 +282,7 @@ class MovieCard extends ConsumerWidget {
   }
 
   static String _meta(AppL10n l, MovieListItem m) {
-    final parts = <String>[];
-    if (m.year != null) parts.add('${m.year}');
-    if (m.runtime != null && m.runtime! > 0) {
-      parts.add(l.mediaDurationMinutes(m.runtime!));
-    }
-    return parts.join(' · ');
+    return formatMediaCardMeta(l, year: m.year, duration: m.runtime);
   }
 }
 
@@ -458,6 +455,7 @@ class CatalogMovieCard extends ConsumerWidget {
         ? null
         : (code!.trim().isEmpty ? l.movieCardUntitledCode : code!.trim());
     final displayMeta = meta.trim().isEmpty ? l.movieCardNoMeta : meta;
+    final displayRating = normalizeMediaRating(rating);
     final badgesByCorner = <BadgeCorner, List<Widget>>{
       for (final corner in BadgeCorner.values) corner: <Widget>[],
     };
@@ -474,8 +472,8 @@ class CatalogMovieCard extends ConsumerWidget {
         ),
       );
     }
-    if (rating != null && rating! > 0 && positions.ratingEnabled) {
-      badgesByCorner[positions.rating]!.add(RatingBadge(rating: rating!));
+    if (displayRating != null && positions.ratingEnabled) {
+      badgesByCorner[positions.rating]!.add(RatingBadge(rating: displayRating));
     }
     final poster = Stack(
       children: [

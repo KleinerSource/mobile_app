@@ -10,6 +10,7 @@ import '../common/source_id.dart';
 import 'media_browser_media_source.dart';
 import 'media_browser_media_operations_source.dart';
 import 'media_capabilities.dart';
+import 'media_metadata_normalizer.dart';
 import 'media_models.dart';
 
 /// 飞牛影视媒体源适配器。
@@ -76,29 +77,28 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final browserItem = await _loadBrowserItem(ref.value);
     return MediaDetails(
       summary: _summaryFromBrowserItem(browserItem),
-      originalTitle: browserItem.originalTitle,
-      overview: browserItem.overview,
+      originalTitle: normalizeMediaText(browserItem.originalTitle),
+      overview: normalizeMediaText(browserItem.overview),
       filePath: browserItem.mediaSources.isEmpty
           ? null
           : browserItem.mediaSources.first.path,
       fileSize: browserItem.mediaSources.isEmpty
           ? null
           : browserItem.mediaSources.first.sizeInBytes,
-      genres: browserItem.genres,
-      actors: [
-        for (final person in browserItem.people)
-          if (person.type == 'Actor' && person.name.isNotEmpty)
-            person.role?.trim().isNotEmpty == true
-                ? '${person.name}（${person.role}）'
-                : person.name,
-      ],
+      genres: normalizeMediaLabels(browserItem.genres),
+      tags: normalizeMediaLabels(browserItem.tags),
+      actors: normalizeMediaLabels(
+        browserItem.people
+            .where((person) => person.type == 'Actor')
+            .map((person) => person.name),
+      ),
       attributes: <String, Object?>{
         'type': browserItem.type,
         'people': browserItem.people,
         'originalTitle': browserItem.originalTitle,
         'media_sources': browserItem.mediaSources,
       },
-      payload: browserItem,
+      payload: browserItem.payload ?? browserItem,
     );
   }
 
@@ -735,10 +735,10 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   MediaSummary _summaryFromBrowserItem(MediaBrowserItem item) {
     return MediaSummary(
       ref: MediaRef(sourceId: _sourceId, value: item.id),
-      title: item.name,
-      year: item.productionYear,
-      rating: item.communityRating,
-      duration: item.runtimeMinutes,
+      title: normalizeMediaText(item.name) ?? '',
+      year: normalizeMediaYear(item.productionYear),
+      rating: normalizeMediaRating(item.communityRating),
+      duration: mediaBrowserTicksToMinutes(item.runTimeTicks),
       poster: _assetUrl(item.primaryImageTag),
       thumbnail: _assetUrl(item.thumbImageTag ?? item.primaryImageTag),
       fanart: item.backdropImageTags.isEmpty
@@ -751,7 +751,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         'isWatched': item.userData.played,
         'resumeSeconds': item.userData.resumeSeconds,
       },
-      payload: item,
+      payload: item.payload ?? item,
     );
   }
 

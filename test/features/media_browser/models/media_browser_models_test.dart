@@ -12,8 +12,11 @@ void main() {
       'ProductionYear': 2024,
       'CommunityRating': 8.4,
       'RunTimeTicks': 72000000000, // 7200s = 120m
+      'OriginalTitle': 'Original title',
       'Overview': '  剧情简介  ',
       'Genres': ['科幻', '悬疑'],
+      'Tags': ['标签一', '标签二'],
+      'TagIds': ['tag-1', 'tag-2'],
       'People': [
         {'Id': 'p1', 'Name': '导演一', 'Type': 'Director'},
         {'Id': 'p2', 'Name': '演员一', 'Type': 'Actor', 'Role': '主角'},
@@ -58,8 +61,11 @@ void main() {
     expect(item.productionYear, 2024);
     expect(item.communityRating, 8.4);
     expect(item.runtimeMinutes, 120);
+    expect(item.originalTitle, 'Original title');
     expect(item.overview, '剧情简介');
     expect(item.genres, ['科幻', '悬疑']);
+    expect(item.tags, ['标签一', '标签二']);
+    expect(item.tagIds, ['tag-1', 'tag-2']);
     expect(item.people, hasLength(2));
     expect(item.people[1].role, '主角');
     expect(item.userData.isFavorite, isTrue);

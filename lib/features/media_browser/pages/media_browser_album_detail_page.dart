@@ -10,7 +10,8 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_playback.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/shared/movie_detail_components.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// MediaBrowser 专辑详情页：专辑信息 + 曲目列表。
@@ -148,8 +149,12 @@ class _MediaBrowserAlbumDetailPageState
                   padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
                   child: MovieDetailTitle(
                     title: album.name,
-                    originalTitle: album.displayArtist,
+                    originalTitle: album.originalTitle ?? album.displayArtist,
                     year: album.productionYear,
+                    runtime: album.runtimeMinutes > 0
+                        ? album.runtimeMinutes
+                        : null,
+                    rating: album.communityRating,
                   ),
                 ),
               ),
@@ -231,6 +236,20 @@ class _MediaBrowserAlbumDetailPageState
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
                     child: MovieDetailPlot(plot: album.overview!),
+                  ),
+                ),
+              if (album.genres.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: MediaTaxonomySection(
+                    title: AppL10n.of(context).mediaBrowserGenres,
+                    items: album.genres,
+                  ),
+                ),
+              if (album.tags.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: MediaTaxonomySection(
+                    title: AppL10n.of(context).movieEditorTag,
+                    items: album.tags,
                   ),
                 ),
               SliverToBoxAdapter(child: _TrackSection(album: album)),

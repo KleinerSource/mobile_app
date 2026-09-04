@@ -17,11 +17,11 @@ import 'package:omm/features/media_browser/widgets/media_browser_similar_section
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
 /// MediaBrowser 条目详情页（电影 / 单集等可播条目）。
@@ -281,6 +281,8 @@ class _MediaBrowserDetailBodyState
       for (final person in item.people)
         if (person.type == 'Director' && person.name.trim().isNotEmpty) person,
     ];
+    // 兼容旧的 Stash 条目构造：新映射使用 tags，旧缓存可能把标签放在 genres。
+    final stashTags = item.tags.isNotEmpty ? item.tags : item.genres;
     // fnos 列表接口不支持按人物过滤；Stash 通过 SceneFilterType 支持。
     final void Function(MediaBrowserPerson)? onOpenPerson = isFeiniu
         ? null
@@ -305,6 +307,7 @@ class _MediaBrowserDetailBodyState
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 16),
             child: MovieDetailTitle(
               title: isStash ? _stashDetailTitle(item) : item.name,
+              originalTitle: item.originalTitle,
               year: item.productionYear,
               runtime: runtimeMinutes > 0 ? runtimeMinutes : null,
               rating: item.communityRating,
@@ -382,23 +385,6 @@ class _MediaBrowserDetailBodyState
               child: MovieDetailPlot(plot: item.overview!),
             ),
           ),
-        if (item.genres.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _ChipSection(
-              title: isStash
-                  ? AppL10n.of(context).movieEditorTag
-                  : AppL10n.of(context).mediaBrowserGenres,
-              labels: item.genres,
-              ids: isStash ? item.tagIds : const <String>[],
-              onTap: isStash
-                  ? (tagId, tagName) => openMediaBrowserTagWorks(
-                      context,
-                      tagId: tagId,
-                      tagName: tagName,
-                    )
-                  : null,
-            ),
-          ),
         if (!isStash && directorPeople.isNotEmpty)
           SliverToBoxAdapter(
             child: MediaBrowserCastSection(
@@ -414,6 +400,33 @@ class _MediaBrowserDetailBodyState
               people: castPeople,
               urls: urls.value,
               onOpenPerson: onOpenPerson,
+            ),
+          ),
+        if (!isStash && item.genres.isNotEmpty)
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: AppL10n.of(context).mediaBrowserGenres,
+              items: item.genres,
+            ),
+          ),
+        if (!isStash && item.tags.isNotEmpty)
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: AppL10n.of(context).movieEditorTag,
+              items: item.tags,
+            ),
+          ),
+        if (isStash && stashTags.isNotEmpty)
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: AppL10n.of(context).movieEditorTag,
+              items: stashTags,
+              ids: item.tagIds,
+              onTapWithId: (tagId, tagName) => openMediaBrowserTagWorks(
+                context,
+                tagId: tagId,
+                tagName: tagName,
+              ),
             ),
           ),
         widget.similar.when(
@@ -882,48 +895,6 @@ class _ActionRow extends StatelessWidget {
             ],
           ),
       ],
-    );
-  }
-}
-
-class _ChipSection extends StatelessWidget {
-  const _ChipSection({
-    required this.title,
-    required this.labels,
-    this.ids = const <String>[],
-    this.onTap,
-  });
-
-  final String title;
-  final List<String> labels;
-  final List<String> ids;
-  final void Function(String id, String label)? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <({String label, String id})>[];
-    for (var i = 0; i < labels.length; i++) {
-      final label = labels[i].trim();
-      if (label.isEmpty) continue;
-      items.add((label: label, id: i < ids.length ? ids[i].trim() : ''));
-    }
-    if (items.isEmpty) return const SizedBox.shrink();
-    return MovieDetailSection(
-      title: title,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (var i = 0; i < items.length; i++)
-            HueChip(
-              label: items[i].label,
-              hue: AppHues.all[i % AppHues.all.length],
-              onTap: items[i].id.isNotEmpty && onTap != null
-                  ? () => onTap!(items[i].id, items[i].label)
-                  : null,
-            ),
-        ],
-      ),
     );
   }
 }

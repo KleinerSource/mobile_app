@@ -4,7 +4,7 @@ import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Emby/Jellyfin/fnos 的「媒体信息」区块 · 复用 OMM 详情页的流卡片，
