@@ -1125,6 +1125,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         name.trim(),
         overwrite: true,
       );
+      if (_selectionMode) _exitSelection();
       await _refresh();
     });
   }
@@ -1146,6 +1147,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         destination,
         overwrite: true,
       );
+      if (_selectionMode) _exitSelection();
       await _refresh();
     });
   }
