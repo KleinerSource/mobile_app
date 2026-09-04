@@ -404,7 +404,7 @@ class AppL10nZh extends AppL10n {
   String get settingsActorsSub => '演员信息、类型与影片关系';
 
   @override
-  String get settingsGenres => '分类管理';
+  String get settingsGenres => '类型管理';
 
   @override
   String get settingsTags => '标签管理';
@@ -422,7 +422,7 @@ class AppL10nZh extends AppL10n {
   String get settingsMappingTags => '标签映射';
 
   @override
-  String get settingsMappingGenres => '分类映射';
+  String get settingsMappingGenres => '类型映射';
 
   @override
   String get settingsMappingSeries => '系列映射';
@@ -1190,7 +1190,7 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineCategoryCensored => '有码';
 
   @override
-  String get dbOnlineCategorySection => '分类';
+  String get dbOnlineCategorySection => '类型';
 
   @override
   String get dbOnlineCategoryUncensored => '无码';
@@ -5295,7 +5295,7 @@ class AppL10nZh extends AppL10n {
   String get advancedFilterApply => '应用筛选';
 
   @override
-  String get resourceGenresManage => '分类管理';
+  String get resourceGenresManage => '类型管理';
 
   @override
   String get resourceTagsManage => '标签管理';
@@ -5304,7 +5304,7 @@ class AppL10nZh extends AppL10n {
   String get resourceSeriesManage => '系列管理';
 
   @override
-  String get resourceGenresSearchHint => '搜索分类名称';
+  String get resourceGenresSearchHint => '搜索类型名称';
 
   @override
   String get resourceTagsSearchHint => '搜索标签名称';
@@ -6244,7 +6244,7 @@ class AppL10nZh extends AppL10n {
   String get dboSectionSeries => '系列';
 
   @override
-  String get dboSectionGenres => '分类';
+  String get dboSectionGenres => '类型';
 
   @override
   String get dboSectionActors => '演员';
@@ -6301,7 +6301,7 @@ class AppL10nZh extends AppL10n {
   String get movieEditorSeries => '系列';
 
   @override
-  String get movieEditorGenre => '分类';
+  String get movieEditorGenre => '类型';
 
   @override
   String get movieEditorTag => '标签';

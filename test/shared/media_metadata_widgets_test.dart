@@ -60,14 +60,14 @@ void main() {
       _app(
         const Column(
           children: [
-            MediaTaxonomySection(title: '分类', items: ['科幻', ' ', '科幻', '悬疑']),
+            MediaTaxonomySection(title: '类型', items: ['科幻', ' ', '科幻', '悬疑']),
             MediaTaxonomySection(title: '标签', items: ['标签一']),
           ],
         ),
       ),
     );
 
-    expect(find.text('分类'), findsOneWidget);
+    expect(find.text('类型'), findsOneWidget);
     expect(find.text('标签'), findsOneWidget);
     expect(find.text('科幻'), findsOneWidget);
     expect(find.text('悬疑'), findsOneWidget);

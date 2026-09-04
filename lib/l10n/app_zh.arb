@@ -144,13 +144,13 @@
   "libraryEditorDirectories": "目录",
   "settingsActors": "演员管理",
   "settingsActorsSub": "演员信息、类型与影片关系",
-  "settingsGenres": "分类管理",
+  "settingsGenres": "类型管理",
   "settingsTags": "标签管理",
   "settingsSeries": "系列管理",
   "settingsTranslation": "AI 翻译配置",
   "settingsTranslationSub": "ChatGPT API · 自动翻译标题/简介",
   "settingsMappingTags": "标签映射",
-  "settingsMappingGenres": "分类映射",
+  "settingsMappingGenres": "类型映射",
   "settingsMappingSeries": "系列映射",
   "settingsMappingSub": "重命名 / 删除规则",
   "settingsActorAssociations": "演员关联",
@@ -418,7 +418,7 @@
   "dbOnlineBadgeSubtitle": "DB Online 数据",
   "dbOnlineCategoryAnime": "动漫",
   "dbOnlineCategoryCensored": "有码",
-  "dbOnlineCategorySection": "分类",
+  "dbOnlineCategorySection": "类型",
   "dbOnlineCategoryUncensored": "无码",
   "dbOnlineCategoryWestern": "欧美",
   "dbOnlineConfigLoadError": "DB Online 配置加载失败",
@@ -1843,10 +1843,10 @@
   "advancedFilterOnlyChineseSubtitle": "仅限中字",
   "advancedFilterOnlyChineseCrack": "仅限中字破解",
   "advancedFilterApply": "应用筛选",
-  "resourceGenresManage": "分类管理",
+  "resourceGenresManage": "类型管理",
   "resourceTagsManage": "标签管理",
   "resourceSeriesManage": "系列管理",
-  "resourceGenresSearchHint": "搜索分类名称",
+  "resourceGenresSearchHint": "搜索类型名称",
   "resourceTagsSearchHint": "搜索标签名称",
   "resourceSeriesSearchHint": "搜索系列名称",
   "resourceBatchDeleteTitle": "批量删除{kind}",
@@ -2179,7 +2179,7 @@
   ,"dboCurrent": "当前："
   ,"dboSectionInfo": "影片信息"
   ,"dboSectionSeries": "系列"
-  ,"dboSectionGenres": "分类"
+  ,"dboSectionGenres": "类型"
   ,"dboSectionActors": "演员"
   ,"dboFemale": "女"
   ,"dboMale": "男"
@@ -2198,7 +2198,7 @@
   ,"movieEditorRating": "评分"
   ,"movieEditorRuntime": "时长 (min)"
   ,"movieEditorSeries": "系列"
-  ,"movieEditorGenre": "分类"
+  ,"movieEditorGenre": "类型"
   ,"movieEditorTag": "标签"
   ,"movieEditorActor": "演员"
   ,"movieEditorFieldTitle": "标题"
