@@ -145,6 +145,7 @@ void main() {
     });
     expect(item.type, 'Movie');
     expect(item.id, 'scene-1');
+    expect(item.code, 'SC-001');
     expect(item.productionYear, 2024);
     expect(item.communityRating, 8.6);
     expect(item.runTimeTicks, secondsToMediaBrowserTicks(60));

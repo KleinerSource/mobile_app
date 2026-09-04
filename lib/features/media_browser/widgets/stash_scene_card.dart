@@ -10,9 +10,9 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Stash 预览播放器的最小协议，便于页面测试注入 Fake 实现。
 abstract interface class StashPreviewPlayer {
@@ -387,52 +387,95 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
     final previewReady =
         _previewing && !_previewLoading && previewPlayer != null;
     final imageUrl = widget.urls.heroImage(widget.item);
-    final meta = _metaText(context);
+    final colors = appColors(context);
+    final tags = _uniqueNonEmpty(widget.item.genres);
     final performers = widget.item.people
-        .map((person) => person.name.trim())
-        .where((name) => name.isNotEmpty)
-        .take(3)
-        .join(' · ');
+        .where((person) => person.name.trim().isNotEmpty)
+        .toList(growable: false);
     return SizedBox(
       width: widget.width,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              PrivacyMask(
-                movieId: widget.item.id,
-                radius: 16,
-                child: previewReady
-                    ? previewPlayer.buildVideo()
-                    : _CoverImage(
-                        url: imageUrl,
-                        headers: widget.urls.imageHeaders,
-                      ),
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Color(0x14000000),
-                      Color(0xD9000000),
-                    ],
-                    stops: [0.35, 0.55, 1],
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: colors.cardBorder),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PrivacyMask(
+                    movieId: widget.item.id,
+                    radius: 0,
+                    child: previewReady
+                        ? previewPlayer.buildVideo()
+                        : _CoverImage(
+                            url: imageUrl,
+                            headers: widget.urls.imageHeaders,
+                          ),
                   ),
-                ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _ProgressBar(
+                      value: previewReady
+                          ? _ratio(
+                              previewPlayer.position.value,
+                              previewPlayer.duration.value,
+                            )
+                          : _itemProgress(widget.item),
+                      color: colors.accent,
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _onTap,
+                      onLongPressStart: _onLongPressStart,
+                      onLongPressMoveUpdate: _onLongPressMoveUpdate,
+                      onLongPressEnd: _onLongPressEnd,
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  if (_previewLoading)
+                    const Positioned(
+                      top: 14,
+                      right: 14,
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  if (previewReady)
+                    const Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Icon(
+                        Icons.swipe_rounded,
+                        size: 20,
+                        color: Colors.white70,
+                      ),
+                    ),
+                ],
               ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 14,
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onTap,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 15, 16, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     PrivacyText(
                       movieId: widget.item.id,
@@ -440,110 +483,193 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.cardTitle(context).copyWith(
-                        color: Colors.white,
-                        fontSize: 16,
-                        height: 1.2,
-                        shadows: const [
-                          Shadow(color: Colors.black54, blurRadius: 8),
-                        ],
+                        color: colors.text,
+                        fontSize: 17,
+                        height: 1.25,
                       ),
                     ),
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      PrivacyText(
-                        movieId: widget.item.id,
-                        text: meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardMeta(context).copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shadows: const [
-                            Shadow(color: Colors.black54, blurRadius: 6),
-                          ],
-                        ),
+                    const SizedBox(height: 11),
+                    _StashInfoWrap(item: widget.item),
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 15),
+                    _StashSectionLabel(
+                      icon: Icons.local_offer_outlined,
+                      label: AppL10n.of(context).movieEditorTag,
+                    ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          for (var index = 0; index < tags.length; index++)
+                            _StashTextPill(
+                              text: tags[index],
+                              privacyId: widget.item.id,
+                            ),
+                        ],
                       ),
                     ],
                     if (performers.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      PrivacyText(
-                        movieId: widget.item.id,
-                        text: performers,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardMeta(context).copyWith(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          shadows: const [
-                            Shadow(color: Colors.black54, blurRadius: 6),
-                          ],
-                        ),
+                      const SizedBox(height: 15),
+                      _StashSectionLabel(
+                        icon: Icons.people_alt_outlined,
+                        label: AppL10n.of(context).detailCast,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < performers.length;
+                            index++
+                          )
+                            _StashTextPill(
+                              text: performers[index].name.trim(),
+                              privacyId: widget.item.id,
+                            ),
+                        ],
                       ),
                     ],
                   ],
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _ProgressBar(
-                  value: previewReady
-                      ? _ratio(
-                          previewPlayer.position.value,
-                          previewPlayer.duration.value,
-                        )
-                      : _itemProgress(widget.item),
-                  color: appColors(context).accent,
-                ),
-              ),
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _onTap,
-                  onLongPressStart: _onLongPressStart,
-                  onLongPressMoveUpdate: _onLongPressMoveUpdate,
-                  onLongPressEnd: _onLongPressEnd,
-                  child: const SizedBox.expand(),
-                ),
-              ),
-              if (_previewLoading)
-                const Positioned(
-                  top: 14,
-                  right: 14,
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              if (previewReady)
-                const Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Icon(
-                    Icons.swipe_rounded,
-                    size: 20,
-                    color: Colors.white70,
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  String _metaText(BuildContext context) {
-    final parts = <String>[];
-    final base = mediaBrowserItemMetaText(context, widget.item);
-    if (base.isNotEmpty) parts.add(base);
-    final rating = widget.item.communityRating;
-    if (rating != null && rating > 0) {
-      parts.add('★ ${rating.toStringAsFixed(1)}');
-    }
-    return parts.join(' · ');
+List<String> _uniqueNonEmpty(Iterable<String> values) {
+  final result = <String>[];
+  final seen = <String>{};
+  for (final value in values) {
+    final normalized = value.trim();
+    if (normalized.isNotEmpty && seen.add(normalized)) result.add(normalized);
+  }
+  return result;
+}
+
+class _StashInfoWrap extends StatelessWidget {
+  const _StashInfoWrap({required this.item});
+
+  final MediaBrowserItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final code = item.code?.trim();
+    final values = <({IconData icon, String text})>[
+      if (code?.isNotEmpty == true)
+        (icon: Icons.qr_code_2_rounded, text: '${l.movieEditorNumber} $code'),
+      if (item.productionYear != null)
+        (icon: Icons.calendar_today_outlined, text: '${item.productionYear}'),
+      if (item.runtimeMinutes > 0)
+        (
+          icon: Icons.schedule_outlined,
+          text: l.mediaBrowserMinuteShort(item.runtimeMinutes),
+        ),
+      if (item.communityRating case final rating? when rating > 0)
+        (icon: Icons.star_border_rounded, text: rating.toStringAsFixed(1)),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final value in values)
+          _StashInfoPill(icon: value.icon, text: value.text),
+      ],
+    );
+  }
+}
+
+class _StashSectionLabel extends StatelessWidget {
+  const _StashSectionLabel({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: colors.muted),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: AppText.meta(
+            context,
+          ).copyWith(color: colors.muted, fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+class _StashInfoPill extends StatelessWidget {
+  const _StashInfoPill({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: colors.surfaceAlt,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: colors.muted),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: AppText.meta(
+              context,
+            ).copyWith(color: colors.text2, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StashTextPill extends StatelessWidget {
+  const _StashTextPill({required this.text, required this.privacyId});
+
+  final String text;
+  final String privacyId;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 230),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: colors.chipBg,
+        border: Border.all(color: colors.cardBorder),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: PrivacyText(
+        movieId: privacyId,
+        text: text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppText.meta(
+          context,
+        ).copyWith(color: colors.chipTextActive, fontWeight: FontWeight.w700),
+      ),
+    );
   }
 }
 

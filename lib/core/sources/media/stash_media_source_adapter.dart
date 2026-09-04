@@ -370,6 +370,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
       id: scene.id,
       name: scene.title.isEmpty ? (scene.code ?? scene.id) : scene.title,
       type: 'Movie',
+      code: scene.code,
       productionYear: _year(scene.date),
       communityRating: scene.rating100 == null ? null : scene.rating100! / 10,
       runTimeTicks: _ticks(sceneDuration(scene)),

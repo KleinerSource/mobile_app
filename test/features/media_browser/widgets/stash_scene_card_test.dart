@@ -61,11 +61,16 @@ MediaBrowserItem _item() => const MediaBrowserItem(
   id: 'scene-1',
   name: '测试 Scene',
   type: 'Movie',
+  code: 'ABC-123',
   runTimeTicks: 1200000000,
   productionYear: 2024,
   communityRating: 8.6,
   previewPath: '/previews/scene-1.mp4',
-  people: [MediaBrowserPerson(id: 'p1', name: '演员一')],
+  genres: ['剧情', '高清', '新作'],
+  people: [
+    MediaBrowserPerson(id: 'p1', name: '演员一'),
+    MediaBrowserPerson(id: 'p2', name: '演员二'),
+  ],
 );
 
 MediaBrowserServerUrls _urls() => MediaBrowserServerUrls(
@@ -143,7 +148,10 @@ void main() {
 
     final size = tester.getSize(find.byType(StashSceneCard));
     expect(size.width, 356);
-    expect(size.height, closeTo(200, 0.5));
+    expect(size.height, greaterThan(200));
+    expect(find.text('番号 ABC-123'), findsOneWidget);
+    expect(find.text('剧情'), findsOneWidget);
+    expect(find.text('演员二'), findsOneWidget);
   });
 
   testWidgets('标记为顶部候选时自动启动预览，取消候选时释放', (tester) async {
@@ -200,7 +208,7 @@ void main() {
 
     await gesture.moveBy(const Offset(156, 0));
     await tester.pump();
-    expect(player.lastSeek, const Duration(seconds: 5));
+    expect(player.lastSeek!.inMilliseconds, closeTo(5000, 100));
 
     await gesture.up();
     await tester.pump();

@@ -459,6 +459,7 @@ class MediaBrowserItem {
     this.serverId,
     this.collectionType,
     this.originalTitle,
+    this.code,
     this.productionYear,
     this.endYear,
     this.status,
@@ -500,6 +501,7 @@ class MediaBrowserItem {
   final String? collectionType;
   final String name;
   final String? originalTitle;
+  final String? code;
   final int? productionYear;
   final int? endYear;
   final String? status;
@@ -573,6 +575,7 @@ class MediaBrowserItem {
     serverId: serverId,
     collectionType: collectionType,
     originalTitle: originalTitle,
+    code: code,
     productionYear: productionYear,
     endYear: endYear,
     status: status,
@@ -645,6 +648,7 @@ class MediaBrowserItem {
       serverId: _stringOrNull(json['ServerId']),
       collectionType: _stringOrNull(json['CollectionType']),
       originalTitle: _stringOrNull(json['OriginalTitle']),
+      code: _stringOrNull(json['Code'] ?? json['code']),
       productionYear:
           _intValue(json['ProductionYear']) ?? _yearValue(json['PremiereDate']),
       endYear: _yearValue(json['EndDate']),
