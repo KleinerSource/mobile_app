@@ -27,7 +27,7 @@ void main() {
     );
     expect(
       mediaManagerAccentForProject(ServerProject.stash),
-      const Color(0xFF8B5CF6),
+      const Color(0xFF394B59),
     );
   });
 
