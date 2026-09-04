@@ -166,6 +166,67 @@ MediaBrowserItem _multiPartItem() {
 }
 
 void main() {
+  testWidgets('Stash 详情页复用 OMM 标题样式并显示番号前缀', (tester) async {
+    const serverId = 'stash-server';
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'stash-movie-1',
+      'Name': '场景名称',
+      'Code': 'ABC-123',
+      'Type': 'Movie',
+      'ProductionYear': 2024,
+      'RunTimeTicks': 1200000000,
+      'CommunityRating': 8.6,
+      'Genres': ['剧情'],
+      'People': [
+        {'Id': 'performer-1', 'Name': '演员一', 'Type': 'Actor'},
+      ],
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://stash.test',
+                activeServerId: serverId,
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(
+            MediaBrowserConfig.stash,
+          ),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.stash,
+              baseUrl: 'http://stash.test',
+              token: 'stash-token',
+            ),
+          ),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'stash-movie-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('[ABC-123] 场景名称'), findsOneWidget);
+    expect(find.text('番号 ABC-123'), findsNothing);
+    expect(find.text('电影'), findsNothing);
+  });
+
   testWidgets('电影详情页显示 Similar 推荐区块', (tester) async {
     const serverId = 'server-1';
     final movie = _item('movie-1', '电影详情');

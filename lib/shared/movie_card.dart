@@ -20,7 +20,6 @@ class MediaCardTemplate {
   static const posterRadius = 10.0;
   static const posterInfoGap = 6.0;
   static const titleMetaGap = 2.0;
-  static const codeTitleGap = 6.0;
   static const homeCardWidth = 132.0;
   static const homeRowHeight = 268.0;
   static const titleMaxLines = 2;
@@ -319,16 +318,7 @@ class _MediaCardInfo extends StatelessWidget {
     final colors = appColors(context);
     final hasCode = code?.isNotEmpty == true;
     final titleText = title.trim().isEmpty ? '—' : title.trim();
-
-    if (!showTitle && !showMeta) {
-      return hasCode
-          ? _MediaCardCodeBadge(
-              text: code!,
-              privacyId: privacyId,
-              maxWidth: double.infinity,
-            )
-          : const SizedBox.shrink();
-    }
+    final displayTitle = hasCode ? '[${code!}] $titleText' : titleText;
 
     Widget privacyText({
       required String text,
@@ -353,43 +343,31 @@ class _MediaCardInfo extends StatelessWidget {
       );
     }
 
+    if (!showTitle && !showMeta) {
+      return hasCode
+          ? privacyText(
+              text: '[${code!}]',
+              style: titleStyle ?? AppText.movieCardTitle(context),
+              maxLines: 1,
+            )
+          : const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showTitle)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final codeWidth = (constraints.maxWidth * 0.42)
-                  .clamp(42.0, 104.0)
-                  .toDouble();
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (hasCode) ...[
-                    _MediaCardCodeBadge(
-                      text: code!,
-                      privacyId: privacyId,
-                      maxWidth: codeWidth,
-                    ),
-                    const SizedBox(width: MediaCardTemplate.codeTitleGap),
-                  ],
-                  Expanded(
-                    child: privacyText(
-                      text: titleText,
-                      style: titleStyle ?? AppText.movieCardTitle(context),
-                      maxLines: MediaCardTemplate.titleMaxLines,
-                    ),
-                  ),
-                ],
-              );
-            },
+          privacyText(
+            text: displayTitle,
+            style: titleStyle ?? AppText.movieCardTitle(context),
+            maxLines: MediaCardTemplate.titleMaxLines,
           )
         else if (hasCode)
-          _MediaCardCodeBadge(
-            text: code!,
-            privacyId: privacyId,
-            maxWidth: double.infinity,
+          privacyText(
+            text: '[${code!}]',
+            style: titleStyle ?? AppText.movieCardTitle(context),
+            maxLines: 1,
           ),
         if (showMeta) ...[
           const SizedBox(height: MediaCardTemplate.titleMetaGap),
@@ -404,57 +382,14 @@ class _MediaCardInfo extends StatelessWidget {
   }
 }
 
-class _MediaCardCodeBadge extends StatelessWidget {
-  const _MediaCardCodeBadge({
-    required this.text,
-    required this.privacyId,
-    required this.maxWidth,
-  });
-
-  final String text;
-  final Object? privacyId;
-  final double maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final style = AppText.movieCardMeta(context).copyWith(
-      color: colors.accent,
-      fontSize: 10.5,
-      fontWeight: FontWeight.w700,
-    );
-    final label = privacyId == null
-        ? Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style)
-        : PrivacyText(
-            movieId: privacyId!,
-            text: text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          );
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceAlt,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          child: label,
-        ),
-      ),
-    );
-  }
-}
-
 /// 外部数据源影片卡片的共享渲染层。
 ///
 /// dbonline 等数据源的影片标识不一定是 OMM 的整数 ID，因此不强行转换为
 /// [MovieListItem]。数据源只负责把字段整理成这里需要的展示值，海报、字号、
 /// 角标和点击反馈仍由共享组件统一维护。
 ///
-/// 与 OMM [MovieCard] 的差异通过可选参数表达：[code] 传 null 时省略番号徽章
+/// 与 OMM [MovieCard] 的差异通过可选参数表达：仅确有番号的数据源传入
+/// [code]；传 null 时省略番号前缀（Emby/Jellyfin/FNOS 均不传入）。
 /// （Emby/Jellyfin 的标题 + meta 两行布局与 MovieCard 完全一致）；
 /// [played] / [progress] 提供 OMM 同款的已看完角标与海报底部进度条。
 class CatalogMovieCard extends ConsumerWidget {
@@ -481,7 +416,8 @@ class CatalogMovieCard extends ConsumerWidget {
 
   final String title;
 
-  /// 番号徽章（DBO 等有番号的数据源）；null 时省略，和名称共用首个信息区块。
+  /// 番号前缀（目前仅 DBO 等确有番号的数据源）；null 时省略，和名称共用
+  /// 首个信息区块。
   final String? code;
   final String? imageUrl;
   final String meta;

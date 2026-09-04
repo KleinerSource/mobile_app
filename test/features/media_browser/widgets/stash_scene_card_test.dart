@@ -159,7 +159,7 @@ void main() {
     expect(size.width, 356);
     expect(size.height, greaterThan(200));
     expect(find.text('番号 ABC-123'), findsOneWidget);
-    expect(find.text('电影'), findsOneWidget);
+    expect(find.text('剧情 · 高清 · 新作'), findsOneWidget);
     expect(find.text('演员一、演员二'), findsOneWidget);
   });
 

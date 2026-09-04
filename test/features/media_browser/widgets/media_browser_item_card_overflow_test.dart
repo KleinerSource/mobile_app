@@ -262,6 +262,23 @@ void main() {
     expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
   });
 
+  testWidgets('Emby/Jellyfin/FNOS 卡片不显示番号前缀', (tester) async {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'item-with-code-field',
+      'Name': '无番号来源影片',
+      'Code': 'SHOULD-NOT-SHOW',
+      'Type': 'Movie',
+    });
+
+    await tester.pumpWidget(
+      _grid([MediaBrowserItemCard(item: item, urls: _urls(), width: 132)], 0.5),
+    );
+    await tester.pump();
+
+    expect(find.text('[SHOULD-NOT-SHOW] 无番号来源影片'), findsNothing);
+    expect(find.text('无番号来源影片'), findsWidgets);
+  });
+
   testWidgets('播放中的条目显示贴海报底部的进度条', (tester) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3.0;

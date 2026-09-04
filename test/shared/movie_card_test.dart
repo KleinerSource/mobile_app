@@ -70,8 +70,8 @@ void main() {
       ),
     );
 
-    expect(find.text('ABC-123'), findsOneWidget);
-    expect(find.text('影片名称'), findsWidgets);
+    expect(find.text('[ABC-123] 影片名称'), findsOneWidget);
+    expect(find.text('ABC-123'), findsNothing);
     expect(find.text('2024 · 90 分钟'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

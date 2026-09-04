@@ -601,7 +601,7 @@ class StashScenePortraitCard extends StatelessWidget {
 
 /// Stash 影片的紧凑信息区：首页、搜索、媒体库和详情页共用。
 ///
-/// 横版为「番号 + 名称一行 / 本地化类型 badge + 演员 / 年份 · 时长」，
+/// 横版为「番号 + 名称一行 / 标签 badge + 演员 / 年份 · 时长」，
 /// 竖版为「番号 + 名称两行 / 年份 · 时长」。
 class StashSceneInfo extends StatelessWidget {
   const StashSceneInfo({
@@ -620,7 +620,10 @@ class StashSceneInfo extends StatelessWidget {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final code = item.code?.trim();
-    final type = _stashTypeLabel(context, item.type);
+    final tags = item.genres
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList(growable: false);
     final performers = item.people
         .map((person) => person.name.trim())
         .where((name) => name.isNotEmpty)
@@ -664,7 +667,7 @@ class StashSceneInfo extends StatelessWidget {
               );
             },
           ),
-          if (landscape && (type != null || performers.isNotEmpty)) ...[
+          if (landscape && (tags.isNotEmpty || performers.isNotEmpty)) ...[
             const SizedBox(height: 7),
             _StashCompactIconLine(
               icon: performers.isNotEmpty
@@ -672,9 +675,13 @@ class StashSceneInfo extends StatelessWidget {
                   : Icons.local_offer_outlined,
               child: Row(
                 children: [
-                  if (type != null)
-                    _StashTypeBadge(text: type, privacyId: item.id),
-                  if (type != null && performers.isNotEmpty)
+                  if (tags.isNotEmpty)
+                    _StashTagBadge(
+                      text: tags.join(' · '),
+                      privacyId: item.id,
+                      hue: AppHues.all.first,
+                    ),
+                  if (tags.isNotEmpty && performers.isNotEmpty)
                     const SizedBox(width: 6),
                   if (performers.isNotEmpty)
                     Expanded(
@@ -695,19 +702,6 @@ class StashSceneInfo extends StatelessWidget {
       ),
     );
   }
-}
-
-String? _stashTypeLabel(BuildContext context, String value) {
-  final normalized = value.trim().toLowerCase();
-  final l = AppL10n.of(context);
-  return switch (normalized) {
-    'movie' => l.mediaBrowserTypeMovies,
-    'series' => l.mediaBrowserTypeTvShows,
-    'musicalbum' => l.mediaBrowserTypeAlbums,
-    'audio' => l.mediaBrowserTypeSongs,
-    _ when normalized.isEmpty => null,
-    _ => value.trim(),
-  };
 }
 
 class _StashInfoWrap extends StatelessWidget {
@@ -818,33 +812,41 @@ class _StashPerformerRow extends StatelessWidget {
   }
 }
 
-class _StashTypeBadge extends StatelessWidget {
-  const _StashTypeBadge({required this.text, required this.privacyId});
+class _StashTagBadge extends StatelessWidget {
+  const _StashTagBadge({
+    required this.text,
+    required this.privacyId,
+    required this.hue,
+  });
 
   final String text;
   final String privacyId;
+  final int hue;
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
+    final brightness = Theme.of(context).brightness;
+    final textColor = AppHues.chipText(hue, brightness);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 112),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colors.surfaceAlt,
-          border: Border.all(color: colors.cardBorder),
-          borderRadius: BorderRadius.circular(7),
+          color: AppHues.chipBg(hue, brightness),
+          border: Border.all(color: AppHues.chipBorder(hue)),
+          borderRadius: BorderRadius.circular(6),
         ),
-        child: PrivacyText(
-          movieId: privacyId,
-          text: text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppText.meta(context).copyWith(
-            color: colors.text2,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          child: PrivacyText(
+            movieId: privacyId,
+            text: text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.meta(context).copyWith(
+              color: textColor,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),

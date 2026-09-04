@@ -6,10 +6,10 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 
-/// Emby/Jellyfin 条目卡片。
+/// Emby/Jellyfin/FNOS 条目卡片。
 ///
 /// 渲染由共享 [CatalogMovieCard] 统一维护（与 OMM/DBO 同一套风格和尺寸），
-/// 这里只把服务器字段整理成展示值：无番号行，meta 为
+/// 这里只把服务器字段整理成展示值：这些来源没有番号，因此始终不传番号行，meta 为
 /// 「年份 · 时长」或剧集「起止年份 · 集数」。
 ///
 /// 交互与 DBO 卡片（DbOnlineMovieCard）一致：点击由外层 GestureDetector

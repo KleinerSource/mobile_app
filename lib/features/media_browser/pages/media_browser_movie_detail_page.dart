@@ -14,7 +14,6 @@ import 'package:omm/features/media_browser/widgets/media_browser_action_button.d
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
-import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
@@ -282,8 +281,8 @@ class _MediaBrowserDetailBodyState
       for (final person in item.people)
         if (person.type == 'Director' && person.name.trim().isNotEmpty) person,
     ];
-    // fnos 列表接口不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
-    final void Function(MediaBrowserPerson)? onOpenPerson = isFeiniu
+    // fnos / Stash 不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
+    final void Function(MediaBrowserPerson)? onOpenPerson = isFeiniu || isStash
         ? null
         : (person) => openMediaBrowserPersonWorks(
             context,
@@ -297,23 +296,19 @@ class _MediaBrowserDetailBodyState
         imageUrl: posterUrl,
         title: item.name,
         year: item.productionYear,
-        imageAlignment: isStash
-            ? Alignment.center
-            : const Alignment(0, -0.6),
+        imageAlignment: isStash ? Alignment.center : const Alignment(0, -0.6),
         imageHeaders: urls.value?.imageHeaders,
       ),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 16),
-            child: isStash
-                ? StashSceneInfo(item: item, padding: EdgeInsets.zero)
-                : MovieDetailTitle(
-                    title: item.name,
-                    year: item.productionYear,
-                    runtime: runtimeMinutes > 0 ? runtimeMinutes : null,
-                    rating: item.communityRating,
-                  ),
+            child: MovieDetailTitle(
+              title: isStash ? _stashDetailTitle(item) : item.name,
+              year: item.productionYear,
+              runtime: runtimeMinutes > 0 ? runtimeMinutes : null,
+              rating: item.communityRating,
+            ),
           ),
         ),
         SliverToBoxAdapter(
@@ -387,10 +382,12 @@ class _MediaBrowserDetailBodyState
               child: MovieDetailPlot(plot: item.overview!),
             ),
           ),
-        if (!isStash && item.genres.isNotEmpty)
+        if (item.genres.isNotEmpty)
           SliverToBoxAdapter(
             child: _ChipSection(
-              title: AppL10n.of(context).mediaBrowserGenres,
+              title: isStash
+                  ? AppL10n.of(context).movieEditorTag
+                  : AppL10n.of(context).mediaBrowserGenres,
               labels: item.genres,
             ),
           ),
@@ -403,7 +400,7 @@ class _MediaBrowserDetailBodyState
               onOpenPerson: onOpenPerson,
             ),
           ),
-        if (!isStash && castPeople.isNotEmpty)
+        if (castPeople.isNotEmpty)
           SliverToBoxAdapter(
             child: MediaBrowserCastSection(
               people: castPeople,
@@ -448,6 +445,14 @@ class _MediaBrowserDetailBodyState
         source.container?.trim().isNotEmpty == true ||
         source.sizeInBytes != null;
   }
+}
+
+String _stashDetailTitle(MediaBrowserItem item) {
+  final name = item.name.trim();
+  final code = item.code?.trim() ?? '';
+  if (code.isEmpty) return name;
+  if (name.isEmpty || name == code) return '[$code]';
+  return '[$code] $name';
 }
 
 class _MediaSourceSelector extends StatelessWidget {
