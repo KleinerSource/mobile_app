@@ -230,6 +230,10 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           label: l.tabSearch,
           icon: Icons.search_rounded,
         ),
+        FloatingTabSpec<Object?>(
+          label: l.settingsTitle,
+          icon: Icons.settings_outlined,
+        ),
       ];
     }
     if (mediaBrowser) {
@@ -270,7 +274,12 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     ];
   }
 
-  Widget _bodyFor(int i, {required bool dbOnline, required bool mediaBrowser}) {
+  Widget _bodyFor(
+    int i, {
+    required bool dbOnline,
+    required bool mediaBrowser,
+    required bool stash,
+  }) {
     switch (i) {
       case 0:
         if (dbOnline) return const DbOnlineHomePage();
@@ -285,6 +294,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         if (mediaBrowser) return const MediaBrowserSearchPage();
         return const SearchPage();
       case 3:
+        if (stash) return const SettingsPage();
         if (mediaBrowser) return const MediaBrowserFavoritesPage();
         return dbOnline ? const SettingsPage() : const FavoritesPage();
       default:
@@ -329,6 +339,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
                   i,
                   dbOnline: dbOnline,
                   mediaBrowser: mediaBrowser,
+                  stash: stash,
                 ),
               ),
             ),
