@@ -149,10 +149,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final usernameText = find.text('连接页显示用户名');
-    final avatarText = find.text('连接页显示用户头像');
+    final usernameText = find.text('显示用户名');
+    final avatarText = find.text('显示用户头像');
     expect(usernameText, findsOneWidget);
     expect(avatarText, findsOneWidget);
+    expect(find.text('连接页显示用户名，否则显示指定名称'), findsOneWidget);
+    expect(find.text('连接页显示头像，否则显示服务器Logo'), findsOneWidget);
 
     final usernameTile = find.ancestor(
       of: usernameText,

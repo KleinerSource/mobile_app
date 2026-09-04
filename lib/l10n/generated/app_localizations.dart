@@ -1816,25 +1816,25 @@ abstract class AppL10n {
   /// No description provided for @settingsServerSelectionShowUsername.
   ///
   /// In zh, this message translates to:
-  /// **'连接页显示用户名'**
+  /// **'显示用户名'**
   String get settingsServerSelectionShowUsername;
 
   /// No description provided for @settingsServerSelectionShowUsernameSub.
   ///
   /// In zh, this message translates to:
-  /// **'使用 Emby/Jellyfin/FNOS 登录用户名，否则显示服务器名称'**
+  /// **'连接页显示用户名，否则显示指定名称'**
   String get settingsServerSelectionShowUsernameSub;
 
   /// No description provided for @settingsServerSelectionShowAvatar.
   ///
   /// In zh, this message translates to:
-  /// **'连接页显示用户头像'**
+  /// **'显示用户头像'**
   String get settingsServerSelectionShowAvatar;
 
   /// No description provided for @settingsServerSelectionShowAvatarSub.
   ///
   /// In zh, this message translates to:
-  /// **'使用 Emby/Jellyfin 登录用户头像，否则显示服务器头像或 Logo'**
+  /// **'连接页显示头像，否则显示服务器Logo'**
   String get settingsServerSelectionShowAvatarSub;
 
   /// No description provided for @settingsHapticCurrent.

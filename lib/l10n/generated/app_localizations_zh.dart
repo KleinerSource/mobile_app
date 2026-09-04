@@ -927,18 +927,16 @@ class AppL10nZh extends AppL10n {
   String get settingsHapticIntensity => '震动反馈强度';
 
   @override
-  String get settingsServerSelectionShowUsername => '连接页显示用户名';
+  String get settingsServerSelectionShowUsername => '显示用户名';
 
   @override
-  String get settingsServerSelectionShowUsernameSub =>
-      '使用 Emby/Jellyfin/FNOS 登录用户名，否则显示服务器名称';
+  String get settingsServerSelectionShowUsernameSub => '连接页显示用户名，否则显示指定名称';
 
   @override
-  String get settingsServerSelectionShowAvatar => '连接页显示用户头像';
+  String get settingsServerSelectionShowAvatar => '显示用户头像';
 
   @override
-  String get settingsServerSelectionShowAvatarSub =>
-      '使用 Emby/Jellyfin 登录用户头像，否则显示服务器头像或 Logo';
+  String get settingsServerSelectionShowAvatarSub => '连接页显示头像，否则显示服务器Logo';
 
   @override
   String settingsHapticCurrent(String label) {

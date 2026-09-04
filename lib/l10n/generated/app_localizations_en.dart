@@ -945,20 +945,18 @@ class AppL10nEn extends AppL10n {
   String get settingsHapticIntensity => 'Haptic intensity';
 
   @override
-  String get settingsServerSelectionShowUsername =>
-      'Show username on connections';
+  String get settingsServerSelectionShowUsername => 'Show username';
 
   @override
   String get settingsServerSelectionShowUsernameSub =>
-      'Use the signed-in Emby/Jellyfin/FNOS username; otherwise show the server name';
+      'Show the username on the connection page; otherwise show the configured name';
 
   @override
-  String get settingsServerSelectionShowAvatar =>
-      'Show user avatar on connections';
+  String get settingsServerSelectionShowAvatar => 'Show user avatar';
 
   @override
   String get settingsServerSelectionShowAvatarSub =>
-      'Use the signed-in Emby/Jellyfin avatar; otherwise show the server avatar or logo';
+      'Show the avatar on the connection page; otherwise show the server logo';
 
   @override
   String settingsHapticCurrent(String label) {
