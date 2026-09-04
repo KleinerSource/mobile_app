@@ -87,7 +87,7 @@ class _MediaBrowserLibraryPageState
   bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
   String? _autoPreviewId;
-  bool _autoPreviewUpdateScheduled = false;
+  Timer? _autoPreviewDebounce;
   final _listViewportKey = GlobalKey();
   final _itemKeys = <String, GlobalKey>{};
 
@@ -129,6 +129,7 @@ class _MediaBrowserLibraryPageState
   @override
   void dispose() {
     _completeRefresh();
+    _autoPreviewDebounce?.cancel();
     _controller.dispose();
     _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
@@ -238,19 +239,23 @@ class _MediaBrowserLibraryPageState
       _sortOrder = nextSortOrder;
       _autoPreviewId = null;
     });
+    _autoPreviewDebounce?.cancel();
+    _autoPreviewDebounce = null;
     _selection.exit();
     _requestSerial++;
     _refreshController();
   }
 
   void _scheduleAutoPreviewUpdate() {
-    if (_autoPreviewUpdateScheduled) return;
-    _autoPreviewUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _autoPreviewUpdateScheduled = false;
+    _autoPreviewDebounce?.cancel();
+    _autoPreviewDebounce = Timer(const Duration(milliseconds: 240), () {
+      _autoPreviewDebounce = null;
       if (!mounted) return;
-      final next = _nextAutoPreviewId();
-      if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final next = _nextAutoPreviewId();
+        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+      });
     });
   }
 
