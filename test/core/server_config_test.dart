@@ -1139,6 +1139,48 @@ void _main_2() {
     expect(repository.load('missing'), isNull);
   });
 
+  test('运行时服务器资料优先于持久化资料且不会写入用户头像', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ServerProfileCacheRepository(prefs);
+    const persisted = ServerProfileData(
+      name: '服务器用户',
+      avatarUrl: 'https://server.example/logo.png',
+    );
+    const runtime = ServerProfileData(
+      name: '服务器用户',
+      avatarUrl: 'https://server.example/logo.png',
+      userAvatarUrl: 'https://server.example/user.png?ApiKey=secret',
+    );
+
+    await repository.save('server', persisted);
+    repository.saveRuntime('server', runtime);
+
+    expect(repository.load('server'), same(runtime));
+    expect(
+      prefs.getString('server.profile_cache.v1'),
+      isNot(contains('ApiKey')),
+    );
+
+    await repository.remove('server');
+    expect(repository.load('server'), isNull);
+  });
+
+  test('清空资料缓存也会清除运行时用户头像', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ServerProfileCacheRepository(prefs);
+    repository.saveRuntime(
+      'server',
+      const ServerProfileData(
+        name: '用户',
+        userAvatarUrl: 'https://server.example/user.png',
+      ),
+    );
+
+    await repository.clear();
+
+    expect(repository.load('server'), isNull);
+  });
+
   test('并发保存多台服务器资料不会互相覆盖', () async {
     final prefs = await SharedPreferences.getInstance();
     final repository = ServerProfileCacheRepository(prefs);

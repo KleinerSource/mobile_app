@@ -950,7 +950,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsServerSelectionShowUsernameSub =>
-      'Use the signed-in Emby/Jellyfin username; otherwise show the server name';
+      'Use the signed-in Emby/Jellyfin/FNOS username; otherwise show the server name';
 
   @override
   String get settingsServerSelectionShowAvatar =>

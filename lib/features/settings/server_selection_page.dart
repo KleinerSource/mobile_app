@@ -13,6 +13,7 @@ import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_profile_runtime_loader.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
@@ -22,7 +23,6 @@ import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import '../home/server_switch_transition.dart';
-import 'package:omm/features/media_browser/api/media_browser_api.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'server_selection_display_settings.dart';
 import 'server_setup_page.dart';
@@ -411,6 +411,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
             renderObject.size.height,
           )
         : null;
+    if (server.project == ServerProject.emby ||
+        server.project == ServerProject.jellyfin) {
+      await _profileFor(server);
+    }
     await ref
         .read(serverSwitchTransitionProvider.notifier)
         .switchTo(
@@ -607,6 +611,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     ServerProfileData? cached,
     ServerProject project,
   ) async {
+    if (project == ServerProject.emby || project == ServerProject.jellyfin) {
+      return loadMediaBrowserUserProfile(ref, server);
+    }
+
     final sessionRepository = ref
         .read(authSessionRepositoryProvider)
         .forServer(server.id, allowLegacyMigration: false);
@@ -633,32 +641,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       if (mediaBrowserConfig == null) {
         return _fallbackProfile(server);
       }
-      String normalizedName;
-      String? userAvatarUrl;
-      if (project == ServerProject.feiniu) {
-        normalizedName = (await client.feiniu.userInfo()).name.trim();
-      } else {
-        final user = await client
-            .mediaBrowserFor(mediaBrowserConfig)
-            .validateSession(session.userId);
-        normalizedName = user.name.trim();
-        final userId = user.id.trim();
-        if (userId.isNotEmpty) {
-          userAvatarUrl = MediaBrowserApi.userImageUrl(
-            config: mediaBrowserConfig,
-            baseUrl: line.baseUrl,
-            userId: userId,
-            token: session.accessToken,
-          );
-        }
-      }
+      final normalizedName = (await client.feiniu.userInfo()).name.trim();
       if (normalizedName.isEmpty) {
         return _fallbackProfile(server);
       }
       final profile = ServerProfileData(
         name: normalizedName,
         avatarUrl: server.avatarUrl ?? cached?.avatarUrl,
-        userAvatarUrl: userAvatarUrl,
       );
       await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
       return profile;
@@ -1440,6 +1429,10 @@ class _ServerAvatarCard extends StatelessWidget {
         final profileName = profile?.name.trim() ?? '';
         final isMediaBrowserIdentity =
             server.project == ServerProject.emby ||
+            server.project == ServerProject.jellyfin ||
+            server.project == ServerProject.feiniu;
+        final supportsUserAvatar =
+            server.project == ServerProject.emby ||
             server.project == ServerProject.jellyfin;
         final displayName =
             supportsRemoteName &&
@@ -1447,10 +1440,10 @@ class _ServerAvatarCard extends StatelessWidget {
                 (!isMediaBrowserIdentity || showUsername)
             ? profileName
             : server.name;
-        final configuredAvatarUrl = isMediaBrowserIdentity
+        final configuredAvatarUrl = supportsUserAvatar
             ? server.avatarUrl
             : (profile?.avatarUrl ?? server.avatarUrl);
-        final avatarUrl = isMediaBrowserIdentity && showAvatar
+        final avatarUrl = supportsUserAvatar && showAvatar
             ? profile?.userAvatarUrl ?? configuredAvatarUrl
             : configuredAvatarUrl;
         final line = server.activeLine;

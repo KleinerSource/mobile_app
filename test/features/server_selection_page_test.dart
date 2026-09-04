@@ -13,6 +13,7 @@ import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
+import 'package:omm/features/settings/server_selection_display_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -500,6 +501,54 @@ void main() {
     expect(find.text('Jellyfin 用户配置名称'), findsNothing);
     expect(find.text('未鉴权的 Emby'), findsOneWidget);
     expect(find.byType(RefreshIndicator), findsOneWidget);
+  });
+
+  testWidgets('FNOS 卡片显示服务端用户名并受显示用户名开关控制', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'feiniu-one',
+          'name': 'FNOS 用户配置名称',
+          'lines': [
+            {
+              'id': 'feiniu-line',
+              'name': '主线路',
+              'base_url': 'https://feiniu.example',
+            },
+          ],
+          'active_line_id': 'feiniu-line',
+          'project_name': 'feiniu',
+        },
+      ]),
+      'server.active_server_id': 'feiniu-one',
+      'server.profile_cache.v1': jsonEncode({
+        'feiniu-one': {'name': 'FNOS 服务端用户'},
+      }),
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('FNOS 服务端用户'), findsOneWidget);
+    expect(find.text('FNOS 用户配置名称'), findsNothing);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ServerSelectionPage)),
+      listen: false,
+    );
+    await container
+        .read(serverSelectionShowUsernameProvider.notifier)
+        .setEnabled(false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('FNOS 用户配置名称'), findsOneWidget);
+    expect(find.text('FNOS 服务端用户'), findsNothing);
   });
 
   testWidgets('连接页检查服务器后保存版本号但不显示版本号', (tester) async {

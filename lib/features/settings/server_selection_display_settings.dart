@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config_provider.dart';
 
-/// 连接页是否使用 Emby/Jellyfin 当前登录用户的身份信息。
+/// 连接页是否使用 Emby/Jellyfin/FNOS 当前登录用户的身份信息。
 class ServerSelectionShowUsernameNotifier extends Notifier<bool> {
   static const preferenceKey = 'server_selection.show_username';
 

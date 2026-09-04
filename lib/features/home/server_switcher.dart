@@ -8,10 +8,9 @@ import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_profile_runtime_loader.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
-import '../../features/media_browser/api/media_browser_api.dart';
-import '../../features/media_browser/api/media_browser_config.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/server_avatar.dart';
@@ -99,57 +98,11 @@ class _HomeServerSwitcherMenuState
   }
 
   Future<ServerProfileData?> _loadActiveProfile(ServerProfile server) async {
-    final profile = await _profileFor(server);
-    final userAvatarUrl = await _loadUserAvatarUrl(server);
-    if (userAvatarUrl == null) return profile;
-    return ServerProfileData(
-      name: profile?.name ?? server.name,
-      avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
-      userAvatarUrl: userAvatarUrl,
-    );
-  }
-
-  Future<String?> _loadUserAvatarUrl(ServerProfile server) async {
     final project = server.project;
-    if (project != ServerProject.emby && project != ServerProject.jellyfin) {
-      return null;
+    if (project == ServerProject.emby || project == ServerProject.jellyfin) {
+      return loadMediaBrowserUserProfile(ref, server);
     }
-    final line = server.activeLine;
-    if (line == null) return null;
-    final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
-    if (mediaBrowserConfig == null) return null;
-
-    try {
-      final sessionRepository = ref
-          .read(authSessionRepositoryProvider)
-          .forServer(server.id, allowLegacyMigration: false);
-      final session = await sessionRepository.load();
-      if (session == null || !session.hasAccessToken) return null;
-
-      final client = ApiClient.fromConfig(
-        ServerConfig(
-          baseUrl: line.baseUrl,
-          lines: [line],
-          servers: [server],
-          activeServerId: server.id,
-        ),
-        sessionRepository: sessionRepository,
-        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
-      );
-      final user = await client
-          .mediaBrowserFor(mediaBrowserConfig)
-          .validateSession(session.userId);
-      final userId = user.id.trim();
-      if (userId.isEmpty) return null;
-      return MediaBrowserApi.userImageUrl(
-        config: mediaBrowserConfig,
-        baseUrl: line.baseUrl,
-        userId: userId,
-        token: session.accessToken,
-      );
-    } catch (_) {
-      return null;
-    }
+    return _profileFor(server);
   }
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
@@ -178,6 +131,17 @@ class _HomeServerSwitcherMenuState
             renderObject.size.height,
           )
         : null;
+    ServerProfile? target;
+    for (final server in widget.servers) {
+      if (server.id == serverId) {
+        target = server;
+        break;
+      }
+    }
+    if (target?.project == ServerProject.emby ||
+        target?.project == ServerProject.jellyfin) {
+      await _activeProfileFor(target!);
+    }
     await ref
         .read(serverSwitchTransitionProvider.notifier)
         .switchTo(serverId, avatarOrigin: avatarOrigin);

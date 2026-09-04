@@ -21,6 +21,7 @@ import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/settings/server_selection_display_settings.dart';
 import 'package:omm/features/settings/server_setup_page.dart';
 import 'home_providers.dart';
 
@@ -58,6 +59,23 @@ abstract final class ServerSwitchTransitionMetrics {
       height: avatarSize,
     );
   }
+}
+
+/// 转场头像地址：用户头像仅适用于 Emby/Jellyfin，并受用户头像开关控制。
+String? serverSwitchTransitionAvatarUrl({
+  required ServerProfile server,
+  required ServerProfileData? profile,
+  required bool showUserAvatar,
+}) {
+  final isMediaBrowser =
+      server.project == ServerProject.emby ||
+      server.project == ServerProject.jellyfin;
+  final userAvatarUrl = profile?.userAvatarUrl?.trim() ?? '';
+  if (showUserAvatar && isMediaBrowser && userAvatarUrl.isNotEmpty) {
+    return userAvatarUrl;
+  }
+  final serverAvatarUrl = profile?.avatarUrl?.trim() ?? '';
+  return serverAvatarUrl.isNotEmpty ? serverAvatarUrl : server.avatarUrl;
 }
 
 @immutable
@@ -810,6 +828,7 @@ class _ServerSwitchTransitionOverlayState
     ServerProfile? target,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showUserAvatar = ref.watch(serverSelectionShowAvatarProvider);
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -862,6 +881,7 @@ class _ServerSwitchTransitionOverlayState
                         _buildEntryAvatar(
                           colors: appColors(context),
                           server: target,
+                          showUserAvatar: showUserAvatar,
                           origin: localEntryOrigin,
                           destination: ServerSwitchTransitionMetrics.avatarRect(
                             constraints.biggest,
@@ -873,6 +893,7 @@ class _ServerSwitchTransitionOverlayState
                         _buildFinishingAvatar(
                           colors: appColors(context),
                           server: target,
+                          showUserAvatar: showUserAvatar,
                           progress: finishProgress,
                         ),
                     ],
@@ -909,6 +930,7 @@ class _ServerSwitchTransitionOverlayState
                         _buildEntryAvatar(
                           colors: appColors(context),
                           server: target,
+                          showUserAvatar: showUserAvatar,
                           origin: localEntryOrigin,
                           destination: ServerSwitchTransitionMetrics.avatarRect(
                             constraints.biggest,
@@ -955,6 +977,7 @@ class _ServerSwitchTransitionOverlayState
                         contentOpacity: contentOpacity,
                         showAvatar:
                             _entryOrigin == null || _entryController.value >= 1,
+                        showUserAvatar: showUserAvatar,
                         colors: appColors(context),
                         server: target,
                         busy:
@@ -969,6 +992,7 @@ class _ServerSwitchTransitionOverlayState
                       _buildEntryAvatar(
                         colors: appColors(context),
                         server: target,
+                        showUserAvatar: showUserAvatar,
                         origin: localEntryOrigin,
                         destination: ServerSwitchTransitionMetrics.avatarRect(
                           constraints.biggest,
@@ -991,6 +1015,7 @@ class _ServerSwitchTransitionOverlayState
     required Widget content,
     required double contentOpacity,
     required bool showAvatar,
+    required bool showUserAvatar,
     required AppColors colors,
     required ServerProfile? server,
     required bool busy,
@@ -1022,6 +1047,7 @@ class _ServerSwitchTransitionOverlayState
                       colors: colors,
                       server: server,
                       size: ServerSwitchTransitionMetrics.avatarSize,
+                      showUserAvatar: showUserAvatar,
                       busy: busy,
                     ),
                     const SizedBox(height: 20),
@@ -1077,6 +1103,7 @@ class _ServerSwitchTransitionOverlayState
   Widget _buildEntryAvatar({
     required AppColors colors,
     required ServerProfile server,
+    required bool showUserAvatar,
     required Rect origin,
     required Rect destination,
     required double progress,
@@ -1094,7 +1121,11 @@ class _ServerSwitchTransitionOverlayState
           opacity: opacity,
           child: ServerAvatar(
             displayName: name,
-            avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+            avatarUrl: serverSwitchTransitionAvatarUrl(
+              server: server,
+              profile: profile,
+              showUserAvatar: showUserAvatar,
+            ),
             size: rect.width,
             colors: colors,
             project: server.project,
@@ -1109,6 +1140,7 @@ class _ServerSwitchTransitionOverlayState
     required AppColors colors,
     required ServerProfile server,
     required double size,
+    required bool showUserAvatar,
     bool busy = false,
   }) {
     final profile = _cachedProfileFor(server);
@@ -1117,7 +1149,11 @@ class _ServerSwitchTransitionOverlayState
         : server.name;
     return ServerAvatar(
       displayName: name,
-      avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+      avatarUrl: serverSwitchTransitionAvatarUrl(
+        server: server,
+        profile: profile,
+        showUserAvatar: showUserAvatar,
+      ),
       size: size,
       busy: busy,
       colors: colors,
@@ -1129,6 +1165,7 @@ class _ServerSwitchTransitionOverlayState
   Widget _buildFinishingAvatar({
     required AppColors colors,
     required ServerProfile server,
+    required bool showUserAvatar,
     required double progress,
   }) {
     final fadeProgress = Curves.easeOutCubic.transform(
@@ -1142,6 +1179,7 @@ class _ServerSwitchTransitionOverlayState
             colors: colors,
             server: server,
             size: ServerSwitchTransitionMetrics.avatarSize,
+            showUserAvatar: showUserAvatar,
           ),
         ),
       ),

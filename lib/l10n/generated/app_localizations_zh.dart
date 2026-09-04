@@ -931,7 +931,7 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get settingsServerSelectionShowUsernameSub =>
-      '使用 Emby/Jellyfin 登录用户名，否则显示服务器名称';
+      '使用 Emby/Jellyfin/FNOS 登录用户名，否则显示服务器名称';
 
   @override
   String get settingsServerSelectionShowAvatar => '连接页显示用户头像';

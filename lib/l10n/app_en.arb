@@ -331,7 +331,7 @@
   "settingsPerformanceMonitorSub": "Show FPS, app CPU, and RAM usage",
   "settingsHapticIntensity": "Haptic intensity",
   "settingsServerSelectionShowUsername": "Show username on connections",
-  "settingsServerSelectionShowUsernameSub": "Use the signed-in Emby/Jellyfin username; otherwise show the server name",
+  "settingsServerSelectionShowUsernameSub": "Use the signed-in Emby/Jellyfin/FNOS username; otherwise show the server name",
   "settingsServerSelectionShowAvatar": "Show user avatar on connections",
   "settingsServerSelectionShowAvatarSub": "Use the signed-in Emby/Jellyfin avatar; otherwise show the server avatar or logo",
   "settingsHapticCurrent": "Current: {label}",

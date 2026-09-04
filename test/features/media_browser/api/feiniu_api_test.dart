@@ -55,6 +55,7 @@ void main() {
     expect(page.limit, 1);
     expect(page.hasMore, isFalse);
     expect(user.id, 'user-1');
+    expect(user.name, 'alice');
     expect(adapter.requests, hasLength(2));
     expect(adapter.requests.first, 'POST /v/api/v1/item/list');
     expect(adapter.bodies.first, {

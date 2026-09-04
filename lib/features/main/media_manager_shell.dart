@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_profile_runtime_loader.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -72,11 +73,21 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     setState(() => _index = index);
   }
 
-  void _switchServer(String serverId) {
+  Future<void> _switchServer(String serverId) async {
     if (ref.read(serverSwitchTransitionProvider).isActive) return;
-    unawaited(
-      ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId),
-    );
+    final config = ref.read(serverConfigProvider);
+    ServerProfile? target;
+    for (final server in config?.servers ?? const <ServerProfile>[]) {
+      if (server.id == serverId) {
+        target = server;
+        break;
+      }
+    }
+    if (target?.project == ServerProject.emby ||
+        target?.project == ServerProject.jellyfin) {
+      await loadMediaBrowserUserProfile(ref, target!);
+    }
+    await ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId);
   }
 
   @override
@@ -199,7 +210,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         valueFor: (serverId) => serverId,
       ),
       onQuickMenuSelected: (value) {
-        if (value is String) _switchServer(value);
+        if (value is String) unawaited(_switchServer(value));
       },
     );
     if (dbOnline) {

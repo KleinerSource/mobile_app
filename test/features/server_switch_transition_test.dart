@@ -8,12 +8,76 @@ import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
+import 'package:omm/core/models/system.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('Emby/Jellyfin 转场头像优先使用用户头像并支持回退', () {
+    const line = ServerLine(
+      id: 'media-line',
+      name: '主线路',
+      baseUrl: 'https://media.example',
+    );
+    const profile = ServerProfileData(
+      name: 'Alice',
+      avatarUrl: 'https://media.example/logo.png',
+      userAvatarUrl: 'https://media.example/user.png?ApiKey=secret',
+    );
+
+    for (final project in [ServerProject.emby, ServerProject.jellyfin]) {
+      final server = ServerProfile(
+        id: project.projectName,
+        name: project.displayName,
+        lines: const [line],
+        projectName: project.projectName,
+        avatarUrl: 'https://media.example/configured.png',
+      );
+      expect(
+        serverSwitchTransitionAvatarUrl(
+          server: server,
+          profile: profile,
+          showUserAvatar: true,
+        ),
+        profile.userAvatarUrl,
+      );
+      expect(
+        serverSwitchTransitionAvatarUrl(
+          server: server,
+          profile: profile,
+          showUserAvatar: false,
+        ),
+        profile.avatarUrl,
+      );
+      expect(
+        serverSwitchTransitionAvatarUrl(
+          server: server,
+          profile: const ServerProfileData(name: 'Alice'),
+          showUserAvatar: true,
+        ),
+        server.avatarUrl,
+      );
+    }
+
+    final feiniu = ServerProfile(
+      id: 'feiniu',
+      name: '飞牛',
+      lines: const [line],
+      projectName: ServerProject.feiniu.projectName,
+      avatarUrl: 'https://feiniu.example/logo.png',
+    );
+    expect(
+      serverSwitchTransitionAvatarUrl(
+        server: feiniu,
+        profile: const ServerProfileData(name: 'Alice'),
+        showUserAvatar: true,
+      ),
+      feiniu.avatarUrl,
+    );
+  });
+
   test('DB Online 初始化点击当前服务器复用统一登录流程', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
