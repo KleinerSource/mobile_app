@@ -2244,7 +2244,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       deviceStats: _deviceStats,
       indicator: _indicator,
       controlsVisible: _controlsVisible,
-      isBuffering: playbackState.buffering,
+      isBuffering: playbackState.shouldShowVideoBuffering,
       pictureInPictureUrl: _pictureInPictureUrl,
       pictureInPictureHeaders: _pictureInPictureHeaders,
       quality: _quality,

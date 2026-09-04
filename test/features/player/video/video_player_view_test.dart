@@ -1,9 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/video/video_player_view.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
+  test('仅在视频流缺失时显示 buffering 遮罩', () {
+    expect(
+      const PlaybackViewState(
+        engineKind: PlaybackEngineKind.libmpv,
+        buffering: true,
+      ).shouldShowVideoBuffering,
+      isTrue,
+    );
+    expect(
+      const PlaybackViewState(
+        engineKind: PlaybackEngineKind.libmpv,
+        buffering: true,
+        firstFrameRendered: true,
+        position: Duration(seconds: 30),
+        buffered: Duration(seconds: 60),
+      ).shouldShowVideoBuffering,
+      isFalse,
+    );
+    expect(
+      const PlaybackViewState(
+        engineKind: PlaybackEngineKind.libmpv,
+        buffering: true,
+        firstFrameRendered: true,
+        position: Duration(seconds: 90),
+        buffered: Duration(seconds: 60),
+      ).shouldShowVideoBuffering,
+      isTrue,
+    );
+    expect(
+      const PlaybackViewState(
+        engineKind: PlaybackEngineKind.libmpv,
+        firstFrameRendered: true,
+        position: Duration(seconds: 90),
+        buffered: Duration(seconds: 60),
+      ).shouldShowVideoBuffering,
+      isFalse,
+    );
+  });
+
   testWidgets('视频缓冲时显示提示并且不拦截播放器手势', (tester) async {
     final buffering = ValueNotifier(true);
     var tapped = false;

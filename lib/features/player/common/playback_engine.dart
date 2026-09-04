@@ -346,6 +346,14 @@ class PlaybackViewState {
       videoSize != Size.zero ||
       audioTracks.isNotEmpty;
 
+  /// 首帧出现前等待首段视频流；首帧出现后，仅在当前时间点超出已缓冲
+  /// 区间时显示。这样缓冲区内 seek 不会被短暂的 buffering 事件打断。
+  bool get shouldShowVideoBuffering {
+    if (!buffering) return false;
+    if (!firstFrameRendered) return true;
+    return position > buffered;
+  }
+
   PlaybackViewState copyWith({
     PlaybackEngineKind? engineKind,
     PlaybackLifecycle? lifecycle,
