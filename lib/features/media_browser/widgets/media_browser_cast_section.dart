@@ -6,10 +6,10 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/oh_my_media/movie_detail/cast_section.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
-/// Emby/Jellyfin/fnos 演员区 · 直接复用 OMM 详情页的 [CastSection],
+/// Emby/Jellyfin/Stash/fnos 演员区 · 直接复用 OMM 详情页的 [CastSection],
 /// 仅负责把 MediaBrowserPerson 映射成 CastEntry(头像地址按服务器类型
 /// 由 [MediaBrowserServerUrls.personImage] 解析)。
-/// [onOpenPerson] 为 null 时纯展示（fnos 列表接口不支持按人物过滤）。
+/// [onOpenPerson] 为 null 或人物没有 ID 时纯展示（fnos 列表接口不支持按人物过滤）。
 class MediaBrowserCastSection extends StatelessWidget {
   const MediaBrowserCastSection({
     super.key,
@@ -38,7 +38,9 @@ class MediaBrowserCastSection extends StatelessWidget {
             role: person.role,
             imageUrl: urls?.personImage(person),
             imageHeaders: urls?.imageHeaders,
-            onTap: onOpenPerson == null ? null : () => onOpenPerson!(person),
+            onTap: onOpenPerson == null || person.id.trim().isEmpty
+                ? null
+                : () => onOpenPerson!(person),
           ),
       ],
     );
@@ -54,10 +56,12 @@ Future<void> openMediaBrowserPersonWorks(
   required String personId,
   required String personName,
 }) {
+  final id = personId.trim();
+  if (id.isEmpty) return Future<void>.value();
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) =>
-          MediaBrowserLibraryPage(personId: personId, personName: personName),
+          MediaBrowserLibraryPage(personId: id, personName: personName.trim()),
     ),
   );
 }
@@ -68,12 +72,12 @@ Future<void> openMediaBrowserTagWorks(
   required String tagId,
   required String tagName,
 }) {
+  final id = tagId.trim();
+  if (id.isEmpty) return Future<void>.value();
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => MediaBrowserLibraryPage(
-        tagId: tagId,
-        tagName: tagName,
-      ),
+      builder: (_) =>
+          MediaBrowserLibraryPage(tagId: id, tagName: tagName.trim()),
     ),
   );
 }

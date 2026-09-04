@@ -7,8 +7,12 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_movie_detail_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
+import 'package:omm/core/sources/media/media_browser_media_source.dart';
+import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -29,6 +33,79 @@ class _PrivacyState extends PrivacyShieldNotifier {
 class _BadgePositionsState extends BadgePositionsNotifier {
   @override
   BadgePositions build() => const BadgePositions();
+}
+
+class _UnusedMediaBrowserSource implements MediaBrowserMediaSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingMediaBrowserRepository extends MediaBrowserMediaRepository {
+  _RecordingMediaBrowserRepository() : super(_UnusedMediaBrowserSource());
+
+  final pageCalls = <({String? personIds, String? tagIds})>[];
+
+  @override
+  Future<MediaBrowserItemPage> itemPage(media_models.MediaQuery query) async {
+    pageCalls.add((
+      personIds: query.filters['personIds']?.toString(),
+      tagIds: query.filters['tagIds']?.toString(),
+    ));
+    return const MediaBrowserItemPage(
+      items: <MediaBrowserItem>[],
+      total: 0,
+      startIndex: 0,
+      limit: 24,
+    );
+  }
+
+  @override
+  Future<List<MediaBrowserItem>> views() async => const [];
+}
+
+Future<void> _pumpStashDetail(
+  WidgetTester tester, {
+  required MediaBrowserItem movie,
+  required _RecordingMediaBrowserRepository repository,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        serverConfigProvider.overrideWith(
+          () => _ServerConfigState(
+            const ServerConfig(
+              baseUrl: 'http://stash.test',
+              activeServerId: 'stash-server',
+            ),
+          ),
+        ),
+        mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.stash),
+        mediaBrowserServerUrlsProvider.overrideWith(
+          (ref) async => MediaBrowserServerUrls(
+            config: MediaBrowserConfig.stash,
+            baseUrl: 'http://stash.test',
+            token: 'stash-token',
+          ),
+        ),
+        mediaBrowserMediaRepositoryProvider.overrideWithValue(repository),
+        mediaBrowserItemDetailProvider.overrideWith(
+          (ref, request) async => movie,
+        ),
+        mediaBrowserSimilarProvider.overrideWith(
+          (ref, request) async => const <MediaBrowserItem>[],
+        ),
+        privacyShieldProvider.overrideWith(_PrivacyState.new),
+        badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+      ],
+      child: const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: Locale('zh'),
+        home: MediaBrowserMovieDetailPage(itemId: 'stash-movie-1'),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 MediaBrowserItem _item(String id, String name) {
@@ -225,6 +302,59 @@ void main() {
     expect(find.text('[ABC-123] 场景名称'), findsOneWidget);
     expect(find.text('番号 ABC-123'), findsNothing);
     expect(find.text('电影'), findsNothing);
+  });
+
+  testWidgets('Stash 详情页点击标签进入对应筛选列表', (tester) async {
+    final repository = _RecordingMediaBrowserRepository();
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'stash-movie-1',
+      'Name': '场景名称',
+      'Code': 'ABC-123',
+      'Type': 'Movie',
+      'Genres': ['剧情'],
+      'TagIds': ['tag-1'],
+    });
+
+    await _pumpStashDetail(tester, movie: movie, repository: repository);
+    await tester.ensureVisible(find.text('剧情'));
+    await tester.tap(find.text('剧情'));
+    await tester.pumpAndSettle();
+
+    final page = tester.widget<MediaBrowserLibraryPage>(
+      find.byType(MediaBrowserLibraryPage),
+    );
+    expect(page.tagId, 'tag-1');
+    expect(repository.pageCalls.last.tagIds, 'tag-1');
+    expect(repository.pageCalls.last.personIds, isNull);
+  });
+
+  testWidgets('Stash 详情页点击演员进入对应筛选列表', (tester) async {
+    final repository = _RecordingMediaBrowserRepository();
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'stash-movie-1',
+      'Name': '场景名称',
+      'Code': 'ABC-123',
+      'Type': 'Movie',
+      'People': [
+        {'Id': 'person-1', 'Name': '演员一', 'Type': 'Actor'},
+      ],
+    });
+
+    await _pumpStashDetail(tester, movie: movie, repository: repository);
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('演员一'));
+    await tester.pumpAndSettle();
+
+    final page = tester.widget<MediaBrowserLibraryPage>(
+      find.byType(MediaBrowserLibraryPage),
+    );
+    expect(page.personId, 'person-1');
+    expect(repository.pageCalls.last.personIds, 'person-1');
+    expect(repository.pageCalls.last.tagIds, isNull);
   });
 
   testWidgets('电影详情页显示 Similar 推荐区块', (tester) async {

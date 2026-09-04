@@ -138,11 +138,17 @@ void main() {
     );
 
     final page = await source.itemPage(
-      parentId: 'stash-scenes',
-      includeItemTypes: 'Movie',
-      limit: 24,
-      sortBy: 'ProductionYear',
-      sortOrder: 'Ascending',
+      const MediaQuery(
+        limit: 24,
+        sortBy: 'ProductionYear',
+        orderBy: 'asc',
+        filters: {
+          'parentId': 'stash-scenes',
+          'includeItemTypes': 'Movie',
+          'tagIds': 'tag-1',
+          'personIds': 'person-1',
+        },
+      ),
     );
     final item = page.items.single;
     expect(source.descriptor.id, const SourceId('stash'));
@@ -165,6 +171,7 @@ void main() {
     expect(item.backdropImageTags, ['/images/scene-1.jpg']);
     expect(item.people.single.name, 'Actor One');
     expect(item.genres, ['Drama']);
+    expect(item.tagIds, ['tag-1']);
     final streams = item.mediaSources.single.mediaStreams;
     expect(streams, hasLength(2));
     expect(streams[0].type, 'Video');
@@ -185,6 +192,16 @@ void main() {
       Map<String, dynamic>.from(variables['filter'] as Map),
       containsPair('direction', 'ASC'),
     );
+    expect(variables['scene_filter'], {
+      'tags': {
+        'value': ['tag-1'],
+        'modifier': 'INCLUDES',
+      },
+      'performers': {
+        'value': ['person-1'],
+        'modifier': 'INCLUDES',
+      },
+    });
 
     final descriptor = await source.resolvePlayback(
       const MediaRef(sourceId: SourceId('stash'), value: 'scene-1'),
@@ -230,7 +247,7 @@ void main() {
     expect(views.single.name, 'Scenes');
     expect(views.single.collectionType, 'movies');
     expect(views.single.childCount, 0);
-    expect((await source.itemPage()).items, isEmpty);
+    expect((await source.itemPage(const MediaQuery())).items, isEmpty);
   });
 
   test('缺少 screenshot 时使用 webp，且 preview 仍为空', () async {
@@ -253,7 +270,7 @@ void main() {
       endpoint: 'http://stash.test',
     );
 
-    final item = (await source.itemPage()).items.single;
+    final item = (await source.itemPage(const MediaQuery())).items.single;
     expect(item.primaryImageTag, '/images/scene-1.webp');
     expect(item.backdropImageTags, ['/images/scene-1.webp']);
     expect(item.previewPath, isNull);

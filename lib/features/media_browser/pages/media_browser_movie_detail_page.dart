@@ -901,10 +901,12 @@ class _ChipSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = labels
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    final items = <({String label, String id})>[];
+    for (var i = 0; i < labels.length; i++) {
+      final label = labels[i].trim();
+      if (label.isEmpty) continue;
+      items.add((label: label, id: i < ids.length ? ids[i].trim() : ''));
+    }
     if (items.isEmpty) return const SizedBox.shrink();
     return MovieDetailSection(
       title: title,
@@ -914,10 +916,10 @@ class _ChipSection extends StatelessWidget {
         children: [
           for (var i = 0; i < items.length; i++)
             HueChip(
-              label: items[i],
+              label: items[i].label,
               hue: AppHues.all[i % AppHues.all.length],
-              onTap: i < ids.length && ids[i].trim().isNotEmpty && onTap != null
-                  ? () => onTap!(ids[i].trim(), items[i])
+              onTap: items[i].id.isNotEmpty && onTap != null
+                  ? () => onTap!(items[i].id, items[i].label)
                   : null,
             ),
         ],

@@ -324,32 +324,30 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       });
 
   @override
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  }) => _call(() async {
+  Future<MediaBrowserItemPage> itemPage(MediaQuery query) => _call(() async {
+    final filters = query.filters;
+    final order = query.orderBy?.trim().toLowerCase();
     final uid = await _requireUserId();
     return api.items(
       uid,
-      parentId: parentId,
-      includeItemTypes: includeItemTypes,
-      recursive: recursive,
-      searchTerm: searchTerm,
-      sortBy: sortBy,
-      sortOrder: sortOrder,
-      startIndex: startIndex,
-      limit: limit,
-      isFavorite: isFavorite,
-      personIds: personIds,
+      parentId: filters['parentId']?.toString(),
+      includeItemTypes: filters['includeItemTypes']?.toString(),
+      recursive: filters['recursive'] is bool
+          ? filters['recursive'] as bool
+          : null,
+      searchTerm: query.searchText,
+      sortBy: query.sortBy,
+      sortOrder: order == null
+          ? null
+          : order.startsWith('desc')
+          ? 'Descending'
+          : 'Ascending',
+      startIndex: query.offset,
+      limit: query.limit,
+      isFavorite: filters['isFavorite'] is bool
+          ? filters['isFavorite'] as bool
+          : null,
+      personIds: filters['personIds']?.toString(),
     );
   });
 

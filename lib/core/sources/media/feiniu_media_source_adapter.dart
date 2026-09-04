@@ -56,21 +56,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
 
   @override
   Future<MediaPage<MediaSummary>> listMovies(MediaQuery query) async {
-    final page = await itemPage(
-      parentId: query.filters['parentId']?.toString(),
-      includeItemTypes: query.filters['includeItemTypes']?.toString(),
-      recursive: query.filters['recursive'] is bool
-          ? query.filters['recursive'] as bool
-          : null,
-      searchTerm: query.searchText,
-      sortBy: query.sortBy,
-      sortOrder: query.orderBy,
-      startIndex: query.offset,
-      limit: query.limit,
-      isFavorite: query.filters['isFavorite'] is bool
-          ? query.filters['isFavorite'] as bool
-          : null,
-    );
+    final page = await itemPage(query);
     return MediaPage(
       items: page.items.map(_summaryFromBrowserItem).toList(growable: false),
       page: query.page,
@@ -273,12 +259,16 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     int limit = 16,
   }) async {
     final page = await itemPage(
-      parentId: parentId,
-      includeItemTypes: includeItemTypes,
-      recursive: true,
-      sortBy: 'create_time',
-      sortOrder: 'Descending',
-      limit: limit,
+      MediaQuery(
+        limit: limit,
+        sortBy: 'create_time',
+        orderBy: 'desc',
+        filters: {
+          if (parentId != null) 'parentId': parentId,
+          if (includeItemTypes != null) 'includeItemTypes': includeItemTypes,
+          'recursive': true,
+        },
+      ),
     );
     return page.items;
   }
@@ -306,75 +296,66 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
       const MediaBrowserItemPage(items: [], total: 0, startIndex: 0, limit: 0);
 
   @override
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  }) async => _call(() async {
-    // fnos 列表接口不支持按人物过滤；演员头像区在 fnos 服务器上不提供
-    // 点击跳转，该参数不会被传入。
-    assert(personIds == null, 'fnos 不支持按人物过滤条目');
-    final offset = startIndex ?? 0;
-    final pageSize = limit ?? 24;
-    if (isFavorite == true) {
-      final favorites = await api.favoriteList(
-        startIndex: offset,
-        limit: pageSize,
-      );
-      return _pageFromItems(
-        favorites.map((item) => item.toMediaBrowserItem()),
-        total: favorites.length,
-        startIndex: offset,
-        limit: pageSize,
-      );
-    }
-    final normalizedSearchTerm = searchTerm?.trim() ?? '';
-    if (normalizedSearchTerm.isNotEmpty) {
-      final searchResults = await api.searchList(normalizedSearchTerm);
-      final filteredItems = includeItemTypes == null
-          ? searchResults
-          : searchResults
-                .where((item) => _typeMatches(item.type, includeItemTypes))
-                .toList(growable: false);
-      final pageItems = filteredItems.skip(offset).take(pageSize);
-      return _pageFromItems(
-        pageItems.map((item) => item.toMediaBrowserItem()),
-        total: filteredItems.length,
-        startIndex: offset,
-        limit: pageSize,
-      );
-    }
-    final page = await api.itemList(
-      parentGuid: parentId ?? '',
-      excludeFolder: includeItemTypes != null,
-      typeTags: _typeTags(includeItemTypes),
-      startIndex: offset,
-      limit: pageSize,
-      sortColumn: _sortColumn(sortBy),
-      sortType: (sortOrder ?? 'Ascending').toLowerCase().startsWith('desc')
-          ? 'DESC'
-          : 'ASC',
-    );
-    final items = includeItemTypes == null
-        ? page.items
-        : page.items
-              .where((item) => _typeMatches(item.type, includeItemTypes))
-              .toList(growable: false);
-    return _pageFromItems(
-      items.map((item) => item.toMediaBrowserItem()),
-      total: page.total,
-      startIndex: page.startIndex,
-      limit: page.limit == 0 ? pageSize : page.limit,
-    );
-  });
+  Future<MediaBrowserItemPage> itemPage(MediaQuery query) async =>
+      _call(() async {
+        final filters = query.filters;
+        final offset = query.offset;
+        final pageSize = query.limit;
+        final isFavorite = filters['isFavorite'] == true;
+        if (isFavorite) {
+          final favorites = await api.favoriteList(
+            startIndex: offset,
+            limit: pageSize,
+          );
+          return _pageFromItems(
+            favorites.map((item) => item.toMediaBrowserItem()),
+            total: favorites.length,
+            startIndex: offset,
+            limit: pageSize,
+          );
+        }
+        final normalizedSearchTerm = query.searchText?.trim() ?? '';
+        if (normalizedSearchTerm.isNotEmpty) {
+          final searchResults = await api.searchList(normalizedSearchTerm);
+          final includeItemTypes = filters['includeItemTypes']?.toString();
+          final filteredItems = includeItemTypes == null
+              ? searchResults
+              : searchResults
+                    .where((item) => _typeMatches(item.type, includeItemTypes))
+                    .toList(growable: false);
+          final pageItems = filteredItems.skip(offset).take(pageSize);
+          return _pageFromItems(
+            pageItems.map((item) => item.toMediaBrowserItem()),
+            total: filteredItems.length,
+            startIndex: offset,
+            limit: pageSize,
+          );
+        }
+        final page = await api.itemList(
+          parentGuid: filters['parentId']?.toString() ?? '',
+          excludeFolder: filters['includeItemTypes'] != null,
+          typeTags: _typeTags(filters['includeItemTypes']?.toString()),
+          startIndex: offset,
+          limit: pageSize,
+          sortColumn: _sortColumn(query.sortBy),
+          sortType:
+              (query.orderBy ?? 'Ascending').toLowerCase().startsWith('desc')
+              ? 'DESC'
+              : 'ASC',
+        );
+        final includeItemTypes = filters['includeItemTypes']?.toString();
+        final items = includeItemTypes == null
+            ? page.items
+            : page.items
+                  .where((item) => _typeMatches(item.type, includeItemTypes))
+                  .toList(growable: false);
+        return _pageFromItems(
+          items.map((item) => item.toMediaBrowserItem()),
+          total: page.total,
+          startIndex: page.startIndex,
+          limit: page.limit == 0 ? pageSize : page.limit,
+        );
+      });
 
   @override
   Future<MediaBrowserItem> getItem(String itemId) async =>

@@ -50,14 +50,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
 
   @override
   Future<MediaPage<MediaSummary>> listMovies(MediaQuery query) async {
-    final page = await itemPage(
-      parentId: query.filters['parentId']?.toString(),
-      searchTerm: query.searchText,
-      startIndex: query.offset,
-      limit: query.limit,
-      sortBy: query.sortBy,
-      sortOrder: query.orderBy,
-    );
+    final page = await itemPage(query);
     return MediaPage(
       items: [for (final item in page.items) _summaryFromItem(item)],
       page: query.page,
@@ -207,11 +200,15 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     int limit = 16,
   }) async {
     final page = await itemPage(
-      parentId: parentId,
-      includeItemTypes: includeItemTypes,
-      limit: limit,
-      sortBy: 'created_at',
-      sortOrder: 'Descending',
+      MediaQuery(
+        limit: limit,
+        sortBy: 'created_at',
+        orderBy: 'desc',
+        filters: {
+          if (parentId != null) 'parentId': parentId,
+          if (includeItemTypes != null) 'includeItemTypes': includeItemTypes,
+        },
+      ),
     );
     return page.items;
   }
@@ -238,35 +235,24 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
       _emptyPage(limit);
 
   @override
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  }) async {
-    final normalizedParent = parentId?.trim() ?? '';
+  Future<MediaBrowserItemPage> itemPage(MediaQuery query) async {
+    final filters = query.filters;
+    final normalizedParent = filters['parentId']?.toString().trim() ?? '';
     if (normalizedParent.isNotEmpty && normalizedParent != _libraryId) {
-      return _emptyPage(limit ?? 24, startIndex: startIndex ?? 0);
+      return _emptyPage(query.limit, startIndex: query.offset);
     }
-    final pageSize = (limit ?? 24).clamp(1, 100);
-    final offset = (startIndex ?? 0).clamp(0, 1 << 30);
+    final pageSize = query.limit.clamp(1, 100);
+    final offset = query.offset.clamp(0, 1 << 30);
     final pageNumber = offset ~/ pageSize + 1;
     final page = await _call(
       () => api.findScenes(
         page: pageNumber,
         perPage: pageSize,
-        searchText: searchTerm,
-        sortBy: _stashSortBy(sortBy),
-        sortOrder: _stashSortOrder(sortOrder),
-        tagIds: _splitIds(tagIds),
-        performerIds: _splitIds(personIds),
+        searchText: query.searchText,
+        sortBy: _stashSortBy(query.sortBy),
+        sortOrder: _stashSortOrder(query.orderBy),
+        tagIds: _splitIds(filters['tagIds']?.toString()),
+        performerIds: _splitIds(filters['personIds']?.toString()),
       ),
     );
     final items = page.scenes.map(_itemFromScene).toList(growable: false);
@@ -390,6 +376,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
       runTimeTicks: _ticks(sceneDuration(scene)),
       overview: scene.details,
       genres: scene.tags,
+      tagIds: scene.tagIds,
       people: [
         for (final performer in scene.performers)
           MediaBrowserPerson(

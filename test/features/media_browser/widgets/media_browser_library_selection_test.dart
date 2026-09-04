@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
+import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -55,20 +56,11 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
   final markPlayedCalls = <(String, bool)>[];
 
   @override
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  }) async {
-    itemPageCalls.add((parentId, includeItemTypes));
+  Future<MediaBrowserItemPage> itemPage(media_models.MediaQuery query) async {
+    itemPageCalls.add((
+      query.filters['parentId']?.toString(),
+      query.filters['includeItemTypes']?.toString(),
+    ));
     if (itemPageDelay > Duration.zero) {
       await Future<void>.delayed(itemPageDelay);
     }

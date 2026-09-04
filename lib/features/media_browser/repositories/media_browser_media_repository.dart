@@ -1,5 +1,6 @@
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
+import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）Feature 的 Source 门面。
@@ -112,31 +113,8 @@ class MediaBrowserMediaRepository {
   Future<MediaBrowserItemPage> similar(String itemId, {int limit = 12}) =>
       _source.similar(itemId, limit: limit);
 
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  }) => _source.itemPage(
-    parentId: parentId,
-    includeItemTypes: includeItemTypes,
-    recursive: recursive,
-    searchTerm: searchTerm,
-    sortBy: sortBy,
-    sortOrder: sortOrder,
-    startIndex: startIndex,
-    limit: limit,
-    isFavorite: isFavorite,
-    personIds: personIds,
-    tagIds: tagIds,
-  );
+  Future<MediaBrowserItemPage> itemPage(MediaQuery query) =>
+      _source.itemPage(query);
 
   Future<MediaBrowserItem> getItem(String itemId) => _source.getItem(itemId);
 

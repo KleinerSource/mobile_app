@@ -7,6 +7,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -274,13 +275,16 @@ class _MediaBrowserSearchResultsState
           ref,
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            includeItemTypes: _requestIncludeItemTypes,
-            recursive: true,
-            searchTerm: query,
-            sortBy: 'SortName',
-            sortOrder: 'Ascending',
-            startIndex: 0,
-            limit: limit,
+            query: media_models.MediaQuery(
+              searchText: query,
+              sortBy: 'SortName',
+              orderBy: 'asc',
+              limit: limit,
+              filters: {
+                'includeItemTypes': _requestIncludeItemTypes,
+                'recursive': true,
+              },
+            ),
           ),
         );
         return PagedResult(
@@ -317,13 +321,17 @@ class _MediaBrowserSearchResultsState
         ref,
         MediaBrowserItemPageRequest(
           serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-          includeItemTypes: _requestIncludeItemTypes,
-          recursive: true,
-          searchTerm: widget.query,
-          sortBy: 'SortName',
-          sortOrder: 'Ascending',
-          startIndex: startIndex,
-          limit: _pageSize,
+          query: media_models.MediaQuery(
+            searchText: widget.query,
+            sortBy: 'SortName',
+            orderBy: 'asc',
+            offset: startIndex,
+            limit: _pageSize,
+            filters: {
+              'includeItemTypes': _requestIncludeItemTypes,
+              'recursive': true,
+            },
+          ),
         ),
       );
       if (!mounted) return;

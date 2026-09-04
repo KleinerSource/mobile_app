@@ -7,6 +7,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -160,15 +161,19 @@ class _MediaBrowserLibraryPageState
         ref,
         MediaBrowserItemPageRequest(
           serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-          parentId: _parentId,
-          includeItemTypes: _requestIncludeItemTypes,
-          recursive: true,
-          sortBy: _sortBy,
-          sortOrder: _sortOrder,
-          startIndex: startIndex,
-          limit: _pageSize,
-          personIds: _isPersonMode ? widget.personId : null,
-          tagIds: _isTagMode ? widget.tagId : null,
+          query: media_models.MediaQuery(
+            offset: startIndex,
+            limit: _pageSize,
+            sortBy: _sortBy,
+            orderBy: _sortOrder == 'Ascending' ? 'asc' : 'desc',
+            filters: {
+              'parentId': _parentId,
+              'includeItemTypes': _requestIncludeItemTypes,
+              'recursive': true,
+              if (_isPersonMode) 'personIds': widget.personId,
+              if (_isTagMode) 'tagIds': widget.tagId,
+            },
+          ),
         ),
       );
       if (!mounted || requestSerial != _requestSerial) return;
@@ -351,15 +356,18 @@ class _MediaBrowserLibraryPageState
           ref,
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            parentId: parentId,
-            includeItemTypes: _isStash ? 'Movie' : includeItemTypes,
-            recursive: true,
-            sortBy: sortBy,
-            sortOrder: sortOrder,
-            startIndex: 0,
-            limit: limit,
-            personIds: _isPersonMode ? widget.personId : null,
-            tagIds: _isTagMode ? widget.tagId : null,
+            query: media_models.MediaQuery(
+              limit: limit,
+              sortBy: sortBy,
+              orderBy: sortOrder == 'Ascending' ? 'asc' : 'desc',
+              filters: {
+                'parentId': parentId,
+                'includeItemTypes': _isStash ? 'Movie' : includeItemTypes,
+                'recursive': true,
+                if (_isPersonMode) 'personIds': widget.personId,
+                if (_isTagMode) 'tagIds': widget.tagId,
+              },
+            ),
           ),
         );
         return PagedResult(
@@ -543,7 +551,9 @@ class _MediaBrowserLibraryPageState
                                         ? (widget.tagName?.trim().isNotEmpty ==
                                                   true
                                               ? widget.tagName!.trim()
-                                              : AppL10n.of(context).movieEditorTag)
+                                              : AppL10n.of(
+                                                  context,
+                                                ).movieEditorTag)
                                         : _isPersonMode
                                         ? (widget.personName
                                                       ?.trim()

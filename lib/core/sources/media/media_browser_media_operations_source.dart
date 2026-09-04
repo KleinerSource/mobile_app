@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
+import 'media_models.dart';
+
 @immutable
 class MediaBrowserLibraryRefreshTarget {
   const MediaBrowserLibraryRefreshTarget({
@@ -104,19 +106,10 @@ abstract interface class MediaBrowserMediaOperationsSource {
   Future<MediaBrowserItemPage> similar(String itemId, {int limit = 12});
 
   /// 通用条目分页查询（库浏览 / 搜索共用）。
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  });
+  ///
+  /// 通用分页、排序和来源特定筛选条件统一放在 [query] 中；来源只解析
+  /// 自己支持的 [MediaQuery.filters]，不需要在接口签名中暴露其它来源字段。
+  Future<MediaBrowserItemPage> itemPage(MediaQuery query);
 
   /// 条目详情（完整字段）。
   Future<MediaBrowserItem> getItem(String itemId);

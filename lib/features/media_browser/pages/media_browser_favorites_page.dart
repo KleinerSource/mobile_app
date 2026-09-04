@@ -6,6 +6,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -154,13 +155,17 @@ class _MediaBrowserFavoritesPageState
         ref,
         MediaBrowserItemPageRequest(
           serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-          includeItemTypes: _includeItemTypes,
-          recursive: true,
-          sortBy: _sort.value,
-          sortOrder: _sort.order,
-          startIndex: startIndex,
-          limit: _pageSize,
-          isFavorite: true,
+          query: media_models.MediaQuery(
+            offset: startIndex,
+            limit: _pageSize,
+            sortBy: _sort.value,
+            orderBy: _sort.order == 'Ascending' ? 'asc' : 'desc',
+            filters: {
+              'includeItemTypes': _includeItemTypes,
+              'recursive': true,
+              'isFavorite': true,
+            },
+          ),
         ),
       );
       if (!mounted || requestSerial != _requestSerial) return;
@@ -233,13 +238,16 @@ class _MediaBrowserFavoritesPageState
           ref,
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            includeItemTypes: includeItemTypes,
-            recursive: true,
-            sortBy: sort.value,
-            sortOrder: sort.order,
-            startIndex: 0,
-            limit: limit,
-            isFavorite: true,
+            query: media_models.MediaQuery(
+              limit: limit,
+              sortBy: sort.value,
+              orderBy: sort.order == 'Ascending' ? 'asc' : 'desc',
+              filters: {
+                'includeItemTypes': includeItemTypes,
+                'recursive': true,
+                'isFavorite': true,
+              },
+            ),
           ),
         );
         _totalCount = result.total;

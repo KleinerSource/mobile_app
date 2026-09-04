@@ -80,15 +80,9 @@ class StashApi {
         },
       },
       if (normalizedTagIds.isNotEmpty)
-        'tags': {
-          'value': normalizedTagIds,
-          'modifier': 'INCLUDES',
-        },
+        'tags': {'value': normalizedTagIds, 'modifier': 'INCLUDES'},
       if (normalizedPerformerIds.isNotEmpty)
-        'performers': {
-          'value': normalizedPerformerIds,
-          'modifier': 'INCLUDES',
-        },
+        'performers': {'value': normalizedPerformerIds, 'modifier': 'INCLUDES'},
     };
     final data = await _graphql(
       r'''

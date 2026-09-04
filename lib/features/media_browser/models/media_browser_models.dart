@@ -663,9 +663,7 @@ class MediaBrowserItem {
       genres: genres is List
           ? genres.map((item) => item.toString()).toList(growable: false)
           : const <String>[],
-      tagIds: _stringList(
-        json['TagIds'] ?? json['tagIds'] ?? json['tag_ids'],
-      ),
+      tagIds: _stringList(json['TagIds'] ?? json['tagIds'] ?? json['tag_ids']),
       people: people is List
           ? people.map(MediaBrowserPerson.fromJson).toList(growable: false)
           : const <MediaBrowserPerson>[],

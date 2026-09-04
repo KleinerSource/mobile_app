@@ -63,10 +63,11 @@ void main() {
     );
 
     final page = await source.itemPage(
-      includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
-      searchTerm: '冰雪奇缘',
-      startIndex: 0,
-      limit: 24,
+      const MediaQuery(
+        searchText: '冰雪奇缘',
+        limit: 24,
+        filters: {'includeItemTypes': 'Movie,Series,Episode,MusicAlbum,Audio'},
+      ),
     );
 
     expect(adapter.requestUri.path, '/v/api/v1/search/list');

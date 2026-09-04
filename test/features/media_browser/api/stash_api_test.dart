@@ -143,6 +143,33 @@ void main() {
     });
   });
 
+  test('findScenes 传递标签和演员筛选变量', () async {
+    final adapter = _StashAdapter(
+      (_) => {
+        'data': {
+          'findScenes': {'count': 0, 'scenes': []},
+        },
+      },
+    );
+
+    await _apiFor(
+      adapter,
+    ).findScenes(tagIds: ['tag-1'], performerIds: ['person-1']);
+
+    final body = Map<String, dynamic>.from(adapter.requests.single.data as Map);
+    final variables = Map<String, dynamic>.from(body['variables'] as Map);
+    expect(variables['scene_filter'], {
+      'tags': {
+        'value': ['tag-1'],
+        'modifier': 'INCLUDES',
+      },
+      'performers': {
+        'value': ['person-1'],
+        'modifier': 'INCLUDES',
+      },
+    });
+  });
+
   test('Scene mutation 使用正确的返回字段', () async {
     final adapter = _StashAdapter((options) {
       final query = (options.data as Map)['query'].toString();

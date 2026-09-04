@@ -7,6 +7,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
+import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
@@ -136,12 +137,17 @@ final mediaBrowserViewLatestProvider = FutureProvider.autoDispose
       final page = await ref
           .watch(mediaBrowserMediaRepositoryProvider)
           .itemPage(
-            parentId: request.viewId,
-            includeItemTypes: request.includeItemTypes,
-            recursive: true,
-            sortBy: 'DateCreated',
-            sortOrder: 'Descending',
-            limit: 20,
+            MediaQuery(
+              limit: 20,
+              sortBy: 'DateCreated',
+              orderBy: 'desc',
+              filters: {
+                'parentId': request.viewId,
+                if (request.includeItemTypes != null)
+                  'includeItemTypes': request.includeItemTypes,
+                'recursive': true,
+              },
+            ),
           );
       return page.items;
     });
@@ -231,19 +237,7 @@ final mediaBrowserItemPageProvider = FutureProvider.autoDispose
       _checkServerScope(ref, request.serverId);
       return ref
           .watch(mediaBrowserMediaRepositoryProvider)
-          .itemPage(
-            parentId: request.parentId,
-            includeItemTypes: request.includeItemTypes,
-            recursive: request.recursive,
-            searchTerm: request.searchTerm,
-            sortBy: request.sortBy,
-            sortOrder: request.sortOrder,
-            startIndex: request.startIndex,
-            limit: request.limit,
-            isFavorite: request.isFavorite,
-            personIds: request.personIds,
-            tagIds: request.tagIds,
-          );
+          .itemPage(request.query);
     });
 
 /// 命令式读取一页媒体条目（分页控件回调等 build 之外的场景）。
@@ -259,21 +253,7 @@ Future<MediaBrowserItemPage> readMediaBrowserItemPage(
   if (request.serverId != activeServerId) {
     throw const SourceException('媒体请求已过期，请重新加载当前服务器');
   }
-  return ref
-      .read(mediaBrowserMediaRepositoryProvider)
-      .itemPage(
-        parentId: request.parentId,
-        includeItemTypes: request.includeItemTypes,
-        recursive: request.recursive,
-        searchTerm: request.searchTerm,
-        sortBy: request.sortBy,
-        sortOrder: request.sortOrder,
-        startIndex: request.startIndex,
-        limit: request.limit,
-        isFavorite: request.isFavorite,
-        personIds: request.personIds,
-        tagIds: request.tagIds,
-      );
+  return ref.read(mediaBrowserMediaRepositoryProvider).itemPage(request.query);
 }
 
 /// 条目详情（电影/剧集通用）。
@@ -337,67 +317,20 @@ class MediaBrowserAlbumTracksRequest {
 class MediaBrowserItemPageRequest {
   const MediaBrowserItemPageRequest({
     required this.serverId,
-    this.parentId,
-    this.includeItemTypes,
-    this.recursive,
-    this.searchTerm,
-    this.sortBy,
-    this.sortOrder,
-    this.startIndex = 0,
-    this.limit = 24,
-    this.isFavorite,
-    this.personIds,
-    this.tagIds,
+    required this.query,
   });
 
   final String serverId;
-  final String? parentId;
-  final String? includeItemTypes;
-  final bool? recursive;
-  final String? searchTerm;
-  final String? sortBy;
-  final String? sortOrder;
-  final int startIndex;
-  final int limit;
-  final bool? isFavorite;
-
-  /// 按演员/人物过滤（PersonIds），演员作品页使用。
-  final String? personIds;
-
-  /// 按 Stash 标签 ID 过滤，标签作品页使用。
-  final String? tagIds;
+  final MediaQuery query;
 
   @override
   bool operator ==(Object other) =>
       other is MediaBrowserItemPageRequest &&
       other.serverId == serverId &&
-      other.parentId == parentId &&
-      other.includeItemTypes == includeItemTypes &&
-      other.recursive == recursive &&
-      other.searchTerm == searchTerm &&
-      other.sortBy == sortBy &&
-      other.sortOrder == sortOrder &&
-      other.startIndex == startIndex &&
-      other.limit == limit &&
-      other.isFavorite == isFavorite &&
-      other.personIds == personIds &&
-      other.tagIds == tagIds;
+      other.query == query;
 
   @override
-  int get hashCode => Object.hash(
-    serverId,
-    parentId,
-    includeItemTypes,
-    recursive,
-    searchTerm,
-    sortBy,
-    sortOrder,
-    startIndex,
-    limit,
-    isFavorite,
-    personIds,
-    tagIds,
-  );
+  int get hashCode => Object.hash(serverId, query);
 }
 
 class MediaBrowserItemDetailRequest {

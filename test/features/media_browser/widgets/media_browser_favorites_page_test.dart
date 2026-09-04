@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
+import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -49,27 +50,16 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
   final markFavoriteCalls = <(String, bool)>[];
 
   @override
-  Future<MediaBrowserItemPage> itemPage({
-    String? parentId,
-    String? includeItemTypes,
-    bool? recursive,
-    String? searchTerm,
-    String? sortBy,
-    String? sortOrder,
-    int? startIndex,
-    int? limit,
-    bool? isFavorite,
-    String? personIds,
-    String? tagIds,
-  }) async {
+  Future<MediaBrowserItemPage> itemPage(media_models.MediaQuery query) async {
+    final filters = query.filters;
     pageRequests.add({
-      'includeItemTypes': includeItemTypes,
-      'recursive': recursive,
-      'sortBy': sortBy,
-      'sortOrder': sortOrder,
-      'startIndex': startIndex,
-      'limit': limit,
-      'isFavorite': isFavorite,
+      'includeItemTypes': filters['includeItemTypes'],
+      'recursive': filters['recursive'],
+      'sortBy': query.sortBy,
+      'sortOrder': query.orderBy,
+      'startIndex': query.offset,
+      'limit': query.limit,
+      'isFavorite': filters['isFavorite'],
     });
     return page;
   }
@@ -160,7 +150,7 @@ void main() {
     expect(repo.pageRequests.single['isFavorite'], isTrue);
     expect(repo.pageRequests.single['recursive'], isTrue);
     expect(repo.pageRequests.single['sortBy'], 'DateCreated');
-    expect(repo.pageRequests.single['sortOrder'], 'Descending');
+    expect(repo.pageRequests.single['sortOrder'], 'desc');
     expect(
       repo.pageRequests.single['includeItemTypes'],
       'Movie,Series,Episode,MusicAlbum,Audio',
