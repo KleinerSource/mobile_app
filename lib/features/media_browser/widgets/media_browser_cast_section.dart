@@ -81,3 +81,19 @@ Future<void> openMediaBrowserTagWorks(
     ),
   );
 }
+
+/// 打开类型作品列表（Emby/Jellyfin GenreIds 过滤）。
+Future<void> openMediaBrowserGenreWorks(
+  BuildContext context, {
+  required String genreId,
+  required String genreName,
+}) {
+  final id = genreId.trim();
+  if (id.isEmpty) return Future<void>.value();
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) =>
+          MediaBrowserLibraryPage(genreId: id, genreName: genreName.trim()),
+    ),
+  );
+}

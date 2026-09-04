@@ -40,6 +40,8 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
     this.initialViewId,
     this.personId,
     this.personName,
+    this.genreId,
+    this.genreName,
     this.tagId,
     this.tagName,
   });
@@ -50,6 +52,10 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
   /// 演员作品模式：按 PersonIds 过滤（Emby/Jellyfin），标题显示演员名。
   final String? personId;
   final String? personName;
+
+  /// Emby/Jellyfin 类型作品模式：按 GenreIds 过滤，标题显示类型名。
+  final String? genreId;
+  final String? genreName;
 
   /// Stash 标签作品模式：按标签 ID 过滤，标题显示标签名。
   final String? tagId;
@@ -116,6 +122,8 @@ class _MediaBrowserLibraryPageState
 
   bool get _isPersonMode => widget.personId?.trim().isNotEmpty == true;
 
+  bool get _isGenreMode => widget.genreId?.trim().isNotEmpty == true;
+
   bool get _isTagMode => widget.tagId?.trim().isNotEmpty == true;
 
   bool get _isStash =>
@@ -171,6 +179,7 @@ class _MediaBrowserLibraryPageState
               'includeItemTypes': _requestIncludeItemTypes,
               'recursive': true,
               if (_isPersonMode) 'personIds': widget.personId,
+              if (_isGenreMode) 'genreIds': widget.genreId,
               if (_isTagMode) 'tagIds': widget.tagId,
             },
           ),
@@ -315,7 +324,7 @@ class _MediaBrowserLibraryPageState
   /// Views 异步到达后补齐选中库的类型（如从首页音乐库卡片直接进入），
   /// 类型过滤不匹配时切到该库的默认选项。
   void _syncCollectionType(List<MediaBrowserItem> views) {
-    if (_isPersonMode || _isTagMode) return;
+    if (_isPersonMode || _isGenreMode || _isTagMode) return;
     final next = _collectionTypeOf(_parentId);
     if (next == _collectionType) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -365,6 +374,7 @@ class _MediaBrowserLibraryPageState
                 'includeItemTypes': _isStash ? 'Movie' : includeItemTypes,
                 'recursive': true,
                 if (_isPersonMode) 'personIds': widget.personId,
+                if (_isGenreMode) 'genreIds': widget.genreId,
                 if (_isTagMode) 'tagIds': widget.tagId,
               },
             ),
@@ -547,7 +557,16 @@ class _MediaBrowserLibraryPageState
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    _isTagMode
+                                    _isGenreMode
+                                        ? (widget.genreName
+                                                      ?.trim()
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? widget.genreName!.trim()
+                                              : AppL10n.of(
+                                                  context,
+                                                ).mediaBrowserGenres)
+                                        : _isTagMode
                                         ? (widget.tagName?.trim().isNotEmpty ==
                                                   true
                                               ? widget.tagName!.trim()

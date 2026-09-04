@@ -179,6 +179,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
           isFavorite: filters['isFavorite'] is bool
               ? filters['isFavorite'] as bool
               : null,
+          genreIds: filters['genreIds']?.toString(),
         );
         return MediaPage(
           items: await Future.wait(page.items.map(_summaryFromItem)),
@@ -349,6 +350,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
           ? filters['isFavorite'] as bool
           : null,
       personIds: filters['personIds']?.toString(),
+      genreIds: filters['genreIds']?.toString(),
     );
   });
 

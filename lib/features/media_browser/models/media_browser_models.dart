@@ -470,6 +470,7 @@ class MediaBrowserItem {
     this.runTimeTicks,
     this.overview,
     this.genres = const <String>[],
+    this.genreIds = const <String>[],
     this.tags = const <String>[],
     this.tagIds = const <String>[],
     this.people = const <MediaBrowserPerson>[],
@@ -517,6 +518,7 @@ class MediaBrowserItem {
   final int? runTimeTicks;
   final String? overview;
   final List<String> genres;
+  final List<String> genreIds;
 
   /// Emby/Jellyfin 返回的标签名称；[tagIds] 保留服务端原始 ID。
   final List<String> tags;
@@ -598,6 +600,7 @@ class MediaBrowserItem {
     runTimeTicks: runTimeTicks,
     overview: overview,
     genres: genres,
+    genreIds: genreIds,
     tags: tags,
     tagIds: tagIds,
     people: people,
@@ -651,9 +654,17 @@ class MediaBrowserItem {
   String? get seriesTitle => seriesName;
 
   factory MediaBrowserItem.fromJson(Map<String, dynamic> json) {
-    final genres = json['Genres'];
     final people = json['People'];
-    final tags = json['Tags'];
+    final genreData = _mediaBrowserLabelData(
+      json['GenreItems'],
+      fallbackNames: json['Genres'],
+      fallbackIds: json['GenreIds'] ?? json['genreIds'] ?? json['genre_ids'],
+    );
+    final tagData = _mediaBrowserLabelData(
+      json['TagItems'],
+      fallbackNames: json['Tags'],
+      fallbackIds: json['TagIds'] ?? json['tagIds'] ?? json['tag_ids'],
+    );
     final backdrops = json['BackdropImageTags'];
     final sources = json['MediaSources'];
     final imageTags = json['ImageTags'];
@@ -674,13 +685,10 @@ class MediaBrowserItem {
       criticRating: _doubleValue(json['CriticRating']),
       runTimeTicks: _intValue(json['RunTimeTicks']),
       overview: _stringOrNull(json['Overview']),
-      genres: genres is List
-          ? genres.map((item) => item.toString()).toList(growable: false)
-          : const <String>[],
-      tags: tags is List
-          ? tags.map((item) => item.toString()).toList(growable: false)
-          : const <String>[],
-      tagIds: _stringList(json['TagIds'] ?? json['tagIds'] ?? json['tag_ids']),
+      genres: genreData.names,
+      genreIds: genreData.ids,
+      tags: tagData.names,
+      tagIds: tagData.ids,
       people: people is List
           ? people.map(MediaBrowserPerson.fromJson).toList(growable: false)
           : const <MediaBrowserPerson>[],
@@ -889,6 +897,65 @@ List<String> _stringList(Object? value) {
       .map((item) => item?.toString().trim() ?? '')
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
+}
+
+({List<String> names, List<String> ids}) _mediaBrowserLabelData(
+  Object? value, {
+  Object? fallbackNames,
+  Object? fallbackIds,
+}) {
+  final names = <String>[];
+  final itemIds = <String>[];
+  final seenNames = <String>{};
+
+  void addItem(Object? rawName, Object? rawId) {
+    final name = _stringOrNull(rawName);
+    if (name == null || !seenNames.add(name.toLowerCase())) return;
+    names.add(name);
+    itemIds.add(_stringOrNull(rawId) ?? '');
+  }
+
+  if (value is List) {
+    for (final item in value) {
+      if (item is! Map) continue;
+      addItem(item['Name'] ?? item['name'], item['Id'] ?? item['id']);
+    }
+  }
+
+  if (names.isEmpty) {
+    final fallbackNameList = fallbackNames is List
+        ? fallbackNames
+        : const <Object?>[];
+    final fallbackIdList = fallbackIds is List
+        ? fallbackIds
+        : const <Object?>[];
+    for (var i = 0; i < fallbackNameList.length; i++) {
+      addItem(
+        fallbackNameList[i],
+        i < fallbackIdList.length ? fallbackIdList[i] : null,
+      );
+    }
+  }
+
+  if (itemIds.any((id) => id.isEmpty)) {
+    final fallbackIdList = fallbackIds is List
+        ? fallbackIds
+        : const <Object?>[];
+    for (var i = 0; i < itemIds.length && i < fallbackIdList.length; i++) {
+      itemIds[i] = _stringOrNull(fallbackIdList[i]) ?? itemIds[i];
+    }
+  }
+
+  final ids = <String>[];
+  if (names.isEmpty) {
+    for (final id in _stringList(fallbackIds)) {
+      if (!ids.contains(id)) ids.add(id);
+    }
+  } else if (itemIds.length == names.length &&
+      itemIds.every((id) => id.isNotEmpty)) {
+    ids.addAll(itemIds);
+  }
+  return (names: names, ids: ids);
 }
 
 List<String> _pathsFromOptions(Object? value) {

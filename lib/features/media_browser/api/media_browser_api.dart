@@ -262,6 +262,7 @@ class MediaBrowserApi {
     List<String>? filters,
     List<String>? fields,
     String? personIds,
+    String? genreIds,
   }) {
     final requestedFields = <String>{
       'ItemCounts',
@@ -287,6 +288,7 @@ class MediaBrowserApi {
       if (filters != null && filters.isNotEmpty) 'Filters': filters.join(','),
       if (requestedFields.isNotEmpty) 'Fields': requestedFields.join(','),
       if (personIds?.trim().isNotEmpty == true) 'PersonIds': personIds!.trim(),
+      if (genreIds?.trim().isNotEmpty == true) 'GenreIds': genreIds!.trim(),
     });
   }
 

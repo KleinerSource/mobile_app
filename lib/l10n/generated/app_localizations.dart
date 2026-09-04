@@ -862,7 +862,7 @@ abstract class AppL10n {
   /// No description provided for @settingsGenres.
   ///
   /// In zh, this message translates to:
-  /// **'分类管理'**
+  /// **'类型管理'**
   String get settingsGenres;
 
   /// No description provided for @settingsTags.
@@ -898,7 +898,7 @@ abstract class AppL10n {
   /// No description provided for @settingsMappingGenres.
   ///
   /// In zh, this message translates to:
-  /// **'分类映射'**
+  /// **'类型映射'**
   String get settingsMappingGenres;
 
   /// No description provided for @settingsMappingSeries.
@@ -1822,7 +1822,7 @@ abstract class AppL10n {
   /// No description provided for @settingsServerSelectionShowUsernameSub.
   ///
   /// In zh, this message translates to:
-  /// **'使用 Emby/Jellyfin 登录用户名，否则显示服务器名称'**
+  /// **'使用 Emby/Jellyfin/FNOS 登录用户名，否则显示服务器名称'**
   String get settingsServerSelectionShowUsernameSub;
 
   /// No description provided for @settingsServerSelectionShowAvatar.
@@ -2326,7 +2326,7 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineCategorySection.
   ///
   /// In zh, this message translates to:
-  /// **'分类'**
+  /// **'类型'**
   String get dbOnlineCategorySection;
 
   /// No description provided for @dbOnlineCategoryUncensored.
@@ -2434,19 +2434,19 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineFieldCategoryId.
   ///
   /// In zh, this message translates to:
-  /// **'分类 ID'**
+  /// **'类型 ID'**
   String get dbOnlineFieldCategoryId;
 
   /// No description provided for @dbOnlineFieldCategoryIdHint.
   ///
   /// In zh, this message translates to:
-  /// **'填写数据源对应的分类 ID'**
+  /// **'填写数据源对应的类型 ID'**
   String get dbOnlineFieldCategoryIdHint;
 
   /// No description provided for @dbOnlineFieldCategoryOptional.
   ///
   /// In zh, this message translates to:
-  /// **'分类（可选）'**
+  /// **'类型（可选）'**
   String get dbOnlineFieldCategoryOptional;
 
   /// No description provided for @dbOnlineFieldCheckIntervalHint.
@@ -9675,7 +9675,7 @@ abstract class AppL10n {
   /// No description provided for @advancedFilterSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'按标签、分类、系列、年份、评分和文件属性组合筛选'**
+  /// **'按标签、类型、系列、年份、评分和文件属性组合筛选'**
   String get advancedFilterSubtitle;
 
   /// No description provided for @advancedFilterYearAndRating.
@@ -9801,7 +9801,7 @@ abstract class AppL10n {
   /// No description provided for @resourceGenresManage.
   ///
   /// In zh, this message translates to:
-  /// **'分类管理'**
+  /// **'类型管理'**
   String get resourceGenresManage;
 
   /// No description provided for @resourceTagsManage.
@@ -9819,7 +9819,7 @@ abstract class AppL10n {
   /// No description provided for @resourceGenresSearchHint.
   ///
   /// In zh, this message translates to:
-  /// **'搜索分类名称'**
+  /// **'搜索类型名称'**
   String get resourceGenresSearchHint;
 
   /// No description provided for @resourceTagsSearchHint.
@@ -10095,7 +10095,7 @@ abstract class AppL10n {
   /// No description provided for @batchEditSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'集中调整标签、分类、系列和快速标记'**
+  /// **'集中调整标签、类型、系列和快速标记'**
   String get batchEditSubtitle;
 
   /// No description provided for @batchEditQuickFlags.
@@ -11451,7 +11451,7 @@ abstract class AppL10n {
   /// No description provided for @dboSectionGenres.
   ///
   /// In zh, this message translates to:
-  /// **'分类'**
+  /// **'类型'**
   String get dboSectionGenres;
 
   /// No description provided for @dboSectionActors.
@@ -11565,7 +11565,7 @@ abstract class AppL10n {
   /// No description provided for @movieEditorGenre.
   ///
   /// In zh, this message translates to:
-  /// **'分类'**
+  /// **'类型'**
   String get movieEditorGenre;
 
   /// No description provided for @movieEditorTag.

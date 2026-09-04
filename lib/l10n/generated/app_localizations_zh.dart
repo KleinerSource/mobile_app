@@ -1248,13 +1248,13 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineFieldCaptions => '字幕';
 
   @override
-  String get dbOnlineFieldCategoryId => '分类 ID';
+  String get dbOnlineFieldCategoryId => '类型 ID';
 
   @override
-  String get dbOnlineFieldCategoryIdHint => '填写数据源对应的分类 ID';
+  String get dbOnlineFieldCategoryIdHint => '填写数据源对应的类型 ID';
 
   @override
-  String get dbOnlineFieldCategoryOptional => '分类（可选）';
+  String get dbOnlineFieldCategoryOptional => '类型（可选）';
 
   @override
   String get dbOnlineFieldCheckIntervalHint => '设置自动检查配置的时间间隔';
@@ -5228,7 +5228,7 @@ class AppL10nZh extends AppL10n {
   String get advancedFilterTitle => '高级筛选';
 
   @override
-  String get advancedFilterSubtitle => '按标签、分类、系列、年份、评分和文件属性组合筛选';
+  String get advancedFilterSubtitle => '按标签、类型、系列、年份、评分和文件属性组合筛选';
 
   @override
   String get advancedFilterYearAndRating => '年份与评分';
@@ -5496,7 +5496,7 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
-  String get batchEditSubtitle => '集中调整标签、分类、系列和快速标记';
+  String get batchEditSubtitle => '集中调整标签、类型、系列和快速标记';
 
   @override
   String get batchEditQuickFlags => '快速标记';

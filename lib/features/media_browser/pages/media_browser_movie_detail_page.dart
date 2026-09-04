@@ -407,6 +407,12 @@ class _MediaBrowserDetailBodyState
             child: MediaTaxonomySection(
               title: AppL10n.of(context).mediaBrowserGenres,
               items: item.genres,
+              ids: item.genreIds,
+              onTapWithId: (genreId, genreName) => openMediaBrowserGenreWorks(
+                context,
+                genreId: genreId,
+                genreName: genreName,
+              ),
             ),
           ),
         if (!isStash && item.tags.isNotEmpty)

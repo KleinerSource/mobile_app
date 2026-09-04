@@ -169,6 +169,7 @@ void main() {
           sortOrder: 'Descending',
           startIndex: 24,
           limit: 24,
+          genreIds: '463',
         );
         final latest = await api.latestMedia('user-1', parentId: 'lib-1');
         final resume = await api.resumeItems('user-1', limit: 6);
@@ -196,7 +197,8 @@ void main() {
           'GET $base/Users/user-1/Items'
               '?ParentId=lib-1&IncludeItemTypes=Movie%2CSeries&Recursive=true'
               '&SortBy=DateCreated&SortOrder=Descending&StartIndex=24&Limit=24'
-              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags',
+              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags'
+              '&GenreIds=463',
           'GET $base/Users/user-1/Items/Latest'
               '?ParentId=lib-1&Limit=16&Fields=ItemCounts%2CProductionYear%2C'
               'PremiereDate%2CEndDate%2CStatus%2CTags&EnableImages=true',

@@ -227,6 +227,13 @@ class _MediaBrowserSeriesDetailPageState
                   child: MediaTaxonomySection(
                     title: AppL10n.of(context).mediaBrowserGenres,
                     items: series.genres,
+                    ids: series.genreIds,
+                    onTapWithId: (genreId, genreName) =>
+                        openMediaBrowserGenreWorks(
+                          context,
+                          genreId: genreId,
+                          genreName: genreName,
+                        ),
                   ),
                 ),
               if (series.tags.isNotEmpty)

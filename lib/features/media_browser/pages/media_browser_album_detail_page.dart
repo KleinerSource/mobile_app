@@ -10,6 +10,7 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_playback.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -243,6 +244,13 @@ class _MediaBrowserAlbumDetailPageState
                   child: MediaTaxonomySection(
                     title: AppL10n.of(context).mediaBrowserGenres,
                     items: album.genres,
+                    ids: album.genreIds,
+                    onTapWithId: (genreId, genreName) =>
+                        openMediaBrowserGenreWorks(
+                          context,
+                          genreId: genreId,
+                          genreName: genreName,
+                        ),
                   ),
                 ),
               if (album.tags.isNotEmpty)

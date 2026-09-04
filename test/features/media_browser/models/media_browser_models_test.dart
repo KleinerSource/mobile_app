@@ -100,6 +100,47 @@ void main() {
     expect(item.indexNumber, 3);
   });
 
+  test('MediaBrowserItem.fromJson 从 TagItems 解析标签名称和 ID', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-with-tags',
+      'Name': '带标签的电影',
+      'Type': 'Movie',
+      'TagItems': [
+        {'Name': 'HD', 'Id': 29421},
+        {'Name': '中文字幕', 'Id': 753},
+        {'Name': '无码破解', 'Id': 1062},
+        {'Name': 'HD', 'Id': 29421},
+      ],
+      // TagItems 是 Emby 详情的首选字段，旧字段只作为兼容回退。
+      'Tags': ['旧标签'],
+      'TagIds': ['legacy-tag'],
+    });
+
+    expect(item.tags, ['HD', '中文字幕', '无码破解']);
+    expect(item.tagIds, ['29421', '753', '1062']);
+  });
+
+  test('MediaBrowserItem.fromJson 从 GenreItems 解析类型名称和 ID', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-with-genres',
+      'Name': '带类型的电影',
+      'Type': 'Movie',
+      'GenreItems': [
+        {'Name': '职业装', 'Id': 463},
+        {'Name': '中文字幕', 'Id': 752},
+        {'Name': 'HD', 'Id': 29420},
+        {'Name': 'HD', 'Id': 99999},
+        {'Name': '  ', 'Id': 10000},
+      ],
+      // GenreItems 是 Emby/Jellyfin 详情的首选字段，旧字段只作为兼容回退。
+      'Genres': ['旧类型'],
+      'GenreIds': ['legacy-genre'],
+    });
+
+    expect(item.genres, ['职业装', '中文字幕', 'HD']);
+    expect(item.genreIds, ['463', '752', '29420']);
+  });
+
   test('MediaBrowserItem.fromJson 按服务端顺序保留多个片源', () {
     final item = MediaBrowserItem.fromJson(const {
       'Id': 'movie-multi',

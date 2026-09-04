@@ -43,11 +43,12 @@ class _UnusedMediaBrowserSource implements MediaBrowserMediaSource {
 class _RecordingMediaBrowserRepository extends MediaBrowserMediaRepository {
   _RecordingMediaBrowserRepository() : super(_UnusedMediaBrowserSource());
 
-  final pageCalls = <({String? personIds, String? tagIds})>[];
+  final pageCalls = <({String? genreIds, String? personIds, String? tagIds})>[];
 
   @override
   Future<MediaBrowserItemPage> itemPage(media_models.MediaQuery query) async {
     pageCalls.add((
+      genreIds: query.filters['genreIds']?.toString(),
       personIds: query.filters['personIds']?.toString(),
       tagIds: query.filters['tagIds']?.toString(),
     ));
@@ -357,9 +358,82 @@ void main() {
     expect(repository.pageCalls.last.tagIds, isNull);
   });
 
-  testWidgets('电影详情页显示 Similar 推荐区块', (tester) async {
+  testWidgets('Emby 详情页点击 GenreItems 类型进入对应筛选列表', (tester) async {
+    final repository = _RecordingMediaBrowserRepository();
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'emby-movie-1',
+      'Name': '类型场景',
+      'Type': 'Movie',
+      'GenreItems': [
+        {'Name': '职业装', 'Id': 463},
+      ],
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          serverConfigProvider.overrideWith(
+            () => _ServerConfigState(
+              const ServerConfig(
+                baseUrl: 'http://emby.test',
+                activeServerId: 'emby-server',
+              ),
+            ),
+          ),
+          mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+          mediaBrowserServerUrlsProvider.overrideWith(
+            (ref) async => MediaBrowserServerUrls(
+              config: MediaBrowserConfig.emby,
+              baseUrl: 'http://emby.test',
+              token: 'emby-token',
+            ),
+          ),
+          mediaBrowserMediaRepositoryProvider.overrideWithValue(repository),
+          mediaBrowserItemDetailProvider.overrideWith(
+            (ref, request) async => movie,
+          ),
+          mediaBrowserSimilarProvider.overrideWith(
+            (ref, request) async => const <MediaBrowserItem>[],
+          ),
+          privacyShieldProvider.overrideWith(_PrivacyState.new),
+          badgePositionsProvider.overrideWith(_BadgePositionsState.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: MediaBrowserMovieDetailPage(itemId: 'emby-movie-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('职业装'));
+    await tester.tap(find.text('职业装'));
+    await tester.pumpAndSettle();
+
+    final page = tester.widget<MediaBrowserLibraryPage>(
+      find.byType(MediaBrowserLibraryPage),
+    );
+    expect(page.genreId, '463');
+    expect(page.genreName, '职业装');
+    expect(repository.pageCalls.last.genreIds, '463');
+    expect(repository.pageCalls.last.personIds, isNull);
+    expect(repository.pageCalls.last.tagIds, isNull);
+  });
+
+  testWidgets('Emby 详情页显示 TagItems 标签和 Similar 推荐区块', (tester) async {
     const serverId = 'server-1';
-    final movie = _item('movie-1', '电影详情');
+    final movie = MediaBrowserItem.fromJson(const {
+      'Id': 'movie-1',
+      'Name': '电影详情',
+      'Type': 'Movie',
+      'TagItems': [
+        {'Name': 'HD', 'Id': 29421},
+        {'Name': '中文字幕', 'Id': 753},
+        {'Name': '无码破解', 'Id': 1062},
+      ],
+    });
     final similar = _item('movie-2', '相似电影');
 
     await tester.pumpWidget(
@@ -400,6 +474,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('标签'), findsOneWidget);
+    expect(find.text('HD'), findsOneWidget);
+    expect(find.text('中文字幕'), findsOneWidget);
+    expect(find.text('无码破解'), findsOneWidget);
     final scrollable = find.byType(Scrollable).first;
     await tester.drag(scrollable, const Offset(0, -1000));
     await tester.pumpAndSettle();

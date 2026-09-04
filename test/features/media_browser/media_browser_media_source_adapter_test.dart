@@ -291,8 +291,9 @@ void main() {
                 'Code': 'SHOULD-NOT-BE-PUBLIC',
                 'ProductionYear': 2024,
                 'RunTimeTicks': 6000000000,
-                'Tags': ['标签一', '标签二'],
-                'TagIds': ['tag-1', 'tag-2'],
+                'GenreItems': [
+                  {'Name': '科幻', 'Id': 463},
+                ],
                 'ImageTags': {'Primary': 'img-tag-1'},
               },
             ],
@@ -309,7 +310,11 @@ void main() {
             limit: 24,
             offset: 0,
             orderBy: 'desc',
-            filters: {'parentId': 'lib-1', 'recursive': true},
+            filters: {
+              'parentId': 'lib-1',
+              'recursive': true,
+              'genreIds': '463',
+            },
           ),
         );
 
@@ -328,6 +333,7 @@ void main() {
         expect(httpAdapter.requests.single, contains('Recursive=true'));
         expect(httpAdapter.requests.single, contains('SortBy=DateCreated'));
         expect(httpAdapter.requests.single, contains('SortOrder=Descending'));
+        expect(httpAdapter.requests.single, contains('GenreIds=463'));
       });
 
       test('getMovie 返回 MediaDetails 并保留 MediaBrowserItem payload', () async {
@@ -340,7 +346,9 @@ void main() {
               'Code': 'SHOULD-NOT-BE-PUBLIC',
               'OriginalTitle': 'Original Movie',
               'Overview': '简介',
-              'Genres': ['科幻'],
+              'GenreItems': [
+                {'Name': '科幻', 'Id': 463},
+              ],
               'Tags': ['标签一', '标签二'],
               'TagIds': ['tag-1', 'tag-2'],
               'People': [
@@ -359,6 +367,7 @@ void main() {
         expect(details.originalTitle, 'Original Movie');
         expect(details.overview, '简介');
         expect(details.genres, ['科幻']);
+        expect((details.payload as MediaBrowserItem).genreIds, ['463']);
         expect(details.tags, ['标签一', '标签二']);
         expect(details.actors, ['演员一']);
         expect(details.payload, isA<MediaBrowserItem>());
