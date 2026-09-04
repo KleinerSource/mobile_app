@@ -156,6 +156,21 @@ class MovieDetailPlot extends StatelessWidget {
 
   final String plot;
 
+  bool _hasOverflow(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    double maxWidth,
+  ) {
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 3,
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    )..layout(maxWidth: maxWidth);
+    return textPainter.didExceedMaxLines;
+  }
+
   Future<void> _showFullPlot(BuildContext context) {
     final normalizedPlot = normalizeMoviePlot(plot);
     final l = AppL10n.of(context);
@@ -192,27 +207,42 @@ class MovieDetailPlot extends StatelessWidget {
     final normalizedPlot = normalizeMoviePlot(plot);
     final l = AppL10n.of(context);
 
-    return Semantics(
-      button: true,
-      label: l.detailPlotViewFull,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          splashColor: colors.accent.withValues(alpha: 0.08),
-          highlightColor: colors.surfaceAlt.withValues(alpha: 0.28),
-          onTap: () => unawaited(_showFullPlot(context)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Text(
-              normalizedPlot,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.body(context).copyWith(height: 1.55),
+    final style = AppText.body(context).copyWith(height: 1.55);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final text = Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Text(
+            normalizedPlot,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        );
+        if (!_hasOverflow(
+          context,
+          normalizedPlot,
+          style,
+          constraints.maxWidth,
+        )) {
+          return text;
+        }
+
+        return Semantics(
+          button: true,
+          label: l.detailPlotViewFull,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              splashColor: colors.accent.withValues(alpha: 0.08),
+              highlightColor: colors.surfaceAlt.withValues(alpha: 0.28),
+              onTap: () => unawaited(_showFullPlot(context)),
+              child: text,
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
