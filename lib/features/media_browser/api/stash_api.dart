@@ -88,14 +88,10 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
         },
         if (sceneFilter.isNotEmpty)
           'scene_filter': {
-            'OR': [
-              {
-                'title': {'value': sceneFilter, 'modifier': 'INCLUDES'},
-              },
-              {
-                'details': {'value': sceneFilter, 'modifier': 'INCLUDES'},
-              },
-            ],
+            'title': {'value': sceneFilter, 'modifier': 'INCLUDES'},
+            'OR': {
+              'details': {'value': sceneFilter, 'modifier': 'INCLUDES'},
+            },
           },
       },
       apiKeyOverride: apiKeyOverride,

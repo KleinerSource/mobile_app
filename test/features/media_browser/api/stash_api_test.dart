@@ -114,17 +114,12 @@ void main() {
       'sort': 'created_at',
       'direction': 'DESC',
     });
-    expect(
-      Map<String, dynamic>.from(variables['scene_filter'] as Map)['OR'],
-      containsAll([
-        {
-          'title': {'value': 'keyword', 'modifier': 'INCLUDES'},
-        },
-        {
-          'details': {'value': 'keyword', 'modifier': 'INCLUDES'},
-        },
-      ]),
-    );
+    expect(variables['scene_filter'], {
+      'title': {'value': 'keyword', 'modifier': 'INCLUDES'},
+      'OR': {
+        'details': {'value': 'keyword', 'modifier': 'INCLUDES'},
+      },
+    });
   });
 
   test('Scene mutation 使用正确的返回字段', () async {
