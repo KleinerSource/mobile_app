@@ -262,17 +262,22 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     required Color progressColor,
   }) {
     return PagedChildBuilderDelegate<DbOnlineMovie>(
-      itemBuilder: (context, movie, index) => DbOnlineMovieCard(
-        key: ValueKey(_movieKey(movie)),
-        movie: movie,
-        config: config,
-        width: _viewMode == MediaViewMode.landscape
-            ? landscapeWidth
-            : itemWidth,
-        landscape: _viewMode == MediaViewMode.landscape,
-        compact: _viewMode == MediaViewMode.list,
-        onTap: () => openDbOnlineMovieUnawaited(context, movie),
-      ),
+      itemBuilder: (context, movie, index) {
+        final card = DbOnlineMovieCard(
+          key: ValueKey(_movieKey(movie)),
+          movie: movie,
+          config: config,
+          width: _viewMode == MediaViewMode.landscape
+              ? landscapeWidth
+              : itemWidth,
+          landscape: _viewMode == MediaViewMode.landscape,
+          compact: _viewMode == MediaViewMode.list,
+          onTap: () => openDbOnlineMovieUnawaited(context, movie),
+        );
+        return _viewMode == MediaViewMode.landscape
+            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
+            : card;
+      },
       firstPageProgressIndicatorBuilder: (_) => Padding(
         padding: const EdgeInsets.only(top: 56),
         child: Center(child: CircularProgressIndicator(color: progressColor)),

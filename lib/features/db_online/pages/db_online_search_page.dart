@@ -327,15 +327,20 @@ class _DbOnlineSearchResultsState
     final isPortrait = _viewMode == MediaViewMode.portrait;
 
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
-      itemBuilder: (context, movie, _) => DbOnlineMovieCard(
-        key: ValueKey(_movieKey(movie)),
-        movie: movie,
-        config: config,
-        width: isPortrait ? itemWidth : width - 44,
-        landscape: _viewMode == MediaViewMode.landscape,
-        compact: _viewMode == MediaViewMode.list,
-        onTap: () => openDbOnlineMovieUnawaited(context, movie),
-      ),
+      itemBuilder: (context, movie, _) {
+        final card = DbOnlineMovieCard(
+          key: ValueKey(_movieKey(movie)),
+          movie: movie,
+          config: config,
+          width: isPortrait ? itemWidth : width - 44,
+          landscape: _viewMode == MediaViewMode.landscape,
+          compact: _viewMode == MediaViewMode.list,
+          onTap: () => openDbOnlineMovieUnawaited(context, movie),
+        );
+        return _viewMode == MediaViewMode.landscape
+            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
+            : card;
+      },
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CircularProgressIndicator()),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(

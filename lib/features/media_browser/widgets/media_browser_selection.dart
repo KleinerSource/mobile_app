@@ -76,36 +76,42 @@ Widget mediaBrowserSelectableLandscapeItem({
   required Future<void> Function(MediaBrowserItem item) onOpen,
 }) {
   if (!selectionEnabled) {
-    return MediaBrowserSelectableItemCard(
-      item: item,
-      urls: urls,
-      width: width,
-      landscape: true,
-      showFavoriteBadge: showFavoriteBadge,
-      selected: false,
-      selecting: false,
-      onTap: () => unawaited(onOpen(item)),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: MediaBrowserSelectableItemCard(
+        item: item,
+        urls: urls,
+        width: width,
+        landscape: true,
+        showFavoriteBadge: showFavoriteBadge,
+        selected: false,
+        selecting: false,
+        onTap: () => unawaited(onOpen(item)),
+      ),
     );
   }
-  return PagedSelectionItem<MediaBrowserItem>(
-    selection: selection,
-    item: item,
-    selectionIndex: index,
-    cardBuilder: (context, item, selected) => MediaBrowserSelectableItemCard(
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: PagedSelectionItem<MediaBrowserItem>(
+      selection: selection,
       item: item,
-      urls: urls,
-      width: width,
-      landscape: true,
-      showFavoriteBadge: showFavoriteBadge,
-      selected: selected,
-      selecting: selection.isActive,
-      onTap: () {
-        if (selection.isActive) {
-          selection.toggle(selection.idOf(item));
-        } else {
-          unawaited(onOpen(item));
-        }
-      },
+      selectionIndex: index,
+      cardBuilder: (context, item, selected) => MediaBrowserSelectableItemCard(
+        item: item,
+        urls: urls,
+        width: width,
+        landscape: true,
+        showFavoriteBadge: showFavoriteBadge,
+        selected: selected,
+        selecting: selection.isActive,
+        onTap: () {
+          if (selection.isActive) {
+            selection.toggle(selection.idOf(item));
+          } else {
+            unawaited(onOpen(item));
+          }
+        },
+      ),
     ),
   );
 }

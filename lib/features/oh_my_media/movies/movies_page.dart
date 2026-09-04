@@ -560,25 +560,30 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
-        key: ValueKey(item.id),
-        id: item.id,
-        selectionIndex: landscape ? null : idx,
-        selectionHandleAlignment: landscape
-            ? Alignment.centerLeft
-            : Alignment.topLeft,
-        child: ValueListenableBuilder<Set<int>>(
-          valueListenable: _selection.selectedListenable,
-          builder: (context, selected, _) => SelectableMovieCard(
-            movie: item,
-            posterUrlBuilder: urlBuilder,
-            landscape: landscape,
-            selecting: _selectionMode,
-            selected: selected.contains(item.id),
-            onTap: () => _handleMovieTap(item),
+      itemBuilder: (ctx, item, idx) {
+        final card = DragSelectionTarget<int>(
+          key: ValueKey(item.id),
+          id: item.id,
+          selectionIndex: landscape ? null : idx,
+          selectionHandleAlignment: landscape
+              ? Alignment.centerLeft
+              : Alignment.topLeft,
+          child: ValueListenableBuilder<Set<int>>(
+            valueListenable: _selection.selectedListenable,
+            builder: (context, selected, _) => SelectableMovieCard(
+              movie: item,
+              posterUrlBuilder: urlBuilder,
+              landscape: landscape,
+              selecting: _selectionMode,
+              selected: selected.contains(item.id),
+              onTap: () => _handleMovieTap(item),
+            ),
           ),
-        ),
-      ),
+        );
+        return landscape
+            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
+            : card;
+      },
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
         onRetry: () => _controller.refresh(),

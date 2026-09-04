@@ -751,31 +751,36 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     bool landscape = false,
   }) {
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
-        key: ValueKey(m.id),
-        id: m.id,
-        selectionIndex: landscape ? null : idx,
-        selectionHandleAlignment: landscape
-            ? Alignment.centerLeft
-            : Alignment.topLeft,
-        child: ValueListenableBuilder<Set<int>>(
-          valueListenable: _selection.selectedListenable,
-          builder: (context, selected, _) => SelectableMovieCard(
-            movie: m,
-            posterUrlBuilder: urlBuilder,
-            landscape: landscape,
-            selected: selected.contains(m.id),
-            selecting: _selecting,
-            onTap: () {
-              if (_selecting) {
-                _toggleSelect(m.id);
-              } else {
-                unawaited(_openMovie(m));
-              }
-            },
+      itemBuilder: (ctx, m, idx) {
+        final card = DragSelectionTarget<int>(
+          key: ValueKey(m.id),
+          id: m.id,
+          selectionIndex: landscape ? null : idx,
+          selectionHandleAlignment: landscape
+              ? Alignment.centerLeft
+              : Alignment.topLeft,
+          child: ValueListenableBuilder<Set<int>>(
+            valueListenable: _selection.selectedListenable,
+            builder: (context, selected, _) => SelectableMovieCard(
+              movie: m,
+              posterUrlBuilder: urlBuilder,
+              landscape: landscape,
+              selected: selected.contains(m.id),
+              selecting: _selecting,
+              onTap: () {
+                if (_selecting) {
+                  _toggleSelect(m.id);
+                } else {
+                  unawaited(_openMovie(m));
+                }
+              },
+            ),
           ),
-        ),
-      ),
+        );
+        return landscape
+            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
+            : card;
+      },
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
