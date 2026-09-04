@@ -1225,11 +1225,6 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineDetailsSection => '详情';
 
   @override
-  String dbOnlineDurationMinutes(int minutes) {
-    return '$minutes 分钟';
-  }
-
-  @override
   String dbOnlineEpisodeNumber(int number) {
     return '第 $number 集';
   }
@@ -4182,7 +4177,7 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
-  String mediaBrowserMinuteShort(int minutes) {
+  String mediaDurationMinutes(int minutes) {
     return '$minutes 分钟';
   }
 
@@ -5963,11 +5958,6 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get moviesUnfavorite => '取消收藏';
-
-  @override
-  String moviesRuntimeMinutes(int minutes) {
-    return '${minutes}m';
-  }
 
   @override
   String moviesBatchDownloadTitle(int count) {

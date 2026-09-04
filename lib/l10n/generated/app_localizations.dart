@@ -2389,12 +2389,6 @@ abstract class AppL10n {
   /// **'详情'**
   String get dbOnlineDetailsSection;
 
-  /// No description provided for @dbOnlineDurationMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'{minutes} 分钟'**
-  String dbOnlineDurationMinutes(int minutes);
-
   /// No description provided for @dbOnlineEpisodeNumber.
   ///
   /// In zh, this message translates to:
@@ -7776,11 +7770,11 @@ abstract class AppL10n {
   /// **'{count} 首'**
   String mediaBrowserTrackCount(int count);
 
-  /// No description provided for @mediaBrowserMinuteShort.
+  /// No description provided for @mediaDurationMinutes.
   ///
   /// In zh, this message translates to:
   /// **'{minutes} 分钟'**
-  String mediaBrowserMinuteShort(int minutes);
+  String mediaDurationMinutes(int minutes);
 
   /// No description provided for @mediaBrowserEmptyDefault.
   ///
@@ -10937,12 +10931,6 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'取消收藏'**
   String get moviesUnfavorite;
-
-  /// No description provided for @moviesRuntimeMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'{minutes}m'**
-  String moviesRuntimeMinutes(int minutes);
 
   /// No description provided for @moviesBatchDownloadTitle.
   ///

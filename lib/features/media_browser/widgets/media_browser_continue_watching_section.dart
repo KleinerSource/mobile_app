@@ -6,6 +6,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 /// Emby/Jellyfin 继续观看区块：把 Resume 条目映射到共享的 OMM 风格
 /// 宽幅卡片。
@@ -17,13 +18,14 @@ class MediaBrowserContinueWatchingSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
+    final l = AppL10n.of(context);
     return ContinueWatchingSection(
       entries: [
         for (final item in items)
           ContinueWatchingEntry(
             privacyId: item.id,
             title: item.name,
-            meta: _metaText(item),
+            meta: _metaText(l, item),
             coverUrl: urls?.heroImage(item),
             imageHeaders: urls?.imageHeaders,
             progress: _progressOf(item),
@@ -48,7 +50,7 @@ int? _minutesLeft(MediaBrowserItem item) {
   return (runtimeMinutes * (1 - _progressOf(item))).round();
 }
 
-String _metaText(MediaBrowserItem item) {
+String _metaText(AppL10n l, MediaBrowserItem item) {
   final parts = <String>[];
   final series = item.seriesName?.trim();
   if (series?.isNotEmpty == true) parts.add(series!);
@@ -63,6 +65,6 @@ String _metaText(MediaBrowserItem item) {
     parts.add('${item.productionYear}');
   }
   final minutes = item.runtimeMinutes;
-  if (minutes > 0) parts.add('${minutes}m');
+  if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
   return parts.join(' · ');
 }

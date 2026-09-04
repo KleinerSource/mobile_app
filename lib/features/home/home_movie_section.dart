@@ -6,6 +6,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actor_detail_header.dart';
+import '../../shared/movie_card.dart';
 import 'hero_backdrop.dart';
 import 'server_switcher.dart';
 
@@ -144,8 +145,8 @@ class HomeMovieSection<D, I> extends StatelessWidget {
     required this.itemBuilder,
     required this.onRetry,
     this.trailing,
-    this.itemWidth = 132,
-    this.rowHeight = 268,
+    this.itemWidth = MediaCardTemplate.homeCardWidth,
+    this.rowHeight = MediaCardTemplate.homeRowHeight,
     this.emptyText,
     this.itemKeyBuilder,
   });
@@ -254,8 +255,8 @@ class HomeMovieRow<I> extends StatelessWidget {
     super.key,
     required this.items,
     required this.itemBuilder,
-    this.itemWidth = 132,
-    this.height = 268,
+    this.itemWidth = MediaCardTemplate.homeCardWidth,
+    this.height = MediaCardTemplate.homeRowHeight,
     this.itemKeyBuilder,
   });
 

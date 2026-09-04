@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -19,6 +21,8 @@ class MediaBrowserSimilarSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
     if (urls == null || items.isEmpty) return const SizedBox.shrink();
+    final isStash =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     return MovieDetailFullBleedSection(
       header: Text(
         AppL10n.of(context).mediaBrowserSimilar,
@@ -33,12 +37,19 @@ class MediaBrowserSimilarSection extends ConsumerWidget {
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (context, index) {
             final item = items[index];
-            return MediaBrowserItemCard(
-              item: item,
-              urls: urls,
-              width: 112,
-              onTap: () => openMediaBrowserItem(context, ref, item),
-            );
+            return isStash
+                ? StashScenePortraitCard(
+                    item: item,
+                    urls: urls,
+                    width: 112,
+                    onTap: () => openMediaBrowserItem(context, ref, item),
+                  )
+                : MediaBrowserItemCard(
+                    item: item,
+                    urls: urls,
+                    width: 112,
+                    onTap: () => openMediaBrowserItem(context, ref, item),
+                  );
           },
         ),
       ),

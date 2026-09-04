@@ -314,7 +314,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
             showNoMoreItemsIndicatorAsGridChild: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              childAspectRatio: 0.5,
+              childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
               crossAxisSpacing: 10,
               mainAxisSpacing: 14,
             ),

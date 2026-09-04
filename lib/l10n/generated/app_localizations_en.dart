@@ -1253,11 +1253,6 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineDetailsSection => 'Details';
 
   @override
-  String dbOnlineDurationMinutes(int minutes) {
-    return '$minutes min';
-  }
-
-  @override
   String dbOnlineEpisodeNumber(int number) {
     return 'Episode $number';
   }
@@ -4251,8 +4246,8 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String mediaBrowserMinuteShort(int minutes) {
-    return '$minutes min';
+  String mediaDurationMinutes(int minutes) {
+    return '$minutes minutes';
   }
 
   @override
@@ -6063,11 +6058,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get moviesUnfavorite => 'Unfavorite';
-
-  @override
-  String moviesRuntimeMinutes(int minutes) {
-    return '${minutes}m';
-  }
 
   @override
   String moviesBatchDownloadTitle(int count) {

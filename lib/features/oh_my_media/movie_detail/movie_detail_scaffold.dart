@@ -321,6 +321,7 @@ class MovieDetailTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
     const baseStyle = TextStyle(
       fontFamily: 'Inter',
       fontWeight: FontWeight.w600,
@@ -348,7 +349,7 @@ class MovieDetailTitle extends StatelessWidget {
     if (runtime != null && runtime! > 0) {
       add(
         TextSpan(
-          text: '$runtime MIN',
+          text: l.mediaDurationMinutes(runtime!),
           style: baseStyle.copyWith(color: colors.accent),
         ),
       );

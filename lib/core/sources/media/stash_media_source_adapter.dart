@@ -366,11 +366,20 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
   MediaBrowserItem _itemFromScene(StashScene scene) {
     _sceneCache[scene.id] = scene;
     final file = _primaryFile(scene);
+    final title = scene.title.trim();
+    final fallbackCode = scene.code?.trim();
+    final code = title.isNotEmpty ? title : fallbackCode;
+    final details = scene.details?.trim() ?? '';
+    final name = details.isNotEmpty
+        ? details
+        : code?.isNotEmpty == true
+        ? code!
+        : scene.id;
     return MediaBrowserItem(
       id: scene.id,
-      name: scene.title.isEmpty ? (scene.code ?? scene.id) : scene.title,
+      name: name,
       type: 'Movie',
-      code: scene.code,
+      code: code,
       productionYear: _year(scene.date),
       communityRating: scene.rating100 == null ? null : scene.rating100! / 10,
       runTimeTicks: _ticks(sceneDuration(scene)),
@@ -397,7 +406,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
       mediaSources: [
         MediaBrowserMediaSourceDto(
           id: file?.id ?? scene.id,
-          name: file?.basename ?? scene.title,
+          name: file?.basename ?? name,
           path: file?.path,
           container: file?.format,
           protocol: 'http',

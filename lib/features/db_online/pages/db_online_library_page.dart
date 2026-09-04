@@ -12,6 +12,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
@@ -307,7 +308,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: crossAxisCount,
-                                childAspectRatio: 0.5,
+                                childAspectRatio:
+                                    MediaCardTemplate.gridChildAspectRatio,
                                 mainAxisSpacing: 14,
                                 crossAxisSpacing: spacing,
                               ),

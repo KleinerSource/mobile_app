@@ -14,6 +14,7 @@ import 'package:omm/features/media_browser/widgets/media_browser_action_button.d
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
@@ -296,18 +297,23 @@ class _MediaBrowserDetailBodyState
         imageUrl: posterUrl,
         title: item.name,
         year: item.productionYear,
+        imageAlignment: isStash
+            ? Alignment.center
+            : const Alignment(0, -0.6),
         imageHeaders: urls.value?.imageHeaders,
       ),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 16),
-            child: MovieDetailTitle(
-              title: item.name,
-              year: item.productionYear,
-              runtime: runtimeMinutes > 0 ? runtimeMinutes : null,
-              rating: item.communityRating,
-            ),
+            child: isStash
+                ? StashSceneInfo(item: item, padding: EdgeInsets.zero)
+                : MovieDetailTitle(
+                    title: item.name,
+                    year: item.productionYear,
+                    runtime: runtimeMinutes > 0 ? runtimeMinutes : null,
+                    rating: item.communityRating,
+                  ),
           ),
         ),
         SliverToBoxAdapter(
@@ -373,21 +379,22 @@ class _MediaBrowserDetailBodyState
               onChanged: _selectMediaSource,
             ),
           ),
-        if (item.overview?.trim().isNotEmpty == true)
+        if (item.overview?.trim().isNotEmpty == true &&
+            (!isStash || item.overview!.trim() != item.name.trim()))
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
               child: MovieDetailPlot(plot: item.overview!),
             ),
           ),
-        if (item.genres.isNotEmpty)
+        if (!isStash && item.genres.isNotEmpty)
           SliverToBoxAdapter(
             child: _ChipSection(
               title: AppL10n.of(context).mediaBrowserGenres,
               labels: item.genres,
             ),
           ),
-        if (directorPeople.isNotEmpty)
+        if (!isStash && directorPeople.isNotEmpty)
           SliverToBoxAdapter(
             child: MediaBrowserCastSection(
               title: AppL10n.of(context).mediaBrowserDirectors,
@@ -396,7 +403,7 @@ class _MediaBrowserDetailBodyState
               onOpenPerson: onOpenPerson,
             ),
           ),
-        if (castPeople.isNotEmpty)
+        if (!isStash && castPeople.isNotEmpty)
           SliverToBoxAdapter(
             child: MediaBrowserCastSection(
               people: castPeople,

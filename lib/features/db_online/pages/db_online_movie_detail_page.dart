@@ -489,7 +489,7 @@ class _RelatedMovieSection extends StatelessWidget {
                 releaseDate: movie.releaseDate,
                 duration: movie.duration == null
                     ? null
-                    : l.dbOnlineDurationMinutes(movie.duration!),
+                    : l.mediaDurationMinutes(movie.duration!),
                 score: score,
                 canPlay: movie.canPlay,
               ),

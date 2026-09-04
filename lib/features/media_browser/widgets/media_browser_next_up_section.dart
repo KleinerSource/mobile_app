@@ -19,14 +19,15 @@ class MediaBrowserNextUpSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
+    final l = AppL10n.of(context);
     return ContinueWatchingSection(
-      title: AppL10n.of(context).mediaBrowserNextUp,
+      title: l.mediaBrowserNextUp,
       entries: [
         for (final item in items)
           ContinueWatchingEntry(
             privacyId: item.id,
             title: item.name,
-            meta: _metaText(item),
+            meta: _metaText(l, item),
             coverUrl: urls?.heroImage(item),
             imageHeaders: urls?.imageHeaders,
             onOpen: () => openMediaBrowserItem(context, ref, item),
@@ -37,7 +38,7 @@ class MediaBrowserNextUpSection extends ConsumerWidget {
   }
 }
 
-String _metaText(MediaBrowserItem item) {
+String _metaText(AppL10n l, MediaBrowserItem item) {
   final parts = <String>[];
   final series = item.seriesName?.trim();
   if (series?.isNotEmpty == true) parts.add(series!);
@@ -52,6 +53,6 @@ String _metaText(MediaBrowserItem item) {
     parts.add('${item.productionYear}');
   }
   final minutes = item.runtimeMinutes;
-  if (minutes > 0) parts.add('${minutes}m');
+  if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
   return parts.join(' · ');
 }

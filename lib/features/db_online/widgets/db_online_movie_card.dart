@@ -30,6 +30,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
     final imageValue = movie.thumbUrl ?? movie.coverUrl;
     final imageUrl = imageValue == null || config == null
         ? null
@@ -52,7 +53,9 @@ class DbOnlineMovieCard extends ConsumerWidget {
         onTap?.call();
       },
       child: CatalogMovieCard(
-        title: movie.title.isEmpty ? movie.number : movie.title,
+        title: movie.title.trim().isEmpty
+            ? l.movieCardUntitledTitle
+            : movie.title,
         code: movie.number,
         imageUrl: imageUrl,
         meta: _metaText(context, movie),
@@ -69,13 +72,15 @@ class DbOnlineMovieCard extends ConsumerWidget {
 }
 
 String _metaText(BuildContext context, DbOnlineMovie movie) {
+  final l = AppL10n.of(context);
   final parts = <String>[];
   final year = _yearFromDate(movie.releaseDate);
   if (year != null) parts.add('$year');
   final duration = _durationMinutes(movie.duration);
-  if (duration != null && duration > 0) parts.add('${duration}m');
-  if (movie.library != null) parts.add(movie.library!);
-  return parts.isEmpty ? AppL10n.of(context).dbOnlineNoMeta : parts.join(' · ');
+  if (duration != null && duration > 0) {
+    parts.add(l.mediaDurationMinutes(duration));
+  }
+  return parts.isEmpty ? l.dbOnlineNoMeta : parts.join(' · ');
 }
 
 int? _yearFromDate(String? value) {

@@ -11,6 +11,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/poster.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import '../privacy/privacy_mask.dart';
 
 /// 首页 hero 轮播。
@@ -616,9 +617,10 @@ class _MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final parts = <String>[];
     if (movie.runtime != null && movie.runtime! > 0) {
-      parts.add('${movie.runtime} min');
+      parts.add(l.mediaDurationMinutes(movie.runtime!));
     }
     if (movie.year != null) parts.add('${movie.year}');
     if (parts.isEmpty) return const SizedBox.shrink();

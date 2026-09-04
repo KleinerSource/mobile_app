@@ -159,8 +159,30 @@ void main() {
     expect(size.width, 356);
     expect(size.height, greaterThan(200));
     expect(find.text('番号 ABC-123'), findsOneWidget);
-    expect(find.text('剧情'), findsOneWidget);
-    expect(find.text('演员二'), findsOneWidget);
+    expect(find.text('电影'), findsOneWidget);
+    expect(find.text('演员一、演员二'), findsOneWidget);
+  });
+
+  testWidgets('Stash 竖版卡片右对齐并只显示两行名称与元信息', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        child: StashScenePortraitCard(
+          item: _item(),
+          urls: _urls(),
+          width: 132,
+          onTap: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final size = tester.getSize(find.byType(StashScenePortraitCard));
+    expect(size.width, 132);
+    expect(size.height, greaterThan(190));
+    expect(find.text('番号 ABC-123'), findsOneWidget);
+    expect(find.text('演员一、演员二'), findsNothing);
+    expect(find.text('电影'), findsNothing);
+    expect(find.text('2024 · 2 分钟'), findsOneWidget);
   });
 
   testWidgets('标记为顶部候选时自动启动预览，取消候选时释放', (tester) async {

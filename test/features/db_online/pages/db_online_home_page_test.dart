@@ -36,6 +36,7 @@ void main() {
     VoidCallback? onTap,
     bool privacyOn = false,
     bool hasCnsub = false,
+    String? duration,
     BadgePositions? badgePositions,
   }) async {
     await tester.pumpWidget(
@@ -60,6 +61,7 @@ void main() {
                 title: '示例影片',
                 canPlay: canPlay,
                 hasCnsub: hasCnsub,
+                duration: duration,
               ),
               config: config,
               onTap: onTap,
@@ -81,6 +83,12 @@ void main() {
     final badgeIcon = tester.getRect(find.byIcon(Icons.play_arrow_rounded));
     expect(badgeIcon.left, lessThan(poster.center.dx));
     expect(badgeIcon.top, lessThan(poster.center.dy));
+  });
+
+  testWidgets('时长统一显示为分钟', (tester) async {
+    await pumpCard(tester, canPlay: false, duration: '90m');
+
+    expect(find.text('90 分钟'), findsOneWidget);
   });
 
   testWidgets('can_play=false 时不显示在线播放角标', (tester) async {

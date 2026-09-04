@@ -430,8 +430,6 @@
   "dbOnlineDetailDate": "Release date",
   "dbOnlineDetailRatingCount": "Rating count",
   "dbOnlineDetailsSection": "Details",
-  "dbOnlineDurationMinutes": "{minutes} min",
-  "@dbOnlineDurationMinutes": {"placeholders":{"minutes":{"type":"int"}}},
   "dbOnlineEpisodeNumber": "Episode {number}",
   "@dbOnlineEpisodeNumber": {"placeholders":{"number":{"type":"int"}}},
   "dbOnlineEpisodesSection": "Episodes",
@@ -1455,8 +1453,8 @@
   "@mediaBrowserEpisodeCount": {"placeholders":{"count":{"type":"int"}}},
   "mediaBrowserTrackCount": "{count} tracks",
   "@mediaBrowserTrackCount": {"placeholders":{"count":{"type":"int"}}},
-  "mediaBrowserMinuteShort": "{minutes} min",
-  "@mediaBrowserMinuteShort": {"placeholders":{"minutes":{"type":"int"}}},
+  "mediaDurationMinutes": "{minutes} minutes",
+  "@mediaDurationMinutes": {"placeholders":{"minutes":{"type":"int"}}},
   "mediaBrowserEmptyDefault": "No content",
   "mediaBrowserUpdatedNItems": "Updated {count} items",
   "@mediaBrowserUpdatedNItems": {"placeholders":{"count":{"type":"int"}}},
@@ -2082,8 +2080,6 @@
   ,"moviesUnlimited": "Any"
   ,"moviesFavorite": "Favorite"
   ,"moviesUnfavorite": "Unfavorite"
-  ,"moviesRuntimeMinutes": "{minutes}m"
-  ,"@moviesRuntimeMinutes": {"placeholders":{"minutes":{"type":"int"}}}
   ,"moviesBatchDownloadTitle": "Batch download {count} movies"
   ,"@moviesBatchDownloadTitle": {"placeholders":{"count":{"type":"int"}}}
   ,"moviesBatchDownloadSubtitle": "Submit downloads in bulk; movies without a code are skipped"

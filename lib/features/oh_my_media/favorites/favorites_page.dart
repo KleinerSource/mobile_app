@@ -678,7 +678,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                           gridDelegate:
                                               const SliverGridDelegateWithFixedCrossAxisCount(
                                                 crossAxisCount: 3,
-                                                childAspectRatio: 0.5,
+                                                childAspectRatio:
+                                                    MediaCardTemplate
+                                                        .gridChildAspectRatio,
                                                 crossAxisSpacing: 10,
                                                 mainAxisSpacing: 14,
                                               ),
@@ -991,6 +993,7 @@ class _ListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     // 多选模式下走原 InkWell (点击切换勾选), 其他情况下走 PrivacyAwareInkWell
     final inner = Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1065,7 +1068,7 @@ class _ListRow extends StatelessWidget {
                   [
                     if (movie.year != null) '${movie.year}',
                     if (movie.runtime != null && movie.runtime! > 0)
-                      '${movie.runtime}m',
+                      l.mediaDurationMinutes(movie.runtime!),
                     if (movie.rating != null && movie.rating! > 0)
                       '★ ${movie.rating!.toStringAsFixed(1)}',
                   ].join(' · '),

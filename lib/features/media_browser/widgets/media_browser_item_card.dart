@@ -145,12 +145,12 @@ String mediaBrowserItemMetaText(BuildContext context, MediaBrowserItem item) {
     final artist = item.displayArtist;
     if (artist != null) parts.add(artist);
     final minutes = item.runtimeMinutes;
-    if (minutes > 0) parts.add(l.mediaBrowserMinuteShort(minutes));
+    if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
     return parts.join(' · ');
   }
   if (item.productionYear != null) parts.add('${item.productionYear}');
   final minutes = item.runtimeMinutes;
-  if (minutes > 0) parts.add(l.mediaBrowserMinuteShort(minutes));
+  if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
   return parts.join(' · ');
 }
 

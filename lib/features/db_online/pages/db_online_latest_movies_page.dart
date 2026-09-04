@@ -10,6 +10,7 @@ import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
@@ -152,7 +153,8 @@ class _DbOnlineLatestMoviesPageState
                       showNoMoreItemsIndicatorAsGridChild: false,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
-                        childAspectRatio: 0.5,
+                        childAspectRatio:
+                            MediaCardTemplate.gridChildAspectRatio,
                         mainAxisSpacing: 14,
                         crossAxisSpacing: spacing,
                       ),

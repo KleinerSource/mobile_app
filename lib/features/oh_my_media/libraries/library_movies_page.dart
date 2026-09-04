@@ -170,7 +170,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
                   showNoMoreItemsIndicatorAsGridChild: false,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    childAspectRatio: 0.55,
+                    childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 14,
                   ),

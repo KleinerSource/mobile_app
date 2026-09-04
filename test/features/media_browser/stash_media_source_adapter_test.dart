@@ -145,7 +145,8 @@ void main() {
     });
     expect(item.type, 'Movie');
     expect(item.id, 'scene-1');
-    expect(item.code, 'SC-001');
+    expect(item.name, 'Scene details');
+    expect(item.code, 'Test Scene');
     expect(item.productionYear, 2024);
     expect(item.communityRating, 8.6);
     expect(item.runTimeTicks, secondsToMediaBrowserTicks(60));
@@ -205,8 +206,7 @@ void main() {
   });
 
   test('缺少 screenshot 时使用 webp，且 preview 仍为空', () async {
-    final scene = _scene()
-      ..['paths'] = {'webp': '/images/scene-1.webp'};
+    final scene = _scene()..['paths'] = {'webp': '/images/scene-1.webp'};
     final adapter = _StashAdapter(
       (_) => {
         'data': {

@@ -430,8 +430,6 @@
   "dbOnlineDetailDate": "发布日期",
   "dbOnlineDetailRatingCount": "评分人数",
   "dbOnlineDetailsSection": "详情",
-  "dbOnlineDurationMinutes": "{minutes} 分钟",
-  "@dbOnlineDurationMinutes": {"placeholders":{"minutes":{"type":"int"}}},
   "dbOnlineEpisodeNumber": "第 {number} 集",
   "@dbOnlineEpisodeNumber": {"placeholders":{"number":{"type":"int"}}},
   "dbOnlineEpisodesSection": "集数",
@@ -1455,8 +1453,8 @@
   "@mediaBrowserEpisodeCount": {"placeholders":{"count":{"type":"int"}}},
   "mediaBrowserTrackCount": "{count} 首",
   "@mediaBrowserTrackCount": {"placeholders":{"count":{"type":"int"}}},
-  "mediaBrowserMinuteShort": "{minutes} 分钟",
-  "@mediaBrowserMinuteShort": {"placeholders":{"minutes":{"type":"int"}}},
+  "mediaDurationMinutes": "{minutes} 分钟",
+  "@mediaDurationMinutes": {"placeholders":{"minutes":{"type":"int"}}},
   "mediaBrowserEmptyDefault": "暂无内容",
   "mediaBrowserUpdatedNItems": "已更新 {count} 个条目",
   "@mediaBrowserUpdatedNItems": {"placeholders":{"count":{"type":"int"}}},
@@ -2082,8 +2080,6 @@
   ,"moviesUnlimited": "不限"
   ,"moviesFavorite": "收藏"
   ,"moviesUnfavorite": "取消收藏"
-  ,"moviesRuntimeMinutes": "{minutes}m"
-  ,"@moviesRuntimeMinutes": {"placeholders":{"minutes":{"type":"int"}}}
   ,"moviesBatchDownloadTitle": "批量下载 {count} 部"
   ,"@moviesBatchDownloadTitle": {"placeholders":{"count":{"type":"int"}}}
   ,"moviesBatchDownloadSubtitle": "按条件批量提交下载请求，缺失番号会自动跳过"

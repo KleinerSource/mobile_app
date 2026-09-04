@@ -10,6 +10,24 @@ import '../l10n/generated/app_localizations.dart';
 import 'poster.dart';
 import 'stacked_badges.dart';
 
+/// 普通媒体卡片的共享模板参数。
+///
+/// OMM、DBO、Emby/Jellyfin 和飞牛的卡片都使用这组尺寸；Stash 保留自己的
+/// 横版/竖版信息区，只复用数据字段，不改变其特殊封面裁剪策略。
+class MediaCardTemplate {
+  MediaCardTemplate._();
+
+  static const posterRadius = 10.0;
+  static const posterInfoGap = 6.0;
+  static const titleMetaGap = 2.0;
+  static const codeTitleGap = 6.0;
+  static const homeCardWidth = 132.0;
+  static const homeRowHeight = 268.0;
+  static const titleMaxLines = 2;
+  static const metaMaxLines = 1;
+  static const gridChildAspectRatio = 0.5;
+}
+
 /// omm 标准影片卡片 · 海报 + 评分角标 + 进度条 + 标题元数据
 ///
 /// 隐私模式开启时,海报盖 blur 暗罩,标题用方块代替;
@@ -124,7 +142,7 @@ class MovieCard extends ConsumerWidget {
             children: [
               PrivacyMask(
                 movieId: movie.id,
-                radius: 10,
+                radius: MediaCardTemplate.posterRadius,
                 child: Poster(
                   url: movie.posterUuid != null
                       ? posterUrlBuilder(movie.posterUuid!)
@@ -245,33 +263,188 @@ class MovieCard extends ConsumerWidget {
                   ),
             ],
           ),
-          const SizedBox(height: 8),
-          // 标题: 隐私模式遮罩 · 固定 2 行高度避免溢出
-          PrivacyText(
-            movieId: movie.id,
-            text: restricted ? l.movieCardRestricted : movie.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.movieCardTitle(context).copyWith(
+          const SizedBox(height: MediaCardTemplate.posterInfoGap),
+          _MediaCardInfo(
+            title: restricted ? l.movieCardRestricted : movie.title,
+            meta: restricted ? '' : _meta(l, movie),
+            privacyId: movie.id,
+            showMeta:
+                !restricted && (movie.year != null || movie.runtime != null),
+            titleStyle: AppText.movieCardTitle(context).copyWith(
               color: restricted ? c.muted : c.text,
               fontStyle: restricted ? FontStyle.italic : FontStyle.normal,
             ),
           ),
-          if (!restricted && (movie.year != null || movie.runtime != null))
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(_meta(movie), style: AppText.movieCardMeta(context)),
-            ),
         ],
       ),
     );
   }
 
-  static String _meta(MovieListItem m) {
+  static String _meta(AppL10n l, MovieListItem m) {
     final parts = <String>[];
     if (m.year != null) parts.add('${m.year}');
-    if (m.runtime != null && m.runtime! > 0) parts.add('${m.runtime}m');
+    if (m.runtime != null && m.runtime! > 0) {
+      parts.add(l.mediaDurationMinutes(m.runtime!));
+    }
     return parts.join(' · ');
+  }
+}
+
+/// 普通媒体卡片的信息模板：番号与名称共用首行，底部统一显示元信息。
+///
+/// 外部媒体管理器通过 [code] 提供番号；OMM 没有番号时直接显示影片名称。
+/// 这样首页、媒体库、搜索和收藏网格的普通卡片不会因为数据源不同而产生
+/// 不同的垂直层级。
+class _MediaCardInfo extends StatelessWidget {
+  const _MediaCardInfo({
+    required this.title,
+    required this.meta,
+    this.code,
+    this.privacyId,
+    this.showTitle = true,
+    this.showMeta = true,
+    this.titleStyle,
+  });
+
+  final String title;
+  final String? code;
+  final String meta;
+  final Object? privacyId;
+  final bool showTitle;
+  final bool showMeta;
+  final TextStyle? titleStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final hasCode = code?.isNotEmpty == true;
+    final titleText = title.trim().isEmpty ? '—' : title.trim();
+
+    if (!showTitle && !showMeta) {
+      return hasCode
+          ? _MediaCardCodeBadge(
+              text: code!,
+              privacyId: privacyId,
+              maxWidth: double.infinity,
+            )
+          : const SizedBox.shrink();
+    }
+
+    Widget privacyText({
+      required String text,
+      required TextStyle style,
+      required int maxLines,
+    }) {
+      final id = privacyId;
+      if (id == null) {
+        return Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+      }
+      return PrivacyText(
+        movieId: id,
+        text: text,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showTitle)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final codeWidth = (constraints.maxWidth * 0.42)
+                  .clamp(42.0, 104.0)
+                  .toDouble();
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasCode) ...[
+                    _MediaCardCodeBadge(
+                      text: code!,
+                      privacyId: privacyId,
+                      maxWidth: codeWidth,
+                    ),
+                    const SizedBox(width: MediaCardTemplate.codeTitleGap),
+                  ],
+                  Expanded(
+                    child: privacyText(
+                      text: titleText,
+                      style: titleStyle ?? AppText.movieCardTitle(context),
+                      maxLines: MediaCardTemplate.titleMaxLines,
+                    ),
+                  ),
+                ],
+              );
+            },
+          )
+        else if (hasCode)
+          _MediaCardCodeBadge(
+            text: code!,
+            privacyId: privacyId,
+            maxWidth: double.infinity,
+          ),
+        if (showMeta) ...[
+          const SizedBox(height: MediaCardTemplate.titleMetaGap),
+          privacyText(
+            text: meta,
+            style: AppText.movieCardMeta(context).copyWith(color: colors.muted),
+            maxLines: MediaCardTemplate.metaMaxLines,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MediaCardCodeBadge extends StatelessWidget {
+  const _MediaCardCodeBadge({
+    required this.text,
+    required this.privacyId,
+    required this.maxWidth,
+  });
+
+  final String text;
+  final Object? privacyId;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final style = AppText.movieCardMeta(context).copyWith(
+      color: colors.accent,
+      fontSize: 10.5,
+      fontWeight: FontWeight.w700,
+    );
+    final label = privacyId == null
+        ? Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style)
+        : PrivacyText(
+            movieId: privacyId!,
+            text: text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceAlt,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          child: label,
+        ),
+      ),
+    );
   }
 }
 
@@ -281,7 +454,7 @@ class MovieCard extends ConsumerWidget {
 /// [MovieListItem]。数据源只负责把字段整理成这里需要的展示值，海报、字号、
 /// 角标和点击反馈仍由共享组件统一维护。
 ///
-/// 与 OMM [MovieCard] 的差异通过可选参数表达：[code] 传 null 时省略番号行
+/// 与 OMM [MovieCard] 的差异通过可选参数表达：[code] 传 null 时省略番号徽章
 /// （Emby/Jellyfin 的标题 + meta 两行布局与 MovieCard 完全一致）；
 /// [played] / [progress] 提供 OMM 同款的已看完角标与海报底部进度条。
 class CatalogMovieCard extends ConsumerWidget {
@@ -308,8 +481,7 @@ class CatalogMovieCard extends ConsumerWidget {
 
   final String title;
 
-  /// 番号行（DBO 等有番号的数据源）；null 时不渲染番号行，布局与
-  /// [MovieCard] 的「标题 + meta」两行结构一致。
+  /// 番号徽章（DBO 等有番号的数据源）；null 时省略，和名称共用首个信息区块。
   final String? code;
   final String? imageUrl;
   final String meta;
@@ -375,7 +547,7 @@ class CatalogMovieCard extends ConsumerWidget {
           url: imageUrl,
           title: displayTitle,
           year: year,
-          radius: 10,
+          radius: MediaCardTemplate.posterRadius,
           aspectRatio: posterAspectRatio,
           httpHeaders: imageHeaders,
         ),
@@ -436,7 +608,7 @@ class CatalogMovieCard extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(MediaCardTemplate.posterRadius),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -444,60 +616,15 @@ class CatalogMovieCard extends ConsumerWidget {
               privacyId == null
                   ? poster
                   : PrivacyMask(movieId: privacyId!, child: poster),
-              const SizedBox(height: 8),
-              if (displayCode != null)
-                privacyId == null
-                    ? Text(
-                        displayCode,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardMeta(
-                          context,
-                        ).copyWith(color: colors.accent, fontSize: 11.5),
-                      )
-                    : PrivacyText(
-                        movieId: privacyId!,
-                        text: displayCode,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardMeta(
-                          context,
-                        ).copyWith(color: colors.accent, fontSize: 11.5),
-                      ),
-              if (showTitle) ...[
-                const SizedBox(height: 2),
-                privacyId == null
-                    ? Text(
-                        displayTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardTitle(context),
-                      )
-                    : PrivacyText(
-                        movieId: privacyId!,
-                        text: displayTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardTitle(context),
-                      ),
-              ],
-              if (showMeta) ...[
-                const SizedBox(height: 2),
-                privacyId == null
-                    ? Text(
-                        displayMeta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardMeta(context),
-                      )
-                    : PrivacyText(
-                        movieId: privacyId!,
-                        text: displayMeta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardMeta(context),
-                      ),
-              ],
+              const SizedBox(height: MediaCardTemplate.posterInfoGap),
+              _MediaCardInfo(
+                title: displayTitle,
+                code: displayCode,
+                meta: displayMeta,
+                privacyId: privacyId,
+                showTitle: showTitle,
+                showMeta: showMeta,
+              ),
             ],
           ),
         ),

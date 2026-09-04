@@ -458,7 +458,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                           gridDelegate:
                                               SliverGridDelegateWithFixedCrossAxisCount(
                                                 crossAxisCount: crossAxisCount,
-                                                childAspectRatio: 0.5,
+                                                childAspectRatio:
+                                                    MediaCardTemplate
+                                                        .gridChildAspectRatio,
                                                 mainAxisSpacing: 14,
                                                 crossAxisSpacing: 10,
                                               ),
@@ -856,7 +858,7 @@ String _sortOrderLabel(AppL10n l, String value) =>
     value == 'asc' ? l.moviesSortAscending : l.moviesSortDescending;
 
 String _movieRuntimeLabel(AppL10n l, int minutes) =>
-    l.moviesRuntimeMinutes(minutes);
+    l.mediaDurationMinutes(minutes);
 
 class _ViewModeToggle extends StatelessWidget {
   const _ViewModeToggle({required this.mode, required this.onChanged});

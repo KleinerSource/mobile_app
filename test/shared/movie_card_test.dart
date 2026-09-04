@@ -39,6 +39,43 @@ void main() {
     expect(find.byType(MovieCard), findsOneWidget);
   });
 
+  testWidgets('时长统一显示为分钟', (tester) async {
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: const MovieListItem(
+            id: 2,
+            title: '带时长影片',
+            year: 2024,
+            runtime: 90,
+          ),
+          posterUrlBuilder: (u) => 'http://x/$u',
+        ),
+      ),
+    );
+
+    expect(find.text('2024 · 90 分钟'), findsOneWidget);
+  });
+
+  testWidgets('普通外部媒体卡片将番号与名称收敛到同一信息区', (tester) async {
+    await tester.pumpWidget(
+      await wrap(
+        const CatalogMovieCard(
+          title: '影片名称',
+          code: 'ABC-123',
+          imageUrl: null,
+          meta: '2024 · 90 分钟',
+          width: 140,
+        ),
+      ),
+    );
+
+    expect(find.text('ABC-123'), findsOneWidget);
+    expect(find.text('影片名称'), findsWidgets);
+    expect(find.text('2024 · 90 分钟'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('completed=true 显示已看完角标 (隐私关闭)', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,

@@ -17,6 +17,7 @@ import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dar
 import 'package:omm/features/db_online/pages/db_online_latest_movies_page.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/shared/movie_card.dart';
 
 /// dbonline 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和顶部服务器切换器。
 /// 仅替换数据提供者和详情跳转，避免维护另一套首页布局。
@@ -155,7 +156,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
             itemBuilder: (context, movie) => DbOnlineMovieCard(
               movie: movie,
               config: config,
-              width: 132,
+              width: MediaCardTemplate.homeCardWidth,
               onTap: () => openDbOnlineMovieUnawaited(context, movie),
             ),
           ),
@@ -176,7 +177,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
             itemBuilder: (context, movie) => DbOnlineMovieCard(
               movie: movie,
               config: config,
-              width: 132,
+              width: MediaCardTemplate.homeCardWidth,
               onTap: () => openDbOnlineMovieUnawaited(context, movie),
             ),
           ),

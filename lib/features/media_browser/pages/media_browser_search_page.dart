@@ -19,6 +19,7 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -481,7 +482,8 @@ class _MediaBrowserSearchResultsState
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 3,
-                              childAspectRatio: 0.5,
+                              childAspectRatio:
+                                  MediaCardTemplate.gridChildAspectRatio,
                               crossAxisSpacing: 10,
                               mainAxisSpacing: 14,
                             ),

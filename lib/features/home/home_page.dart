@@ -356,6 +356,7 @@ class _ContinueWatchingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
     final minutesLeft = movie.runtime != null
         ? (movie.runtime! * (1 - progress)).round()
@@ -508,7 +509,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                 [
                   if (movie.year != null) '${movie.year}',
                   if (movie.runtime != null && movie.runtime! > 0)
-                    '${movie.runtime}m',
+                    l.mediaDurationMinutes(movie.runtime!),
                 ].join(' · '),
                 style: TextStyle(
                   color: c.muted,

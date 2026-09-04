@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -13,10 +14,12 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_continue_watching_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_next_up_section.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/movie_card.dart';
 
 /// MediaBrowser 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和区块布局。
 /// 数据来自「继续观看 / 接下来观看 / 最新入库」，跳转走统一导航入口。
@@ -216,24 +219,38 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    final isStash =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
+    const cardWidth = MediaCardTemplate.homeCardWidth;
+    const stashCardWidth = MediaCardTemplate.homeCardWidth;
+    final itemWidth = isStash ? stashCardWidth : cardWidth;
     return HomeMovieSection<List<MediaBrowserItem>, MediaBrowserItem>(
       title: title,
       value: value,
       itemsOf: (items) => items,
       onRetry: onRetry,
       trailing: trailing,
+      itemWidth: itemWidth,
+      rowHeight: isStash ? 286 : MediaCardTemplate.homeRowHeight,
       itemKeyBuilder: (item) => item.id,
       itemBuilder: (context, item) => urls.maybeWhen(
-        data: (value) => MediaBrowserItemCard(
-          item: item,
-          urls: value,
-          width: 132,
-          square: square,
-          onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
-          // 首页无拖选设计（同 OMM 首页）：空操作长按避免长按松手误触打开。
-          onLongPress: () {},
-        ),
-        orElse: () => const SizedBox(width: 132),
+        data: (value) => isStash
+            ? StashScenePortraitCard(
+                item: item,
+                urls: value,
+                width: stashCardWidth,
+                onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
+              )
+            : MediaBrowserItemCard(
+                item: item,
+                urls: value,
+                width: cardWidth,
+                square: square,
+                onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
+                // 首页无拖选设计（同 OMM 首页）：空操作长按避免长按松手误触打开。
+                onLongPress: () {},
+              ),
+        orElse: () => SizedBox(width: itemWidth),
       ),
     );
   }

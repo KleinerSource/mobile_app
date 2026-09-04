@@ -20,6 +20,7 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -420,7 +421,9 @@ class _MediaBrowserFavoritesPageState
         ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
         crossAxisCount;
     // 影视海报 2:3 + 双行文字；音乐方形封面按实际卡片高度反推比例（同库页）。
-    final cardAspectRatio = _isMusicGrid ? itemWidth / (itemWidth + 62) : 0.5;
+    final cardAspectRatio = _isMusicGrid
+        ? itemWidth / (itemWidth + 62)
+        : MediaCardTemplate.gridChildAspectRatio;
 
     return Scaffold(
       // 独立路由进入时页面自身就是 Material 根；底色由 GlowBackground 自绘。
