@@ -73,6 +73,41 @@ void main() {
 
     expect(find.byType(ServerListPage), findsOneWidget);
   });
+
+  testWidgets('Stash 不显示未实现的服务器设置入口', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'stash',
+          'name': 'Stash',
+          'lines': [
+            {
+              'id': 'stash-line',
+              'name': '主线路',
+              'base_url': 'http://stash.example:9999',
+            },
+          ],
+          'active_line_id': 'stash-line',
+          'project_name': 'stash',
+        },
+      ]),
+      'server.active_server_id': 'stash',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(_app(prefs));
+    await tester.pumpAndSettle();
+
+    final group = tester
+        .widgetList<SettingsGroup>(find.byType(SettingsGroup))
+        .first;
+    final titles = group.items
+        .whereType<SettingsTile>()
+        .map((tile) => tile.title)
+        .toList();
+    expect(titles, ['服务器列表', '应用设置']);
+    expect(find.text('服务器设置'), findsNothing);
+  });
 }
 
 Widget _app(SharedPreferences prefs) {

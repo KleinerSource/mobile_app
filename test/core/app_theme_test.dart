@@ -25,6 +25,10 @@ void main() {
       mediaManagerAccentForProject(ServerProject.feiniu),
       const Color(0xFF2979FF),
     );
+    expect(
+      mediaManagerAccentForProject(ServerProject.stash),
+      const Color(0xFF8B5CF6),
+    );
   });
 
   test('未选择媒体管理器时回退到 OMM 色值', () {
@@ -49,6 +53,7 @@ void main() {
         ServerProject.emby,
         ServerProject.jellyfin,
         ServerProject.feiniu,
+        ServerProject.stash,
       ]) {
         Color? resolvedAccent;
         final theme = buildAppTheme(brightness, project: project);

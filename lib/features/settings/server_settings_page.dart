@@ -35,12 +35,13 @@ class ServerSettingsPage extends ConsumerWidget {
     final l = AppL10n.of(context);
     final project = cfg?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
-    // Emby/Jellyfin/飞牛影视的服务端设置（转码、字幕等）在其网页控制台管理，App 内
-    // 不重复实现这些入口。
+    // 外部媒体管理器的服务端设置（转码、字幕等）在其网页控制台管理，App 内
+    // 不重复实现这些入口；Stash 当前也没有应用内服务器设置。
     final externalMediaServer =
         project == ServerProject.emby ||
         project == ServerProject.jellyfin ||
-        project == ServerProject.feiniu;
+        project == ServerProject.feiniu ||
+        project == ServerProject.stash;
     final managedMediaServer =
         project == ServerProject.emby ||
         project == ServerProject.jellyfin ||

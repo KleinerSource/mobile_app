@@ -229,6 +229,8 @@ class _MediaBrowserSearchResultsState
   bool _batchBusy = false;
   String? _autoPreviewId;
   bool _autoPreviewUpdateScheduled = false;
+  final _listViewportKey = GlobalKey();
+  final _itemKeys = <String, GlobalKey>{};
 
   @override
   void initState() {
@@ -363,13 +365,24 @@ class _MediaBrowserSearchResultsState
       1.0,
       double.infinity,
     );
-    final index = stashPreviewItemIndexForScroll(
-      scrollOffset: _scrollController.hasClients ? _scrollController.offset : 0,
-      cardHeight: width * 9 / 16,
-      itemGap: 14,
-      itemCount: items.length,
-      leadingPadding: 4,
+    final coverHeight = width * 9 / 16;
+    final actualIndex = stashPreviewItemIndexForViewport(
+      items: items,
+      itemKeys: _itemKeys,
+      viewportKey: _listViewportKey,
+      coverHeight: coverHeight,
     );
+    final index =
+        actualIndex ??
+        stashPreviewItemIndexForScroll(
+          scrollOffset: _scrollController.hasClients
+              ? _scrollController.offset
+              : 0,
+          cardHeight: coverHeight,
+          itemGap: 14,
+          itemCount: items.length,
+          leadingPadding: 4,
+        );
     return index == null ? null : items[index].id;
   }
 
@@ -392,6 +405,7 @@ class _MediaBrowserSearchResultsState
                 ? DragSelectionLayout.list
                 : DragSelectionLayout.grid,
             child: CustomScrollView(
+              key: _listViewportKey,
               controller: _scrollController,
               primary: false,
               slivers: [
@@ -405,6 +419,10 @@ class _MediaBrowserSearchResultsState
                                 ? Padding(
                                     padding: const EdgeInsets.only(bottom: 14),
                                     child: StashSceneCard(
+                                      key: _itemKeys.putIfAbsent(
+                                        item.id,
+                                        GlobalKey.new,
+                                      ),
                                       item: item,
                                       urls: value,
                                       width: width - 44,

@@ -102,7 +102,7 @@ void main() {
     );
     expect(
       stashPreviewItemIndexForScroll(
-        scrollOffset: 199,
+        scrollOffset: 119,
         cardHeight: 200,
         itemGap: 14,
         itemCount: 3,
@@ -111,7 +111,16 @@ void main() {
     );
     expect(
       stashPreviewItemIndexForScroll(
-        scrollOffset: 200,
+        scrollOffset: 120,
+        cardHeight: 200,
+        itemGap: 14,
+        itemCount: 3,
+      ),
+      0,
+    );
+    expect(
+      stashPreviewItemIndexForScroll(
+        scrollOffset: 121,
         cardHeight: 200,
         itemGap: 14,
         itemCount: 3,

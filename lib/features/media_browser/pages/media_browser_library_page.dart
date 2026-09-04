@@ -88,6 +88,8 @@ class _MediaBrowserLibraryPageState
   bool _batchBusy = false;
   String? _autoPreviewId;
   bool _autoPreviewUpdateScheduled = false;
+  final _listViewportKey = GlobalKey();
+  final _itemKeys = <String, GlobalKey>{};
 
   /// 当前选中库的类型过滤选项；音乐库切到「专辑/歌曲」。
   List<({String value, String Function(AppL10n l) label})> get _typeOptions =>
@@ -260,12 +262,23 @@ class _MediaBrowserLibraryPageState
       1.0,
       double.infinity,
     );
-    final index = stashPreviewItemIndexForScroll(
-      scrollOffset: _scrollController.hasClients ? _scrollController.offset : 0,
-      cardHeight: width * 9 / 16,
-      itemGap: 14,
-      itemCount: items.length,
+    final coverHeight = width * 9 / 16;
+    final actualIndex = stashPreviewItemIndexForViewport(
+      items: items,
+      itemKeys: _itemKeys,
+      viewportKey: _listViewportKey,
+      coverHeight: coverHeight,
     );
+    final index =
+        actualIndex ??
+        stashPreviewItemIndexForScroll(
+          scrollOffset: _scrollController.hasClients
+              ? _scrollController.offset
+              : 0,
+          cardHeight: coverHeight,
+          itemGap: 14,
+          itemCount: items.length,
+        );
     return index == null ? null : items[index].id;
   }
 
@@ -584,6 +597,7 @@ class _MediaBrowserLibraryPageState
                                   ? DragSelectionLayout.list
                                   : DragSelectionLayout.grid,
                               child: CustomScrollView(
+                                key: _listViewportKey,
                                 controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 slivers: [
@@ -609,6 +623,11 @@ class _MediaBrowserLibraryPageState
                                                             bottom: 14,
                                                           ),
                                                       child: StashSceneCard(
+                                                        key: _itemKeys
+                                                            .putIfAbsent(
+                                                              item.id,
+                                                              GlobalKey.new,
+                                                            ),
                                                         item: item,
                                                         urls: value,
                                                         width: width - 44,

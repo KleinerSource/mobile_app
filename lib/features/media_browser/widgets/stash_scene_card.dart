@@ -35,7 +35,7 @@ typedef StashPreviewPlayerFactory = StashPreviewPlayer Function();
 
 /// 根据列表滚动位置选择当前应自动预览的最上方 Scene。
 ///
-/// 列表项之间有固定间距；当上一张封面已经完全离开视口时，立即切到下一张，
+/// 列表项之间有固定间距；当上一张封面离开视口超过 60% 时，立即切到下一张，
 /// 不必等下一张卡片真正贴到视口顶部。
 int? stashPreviewItemIndexForScroll({
   required double scrollOffset,
@@ -43,21 +43,59 @@ int? stashPreviewItemIndexForScroll({
   required double itemGap,
   required int itemCount,
   double leadingPadding = 0,
+  double switchOutFraction = 0.6,
 }) {
   if (itemCount <= 0 ||
       !scrollOffset.isFinite ||
       !cardHeight.isFinite ||
       cardHeight <= 0 ||
       !itemGap.isFinite ||
-      itemGap < 0) {
+      itemGap < 0 ||
+      !switchOutFraction.isFinite ||
+      switchOutFraction <= 0 ||
+      switchOutFraction > 1) {
     return null;
   }
   final offset = (scrollOffset - leadingPadding).clamp(0.0, double.infinity);
   final itemExtent = cardHeight + itemGap;
   final baseIndex = (offset / itemExtent).floor();
   final withinItem = offset - baseIndex * itemExtent;
-  final index = withinItem >= cardHeight ? baseIndex + 1 : baseIndex;
+  final index = withinItem > cardHeight * switchOutFraction
+      ? baseIndex + 1
+      : baseIndex;
   return index.clamp(0, itemCount - 1);
+}
+
+/// 按实际布局位置选择自动预览项。
+///
+/// Stash 卡片的标签和演员区域高度会随内容变化，不能只用固定列表项高度
+/// 推算。只要卡片已经完成布局，就用封面顶部相对滚动视口的位置计算离屏比例。
+int? stashPreviewItemIndexForViewport({
+  required List<MediaBrowserItem> items,
+  required Map<String, GlobalKey> itemKeys,
+  required GlobalKey viewportKey,
+  required double coverHeight,
+  double switchOutFraction = 0.6,
+}) {
+  if (items.isEmpty ||
+      !coverHeight.isFinite ||
+      coverHeight <= 0 ||
+      !switchOutFraction.isFinite ||
+      switchOutFraction <= 0 ||
+      switchOutFraction > 1) {
+    return null;
+  }
+  final viewport = viewportKey.currentContext?.findRenderObject();
+  if (viewport is! RenderBox || !viewport.hasSize) return null;
+  final viewportTop = viewport.localToGlobal(Offset.zero).dy;
+  for (var index = 0; index < items.length; index++) {
+    final card = itemKeys[items[index].id]?.currentContext?.findRenderObject();
+    if (card is! RenderBox || !card.hasSize) continue;
+    final cardTop = card.localToGlobal(Offset.zero).dy;
+    final hidden = (viewportTop - cardTop).clamp(0.0, coverHeight);
+    if (hidden <= coverHeight * switchOutFraction) return index;
+  }
+  return null;
 }
 
 /// 默认使用 media_kit 的 Stash 短视频播放器。
@@ -492,10 +530,10 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
                     _StashInfoWrap(item: widget.item),
                     if (tags.isNotEmpty) ...[
                       const SizedBox(height: 15),
-                    _StashSectionLabel(
-                      icon: Icons.local_offer_outlined,
-                      label: AppL10n.of(context).movieEditorTag,
-                    ),
+                      _StashSectionLabel(
+                        icon: Icons.local_offer_outlined,
+                        label: AppL10n.of(context).movieEditorTag,
+                      ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 7,
