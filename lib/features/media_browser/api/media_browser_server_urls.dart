@@ -89,6 +89,9 @@ abstract class MediaBrowserServerUrls {
     if (config.project == ServerProject.feiniu) {
       return _FeiniuServerUrls(baseUrl: baseUrl, token: token, cookie: cookie);
     }
+    if (config.project == ServerProject.stash) {
+      return _StashServerUrls(baseUrl: baseUrl, token: token);
+    }
     return _EmbyJellyfinServerUrls(
       config: config,
       baseUrl: baseUrl,
@@ -240,4 +243,57 @@ class _FeiniuServerUrls extends MediaBrowserServerUrls {
   @override
   String audioStream(String itemId, {String? mediaSourceId}) =>
       FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId);
+}
+
+/// Stash 的图片地址来自 ScenePaths，通常是相对服务器根地址的资源路径；
+/// 图片和直链播放均通过 ApiKey 请求头鉴权。
+class _StashServerUrls extends MediaBrowserServerUrls {
+  const _StashServerUrls({required super.baseUrl, super.token}) : super._();
+
+  @override
+  Map<String, String> get directHeaders => _apiKeyHeaders;
+
+  @override
+  Map<String, String> get imageHeaders => _apiKeyHeaders;
+
+  Map<String, String> get _apiKeyHeaders {
+    final value = token?.trim() ?? '';
+    return value.isEmpty ? const {} : {'ApiKey': value};
+  }
+
+  String _asset(String? path) {
+    final value = path?.trim() ?? '';
+    if (value.isEmpty) return '';
+    final uri = Uri.tryParse(value);
+    if (uri?.hasScheme == true && uri?.host.isNotEmpty == true) {
+      return value;
+    }
+    return Uri.parse(baseUrl).resolve(value).toString();
+  }
+
+  @override
+  String poster(String itemId, {int maxWidth = 440, String? tag}) =>
+      _asset(tag);
+
+  @override
+  String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
+      _asset(tag);
+
+  @override
+  String thumb(String itemId, {int maxWidth = 440, String? tag}) => _asset(tag);
+
+  @override
+  String authedPoster(String itemId, {int maxWidth = 600, String? tag}) =>
+      _asset(tag);
+
+  @override
+  String? personImage(MediaBrowserPerson person) => null;
+
+  @override
+  String stream(String itemId, {String? mediaSourceId}) =>
+      _asset(mediaSourceId);
+
+  @override
+  String audioStream(String itemId, {String? mediaSourceId}) =>
+      _asset(mediaSourceId);
 }

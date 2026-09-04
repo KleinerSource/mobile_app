@@ -244,6 +244,11 @@ class _ServerProjectBadge extends StatelessWidget {
         mediaManagerAccentForProject(project),
         l?.serverProjectFeiniu ?? 'Feiniu',
       ),
+      ServerProject.stash => (
+        'ST',
+        mediaManagerAccentForProject(project),
+        'Stash',
+      ),
       ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),
       ServerProject.webDav => ('DAV', const Color(0xFF6A1B9A), 'WebDAV'),
       ServerProject.openList => ('OL', const Color(0xFFBF360C), 'OpenList'),

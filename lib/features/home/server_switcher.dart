@@ -89,6 +89,7 @@ class _HomeServerSwitcherMenuState
           servers: [server],
           activeServerId: server.id,
         ),
+        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
       ).systemExtended.serverProfile();
       await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
       return profile;
@@ -133,6 +134,7 @@ class _HomeServerSwitcherMenuState
           activeServerId: server.id,
         ),
         sessionRepository: sessionRepository,
+        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
       );
       final user = await client
           .mediaBrowserFor(mediaBrowserConfig)

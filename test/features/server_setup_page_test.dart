@@ -162,6 +162,26 @@ void main() {
     expect(find.text('TOTP 密钥（可选）'), findsNothing);
   });
 
+  testWidgets('Stash 显示 API Key 而不显示用户名密码', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'Stash');
+
+    expect(find.text('Stash API Key'), findsOneWidget);
+    expect(find.text('用户名'), findsNothing);
+    expect(find.text('用户名（可选）'), findsNothing);
+    expect(find.text('密码（可选）'), findsNothing);
+    expect(find.text('TOTP 密钥（可选）'), findsNothing);
+    expect(
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(2)
+          .decoration
+          ?.hintText,
+      '9999',
+    );
+  });
+
   testWidgets('飞牛与 Jellyfin 登录需要用户名', (tester) async {
     final prefs = await _prefs();
     await _pumpSetup(tester, prefs);

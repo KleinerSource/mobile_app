@@ -4471,6 +4471,48 @@ abstract class AppL10n {
   /// **'请输入用户名'**
   String get serverSetupUserRequired;
 
+  /// No description provided for @serverSetupStashApiKeyLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'Stash API Key'**
+  String get serverSetupStashApiKeyLabel;
+
+  /// No description provided for @serverSetupStashApiKeyEditLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'Stash API Key（留空为不更改）'**
+  String get serverSetupStashApiKeyEditLabel;
+
+  /// No description provided for @serverSetupStashApiKeyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 Stash 设置 → 安全中创建；密钥仅保存在安全存储中'**
+  String get serverSetupStashApiKeyHint;
+
+  /// No description provided for @serverSetupStashApiKeyClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除已保存的 Stash API Key'**
+  String get serverSetupStashApiKeyClear;
+
+  /// No description provided for @serverSetupStashApiKeyRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 Stash API Key'**
+  String get serverSetupStashApiKeyRequired;
+
+  /// No description provided for @homeSwitchStashApiKeyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 Stash API Key 以切换服务器'**
+  String get homeSwitchStashApiKeyHint;
+
+  /// No description provided for @homeSwitchOpenServerSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'前往服务器设置'**
+  String get homeSwitchOpenServerSettings;
+
   /// No description provided for @serverTestAndSave.
   ///
   /// In zh, this message translates to:

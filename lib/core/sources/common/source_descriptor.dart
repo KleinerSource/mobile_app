@@ -2,7 +2,17 @@ import 'package:flutter/foundation.dart';
 
 import 'source_id.dart';
 
-enum SourceKind { omm, dbo, emby, jellyfin, feiniu, smb, webDav, openList }
+enum SourceKind {
+  omm,
+  dbo,
+  emby,
+  jellyfin,
+  feiniu,
+  stash,
+  smb,
+  webDav,
+  openList,
+}
 
 @immutable
 class SourceDescriptor {

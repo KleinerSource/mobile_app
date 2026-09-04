@@ -47,9 +47,10 @@ Dio buildDio(
   final isEmbyLike =
       project == ServerProject.emby || project == ServerProject.jellyfin;
   final isFeiniu = project == ServerProject.feiniu;
+  final isStash = project == ServerProject.stash;
   final dio = Dio(
     BaseOptions(
-      baseUrl: isEmbyLike
+      baseUrl: isEmbyLike || isStash
           ? config.baseUrl
           : isFeiniu
           ? '${ServerConfig.normalizeForProject(config.baseUrl, ServerProject.feiniu)}/api/v1'
@@ -131,7 +132,7 @@ Dio buildDio(
             } else if (project == ServerProject.emby) {
               // Emby 不识别 Bearer 令牌，改用其原生的令牌头。
               options.headers['X-Emby-Token'] = token;
-            } else {
+            } else if (!isStash) {
               options.headers['Authorization'] = 'Bearer $token';
             }
           }

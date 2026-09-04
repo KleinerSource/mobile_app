@@ -267,6 +267,8 @@ class _MediaBrowserDetailBodyState
     final selectedMediaSource = _selectedMediaSource;
     final isFeiniu =
         ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.feiniu;
+    final isStash =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     final hasFeiniuSourceVariants = isFeiniu && item.mediaSources.length > 1;
     final playbackMediaSourceId = selectedVideoPart == null
         ? selectedMediaSource?.id
@@ -315,6 +317,8 @@ class _MediaBrowserDetailBodyState
               canPlay: item.isPlayable,
               favorite: item.userData.isFavorite,
               played: item.userData.played,
+              showUserActions: !isStash,
+              showTranscode: !isStash,
               busy: _actionBusy,
               onPlay: () => openMediaBrowserPlayback(
                 context,
@@ -755,6 +759,8 @@ class _ActionRow extends StatelessWidget {
     required this.canPlay,
     required this.favorite,
     required this.played,
+    required this.showUserActions,
+    required this.showTranscode,
     required this.busy,
     required this.onPlay,
     required this.onLongPressPlay,
@@ -766,6 +772,8 @@ class _ActionRow extends StatelessWidget {
   final bool canPlay;
   final bool favorite;
   final bool played;
+  final bool showUserActions;
+  final bool showTranscode;
   final bool busy;
   final VoidCallback onPlay;
   final VoidCallback? onLongPressPlay;
@@ -811,45 +819,48 @@ class _ActionRow extends StatelessWidget {
             ),
           ),
         if (canPlay) const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: MediaBrowserActionButton(
-                icon: favorite
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                label: favorite
-                    ? l.detailFavorited
-                    : l.mediaBrowserFavoriteAction,
-                active: favorite,
-                onPressed: busy ? null : onToggleFavorite,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: MediaBrowserActionButton(
-                icon: played
-                    ? Icons.task_alt_rounded
-                    : Icons.check_circle_outline_rounded,
-                label: played
-                    ? l.mediaBrowserWatched
-                    : l.mediaBrowserMarkWatched,
-                active: played,
-                onPressed: busy ? null : onTogglePlayed,
-              ),
-            ),
-            if (canPlay) ...[
-              const SizedBox(width: 10),
-              Expanded(
-                child: MediaBrowserActionButton(
-                  icon: Icons.auto_awesome_rounded,
-                  label: l.mediaBrowserTranscodePlay,
-                  onPressed: busy ? null : onTranscodePlay,
+        if (showUserActions || (canPlay && showTranscode))
+          Row(
+            children: [
+              if (showUserActions) ...[
+                Expanded(
+                  child: MediaBrowserActionButton(
+                    icon: favorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    label: favorite
+                        ? l.detailFavorited
+                        : l.mediaBrowserFavoriteAction,
+                    active: favorite,
+                    onPressed: busy ? null : onToggleFavorite,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: MediaBrowserActionButton(
+                    icon: played
+                        ? Icons.task_alt_rounded
+                        : Icons.check_circle_outline_rounded,
+                    label: played
+                        ? l.mediaBrowserWatched
+                        : l.mediaBrowserMarkWatched,
+                    active: played,
+                    onPressed: busy ? null : onTogglePlayed,
+                  ),
+                ),
+              ],
+              if (canPlay && showTranscode) ...[
+                if (showUserActions) const SizedBox(width: 10),
+                Expanded(
+                  child: MediaBrowserActionButton(
+                    icon: Icons.auto_awesome_rounded,
+                    label: l.mediaBrowserTranscodePlay,
+                    onPressed: busy ? null : onTranscodePlay,
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
       ],
     );
   }

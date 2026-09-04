@@ -18,6 +18,7 @@ import '../../core/sources/files/openlist_api.dart';
 import '../../core/sources/files/openlist_file_source.dart';
 import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
+import '../../features/media_browser/api/stash_api.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
@@ -48,6 +49,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
   final _totpSecretController = TextEditingController();
+  final _stashApiKeyController = TextEditingController();
 
   String _scheme = 'http';
   String? _editingServerId;
@@ -58,6 +60,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   // 编辑模式下是否存在已保存的 TOTP 密钥，以及用户是否要求清除它。
   bool _hasStoredTotpSecret = false;
   bool _clearTotpSecret = false;
+  bool _hasStoredStashApiKey = false;
+  bool _clearStashApiKey = false;
 
   @override
   void initState() {
@@ -91,7 +95,22 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _fillFileSourceFields(_fileSourceConfig);
     } else {
       _fillHttpFields(server.activeLine?.baseUrl ?? saved.baseUrl, _project!);
-      _loadStoredTotpSecret(server.id);
+      if (_project == ServerProject.stash) {
+        _loadStoredStashApiKey(server.id);
+      } else {
+        _loadStoredTotpSecret(server.id);
+      }
+    }
+  }
+
+  Future<void> _loadStoredStashApiKey(String serverId) async {
+    try {
+      final key = await ref.read(stashApiKeyRepositoryProvider).read(serverId);
+      if (mounted && key != null) {
+        setState(() => _hasStoredStashApiKey = true);
+      }
+    } catch (_) {
+      // 读取失败按未配置处理，不影响编辑服务器地址。
     }
   }
 
@@ -118,6 +137,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     _userController.dispose();
     _passwordController.dispose();
     _totpSecretController.dispose();
+    _stashApiKeyController.dispose();
     super.dispose();
   }
 
@@ -158,6 +178,15 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       return;
     }
 
+    if (project == ServerProject.stash) {
+      await _testAndSaveStash(
+        normalized,
+        existing: existing,
+        editingServer: editingServer,
+      );
+      return;
+    }
+
     // 可选登录凭据：填写了就在保存前完成登录验证；TOTP 密钥只对
     // OMM/DBO 的密码鉴权有意义，其他 HTTP 类型没有该概念。
     final needsUsername =
@@ -168,9 +197,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         project == ServerProject.ohMyMedia || project == ServerProject.dbOnline;
     final username = _userController.text.trim();
     final password = _passwordController.text;
-    final totpSecretRaw = passwordAuth
-        ? _totpSecretController.text.trim()
-        : '';
+    final totpSecretRaw = passwordAuth ? _totpSecretController.text.trim() : '';
     final wantsLogin =
         password.isNotEmpty || (needsUsername && username.isNotEmpty);
     if (wantsLogin && needsUsername && username.isEmpty) {
@@ -257,6 +284,84 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           .read(serverConfigProvider.notifier)
           .saveServer(server, validatedProbe: probe);
       await _persistTotpSecret(server.id, normalizedTotpSecret);
+      AppHaptics.medium();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted) setState(() => _error = toApiException(error).message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _testAndSaveStash(
+    String normalized, {
+    required ServerConfig? existing,
+    required ServerProfile? editingServer,
+  }) async {
+    final l = AppL10n.of(context);
+    final inputKey = _stashApiKeyController.text.trim();
+    final serverId =
+        editingServer?.id ?? 'server-${DateTime.now().microsecondsSinceEpoch}';
+    final storedKey = editingServer == null || _clearStashApiKey
+        ? null
+        : await ref.read(stashApiKeyRepositoryProvider).read(serverId);
+    final key = inputKey.isNotEmpty ? inputKey : storedKey;
+    if (key == null && !(_clearStashApiKey && editingServer != null)) {
+      _showError(l.serverSetupStashApiKeyRequired);
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final currentLine = editingServer?.activeLine;
+      final sameServer =
+          currentLine != null &&
+          ServerConfig.normalize(currentLine.baseUrl) == normalized;
+      final line = ServerLine(
+        id: sameServer
+            ? currentLine.id
+            : 'main-${DateTime.now().microsecondsSinceEpoch}',
+        name: sameServer ? currentLine.name : '主线路',
+        baseUrl: normalized,
+      );
+      final probe = await ref
+          .read(serverLineProbeCoordinatorProvider)
+          .probe(line, expectedProjectName: ServerProject.stash.projectName);
+      if (!probe.success || probe.versionInfo == null) {
+        throw ServerCompatibilityException(
+          probe.message.isEmpty ? l.serverLineProbeFailed : probe.message,
+        );
+      }
+      if (key != null) {
+        await StashApi.forEndpoint(normalized, apiKey: key).validateApiKey();
+      }
+      final server = editingServer == null
+          ? ServerProfile(
+              id: serverId,
+              name: _nameController.text.trim(),
+              lines: [line],
+              activeLineId: line.id,
+              projectName: ServerProject.stash.projectName,
+            )
+          : editingServer.copyWith(
+              name: _nameController.text.trim(),
+              lines: sameServer ? editingServer.lines : [line],
+              activeLineId: sameServer ? editingServer.activeLineId : line.id,
+              projectName: ServerProject.stash.projectName,
+              serverVersion: null,
+            );
+      await ref
+          .read(serverConfigProvider.notifier)
+          .saveServer(server, validatedProbe: probe);
+      final credentials = ref.read(stashApiKeyRepositoryProvider);
+      if (inputKey.isNotEmpty) {
+        await credentials.save(server.id, inputKey);
+      } else if (_clearStashApiKey) {
+        await credentials.delete(server.id);
+      }
       AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -385,7 +490,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       ServerProject.dbOnline ||
       ServerProject.emby ||
       ServerProject.jellyfin ||
-      ServerProject.feiniu => null,
+      ServerProject.feiniu ||
+      ServerProject.stash => null,
     };
     if (config == null || !config.isValid) {
       _showError(AppL10n.of(context).serverSetupInvalidFileConfig);
@@ -521,6 +627,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       case ServerProject.emby:
       case ServerProject.jellyfin:
       case ServerProject.feiniu:
+      case ServerProject.stash:
         throw StateError('当前服务器类型不是文件服务器');
     }
   }
@@ -642,7 +749,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         project == ServerProject.dbOnline ||
         project == ServerProject.emby ||
         project == ServerProject.jellyfin ||
-        project == ServerProject.feiniu;
+        project == ServerProject.feiniu ||
+        project == ServerProject.stash;
+    final stashServer = project == ServerProject.stash;
     final webDav = project == ServerProject.webDav;
     final openList = project == ServerProject.openList;
     final httpLike = webDav || openList;
@@ -703,6 +812,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                               _passwordController.clear();
                               _totpSecretController.clear();
                               _clearTotpSecret = false;
+                              _stashApiKeyController.clear();
+                              _clearStashApiKey = false;
+                              _hasStoredStashApiKey = false;
                             }
                             if (value == ServerProject.openList &&
                                 _pathController.text.trim().isEmpty) {
@@ -818,8 +930,39 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                           ),
                         ],
                         if (httpServer) ...[
+                          if (stashServer) ...[
+                            TextField(
+                              controller: _stashApiKeyController,
+                              enabled: !_busy,
+                              obscureText: true,
+                              autocorrect: false,
+                              onChanged: (_) => setState(() {}),
+                              decoration: InputDecoration(
+                                labelText: editing
+                                    ? l.serverSetupStashApiKeyEditLabel
+                                    : l.serverSetupStashApiKeyLabel,
+                                helperText: l.serverSetupStashApiKeyHint,
+                                prefixIcon: const Icon(Icons.key_outlined),
+                                suffixIcon:
+                                    _hasStoredStashApiKey &&
+                                        _stashApiKeyController.text.isEmpty
+                                    ? IconButton(
+                                        tooltip: l.serverSetupStashApiKeyClear,
+                                        icon: const Icon(Icons.delete_outline),
+                                        onPressed: _busy
+                                            ? null
+                                            : () => setState(() {
+                                                _clearStashApiKey = true;
+                                                _hasStoredStashApiKey = false;
+                                              }),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           const SizedBox(height: 12),
-                          if (needsUsername) ...[
+                          if (needsUsername && !stashServer) ...[
                             TextField(
                               controller: _userController,
                               enabled: !_busy,
@@ -833,17 +976,18 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             ),
                             const SizedBox(height: 12),
                           ],
-                          TextField(
-                            controller: _passwordController,
-                            enabled: !_busy,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: editing
-                                  ? l.serverSetupPasswordEditLabel
-                                  : l.serverSetupPasswordOptionalLabel,
-                              prefixIcon: const Icon(Icons.lock_outline),
+                          if (!stashServer)
+                            TextField(
+                              controller: _passwordController,
+                              enabled: !_busy,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: editing
+                                    ? l.serverSetupPasswordEditLabel
+                                    : l.serverSetupPasswordOptionalLabel,
+                                prefixIcon: const Icon(Icons.lock_outline),
+                              ),
                             ),
-                          ),
                           if (passwordAuth) ...[
                             const SizedBox(height: 12),
                             TextField(
@@ -1098,6 +1242,7 @@ String _projectLabel(AppL10n l, ServerProject project) {
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
     ServerProject.feiniu => l.serverProjectFeiniu,
+    ServerProject.stash => 'Stash',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

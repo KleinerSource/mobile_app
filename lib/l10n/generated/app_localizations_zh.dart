@@ -2337,6 +2337,27 @@ class AppL10nZh extends AppL10n {
   String get serverSetupUserRequired => '请输入用户名';
 
   @override
+  String get serverSetupStashApiKeyLabel => 'Stash API Key';
+
+  @override
+  String get serverSetupStashApiKeyEditLabel => 'Stash API Key（留空为不更改）';
+
+  @override
+  String get serverSetupStashApiKeyHint => '在 Stash 设置 → 安全中创建；密钥仅保存在安全存储中';
+
+  @override
+  String get serverSetupStashApiKeyClear => '清除已保存的 Stash API Key';
+
+  @override
+  String get serverSetupStashApiKeyRequired => '请输入 Stash API Key';
+
+  @override
+  String get homeSwitchStashApiKeyHint => '请输入 Stash API Key 以切换服务器';
+
+  @override
+  String get homeSwitchOpenServerSettings => '前往服务器设置';
+
+  @override
   String get serverTestAndSave => '测试并保存';
 
   @override

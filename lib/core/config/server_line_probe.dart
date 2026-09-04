@@ -324,6 +324,18 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       }
     }
 
+    // 常规服务器探测全部失败后，再用 GraphQL 入口识别 Stash，避免对已知
+    // 的 OMM、Emby、Jellyfin、飞牛和 OpenList 额外发起请求。
+    final stashInfo = await _probeStash(line);
+    if (stashInfo != null) {
+      stopwatch.stop();
+      return ServerLineProbeResult.success(
+        line,
+        stopwatch.elapsedMilliseconds,
+        versionInfo: stashInfo,
+      );
+    }
+
     throw ApiException('服务器版本检测失败');
   } catch (error) {
     stopwatch.stop();
@@ -335,6 +347,38 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
           error is ServerCompatibilityException || exception.status == 404,
       requiresAuthentication: _isAuthenticationFailure(exception),
     );
+  }
+}
+
+/// Stash 没有兼容性版本接口；GraphQL 本身就是稳定识别入口。
+/// 200、401、403 都说明入口存在，404/405 才交给其它项目继续探测。
+Future<ServerVersionInfo?> _probeStash(ServerLine line) async {
+  final base = ServerConfig.normalize(line.baseUrl);
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: base,
+      connectTimeout: const Duration(milliseconds: 1200),
+      sendTimeout: const Duration(milliseconds: 1200),
+      receiveTimeout: const Duration(milliseconds: 2200),
+      responseType: ResponseType.json,
+    ),
+  );
+  try {
+    await dio.post<dynamic>(
+      '/graphql',
+      data: const {'query': 'query StashProbe { __typename }'},
+      options: Options(
+        validateStatus: (status) =>
+            status != null &&
+            ((status >= 200 && status < 300) || status == 401 || status == 403),
+        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
+      ),
+    );
+    return const ServerVersionInfo(projectName: 'stash', version: '');
+  } on DioException catch (error) {
+    final status = error.response?.statusCode;
+    if (status == 404 || status == 405) return null;
+    rethrow;
   }
 }
 

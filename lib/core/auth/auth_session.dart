@@ -146,6 +146,7 @@ enum AuthPhase {
   unconfigured,
   serverSelection,
   needsLogin,
+  needsApiKey,
   totpRequired,
   authenticated,
   incompatible,

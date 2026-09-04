@@ -155,6 +155,7 @@ Color mediaManagerAccentForProject(ServerProject? project) {
     ServerProject.emby => const Color(0xFF52B54B),
     ServerProject.jellyfin => const Color(0xFFAA5CC3),
     ServerProject.feiniu => const Color(0xFF2979FF),
+    ServerProject.stash => const Color(0xFF8B5CF6),
     _ => AppColors.light.accent,
   };
 }

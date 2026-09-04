@@ -11,6 +11,7 @@ import 'dbo_media_source_adapter.dart';
 import 'dbo_media_source.dart';
 import 'feiniu_media_source_adapter.dart';
 import 'media_browser_media_source_adapter.dart';
+import 'stash_media_source_adapter.dart';
 import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_media_source_adapter.dart';
@@ -50,6 +51,12 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
     source = FeiniuMediaSourceAdapter(
       client.feiniu,
       sessionRepository: ref.read(authSessionRepositoryProvider),
+      serverId: client.config?.activeServerId,
+      endpoint: client.config?.baseUrl,
+    );
+  } else if (project == ServerProject.stash) {
+    source = StashMediaSourceAdapter(
+      client.stash,
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
     );

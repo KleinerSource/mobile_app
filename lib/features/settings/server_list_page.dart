@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/auth/auth_session_provider.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config.dart';
@@ -287,6 +288,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
+      await ref.read(stashApiKeyRepositoryProvider).delete(server.id);
       final fileSource = _findFileSourceConfig(server.id);
       if (fileSource != null) {
         await ref
@@ -402,6 +404,7 @@ String _serverProjectLabel(AppL10n l, ServerProject? project) {
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
     ServerProject.feiniu => l.serverProjectFeiniu,
+    ServerProject.stash => 'Stash',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

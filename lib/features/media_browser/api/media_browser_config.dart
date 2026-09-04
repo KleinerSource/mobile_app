@@ -53,6 +53,7 @@ class MediaBrowserConfig {
     ServerProject.emby: emby,
     ServerProject.jellyfin: jellyfin,
     ServerProject.feiniu: feiniu,
+    ServerProject.stash: stash,
   };
 
   static const emby = MediaBrowserConfig(
@@ -86,5 +87,16 @@ class MediaBrowserConfig {
     brandLabel: 'FEINIU',
     displayName: '飞牛影视',
     supportsCurrentUser: true,
+  );
+
+  static const stash = MediaBrowserConfig(
+    project: ServerProject.stash,
+    pathPrefix: '',
+    authHeaderName: 'ApiKey',
+    tokenQueryParam: 'ApiKey',
+    sourceId: 'stash',
+    brandLabel: 'STASH',
+    displayName: 'Stash',
+    supportsCurrentUser: false,
   );
 }

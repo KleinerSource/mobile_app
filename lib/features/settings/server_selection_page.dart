@@ -386,6 +386,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
+      await ref.read(stashApiKeyRepositoryProvider).delete(server.id);
       AppHaptics.medium();
     } catch (error) {
       if (mounted) {
@@ -508,9 +509,18 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final client = ApiClient.fromConfig(
       config,
       sessionRepository: ref.read(authSessionRepositoryProvider),
+      stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
     );
 
     try {
+      if (project == ServerProject.stash) {
+        final key = await ref
+            .read(stashApiKeyRepositoryProvider)
+            .read(server.id);
+        if (key == null) return _ServerStatus.authenticationRequired;
+        await client.stash.validateApiKey(key);
+        return _ServerStatus.connected;
+      }
       if (project == ServerProject.emby || project == ServerProject.jellyfin) {
         final session = await sessionRepository.load();
         if (session == null || !session.hasAccessToken) {
@@ -583,6 +593,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           servers: [server],
           activeServerId: server.id,
         ),
+        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
       ).systemExtended.serverProfile();
       await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
       return profile;
@@ -616,6 +627,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           activeServerId: server.id,
         ),
         sessionRepository: sessionRepository,
+        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
       );
       final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
       if (mediaBrowserConfig == null) {
@@ -1835,6 +1847,7 @@ String _serverProjectLabel(AppL10n l, ServerProject? project) {
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
     ServerProject.feiniu => l.serverProjectFeiniu,
+    ServerProject.stash => 'Stash',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

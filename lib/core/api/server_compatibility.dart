@@ -11,6 +11,7 @@ const defaultEmbyHttpsPort = 8920;
 const defaultJellyfinPort = 8096;
 const defaultJellyfinHttpsPort = 8920;
 const defaultFeiniuPort = 5666;
+const defaultStashPort = 9999;
 const defaultSmbPort = 445;
 const defaultWebDavHttpPort = 80;
 const defaultWebDavHttpsPort = 443;
@@ -38,6 +39,7 @@ enum ServerProject {
     minimumVersion: '10.8.0',
   ),
   feiniu(projectName: 'feiniu', displayName: '飞牛影视', minimumVersion: '0.8.0'),
+  stash(projectName: 'stash', displayName: 'Stash', minimumVersion: ''),
   smb(
     projectName: 'smb',
     displayName: 'SMB',
@@ -91,6 +93,7 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
           ? defaultJellyfinHttpsPort
           : defaultJellyfinPort,
     ServerProject.feiniu => defaultFeiniuPort,
+    ServerProject.stash => defaultStashPort,
     ServerProject.smb => defaultSmbPort,
     ServerProject.webDav =>
       scheme.toLowerCase() == 'https'
@@ -157,6 +160,7 @@ ServerVersionInfo requireCompatibleServerVersion(Object? raw) {
       '$serverCompatibilityRequirementMessage；实际项目为 $actual，版本为 $version',
     );
   }
+  if (project == ServerProject.stash) return info;
   if (!isSupportedServerVersion(info.version, project.minimumVersion)) {
     final actual = info.version.isEmpty ? '未知' : info.version;
     throw ServerCompatibilityException(

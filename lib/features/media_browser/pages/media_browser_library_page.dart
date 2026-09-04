@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -102,6 +103,11 @@ class _MediaBrowserLibraryPageState
 
   bool get _isPersonMode => widget.personId?.trim().isNotEmpty == true;
 
+  bool get _isStash =>
+      ref.read(mediaBrowserConfigProvider)?.project == ServerProject.stash;
+
+  String get _requestIncludeItemTypes => _isStash ? 'Movie' : _includeItemTypes;
+
   @override
   void initState() {
     super.initState();
@@ -135,7 +141,7 @@ class _MediaBrowserLibraryPageState
         MediaBrowserItemPageRequest(
           serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
           parentId: _parentId,
-          includeItemTypes: _includeItemTypes,
+          includeItemTypes: _requestIncludeItemTypes,
           recursive: true,
           sortBy: _sortBy,
           sortOrder: _sortOrder,
@@ -280,7 +286,7 @@ class _MediaBrowserLibraryPageState
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
             parentId: parentId,
-            includeItemTypes: includeItemTypes,
+            includeItemTypes: _isStash ? 'Movie' : includeItemTypes,
             recursive: true,
             sortBy: sortBy,
             sortOrder: sortOrder,
@@ -411,6 +417,8 @@ class _MediaBrowserLibraryPageState
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final isStash =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     final views = ref.watch(mediaBrowserViewsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     views.maybeWhen(data: _syncCollectionType, orElse: () {});
@@ -481,11 +489,12 @@ class _MediaBrowserLibraryPageState
                             onTap: () => _openSortMenu(context),
                           ),
                           const SizedBox(width: 8),
-                          _LibraryFilterButton(
-                            active:
-                                _includeItemTypes != _typeOptions.first.value,
-                            onTap: () => _openTypeMenu(context),
-                          ),
+                          if (!isStash)
+                            _LibraryFilterButton(
+                              active:
+                                  _includeItemTypes != _typeOptions.first.value,
+                              onTap: () => _openTypeMenu(context),
+                            ),
                         ],
                       ),
                     ),
@@ -563,7 +572,8 @@ class _MediaBrowserLibraryPageState
                                                   width: itemWidth,
                                                   index: index,
                                                   square: _isMusicGrid,
-                                                  showFavoriteBadge: true,
+                                                  showFavoriteBadge: !isStash,
+                                                  selectionEnabled: !isStash,
                                                   onOpen: _openItem,
                                                 ),
                                             firstPageProgressIndicatorBuilder:
@@ -646,43 +656,44 @@ class _MediaBrowserLibraryPageState
                     ),
                   ],
                 ),
-                PagedSelectionToolbar<MediaBrowserItem>(
-                  selection: _selection,
-                  onSelectAll: () => _selection.selectAll(
-                    _controller.itemList ?? const <MediaBrowserItem>[],
+                if (!isStash)
+                  PagedSelectionToolbar<MediaBrowserItem>(
+                    selection: _selection,
+                    onSelectAll: () => _selection.selectAll(
+                      _controller.itemList ?? const <MediaBrowserItem>[],
+                    ),
+                    actionsBuilder: (selected) => [
+                      EntityBatchAction(
+                        icon: Icons.favorite_rounded,
+                        label: AppL10n.of(context).mediaBrowserFavoriteAction,
+                        onTap: selected.isEmpty || _batchBusy
+                            ? null
+                            : () => unawaited(_applySelection(favorite: true)),
+                      ),
+                      EntityBatchAction(
+                        icon: Icons.favorite_border_rounded,
+                        label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
+                        color: colors.danger,
+                        onTap: selected.isEmpty || _batchBusy
+                            ? null
+                            : () => unawaited(_applySelection(favorite: false)),
+                      ),
+                      EntityBatchAction(
+                        icon: Icons.task_alt_rounded,
+                        label: AppL10n.of(context).mediaBrowserMarkWatched,
+                        onTap: selected.isEmpty || _batchBusy
+                            ? null
+                            : () => unawaited(_applySelection(played: true)),
+                      ),
+                      EntityBatchAction(
+                        icon: Icons.check_circle_outline_rounded,
+                        label: AppL10n.of(context).mediaBrowserUnmarkWatched,
+                        onTap: selected.isEmpty || _batchBusy
+                            ? null
+                            : () => unawaited(_applySelection(played: false)),
+                      ),
+                    ],
                   ),
-                  actionsBuilder: (selected) => [
-                    EntityBatchAction(
-                      icon: Icons.favorite_rounded,
-                      label: AppL10n.of(context).mediaBrowserFavoriteAction,
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(favorite: true)),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.favorite_border_rounded,
-                      label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
-                      color: colors.danger,
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(favorite: false)),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.task_alt_rounded,
-                      label: AppL10n.of(context).mediaBrowserMarkWatched,
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(played: true)),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.check_circle_outline_rounded,
-                      label: AppL10n.of(context).mediaBrowserUnmarkWatched,
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(played: false)),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),

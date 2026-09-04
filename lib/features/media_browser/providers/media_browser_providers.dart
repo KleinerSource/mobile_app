@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
@@ -53,10 +54,19 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
   // 依赖登录态：登录/登出会触发重建并刷新 token。
   ref.watch(authControllerProvider);
   final session = await ref.read(authSessionRepositoryProvider).current();
+  final serverConfig = ref.watch(serverConfigProvider);
+  final activeServerId = serverConfig?.activeServerId;
+  final stashKey = config.project == ServerProject.stash
+      ? activeServerId == null
+            ? null
+            : await ref.read(stashApiKeyRepositoryProvider).read(activeServerId)
+      : null;
   return MediaBrowserServerUrls(
     config: config,
-    baseUrl: ref.watch(serverConfigProvider)!.baseUrl,
-    token: session?.accessToken,
+    baseUrl: serverConfig!.baseUrl,
+    token: config.project == ServerProject.stash
+        ? stashKey
+        : session?.accessToken,
     cookie: session?.cookie,
   );
 });

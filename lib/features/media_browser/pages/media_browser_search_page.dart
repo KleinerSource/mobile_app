@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -213,6 +214,12 @@ class _MediaBrowserSearchResultsState
     extends ConsumerState<_MediaBrowserSearchResults> {
   static const _pageSize = 24;
 
+  bool get _isStash =>
+      ref.read(mediaBrowserConfigProvider)?.project == ServerProject.stash;
+
+  String get _requestIncludeItemTypes =>
+      _isStash ? 'Movie' : 'Movie,Series,Episode,MusicAlbum,Audio';
+
   final _pagingController = PagingController<int, MediaBrowserItem>(
     firstPageKey: 0,
   );
@@ -256,7 +263,7 @@ class _MediaBrowserSearchResultsState
           ref,
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
+            includeItemTypes: _requestIncludeItemTypes,
             recursive: true,
             searchTerm: query,
             sortBy: 'SortName',
@@ -299,7 +306,7 @@ class _MediaBrowserSearchResultsState
         ref,
         MediaBrowserItemPageRequest(
           serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-          includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
+          includeItemTypes: _requestIncludeItemTypes,
           recursive: true,
           searchTerm: widget.query,
           sortBy: 'SortName',
@@ -332,6 +339,8 @@ class _MediaBrowserSearchResultsState
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    final isStash =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
     return PagedSelectionPopScope<MediaBrowserItem>(
@@ -367,7 +376,8 @@ class _MediaBrowserSearchResultsState
                               urls: value,
                               width: itemWidth,
                               index: index,
-                              showFavoriteBadge: true,
+                              showFavoriteBadge: !isStash,
+                              selectionEnabled: !isStash,
                               onOpen: _openItem,
                             ),
                             orElse: () => const SizedBox.shrink(),
@@ -401,43 +411,44 @@ class _MediaBrowserSearchResultsState
               ],
             ),
           ),
-          PagedSelectionToolbar<MediaBrowserItem>(
-            selection: _selection,
-            onSelectAll: () => _selection.selectAll(
-              _pagingController.itemList ?? const <MediaBrowserItem>[],
+          if (!isStash)
+            PagedSelectionToolbar<MediaBrowserItem>(
+              selection: _selection,
+              onSelectAll: () => _selection.selectAll(
+                _pagingController.itemList ?? const <MediaBrowserItem>[],
+              ),
+              actionsBuilder: (selected) => [
+                EntityBatchAction(
+                  icon: Icons.favorite_rounded,
+                  label: AppL10n.of(context).mediaBrowserFavoriteAction,
+                  onTap: selected.isEmpty || _batchBusy
+                      ? null
+                      : () => unawaited(_applySelection(favorite: true)),
+                ),
+                EntityBatchAction(
+                  icon: Icons.favorite_border_rounded,
+                  label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
+                  color: colors.danger,
+                  onTap: selected.isEmpty || _batchBusy
+                      ? null
+                      : () => unawaited(_applySelection(favorite: false)),
+                ),
+                EntityBatchAction(
+                  icon: Icons.task_alt_rounded,
+                  label: AppL10n.of(context).mediaBrowserMarkWatched,
+                  onTap: selected.isEmpty || _batchBusy
+                      ? null
+                      : () => unawaited(_applySelection(played: true)),
+                ),
+                EntityBatchAction(
+                  icon: Icons.check_circle_outline_rounded,
+                  label: AppL10n.of(context).mediaBrowserUnmarkWatched,
+                  onTap: selected.isEmpty || _batchBusy
+                      ? null
+                      : () => unawaited(_applySelection(played: false)),
+                ),
+              ],
             ),
-            actionsBuilder: (selected) => [
-              EntityBatchAction(
-                icon: Icons.favorite_rounded,
-                label: AppL10n.of(context).mediaBrowserFavoriteAction,
-                onTap: selected.isEmpty || _batchBusy
-                    ? null
-                    : () => unawaited(_applySelection(favorite: true)),
-              ),
-              EntityBatchAction(
-                icon: Icons.favorite_border_rounded,
-                label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
-                color: colors.danger,
-                onTap: selected.isEmpty || _batchBusy
-                    ? null
-                    : () => unawaited(_applySelection(favorite: false)),
-              ),
-              EntityBatchAction(
-                icon: Icons.task_alt_rounded,
-                label: AppL10n.of(context).mediaBrowserMarkWatched,
-                onTap: selected.isEmpty || _batchBusy
-                    ? null
-                    : () => unawaited(_applySelection(played: true)),
-              ),
-              EntityBatchAction(
-                icon: Icons.check_circle_outline_rounded,
-                label: AppL10n.of(context).mediaBrowserUnmarkWatched,
-                onTap: selected.isEmpty || _batchBusy
-                    ? null
-                    : () => unawaited(_applySelection(played: false)),
-              ),
-            ],
-          ),
         ],
       ),
     );

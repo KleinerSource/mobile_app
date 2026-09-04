@@ -101,6 +101,70 @@ void main() {
     );
   });
 
+  test('Stash 缺少 API Key 时进入专用切换阶段', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final refreshCalls = <int>[];
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              10,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'stash',
+                version: '',
+              ),
+            ),
+          ),
+        ),
+        authControllerProvider.overrideWith(
+          () => _FakeAuthController(
+            refreshCalls,
+            [],
+            refreshResult: const AuthState(phase: AuthPhase.needsApiKey),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const line = ServerLine(
+      id: 'stash-line',
+      name: 'Stash 主线路',
+      baseUrl: 'https://stash.example',
+    );
+    final server = ServerProfile(
+      id: 'stash-server',
+      name: 'Stash',
+      lines: const [line],
+      activeLineId: line.id,
+      projectName: 'stash',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          ServerConfig(
+            baseUrl: line.baseUrl,
+            lines: const [line],
+            servers: [server],
+            activeServerId: server.id,
+          ),
+        );
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(server.id, allowActiveTarget: true);
+
+    expect(refreshCalls, [1]);
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.needsApiKey,
+    );
+  });
+
   test('取消切换返回服务器选择器，不恢复上一台未登录服务器', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -353,10 +417,15 @@ void main() {
 }
 
 class _FakeAuthController extends AuthController {
-  _FakeAuthController(this.refreshCalls, this.loginCalls);
+  _FakeAuthController(
+    this.refreshCalls,
+    this.loginCalls, {
+    this.refreshResult = const AuthState(phase: AuthPhase.needsLogin),
+  });
 
   final List<int> refreshCalls;
   final List<({String password, String? totpCode})> loginCalls;
+  final AuthState refreshResult;
 
   @override
   Future<AuthState> build() async =>
@@ -365,7 +434,7 @@ class _FakeAuthController extends AuthController {
   @override
   Future<AuthState> refreshCurrentServer() async {
     refreshCalls.add(1);
-    return const AuthState(phase: AuthPhase.needsLogin);
+    return refreshResult;
   }
 
   @override

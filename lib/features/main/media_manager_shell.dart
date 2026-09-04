@@ -182,6 +182,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     BuildContext context, {
     required bool dbOnline,
     required bool mediaBrowser,
+    required bool stash,
     required List<ServerProfile> servers,
     required String? activeServerId,
     required String? selectingServerId,
@@ -215,6 +216,19 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         FloatingTabSpec<Object?>(
           label: l.settingsTitle,
           icon: Icons.person_outline_rounded,
+        ),
+      ];
+    }
+    if (mediaBrowser && stash) {
+      return [
+        homeTab,
+        FloatingTabSpec<Object?>(
+          label: l.tabLibrary,
+          icon: Icons.video_library_rounded,
+        ),
+        FloatingTabSpec<Object?>(
+          label: l.tabSearch,
+          icon: Icons.search_rounded,
         ),
       ];
     }
@@ -285,6 +299,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     final project = config?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
     final mediaBrowser = MediaBrowserConfig.byProject[project] != null;
+    final stash = project == ServerProject.stash;
     final transition = ref.watch(serverSwitchTransitionProvider);
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
@@ -294,6 +309,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
       context,
       dbOnline: dbOnline,
       mediaBrowser: mediaBrowser,
+      stash: stash,
       servers: config?.servers ?? const <ServerProfile>[],
       activeServerId: config?.activeServerId,
       selectingServerId: transition.isActive ? transition.targetServerId : null,

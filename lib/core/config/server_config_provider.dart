@@ -406,6 +406,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         '线路项目不匹配，需要 ${project.projectName}，实际为 $actual',
       );
     }
+    if (project == ServerProject.stash) return;
     if (!isSupportedServerVersion(info.version, project.minimumVersion)) {
       final actual = info.version.isEmpty ? '未知' : info.version;
       throw ServerCompatibilityException(

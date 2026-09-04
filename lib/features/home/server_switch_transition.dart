@@ -21,12 +21,14 @@ import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/settings/server_setup_page.dart';
 import 'home_providers.dart';
 
 enum ServerSwitchPhase {
   idle,
   checking,
   needsLogin,
+  needsApiKey,
   error,
   finishing,
   returning,
@@ -93,6 +95,21 @@ class ServerSwitchState {
     bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.needsLogin,
+         targetServerId: targetServerId,
+         previousServerId: previousServerId,
+         message: message,
+         avatarOrigin: avatarOrigin,
+         returnToSelectionOnCancel: returnToSelectionOnCancel,
+       );
+
+  const ServerSwitchState.needsApiKey({
+    required String targetServerId,
+    String? previousServerId,
+    String? message,
+    Rect? avatarOrigin,
+    bool returnToSelectionOnCancel = false,
+  }) : this._(
+         phase: ServerSwitchPhase.needsApiKey,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          message: message,
@@ -320,6 +337,15 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       case AuthPhase.needsLogin:
       case AuthPhase.totpRequired:
         state = ServerSwitchState.needsLogin(
+          targetServerId: targetServerId,
+          previousServerId: previousServerId,
+          message: auth.message,
+          avatarOrigin: state.avatarOrigin,
+          returnToSelectionOnCancel: returnToSelectionOnCancel,
+        );
+        break;
+      case AuthPhase.needsApiKey:
+        state = ServerSwitchState.needsApiKey(
           targetServerId: targetServerId,
           previousServerId: previousServerId,
           message: auth.message,
@@ -621,6 +647,12 @@ class _ServerSwitchTransitionOverlayState
         colors,
         target,
         requiresTotp,
+        transition.message,
+      ),
+      ServerSwitchPhase.needsApiKey => _buildApiKeyRequired(
+        context,
+        colors,
+        target,
         transition.message,
       ),
       ServerSwitchPhase.error => _buildError(
@@ -1308,6 +1340,61 @@ class _ServerSwitchTransitionOverlayState
     );
   }
 
+  Widget _buildApiKeyRequired(
+    BuildContext context,
+    AppColors colors,
+    ServerProfile server,
+    String? message,
+  ) {
+    final l = AppL10n.of(context);
+    final profile = _cachedProfileFor(server);
+    final name = profile?.name.trim().isNotEmpty == true
+        ? profile!.name.trim()
+        : server.name;
+    final error =
+        (_localError?.trim().isNotEmpty == true ? _localError : message)
+            ?.trim();
+    return Column(
+      key: const ValueKey('server-switch-api-key'),
+      children: [
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.pageTitle(context).copyWith(fontSize: 25),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          l.homeSwitchStashApiKeyHint,
+          textAlign: TextAlign.center,
+          style: AppText.body(
+            context,
+          ).copyWith(color: colors.muted, fontSize: 15),
+        ),
+        if (error != null && error.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Align(alignment: Alignment.centerLeft, child: ShakeErrorText(error)),
+        ],
+        const SizedBox(height: 22),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _loginBusy ? null : () => _openServerSettings(server.id),
+            icon: const Icon(Icons.settings_outlined),
+            label: Text(l.homeSwitchOpenServerSettings),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: _loginBusy ? null : _cancel,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          label: Text(l.homeSwitchCancel),
+        ),
+      ],
+    );
+  }
+
   /// Notifier 无法本地化固定文案，按 messageKind 解析成展示文本。
   String? _resolveStateMessage(AppL10n l, ServerSwitchState transition) {
     return switch (transition.messageKind) {
@@ -1468,6 +1555,16 @@ class _ServerSwitchTransitionOverlayState
       _totpController.clear();
     });
     await ref.read(serverSwitchTransitionProvider.notifier).cancel();
+  }
+
+  Future<void> _openServerSettings(String serverId) async {
+    if (_loginBusy) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ServerSetupPage(serverId: serverId)),
+    );
+    if (!mounted || changed != true) return;
+    _localError = null;
+    await ref.read(serverSwitchTransitionProvider.notifier).retry();
   }
 
   Widget _input(

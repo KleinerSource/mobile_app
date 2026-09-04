@@ -98,7 +98,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     final client = ApiClient.fromConfig(
       selectedConfig,
       sessionRepository: ref.read(authSessionRepositoryProvider),
+      stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
       onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
+      onStashApiKeyInvalid: () => ref.read(authExpiryProvider.notifier).state++,
     );
     return _bootstrap(client);
   }
@@ -106,6 +108,9 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<AuthState> _bootstrap(ApiClient client) async {
     final project = client.config?.activeServer?.project;
     final isDbOnline = project == ServerProject.dbOnline;
+    if (project == ServerProject.stash) {
+      return _bootstrapStash(client);
+    }
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
     if (project == ServerProject.feiniu) {
       return _bootstrapFeiniu(client);
@@ -240,7 +245,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     final client = ApiClient.fromConfig(
       config,
       sessionRepository: ref.read(authSessionRepositoryProvider),
+      stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
       onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
+      onStashApiKeyInvalid: () => ref.read(authExpiryProvider.notifier).state++,
     );
     final result = await _bootstrap(client);
     state = AsyncData(result);
@@ -371,6 +378,61 @@ class AuthController extends AsyncNotifier<AuthState> {
         phase: AuthPhase.unavailable,
         message: exception.message,
       );
+    }
+  }
+
+  Future<AuthState> _bootstrapStash(ApiClient client) async {
+    final config = client.config;
+    final serverId = config?.activeServerId?.trim() ?? '';
+    final repository = ref.read(stashApiKeyRepositoryProvider);
+    final key = serverId.isEmpty ? null : await repository.read(serverId);
+    if (key == null) return const AuthState(phase: AuthPhase.needsApiKey);
+    try {
+      await client.stash.validateApiKey(key);
+      return const AuthState(phase: AuthPhase.authenticated);
+    } catch (error) {
+      final exception = toApiException(error);
+      if (exception.status == 401 || exception.status == 403) {
+        if (serverId.isNotEmpty) await repository.delete(serverId);
+        return AuthState(
+          phase: AuthPhase.needsApiKey,
+          message: exception.message,
+        );
+      }
+      return AuthState(
+        phase: AuthPhase.unavailable,
+        message: exception.message,
+      );
+    }
+  }
+
+  /// 为当前 Stash 服务器验证并保存 API Key。
+  Future<bool> setStashApiKey(String value) async {
+    final config = ref.read(serverConfigProvider);
+    if (config?.activeServer?.project != ServerProject.stash) {
+      throw ApiException('当前服务器不是 Stash');
+    }
+    final key = value.trim();
+    if (key.isEmpty) {
+      state = const AsyncData(AuthState(phase: AuthPhase.needsApiKey));
+      return false;
+    }
+    final client = ref.read(requiredApiClientProvider);
+    try {
+      await client.stash.validateApiKey(key);
+      final serverId = config!.activeServerId;
+      if (serverId == null || serverId.trim().isEmpty) {
+        throw ApiException('当前 Stash 服务器缺少服务器 ID');
+      }
+      await ref.read(stashApiKeyRepositoryProvider).save(serverId, key);
+      state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
+      return true;
+    } catch (error) {
+      final exception = toApiException(error);
+      state = AsyncData(
+        AuthState(phase: AuthPhase.needsApiKey, message: exception.message),
+      );
+      throw exception;
     }
   }
 
@@ -525,7 +587,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     if (project == null) throw ApiException('服务器类型无效');
     final line = server.activeLine ?? server.lines.first;
     final rawSecret = totpSecret?.trim() ?? '';
-    final normalizedSecret = rawSecret.isEmpty ? null : normalizeTotpSecret(rawSecret);
+    final normalizedSecret = rawSecret.isEmpty
+        ? null
+        : normalizeTotpSecret(rawSecret);
     if (rawSecret.isNotEmpty && normalizedSecret == null) {
       throw ApiException('TOTP 密钥格式无效（应为 base32 字符串）');
     }
@@ -544,6 +608,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
 
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+    if (project == ServerProject.stash) return;
     if (project == ServerProject.feiniu) {
       final user = username?.trim() ?? '';
       if (user.isEmpty) throw ApiException('请输入用户名');

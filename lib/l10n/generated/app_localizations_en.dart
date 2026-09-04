@@ -2384,6 +2384,30 @@ class AppL10nEn extends AppL10n {
   String get serverSetupUserRequired => 'Enter a username';
 
   @override
+  String get serverSetupStashApiKeyLabel => 'Stash API Key';
+
+  @override
+  String get serverSetupStashApiKeyEditLabel =>
+      'Stash API Key (leave blank to keep unchanged)';
+
+  @override
+  String get serverSetupStashApiKeyHint =>
+      'Create it in Stash Settings → Security; the key is stored securely';
+
+  @override
+  String get serverSetupStashApiKeyClear => 'Clear saved Stash API Key';
+
+  @override
+  String get serverSetupStashApiKeyRequired => 'Enter a Stash API Key';
+
+  @override
+  String get homeSwitchStashApiKeyHint =>
+      'Enter the Stash API Key to switch servers';
+
+  @override
+  String get homeSwitchOpenServerSettings => 'Open server settings';
+
+  @override
   String get serverTestAndSave => 'Test and save';
 
   @override

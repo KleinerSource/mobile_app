@@ -252,9 +252,14 @@ class ServerConfig {
     return uri.replace(path: path).toString();
   }
 
-  String get apiBase => activeServer?.project == ServerProject.feiniu
-      ? '${normalizeForProject(baseUrl, ServerProject.feiniu)}/api/v1'
-      : '$baseUrl/api';
+  String get apiBase {
+    final project = activeServer?.project;
+    if (project == ServerProject.feiniu) {
+      return '${normalizeForProject(baseUrl, ServerProject.feiniu)}/api/v1';
+    }
+    if (project == ServerProject.stash) return baseUrl;
+    return '$baseUrl/api';
+  }
 
   bool get hasMultipleServers => servers.length > 1;
 

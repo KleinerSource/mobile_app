@@ -25,8 +25,21 @@ Widget mediaBrowserSelectableGridItem({
   required int index,
   bool square = false,
   bool showFavoriteBadge = false,
+  bool selectionEnabled = true,
   required Future<void> Function(MediaBrowserItem item) onOpen,
 }) {
+  if (!selectionEnabled) {
+    return MediaBrowserSelectableItemCard(
+      item: item,
+      urls: urls,
+      width: width,
+      square: square,
+      showFavoriteBadge: showFavoriteBadge,
+      selected: false,
+      selecting: false,
+      onTap: () => unawaited(onOpen(item)),
+    );
+  }
   return PagedSelectionItem<MediaBrowserItem>(
     selection: selection,
     item: item,
