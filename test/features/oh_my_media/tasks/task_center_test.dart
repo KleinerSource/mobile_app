@@ -6,9 +6,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/modal_transcription_config.dart';
+import 'package:omm/core/models/preview.dart';
+import 'package:omm/core/sources/media/media_source.dart';
+import 'package:omm/core/sources/media/omm_media_operations_source.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
+import 'package:omm/features/oh_my_media/movies/media_repository.dart';
+import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
@@ -186,6 +192,164 @@ void _main_1() {
     expect(tasks.first.isActive, isTrue);
     expect(tasks.last.isTerminal, isTrue);
   });
+
+  test('preview_task 消息进入任务中心并展示细粒度进度', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverConfigProvider.overrideWith(
+          () => _ServerConfigState(_serverConfig('oh-my-media')),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(taskCenterProvider.notifier);
+
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'preview_task',
+      'taskId': 'preview-1',
+      'status': 'queued',
+      'isRunning': false,
+      'progress': {'total': 1, 'completed': 0, 'percent': 0},
+      'movieId': 7,
+      'movieTitle': '长视频',
+    });
+    expect(container.read(taskCenterProvider).single.name, '预览生成');
+    expect(container.read(taskCenterProvider).single.canCancel, isTrue);
+
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'preview_task',
+      'taskId': 'preview-1',
+      'taskName': '忽略客户端名称',
+      'status': 'running',
+      'isRunning': true,
+      'progress': {'total': 1, 'completed': 0, 'percent': 42.5},
+    });
+    final running = container.read(taskCenterProvider).single;
+    expect(running.progress.percent, 42.5);
+    expect(running.movieId, 7);
+    expect(running.movieTitle, '长视频');
+
+    for (final status in ['completed', 'failed', 'cancelled']) {
+      notifier.updateFromSchedulerMessage({
+        'type': 'preview_task',
+        'taskId': 'preview-$status',
+        'status': status,
+        'isRunning': false,
+        'progress': {'total': 1, 'completed': 1, 'percent': 100},
+        'movieId': 7,
+        'movieTitle': '长视频',
+      });
+    }
+    final tasks = container.read(taskCenterProvider);
+    expect(tasks.any((task) => task.isCompleted), isTrue);
+    expect(tasks.any((task) => task.isFailed), isTrue);
+    expect(tasks.any((task) => task.isCanceled), isTrue);
+    expect(
+      tasks
+          .where((task) => task.name == '预览生成')
+          .every((task) => !task.canRetry),
+      isTrue,
+    );
+  });
+
+  test('提交响应登记和 WebSocket 更新保留影片信息', () {
+    final task = const PreviewTask(
+      taskId: 'preview-2',
+      status: 'queued',
+      movieIds: [11],
+      totalCount: 1,
+    );
+    final item = TaskItem.fromPreviewTask(
+      task,
+      fallbackMovieId: 11,
+      fallbackMovieTitle: '提交响应影片',
+    );
+    expect(item.movieId, 11);
+    expect(item.movieTitle, '提交响应影片');
+
+    final merged = item.merge(
+      TaskItem.fromPreviewMessage(const {
+        'type': 'preview_task',
+        'taskId': 'preview-2',
+        'status': 'running',
+        'isRunning': true,
+        'progress': {'total': 1, 'completed': 0, 'percent': 12.5},
+      }),
+    );
+    expect(merged.movieId, 11);
+    expect(merged.movieTitle, '提交响应影片');
+    expect(merged.progress.percent, 12.5);
+  });
+
+  test('预览任务取消调用预览任务取消接口并更新本地状态', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = _TaskCenterMediaRepository();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverConfigProvider.overrideWith(
+          () => _ServerConfigState(_serverConfig('oh-my-media')),
+        ),
+        mediaRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(taskCenterProvider.notifier);
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'preview_task',
+      'taskId': 'preview-cancel',
+      'status': 'running',
+      'isRunning': true,
+      'progress': {'total': 1, 'completed': 0, 'percent': 37.5},
+      'movieId': 7,
+      'movieTitle': '可取消影片',
+    });
+
+    await notifier.cancel(container.read(taskCenterProvider).single);
+
+    expect(repository.cancelledTaskId, 'preview-cancel');
+    final task = container.read(taskCenterProvider).single;
+    expect(task.isCanceled, isTrue);
+    expect(task.isActive, isFalse);
+    expect(task.canRetry, isFalse);
+  });
+
+  test('非 OMM 服务器忽略预览广播和客户端登记', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverConfigProvider.overrideWith(
+          () => _ServerConfigState(_serverConfig('emby')),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(taskCenterProvider.notifier);
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'preview_task',
+      'taskId': 'external-preview-1',
+      'status': 'running',
+      'isRunning': true,
+      'progress': {'total': 1, 'completed': 0, 'percent': 50},
+    });
+    notifier.registerPreview(
+      const PreviewTask(
+        taskId: 'external-preview-2',
+        status: 'queued',
+        totalCount: 1,
+      ),
+    );
+
+    expect(container.read(taskCenterProvider), isEmpty);
+  });
 }
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_page_test.dart ====================
@@ -240,4 +404,68 @@ void main() {
   group('task_center_models', _main_0);
   group('task_center_provider', _main_1);
   group('task_center_page', _main_2);
+}
+
+class _TaskCenterMediaRepository extends MediaRepository {
+  _TaskCenterMediaRepository()
+    : super(
+        catalog: _NoopCatalogSource(),
+        details: _NoopMovieDetailSource(),
+        operations: _NoopOmmOperationsSource(),
+      );
+
+  String? cancelledTaskId;
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {
+    cancelledTaskId = taskId;
+  }
+}
+
+class _NoopCatalogSource implements CatalogSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _NoopMovieDetailSource implements MovieDetailSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _NoopOmmOperationsSource implements OmmMediaOperationsSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _ServerConfigState extends ServerConfigNotifier {
+  _ServerConfigState(this.config);
+
+  final ServerConfig config;
+
+  @override
+  ServerConfig build() => config;
+}
+
+ServerConfig _serverConfig(String projectName) {
+  const line = ServerLine(
+    id: 'line',
+    name: '主线路',
+    baseUrl: '',
+  );
+  final server = ServerProfile(
+    id: 'server',
+    name: projectName,
+    lines: const [line],
+    activeLineId: line.id,
+    projectName: projectName,
+  );
+  return ServerConfig(
+    baseUrl: line.baseUrl,
+    lines: const [line],
+    servers: [server],
+    activeServerId: server.id,
+  );
 }

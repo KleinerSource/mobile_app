@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/subtitle_search.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_models.dart' as source_models;
@@ -117,6 +118,24 @@ class _FakeOperations implements OmmMediaOperationsSource {
       throw const SourceException('同名字幕文件已存在');
     }
   }
+
+  @override
+  Future<PreviewStartResult> generatePreview(
+    source_models.MediaRef movie, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewStatus> previewStatus(
+    source_models.MediaRef movie, {
+    String? taskId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) {

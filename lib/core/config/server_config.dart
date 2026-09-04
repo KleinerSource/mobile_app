@@ -263,6 +263,9 @@ class ServerConfig {
 
   bool get hasMultipleServers => servers.length > 1;
 
+  /// 预览生成是 OMM 独有能力，所有入口都以当前激活项目为准。
+  bool get isOmm => activeServer?.project == ServerProject.ohMyMedia;
+
   ServerProfile? get activeServer {
     if (servers.isEmpty) return null;
     return servers.firstWhere(

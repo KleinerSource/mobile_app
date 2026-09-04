@@ -372,11 +372,7 @@ void _main_2() {
     final server = _ommProfile(httpServer);
     await container
         .read(authControllerProvider.notifier)
-        .loginForServer(
-          server: server,
-          password: 'pw',
-          totpSecret: totpSecret,
-        );
+        .loginForServer(server: server, password: 'pw', totpSecret: totpSecret);
 
     final login = recorder.log
         .where((entry) => entry.path.endsWith('/auth/login'))
@@ -387,7 +383,10 @@ void _main_2() {
     final now = DateTime.now();
     final expected = {
       tryGenerateTotpCode(totpSecret, now: now),
-      tryGenerateTotpCode(totpSecret, now: now.add(const Duration(seconds: 30))),
+      tryGenerateTotpCode(
+        totpSecret,
+        now: now.add(const Duration(seconds: 30)),
+      ),
     }.whereType<String>();
     expect(expected, contains(login.body?['totp_code']));
 
@@ -466,16 +465,9 @@ void _main_2() {
     );
     await container
         .read(authControllerProvider.notifier)
-        .loginForServer(
-          server: server,
-          username: 'alice',
-          password: 'pw',
-        );
+        .loginForServer(server: server, username: 'alice', password: 'pw');
 
-    expect(
-      recorder.log.single.path,
-      contains('/Users/AuthenticateByName'),
-    );
+    expect(recorder.log.single.path, contains('/Users/AuthenticateByName'));
     final stored = await sessions.forServer(server.id).load();
     expect(stored?.accessToken, 'tok-1');
     expect(stored?.userId, 'u-1');
@@ -527,7 +519,10 @@ void _main_2() {
     final now = DateTime.now();
     final expected = {
       tryGenerateTotpCode(totpSecret, now: now),
-      tryGenerateTotpCode(totpSecret, now: now.add(const Duration(seconds: 30))),
+      tryGenerateTotpCode(
+        totpSecret,
+        now: now.add(const Duration(seconds: 30)),
+      ),
     }.whereType<String>();
     expect(expected, contains(login.body?['totp_code']));
     expect(
@@ -624,8 +619,8 @@ ServerProfile _ommProfileForUrl(String baseUrl) {
 }
 
 ServerProfile _ommProfile(HttpServer httpServer) => _ommProfileForUrl(
-      'http://${httpServer.address.address}:${httpServer.port}',
-    );
+  'http://${httpServer.address.address}:${httpServer.port}',
+);
 
 class _FixedServerConfigNotifier extends ServerConfigNotifier {
   _FixedServerConfigNotifier(this.config);

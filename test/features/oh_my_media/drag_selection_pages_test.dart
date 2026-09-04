@@ -7,6 +7,7 @@ import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_models.dart' as source_models;
 import 'package:omm/core/sources/media/media_source.dart';
@@ -462,6 +463,24 @@ class _RecordingFavoritesSource implements OmmMediaOperationsSource {
   }
 
   @override
+  Future<PreviewStartResult> generatePreview(
+    source_models.MediaRef movie, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewStatus> previewStatus(
+    source_models.MediaRef movie, {
+    String? taskId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {}
+
+  @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());
 }
@@ -528,6 +547,24 @@ class _DefaultTestMediaSource
 
   @override
   Future<void> removeFavoriteBatch(List<source_models.MediaRef> movies) async {}
+
+  @override
+  Future<PreviewStartResult> generatePreview(
+    source_models.MediaRef movie, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewStatus> previewStatus(
+    source_models.MediaRef movie, {
+    String? taskId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>

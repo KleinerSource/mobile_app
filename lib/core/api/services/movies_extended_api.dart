@@ -122,4 +122,39 @@ class MoviesExtendedApi {
     );
     return unwrapStd<Object?>(response.data, (data) => data);
   }
+
+  Future<Object?> generateMoviePreviews(
+    int movieId, {
+    bool overwrite = false,
+  }) async {
+    final response = await _dio.post<dynamic>(
+      '/movies/id/$movieId/previews/generate',
+      data: {'overwrite': overwrite},
+    );
+    return response.data;
+  }
+
+  Future<Object?> getMoviePreviews(int movieId, {String? taskId}) async {
+    final response = await _dio.get<dynamic>(
+      '/movies/id/$movieId/previews',
+      queryParameters: taskId == null || taskId.trim().isEmpty
+          ? null
+          : {'task_id': taskId},
+    );
+    return response.data;
+  }
+
+  Future<Object?> getPreviewTask(String taskId) async {
+    final response = await _dio.get<dynamic>(
+      '/movies/preview-tasks/${Uri.encodeComponent(taskId)}',
+    );
+    return response.data;
+  }
+
+  Future<Object?> cancelPreviewTask(String taskId) async {
+    final response = await _dio.post<dynamic>(
+      '/movies/preview-tasks/${Uri.encodeComponent(taskId)}/cancel',
+    );
+    return response.data;
+  }
 }

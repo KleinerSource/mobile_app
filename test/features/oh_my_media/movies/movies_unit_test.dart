@@ -4,6 +4,7 @@
 //   - test/features/oh_my_media/movies/movie_data_changes_test.dart
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource_scan.dart';
@@ -246,6 +247,24 @@ class _FakeOperations implements OmmMediaOperationsSource {
     source_models.MediaRef movie, {
     bool force = false,
   }) async {}
+
+  @override
+  Future<PreviewStartResult> generatePreview(
+    source_models.MediaRef movie, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewStatus> previewStatus(
+    source_models.MediaRef movie, {
+    String? taskId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {}
 
   @override
   Future<void> syncNfo(source_models.MediaRef movie) async {}

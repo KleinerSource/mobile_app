@@ -17,6 +17,8 @@ import 'package:omm/core/models/ffmpeg_config.dart';
 import 'package:omm/core/models/modal_transcription_config.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/playback.dart';
+import 'package:omm/core/models/preview.dart';
+import 'package:omm/core/models/preview_config.dart';
 import 'package:omm/core/models/system.dart';
 import 'package:omm/core/update/update_installer.dart';
 import 'package:omm/core/update/update_models.dart';
@@ -862,6 +864,103 @@ void _main_6() {
   });
 }
 
+void _main_7() {
+  test('预览配置默认值和完整 JSON 往返', () {
+    const defaults = PreviewConfig();
+    expect(defaults.segments, 12);
+    expect(defaults.segmentDuration, 0.75);
+    expect(defaults.preset, 'slow');
+    expect(defaults.spriteMinimum, 81);
+    expect(defaults.spriteMaximum, 81);
+    expect(defaults.spriteSize, 160);
+
+    final config = PreviewConfig.fromJson(const {
+      'auto_generate_on_scan': true,
+      'audio': false,
+      'segments': 60,
+      'segment_duration': 30,
+      'exclude_start': 20,
+      'exclude_end': 30,
+      'preset': 'veryslow',
+      'sprite_interval': 3600,
+      'sprite_minimum': 1,
+      'sprite_maximum': 400,
+      'sprite_size': 512,
+    });
+    expect(PreviewConfig.fromJson(config.toJson()).toJson(), config.toJson());
+    expect(config.validationError, isNull);
+  });
+
+  test('预览配置非法值回退默认值，保存前校验边界', () {
+    final config = PreviewConfig.fromJson(const {
+      'segments': 0,
+      'segment_duration': 0,
+      'exclude_start': 99,
+      'exclude_end': 99,
+      'preset': 'unknown',
+      'sprite_interval': 3601,
+      'sprite_minimum': 0,
+      'sprite_maximum': 401,
+      'sprite_size': 31,
+    });
+    expect(config.segments, 12);
+    expect(config.segmentDuration, 0.75);
+    expect(config.excludeStart, 0);
+    expect(config.excludeEnd, 0);
+    expect(config.preset, 'slow');
+    expect(config.spriteInterval, 0);
+    expect(config.spriteMinimum, 81);
+    expect(config.spriteMaximum, 81);
+    expect(config.spriteSize, 160);
+
+    expect(
+      const PreviewConfig(excludeStart: 99, excludeEnd: 1).validationError,
+      isNotNull,
+    );
+    expect(
+      const PreviewConfig(spriteMinimum: 20, spriteMaximum: 10).validationError,
+      isNotNull,
+    );
+  });
+
+  test('预览任务兼容 REST 数字进度和 WebSocket 嵌套进度', () {
+    final rest = PreviewTask.fromJson(const {
+      'task_id': 'rest-1',
+      'status': 'running',
+      'total_count': 2,
+      'completed_count': 1,
+      'progress': 50,
+      'current_movie_id': 8,
+      'current_movie_title': '影片 8',
+    });
+    expect(rest.progress, 50);
+    expect(rest.overallProgress, 75);
+
+    final ws = PreviewTask.fromJson(const {
+      'taskId': 'ws-1',
+      'status': 'running',
+      'progress': {'total': 1, 'completed': 0, 'percent': 42.5},
+      'movieId': 9,
+      'movieTitle': '影片 9',
+    });
+    expect(ws.taskId, 'ws-1');
+    expect(ws.progress, 42.5);
+
+    final status = PreviewStatus.fromJson(const {
+      'movie_id': 9,
+      'source_state': 'registered',
+      'assets': {
+        'video': {'ready': true, 'url': '/video.mp4', 'size': 12},
+        'sprite': {'ready': false},
+        'vtt': {'ready': true},
+      },
+    });
+    expect(status.hasReadyAsset, isTrue);
+    expect(status.assets['video']?.url, '/video.mp4');
+    expect(status.assets['vtt']?.ready, isTrue);
+  });
+}
+
 void main() {
   group('config_models', _main_0);
   group('playback_models', _main_1);
@@ -870,4 +969,5 @@ void main() {
   group('modal_transcription_config', _main_4);
   group('actor_avatar_url', _main_5);
   group('movie_detail_model', _main_6);
+  group('preview_models', _main_7);
 }

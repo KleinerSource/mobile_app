@@ -7038,6 +7038,252 @@ abstract class AppL10n {
   /// **'FFmpeg 与硬解'**
   String get ffmpegTitle;
 
+  /// No description provided for @settingsPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览生成'**
+  String get settingsPreview;
+
+  /// No description provided for @settingsPreviewSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置预览视频、Sprite 和 VTT 生成'**
+  String get settingsPreviewSub;
+
+  /// No description provided for @previewSettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览生成'**
+  String get previewSettingsTitle;
+
+  /// No description provided for @previewSettingsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置预览视频、Sprite 和 VTT 的生成策略。'**
+  String get previewSettingsSubtitle;
+
+  /// No description provided for @previewAutoGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描完成后自动生成'**
+  String get previewAutoGenerate;
+
+  /// No description provided for @previewAutoGenerateSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'新影片扫描完成后自动排队生成预览。'**
+  String get previewAutoGenerateSub;
+
+  /// No description provided for @previewAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留音频'**
+  String get previewAudio;
+
+  /// No description provided for @previewAudioSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览视频中包含原视频音频。'**
+  String get previewAudioSub;
+
+  /// No description provided for @previewVideoSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频片段'**
+  String get previewVideoSection;
+
+  /// No description provided for @previewSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'片段数量'**
+  String get previewSegments;
+
+  /// No description provided for @previewSegmentsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'在视频中抽取的片段数量（1-60）。'**
+  String get previewSegmentsSub;
+
+  /// No description provided for @previewSegmentDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'每段时长（秒）'**
+  String get previewSegmentDuration;
+
+  /// No description provided for @previewSegmentDurationSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'每个预览片段的时长，大于 0 且不超过 30 秒。'**
+  String get previewSegmentDurationSub;
+
+  /// No description provided for @previewExcludeStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'片头排除比例（%）'**
+  String get previewExcludeStart;
+
+  /// No description provided for @previewExcludeEnd.
+  ///
+  /// In zh, this message translates to:
+  /// **'片尾排除比例（%）'**
+  String get previewExcludeEnd;
+
+  /// No description provided for @previewExcludeSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'片头和片尾排除比例合计必须小于 100%。'**
+  String get previewExcludeSub;
+
+  /// No description provided for @previewEncodingSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'编码'**
+  String get previewEncodingSection;
+
+  /// No description provided for @previewPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'编码速度'**
+  String get previewPreset;
+
+  /// No description provided for @previewSpriteSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite 与 VTT'**
+  String get previewSpriteSection;
+
+  /// No description provided for @previewSpriteInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite 间隔（秒）'**
+  String get previewSpriteInterval;
+
+  /// No description provided for @previewSpriteMinimum.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小帧数'**
+  String get previewSpriteMinimum;
+
+  /// No description provided for @previewSpriteMaximum.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大帧数'**
+  String get previewSpriteMaximum;
+
+  /// No description provided for @previewSpriteSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'帧尺寸（像素）'**
+  String get previewSpriteSize;
+
+  /// No description provided for @previewSavedToast.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览配置已保存'**
+  String get previewSavedToast;
+
+  /// No description provided for @previewInvalidValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效的预览配置。'**
+  String get previewInvalidValue;
+
+  /// No description provided for @taskNamePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览生成'**
+  String get taskNamePreview;
+
+  /// No description provided for @previewStatusTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览资产'**
+  String get previewStatusTitle;
+
+  /// No description provided for @previewSourceReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'源文件可生成'**
+  String get previewSourceReady;
+
+  /// No description provided for @previewSourceUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'源文件不支持预览生成'**
+  String get previewSourceUnsupported;
+
+  /// No description provided for @previewVideoAsset.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览视频'**
+  String get previewVideoAsset;
+
+  /// No description provided for @previewSpriteAsset.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite'**
+  String get previewSpriteAsset;
+
+  /// No description provided for @previewVttAsset.
+  ///
+  /// In zh, this message translates to:
+  /// **'VTT'**
+  String get previewVttAsset;
+
+  /// No description provided for @previewReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已就绪'**
+  String get previewReady;
+
+  /// No description provided for @previewNotReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'未生成'**
+  String get previewNotReady;
+
+  /// No description provided for @previewGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成预览'**
+  String get previewGenerate;
+
+  /// No description provided for @previewRegenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新生成'**
+  String get previewRegenerate;
+
+  /// No description provided for @previewGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在生成预览…'**
+  String get previewGenerating;
+
+  /// No description provided for @previewQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已排队'**
+  String get previewQueued;
+
+  /// No description provided for @previewCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览生成完成'**
+  String get previewCompleted;
+
+  /// No description provided for @previewFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览生成失败'**
+  String get previewFailed;
+
+  /// No description provided for @previewCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览生成已取消'**
+  String get previewCancelled;
+
   /// No description provided for @libraryBatchAccepted.
   ///
   /// In zh, this message translates to:

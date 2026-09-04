@@ -1516,10 +1516,7 @@ void _main_4() {
       expect(result.success, isTrue);
       expect(result.versionInfo?.project, ServerProject.openList);
       expect(result.versionInfo?.version, 'v3.39.4');
-      expect(requests, [
-        '/api/public/settings',
-        '/api/public/settings',
-      ]);
+      expect(requests, ['/api/public/settings', '/api/public/settings']);
     } finally {
       await server.close(force: true);
     }

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/omm_media_operations_source.dart';
@@ -97,6 +98,22 @@ class _StubFavoritesSource implements OmmMediaOperationsSource {
   Future<void> removeFavoriteBatch(List<MediaRef> movies) async {
     removed = List<MediaRef>.from(movies);
   }
+
+  @override
+  Future<PreviewStartResult> generatePreview(
+    MediaRef movie, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PreviewStatus> previewStatus(MediaRef movie, {String? taskId}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>

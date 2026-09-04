@@ -4,6 +4,7 @@ import 'package:omm/core/api/services/configs_extended_api.dart';
 import 'package:omm/core/models/avdb_config.dart';
 import 'package:omm/core/models/dbo_config.dart';
 import 'package:omm/core/models/ffmpeg_config.dart';
+import 'package:omm/core/models/preview_config.dart';
 
 class ConfigsRepository {
   ConfigsRepository(this._api, this._extendedApi);
@@ -66,6 +67,24 @@ class ConfigsRepository {
     final raw = await _extendedApi.saveFfmpeg(cfg.toJson());
     return unwrapStd<FfmpegConfig>(raw, (d) {
       if (d is Map) return FfmpegConfig.fromJson(Map<String, dynamic>.from(d));
+      return cfg;
+    });
+  }
+
+  // ===== 预览视频 / Sprite =====
+
+  Future<PreviewConfig> getPreview() async {
+    final raw = await _extendedApi.preview();
+    return unwrapStd<PreviewConfig>(raw, (d) {
+      if (d is Map) return PreviewConfig.fromJson(Map<String, dynamic>.from(d));
+      return const PreviewConfig();
+    });
+  }
+
+  Future<PreviewConfig> savePreview(PreviewConfig cfg) async {
+    final raw = await _extendedApi.savePreview(cfg.toJson());
+    return unwrapStd<PreviewConfig>(raw, (d) {
+      if (d is Map) return PreviewConfig.fromJson(Map<String, dynamic>.from(d));
       return cfg;
     });
   }

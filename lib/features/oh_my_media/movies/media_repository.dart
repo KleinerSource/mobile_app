@@ -1,5 +1,6 @@
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/models/resource_scan.dart';
 import 'package:omm/core/models/subtitle_search.dart';
@@ -299,6 +300,20 @@ class MediaRepository {
     crack: crack,
     uhd: uhd,
   );
+
+  Future<PreviewStartResult> generatePreview(
+    int id, {
+    bool overwrite = false,
+  }) => _operations.generatePreview(_movieRef(id), overwrite: overwrite);
+
+  Future<PreviewStatus> previewStatus(int id, {String? taskId}) =>
+      _operations.previewStatus(_movieRef(id), taskId: taskId);
+
+  Future<PreviewTask> previewTask(String taskId) =>
+      _operations.previewTask(taskId);
+
+  Future<void> cancelPreviewTask(String taskId) =>
+      _operations.cancelPreviewTask(taskId);
 
   source_models.MediaRef _movieRef(int id) {
     if (id <= 0) throw ArgumentError.value(id, 'id', '影片 ID 必须为正数');

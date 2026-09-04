@@ -306,7 +306,8 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
   }
 
   bool _canOpenMovieDetail(TaskItem task) {
-    return task.name == '字幕转译' && task.isCompleted && task.movieId > 0;
+    return (task.name == '字幕转译' && task.isCompleted || task.name == '预览生成') &&
+        task.movieId > 0;
   }
 
   Future<void> _openMovieDetail(TaskItem task) async {
@@ -647,6 +648,7 @@ IconData _taskIcon(TaskItem task) {
   if (task.name == '资源扫描') return Icons.manage_search_outlined;
   if (task.name == '演员关联同步') return Icons.people_outline;
   if (task.name.contains('扫描')) return Icons.folder_open_outlined;
+  if (task.name == '预览生成') return Icons.video_settings_outlined;
   if (task.name.contains('预览图')) return Icons.image_outlined;
   return Icons.construction_outlined;
 }

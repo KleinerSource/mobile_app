@@ -3737,6 +3737,129 @@ class AppL10nZh extends AppL10n {
   String get ffmpegTitle => 'FFmpeg 与硬解';
 
   @override
+  String get settingsPreview => '预览生成';
+
+  @override
+  String get settingsPreviewSub => '配置预览视频、Sprite 和 VTT 生成';
+
+  @override
+  String get previewSettingsTitle => '预览生成';
+
+  @override
+  String get previewSettingsSubtitle => '配置预览视频、Sprite 和 VTT 的生成策略。';
+
+  @override
+  String get previewAutoGenerate => '扫描完成后自动生成';
+
+  @override
+  String get previewAutoGenerateSub => '新影片扫描完成后自动排队生成预览。';
+
+  @override
+  String get previewAudio => '保留音频';
+
+  @override
+  String get previewAudioSub => '预览视频中包含原视频音频。';
+
+  @override
+  String get previewVideoSection => '视频片段';
+
+  @override
+  String get previewSegments => '片段数量';
+
+  @override
+  String get previewSegmentsSub => '在视频中抽取的片段数量（1-60）。';
+
+  @override
+  String get previewSegmentDuration => '每段时长（秒）';
+
+  @override
+  String get previewSegmentDurationSub => '每个预览片段的时长，大于 0 且不超过 30 秒。';
+
+  @override
+  String get previewExcludeStart => '片头排除比例（%）';
+
+  @override
+  String get previewExcludeEnd => '片尾排除比例（%）';
+
+  @override
+  String get previewExcludeSub => '片头和片尾排除比例合计必须小于 100%。';
+
+  @override
+  String get previewEncodingSection => '编码';
+
+  @override
+  String get previewPreset => '编码速度';
+
+  @override
+  String get previewSpriteSection => 'Sprite 与 VTT';
+
+  @override
+  String get previewSpriteInterval => 'Sprite 间隔（秒）';
+
+  @override
+  String get previewSpriteMinimum => '最小帧数';
+
+  @override
+  String get previewSpriteMaximum => '最大帧数';
+
+  @override
+  String get previewSpriteSize => '帧尺寸（像素）';
+
+  @override
+  String get previewSavedToast => '预览配置已保存';
+
+  @override
+  String get previewInvalidValue => '请输入有效的预览配置。';
+
+  @override
+  String get taskNamePreview => '预览生成';
+
+  @override
+  String get previewStatusTitle => '预览资产';
+
+  @override
+  String get previewSourceReady => '源文件可生成';
+
+  @override
+  String get previewSourceUnsupported => '源文件不支持预览生成';
+
+  @override
+  String get previewVideoAsset => '预览视频';
+
+  @override
+  String get previewSpriteAsset => 'Sprite';
+
+  @override
+  String get previewVttAsset => 'VTT';
+
+  @override
+  String get previewReady => '已就绪';
+
+  @override
+  String get previewNotReady => '未生成';
+
+  @override
+  String get previewGenerate => '生成预览';
+
+  @override
+  String get previewRegenerate => '重新生成';
+
+  @override
+  String get previewGenerating => '正在生成预览…';
+
+  @override
+  String get previewQueued => '已排队';
+
+  @override
+  String get previewCompleted => '预览生成完成';
+
+  @override
+  String get previewFailed => '预览生成失败';
+
+  @override
+  String get previewCancelled => '预览生成已取消';
+
+  @override
   String libraryBatchAccepted(int count, String scanType) {
     return '已提交 $count 个媒体库的$scanType';
   }

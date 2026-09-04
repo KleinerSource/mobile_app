@@ -1,6 +1,7 @@
 import '../../models/media_streams.dart';
 import '../../models/movie.dart';
 import '../../models/playback.dart';
+import '../../models/preview.dart';
 import '../../models/resource_scan.dart';
 import '../../models/subtitle_search.dart';
 import '../../models/watch_record.dart';
@@ -189,4 +190,19 @@ abstract interface class OmmMediaOperationsSource {
     bool crack = false,
     bool uhd = false,
   });
+
+  /// 为单部影片生成预览视频与 Sprite/VTT 资产。
+  Future<PreviewStartResult> generatePreview(
+    MediaRef movie, {
+    bool overwrite = false,
+  });
+
+  /// 查询影片的预览资产状态；传入任务 ID 时同时返回该任务快照。
+  Future<PreviewStatus> previewStatus(MediaRef movie, {String? taskId});
+
+  /// 查询预览任务详情。
+  Future<PreviewTask> previewTask(String taskId);
+
+  /// 取消排队中或执行中的预览任务。
+  Future<void> cancelPreviewTask(String taskId);
 }

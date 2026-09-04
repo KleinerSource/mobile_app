@@ -3806,6 +3806,135 @@ class AppL10nEn extends AppL10n {
   String get ffmpegTitle => 'FFmpeg';
 
   @override
+  String get settingsPreview => 'Preview generation';
+
+  @override
+  String get settingsPreviewSub =>
+      'Configure preview video, Sprite, and VTT generation';
+
+  @override
+  String get previewSettingsTitle => 'Preview generation';
+
+  @override
+  String get previewSettingsSubtitle =>
+      'Configure preview video, Sprite, and VTT generation.';
+
+  @override
+  String get previewAutoGenerate => 'Generate after scanning';
+
+  @override
+  String get previewAutoGenerateSub =>
+      'Queue previews automatically when new movies finish scanning.';
+
+  @override
+  String get previewAudio => 'Keep audio';
+
+  @override
+  String get previewAudioSub => 'Include the source audio in preview videos.';
+
+  @override
+  String get previewVideoSection => 'Video segments';
+
+  @override
+  String get previewSegments => 'Segment count';
+
+  @override
+  String get previewSegmentsSub =>
+      'Number of segments sampled from the video (1-60).';
+
+  @override
+  String get previewSegmentDuration => 'Segment duration (seconds)';
+
+  @override
+  String get previewSegmentDurationSub =>
+      'Duration of each preview segment; greater than 0 and at most 30 seconds.';
+
+  @override
+  String get previewExcludeStart => 'Exclude from start (%)';
+
+  @override
+  String get previewExcludeEnd => 'Exclude from end (%)';
+
+  @override
+  String get previewExcludeSub =>
+      'The combined start and end exclusion must be below 100%.';
+
+  @override
+  String get previewEncodingSection => 'Encoding';
+
+  @override
+  String get previewPreset => 'Encoding speed';
+
+  @override
+  String get previewSpriteSection => 'Sprite and VTT';
+
+  @override
+  String get previewSpriteInterval => 'Sprite interval (seconds)';
+
+  @override
+  String get previewSpriteMinimum => 'Minimum frames';
+
+  @override
+  String get previewSpriteMaximum => 'Maximum frames';
+
+  @override
+  String get previewSpriteSize => 'Frame size (pixels)';
+
+  @override
+  String get previewSavedToast => 'Preview configuration saved';
+
+  @override
+  String get previewInvalidValue => 'Enter a valid preview configuration.';
+
+  @override
+  String get taskNamePreview => 'Preview generation';
+
+  @override
+  String get previewStatusTitle => 'Preview assets';
+
+  @override
+  String get previewSourceReady => 'Source can generate previews';
+
+  @override
+  String get previewSourceUnsupported => 'This source cannot generate previews';
+
+  @override
+  String get previewVideoAsset => 'Preview video';
+
+  @override
+  String get previewSpriteAsset => 'Sprite';
+
+  @override
+  String get previewVttAsset => 'VTT';
+
+  @override
+  String get previewReady => 'Ready';
+
+  @override
+  String get previewNotReady => 'Not generated';
+
+  @override
+  String get previewGenerate => 'Generate preview';
+
+  @override
+  String get previewRegenerate => 'Regenerate';
+
+  @override
+  String get previewGenerating => 'Generating preview…';
+
+  @override
+  String get previewQueued => 'Queued';
+
+  @override
+  String get previewCompleted => 'Preview generation complete';
+
+  @override
+  String get previewFailed => 'Preview generation failed';
+
+  @override
+  String get previewCancelled => 'Preview generation canceled';
+
+  @override
   String libraryBatchAccepted(int count, String scanType) {
     return 'Submitted $count $scanType scan tasks';
   }

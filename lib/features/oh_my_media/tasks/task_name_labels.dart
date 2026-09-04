@@ -16,6 +16,8 @@ String taskNameLabel(AppL10n l, String name) {
       return l.taskNameResourceScan;
     case '演员关联同步':
       return l.taskNameActorSync;
+    case '预览生成':
+      return l.taskNamePreview;
     case '后台任务':
       return l.taskNameFallback;
     default:

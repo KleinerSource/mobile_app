@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:omm/core/models/library.dart';
+import 'package:omm/core/models/preview.dart';
 
 /// 客户端生成的任务消息码。任务消息可能来自服务器原文，展示层仅对
 /// 已知码做本地化翻译（见 task_name_labels.dart），其余原样显示。
@@ -22,6 +23,14 @@ class TaskProgress {
   const TaskProgress({this.total = 0, this.completed = 0, this.percent = 0});
 
   factory TaskProgress.fromJson(Object? raw) {
+    if (raw is num) {
+      final percent = raw.toDouble();
+      return TaskProgress(
+        total: 100,
+        completed: percent.round(),
+        percent: percent,
+      );
+    }
     if (raw is! Map) return const TaskProgress();
     return TaskProgress(
       total: _asInt(raw['total']),
@@ -68,6 +77,9 @@ class TaskItem {
   }) : updatedAt = updatedAt ?? _epoch;
 
   factory TaskItem.fromSchedulerMessage(Map<String, dynamic> json) {
+    if (json['type'] == 'preview_task') {
+      return TaskItem.fromPreviewMessage(json);
+    }
     final running = json['isRunning'] == true;
     final status = _asString(
       json['status'],
@@ -89,6 +101,71 @@ class TaskItem {
       fileName: _asString(json['fileName']),
       format: _asString(json['format']),
       bitrateKbps: _asInt(json['bitrateKbps']),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  factory TaskItem.fromPreviewMessage(Map<String, dynamic> json) {
+    final taskId = _asString(json['taskId'] ?? json['task_id']);
+    final running = json['isRunning'] == true;
+    final status = _asString(
+      json['status'],
+      fallback: running ? 'running' : 'completed',
+    );
+    final rawProgress = json['progress'];
+    final progress = rawProgress is Map
+        ? TaskProgress.fromJson(rawProgress)
+        : TaskProgress.fromJson(rawProgress);
+    return TaskItem(
+      id: taskId,
+      name: '预览生成',
+      status: status,
+      isRunning: running || _isActiveStatus(status),
+      progress: progress,
+      message: _asString(json['message']),
+      startTime: _asDateTime(json['startTime'] ?? json['start_time']),
+      queuePosition: _asInt(json['queuePosition'] ?? json['queue_position']),
+      movieId: _asInt(
+        json['movieId'] ?? json['movie_id'] ?? json['current_movie_id'],
+      ),
+      movieTitle: _asString(
+        json['movieTitle'] ??
+            json['movie_title'] ??
+            json['current_movie_title'],
+      ),
+      movieFileName: _asString(
+        json['movieFileName'] ?? json['movie_file_name'],
+      ),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  factory TaskItem.fromPreviewTask(
+    PreviewTask task, {
+    int? fallbackMovieId,
+    String? fallbackMovieTitle,
+  }) {
+    final movieId = task.currentMovieId > 0
+        ? task.currentMovieId
+        : fallbackMovieId ??
+              (task.movieIds.length == 1 ? task.movieIds.single : 0);
+    final movieTitle = task.currentMovieTitle.isNotEmpty
+        ? task.currentMovieTitle
+        : fallbackMovieTitle ?? '';
+    return TaskItem(
+      id: task.taskId,
+      name: '预览生成',
+      status: task.status,
+      isRunning: task.isActive,
+      progress: TaskProgress(
+        total: task.totalCount,
+        completed: task.completedCount,
+        percent: task.overallProgress,
+      ),
+      message: task.message,
+      startTime: task.startTime,
+      movieId: movieId,
+      movieTitle: movieTitle,
       updatedAt: DateTime.now(),
     );
   }
@@ -188,7 +265,8 @@ class TaskItem {
 
   bool get canCancel =>
       (name == '音频提取' && (status == 'idle' || status == 'running')) ||
-      (name == '字幕转译' && (status == 'queued' || status == 'running'));
+      (name == '字幕转译' && (status == 'queued' || status == 'running')) ||
+      (name == '预览生成' && (status == 'queued' || status == 'running'));
 
   bool get canRetry => name == '字幕转译' && (isFailed || isCanceled);
 

@@ -154,10 +154,7 @@ class AuthSessionRepository {
   Future<void> saveTotpSecret(String secret) async {
     final normalized = secret.trim();
     if (normalized.isEmpty) return;
-    await _store.write(
-      _keyFor(_totpSecretKey, _activeServerId),
-      normalized,
-    );
+    await _store.write(_keyFor(_totpSecretKey, _activeServerId), normalized);
   }
 
   Future<void> deleteTotpSecret() async {

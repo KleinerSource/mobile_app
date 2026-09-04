@@ -23,7 +23,9 @@ String? normalizeTotpSecret(String raw) {
 ///
 /// 密钥非法或解码失败时返回 null，由调用方决定报错或忽略。
 String? tryGenerateTotpCode(String base32Secret, {DateTime? now}) {
-  final normalized = base32Secret.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
+  final normalized = base32Secret
+      .replaceAll(RegExp(r'[\s-]'), '')
+      .toUpperCase();
   final keyBytes = _base32Decode(normalized);
   if (keyBytes == null || keyBytes.isEmpty) return null;
 
@@ -31,7 +33,10 @@ String? tryGenerateTotpCode(String base32Secret, {DateTime? now}) {
       .floor();
   final counter = timestamp ~/ totpPeriodSeconds;
   final counterBytes = ByteData(8)..setUint64(0, counter);
-  final digest = Hmac(sha1, keyBytes).convert(counterBytes.buffer.asUint8List());
+  final digest = Hmac(
+    sha1,
+    keyBytes,
+  ).convert(counterBytes.buffer.asUint8List());
 
   // RFC 4226 动态截断：取最后一个字节的低 4 位作偏移，再取 4 字节并去掉
   // 最高位，对 10^digits 取模后补零。

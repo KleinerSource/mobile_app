@@ -12,6 +12,7 @@ import 'package:omm/features/oh_my_media/audio/audio_management_page.dart';
 import 'package:omm/features/oh_my_media/configs/avdb_settings_page.dart';
 import 'package:omm/features/oh_my_media/configs/dbo_settings_page.dart';
 import 'package:omm/features/oh_my_media/configs/ffmpeg_settings_page.dart';
+import 'package:omm/features/oh_my_media/configs/preview_settings_page.dart';
 import 'package:omm/features/oh_my_media/configs/video_extensions_page.dart';
 import 'package:omm/features/db_online/settings/db_online_backend_settings_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
@@ -122,6 +123,17 @@ class ServerSettingsPage extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (project == ServerProject.ohMyMedia)
+                        SettingsTile(
+                          title: l.settingsPreview,
+                          subtitle: l.settingsPreviewSub,
+                          leadingIcon: Icons.video_settings_outlined,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PreviewSettingsPage(),
+                            ),
+                          ),
+                        ),
                       SettingsTile(
                         title: l.settingsExtensions,
                         subtitle: l.settingsExtensionsSub,

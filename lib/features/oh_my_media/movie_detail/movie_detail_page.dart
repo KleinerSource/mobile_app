@@ -40,6 +40,7 @@ import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import 'audio_extraction_sheet.dart';
+import 'preview_status_card.dart';
 import 'package:omm/features/home/home_movie_view_state.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
@@ -202,6 +203,16 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
             child: _ActionRow(movie: movie),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+            child: PreviewStatusCard(
+              movieId: movie.id,
+              movieTitle: movie.title,
+              filePath: movie.filePath,
+            ),
           ),
         ),
         if (movie.plot != null && movie.plot!.isNotEmpty)

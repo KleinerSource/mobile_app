@@ -17,6 +17,11 @@ class ConfigsExtendedApi {
   Future<Object?> saveFfmpeg(Map<String, dynamic> body) =>
       _post('/configs/ffmpeg', body);
 
+  Future<Object?> preview() => _get('/configs/preview');
+
+  Future<Object?> savePreview(Map<String, dynamic> body) =>
+      _post('/configs/preview', body);
+
   Future<Object?> getByKey(String key) => _get('/configs/key/$key');
 
   Future<Object?> updateByKey(String key, Map<String, dynamic> body) =>

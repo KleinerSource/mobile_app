@@ -6,6 +6,7 @@ import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/watch_record.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
@@ -90,4 +91,9 @@ final extraFanartsProvider = FutureProvider.autoDispose
 final mediaInfoProvider = FutureProvider.autoDispose
     .family<MediaInfoDetail?, int>((ref, id) async {
       return ref.read(mediaRepositoryProvider).mediaInfoDetail(id);
+    });
+
+final previewStatusProvider = FutureProvider.autoDispose
+    .family<PreviewStatus, int>((ref, id) async {
+      return ref.read(mediaRepositoryProvider).previewStatus(id);
     });

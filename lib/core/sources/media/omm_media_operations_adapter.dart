@@ -2,6 +2,7 @@ import '../../api/api_client.dart';
 import '../../api/envelope.dart';
 import '../../models/media_streams.dart';
 import '../../models/movie.dart';
+import '../../models/preview.dart';
 import '../../models/resource_scan.dart';
 import '../../models/subtitle_search.dart';
 import '../../models/watch_record.dart';
@@ -808,6 +809,55 @@ class OmmMediaOperationsAdapter
       }),
     );
     return response.data;
+  }
+
+  @override
+  Future<PreviewStartResult> generatePreview(
+    MediaRef movie, {
+    bool overwrite = false,
+  }) async {
+    final raw = await _call(
+      () => client.moviesExtended.generateMoviePreviews(
+        _ommId(movie),
+        overwrite: overwrite,
+      ),
+    );
+    return unwrapStd<PreviewStartResult>(
+      raw,
+      (data) =>
+          PreviewStartResult.fromJson(Map<String, dynamic>.from(data as Map)),
+    );
+  }
+
+  @override
+  Future<PreviewStatus> previewStatus(MediaRef movie, {String? taskId}) async {
+    final raw = await _call(
+      () =>
+          client.moviesExtended.getMoviePreviews(_ommId(movie), taskId: taskId),
+    );
+    return unwrapStd<PreviewStatus>(
+      raw,
+      (data) => PreviewStatus.fromJson(Map<String, dynamic>.from(data as Map)),
+    );
+  }
+
+  @override
+  Future<PreviewTask> previewTask(String taskId) async {
+    if (taskId.trim().isEmpty) throw const SourceException('预览任务 ID 不能为空');
+    final raw = await _call(() => client.moviesExtended.getPreviewTask(taskId));
+    return unwrapStd<PreviewTask>(
+      raw,
+      (data) => PreviewTask.fromJson(Map<String, dynamic>.from(data as Map)),
+    );
+  }
+
+  @override
+  Future<void> cancelPreviewTask(String taskId) async {
+    if (taskId.trim().isEmpty) throw const SourceException('预览任务 ID 不能为空');
+    final raw = await _call(
+      () => client.moviesExtended.cancelPreviewTask(taskId),
+    );
+    unwrapStd<void>(raw, (_) {});
   }
 
   int _ommId(MediaRef ref) {

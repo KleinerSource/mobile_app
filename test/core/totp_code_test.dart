@@ -10,22 +10,10 @@ void main() {
       DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
 
   test('RFC 6238 标准时间向量生成 6 位验证码', () {
-    expect(
-      tryGenerateTotpCode(secret, now: atSeconds(59)),
-      '287082',
-    );
-    expect(
-      tryGenerateTotpCode(secret, now: atSeconds(1111111109)),
-      '081804',
-    );
-    expect(
-      tryGenerateTotpCode(secret, now: atSeconds(1234567890)),
-      '005924',
-    );
-    expect(
-      tryGenerateTotpCode(secret, now: atSeconds(2000000000)),
-      '279037',
-    );
+    expect(tryGenerateTotpCode(secret, now: atSeconds(59)), '287082');
+    expect(tryGenerateTotpCode(secret, now: atSeconds(1111111109)), '081804');
+    expect(tryGenerateTotpCode(secret, now: atSeconds(1234567890)), '005924');
+    expect(tryGenerateTotpCode(secret, now: atSeconds(2000000000)), '279037');
   });
 
   test('密钥中的空格、连字符、小写和 padding 被容忍', () {

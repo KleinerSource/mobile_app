@@ -8,7 +8,9 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/library.dart';
+import 'package:omm/core/models/preview.dart';
 import 'package:omm/features/oh_my_media/audio/audio_providers.dart';
+import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'task_model.dart';
 
 /// 所有后台任务的统一状态源。
@@ -58,10 +60,31 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   void updateFromSchedulerMessage(Map<String, dynamic> message) {
-    if (message['type'] != 'scheduler_status') return;
+    if (message['type'] == 'preview_task' &&
+        ref.read(serverConfigProvider)?.isOmm != true) {
+      return;
+    }
+    if (message['type'] != 'scheduler_status' &&
+        message['type'] != 'preview_task') {
+      return;
+    }
     final task = TaskItem.fromSchedulerMessage(message);
     if (task.id.isEmpty) return;
     _upsert(task);
+  }
+
+  /// 生成接口返回任务后立即登记，避免 WebSocket 首条消息晚于页面反馈。
+  void registerPreview(PreviewTask task, {int? movieId, String? movieTitle}) {
+    if (task.taskId.isEmpty || ref.read(serverConfigProvider)?.isOmm != true) {
+      return;
+    }
+    _upsert(
+      TaskItem.fromPreviewTask(
+        task,
+        fallbackMovieId: movieId,
+        fallbackMovieTitle: movieTitle,
+      ),
+    );
   }
 
   Future<void> refresh() async {
@@ -89,6 +112,19 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
   Future<void> cancel(TaskItem task) async {
     if (!task.canCancel) return;
+    if (task.name == '预览生成') {
+      if (ref.read(serverConfigProvider)?.isOmm != true) return;
+      await ref.read(mediaRepositoryProvider).cancelPreviewTask(task.id);
+      _updateByKey(
+        task.key,
+        (current) => current.copyWith(
+          status: 'cancelled',
+          isRunning: false,
+          message: kTaskMsgCanceled,
+        ),
+      );
+      return;
+    }
     final raw = task.name == '字幕转译'
         ? await ref
               .read(audioRepositoryProvider)
