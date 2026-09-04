@@ -39,6 +39,8 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
     this.initialViewId,
     this.personId,
     this.personName,
+    this.tagId,
+    this.tagName,
   });
 
   /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
@@ -47,6 +49,10 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
   /// 演员作品模式：按 PersonIds 过滤（Emby/Jellyfin），标题显示演员名。
   final String? personId;
   final String? personName;
+
+  /// Stash 标签作品模式：按标签 ID 过滤，标题显示标签名。
+  final String? tagId;
+  final String? tagName;
 
   @override
   ConsumerState<MediaBrowserLibraryPage> createState() =>
@@ -109,6 +115,8 @@ class _MediaBrowserLibraryPageState
 
   bool get _isPersonMode => widget.personId?.trim().isNotEmpty == true;
 
+  bool get _isTagMode => widget.tagId?.trim().isNotEmpty == true;
+
   bool get _isStash =>
       ref.read(mediaBrowserConfigProvider)?.project == ServerProject.stash;
 
@@ -160,6 +168,7 @@ class _MediaBrowserLibraryPageState
           startIndex: startIndex,
           limit: _pageSize,
           personIds: _isPersonMode ? widget.personId : null,
+          tagIds: _isTagMode ? widget.tagId : null,
         ),
       );
       if (!mounted || requestSerial != _requestSerial) return;
@@ -301,7 +310,7 @@ class _MediaBrowserLibraryPageState
   /// Views 异步到达后补齐选中库的类型（如从首页音乐库卡片直接进入），
   /// 类型过滤不匹配时切到该库的默认选项。
   void _syncCollectionType(List<MediaBrowserItem> views) {
-    if (_isPersonMode) return;
+    if (_isPersonMode || _isTagMode) return;
     final next = _collectionTypeOf(_parentId);
     if (next == _collectionType) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -350,6 +359,7 @@ class _MediaBrowserLibraryPageState
             startIndex: 0,
             limit: limit,
             personIds: _isPersonMode ? widget.personId : null,
+            tagIds: _isTagMode ? widget.tagId : null,
           ),
         );
         return PagedResult(
@@ -529,7 +539,12 @@ class _MediaBrowserLibraryPageState
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    _isPersonMode
+                                    _isTagMode
+                                        ? (widget.tagName?.trim().isNotEmpty ==
+                                                  true
+                                              ? widget.tagName!.trim()
+                                              : AppL10n.of(context).movieEditorTag)
+                                        : _isPersonMode
                                         ? (widget.personName
                                                       ?.trim()
                                                       .isNotEmpty ==
@@ -562,7 +577,8 @@ class _MediaBrowserLibraryPageState
                         ),
                       ),
                       views.maybeWhen(
-                        data: (list) => _isPersonMode || list.length <= 1
+                        data: (list) =>
+                            _isPersonMode || _isTagMode || list.length <= 1
                             ? const SizedBox.shrink()
                             : SizedBox(
                                 height: 38,

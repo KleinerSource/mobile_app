@@ -335,6 +335,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     int? limit,
     bool? isFavorite,
     String? personIds,
+    String? tagIds,
   }) => _call(() async {
     final uid = await _requireUserId();
     return api.items(

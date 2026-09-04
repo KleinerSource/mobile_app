@@ -24,7 +24,7 @@ class MediaBrowserContinueWatchingSection extends ConsumerWidget {
         for (final item in items)
           ContinueWatchingEntry(
             privacyId: item.id,
-            title: item.name,
+            title: _displayTitle(item),
             meta: _metaText(l, item),
             coverUrl: urls?.heroImage(item),
             imageHeaders: urls?.imageHeaders,
@@ -67,4 +67,12 @@ String _metaText(AppL10n l, MediaBrowserItem item) {
   final minutes = item.runtimeMinutes;
   if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
   return parts.join(' · ');
+}
+
+String _displayTitle(MediaBrowserItem item) {
+  final name = item.name.trim();
+  final code = item.code?.trim() ?? '';
+  if (code.isEmpty) return name;
+  if (name.isEmpty || name == code) return '[$code]';
+  return '[$code] $name';
 }

@@ -241,6 +241,8 @@ final mediaBrowserItemPageProvider = FutureProvider.autoDispose
             startIndex: request.startIndex,
             limit: request.limit,
             isFavorite: request.isFavorite,
+            personIds: request.personIds,
+            tagIds: request.tagIds,
           );
     });
 
@@ -270,6 +272,7 @@ Future<MediaBrowserItemPage> readMediaBrowserItemPage(
         limit: request.limit,
         isFavorite: request.isFavorite,
         personIds: request.personIds,
+        tagIds: request.tagIds,
       );
 }
 
@@ -344,6 +347,7 @@ class MediaBrowserItemPageRequest {
     this.limit = 24,
     this.isFavorite,
     this.personIds,
+    this.tagIds,
   });
 
   final String serverId;
@@ -360,6 +364,9 @@ class MediaBrowserItemPageRequest {
   /// 按演员/人物过滤（PersonIds），演员作品页使用。
   final String? personIds;
 
+  /// 按 Stash 标签 ID 过滤，标签作品页使用。
+  final String? tagIds;
+
   @override
   bool operator ==(Object other) =>
       other is MediaBrowserItemPageRequest &&
@@ -373,7 +380,8 @@ class MediaBrowserItemPageRequest {
       other.startIndex == startIndex &&
       other.limit == limit &&
       other.isFavorite == isFavorite &&
-      other.personIds == personIds;
+      other.personIds == personIds &&
+      other.tagIds == tagIds;
 
   @override
   int get hashCode => Object.hash(
@@ -388,6 +396,7 @@ class MediaBrowserItemPageRequest {
     limit,
     isFavorite,
     personIds,
+    tagIds,
   );
 }
 

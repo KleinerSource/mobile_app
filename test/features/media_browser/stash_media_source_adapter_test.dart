@@ -141,6 +141,8 @@ void main() {
       parentId: 'stash-scenes',
       includeItemTypes: 'Movie',
       limit: 24,
+      sortBy: 'ProductionYear',
+      sortOrder: 'Ascending',
     );
     final item = page.items.single;
     expect(source.descriptor.id, const SourceId('stash'));
@@ -173,6 +175,16 @@ void main() {
     expect(streams[0].bitRate, 4200000);
     expect(streams[1].type, 'Audio');
     expect(streams[1].codec, 'aac');
+    final body = Map<String, dynamic>.from(adapter.requests.single.data as Map);
+    final variables = Map<String, dynamic>.from(body['variables'] as Map);
+    expect(
+      Map<String, dynamic>.from(variables['filter'] as Map),
+      containsPair('sort', 'date'),
+    );
+    expect(
+      Map<String, dynamic>.from(variables['filter'] as Map),
+      containsPair('direction', 'ASC'),
+    );
 
     final descriptor = await source.resolvePlayback(
       const MediaRef(sourceId: SourceId('stash'), value: 'scene-1'),

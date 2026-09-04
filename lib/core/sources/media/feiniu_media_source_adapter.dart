@@ -317,6 +317,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     int? limit,
     bool? isFavorite,
     String? personIds,
+    String? tagIds,
   }) async => _call(() async {
     // fnos 列表接口不支持按人物过滤；演员头像区在 fnos 服务器上不提供
     // 点击跳转，该参数不会被传入。

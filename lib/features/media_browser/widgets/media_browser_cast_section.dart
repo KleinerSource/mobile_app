@@ -61,3 +61,19 @@ Future<void> openMediaBrowserPersonWorks(
     ),
   );
 }
+
+/// 打开标签作品列表（Stash SceneFilterType.tags 过滤）。
+Future<void> openMediaBrowserTagWorks(
+  BuildContext context, {
+  required String tagId,
+  required String tagName,
+}) {
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => MediaBrowserLibraryPage(
+        tagId: tagId,
+        tagName: tagName,
+      ),
+    ),
+  );
+}

@@ -115,6 +115,7 @@ abstract interface class MediaBrowserMediaOperationsSource {
     int? limit,
     bool? isFavorite,
     String? personIds,
+    String? tagIds,
   });
 
   /// 条目详情（完整字段）。

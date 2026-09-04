@@ -61,11 +61,35 @@ class StashApi {
     int page = 1,
     int perPage = 24,
     String? searchText,
+    String sortBy = 'created_at',
+    String sortOrder = 'DESC',
+    List<String> tagIds = const <String>[],
+    List<String> performerIds = const <String>[],
     String? apiKeyOverride,
   }) async {
     final normalizedPage = page < 1 ? 1 : page;
     final normalizedPerPage = perPage.clamp(1, 100);
     final sceneFilter = searchText?.trim() ?? '';
+    final normalizedTagIds = _normalizedIds(tagIds);
+    final normalizedPerformerIds = _normalizedIds(performerIds);
+    final sceneFilterValues = <String, Object?>{
+      if (sceneFilter.isNotEmpty) ...{
+        'title': {'value': sceneFilter, 'modifier': 'INCLUDES'},
+        'OR': {
+          'details': {'value': sceneFilter, 'modifier': 'INCLUDES'},
+        },
+      },
+      if (normalizedTagIds.isNotEmpty)
+        'tags': {
+          'value': normalizedTagIds,
+          'modifier': 'INCLUDES',
+        },
+      if (normalizedPerformerIds.isNotEmpty)
+        'performers': {
+          'value': normalizedPerformerIds,
+          'modifier': 'INCLUDES',
+        },
+    };
     final data = await _graphql(
       r'''
 query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
@@ -83,16 +107,10 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
         'filter': {
           'page': normalizedPage,
           'per_page': normalizedPerPage,
-          'sort': 'created_at',
-          'direction': 'DESC',
+          'sort': sortBy,
+          'direction': sortOrder,
         },
-        if (sceneFilter.isNotEmpty)
-          'scene_filter': {
-            'title': {'value': sceneFilter, 'modifier': 'INCLUDES'},
-            'OR': {
-              'details': {'value': sceneFilter, 'modifier': 'INCLUDES'},
-            },
-          },
+        if (sceneFilterValues.isNotEmpty) 'scene_filter': sceneFilterValues,
       },
       apiKeyOverride: apiKeyOverride,
     );
@@ -259,3 +277,9 @@ int _intValue(Object? value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
+
+List<String> _normalizedIds(Iterable<String> values) => values
+    .map((value) => value.trim())
+    .where((value) => value.isNotEmpty)
+    .toSet()
+    .toList(growable: false);

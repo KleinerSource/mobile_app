@@ -281,8 +281,8 @@ class _MediaBrowserDetailBodyState
       for (final person in item.people)
         if (person.type == 'Director' && person.name.trim().isNotEmpty) person,
     ];
-    // fnos / Stash 不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
-    final void Function(MediaBrowserPerson)? onOpenPerson = isFeiniu || isStash
+    // fnos 列表接口不支持按人物过滤；Stash 通过 SceneFilterType 支持。
+    final void Function(MediaBrowserPerson)? onOpenPerson = isFeiniu
         ? null
         : (person) => openMediaBrowserPersonWorks(
             context,
@@ -389,6 +389,14 @@ class _MediaBrowserDetailBodyState
                   ? AppL10n.of(context).movieEditorTag
                   : AppL10n.of(context).mediaBrowserGenres,
               labels: item.genres,
+              ids: isStash ? item.tagIds : const <String>[],
+              onTap: isStash
+                  ? (tagId, tagName) => openMediaBrowserTagWorks(
+                      context,
+                      tagId: tagId,
+                      tagName: tagName,
+                    )
+                  : null,
             ),
           ),
         if (!isStash && directorPeople.isNotEmpty)
@@ -879,10 +887,17 @@ class _ActionRow extends StatelessWidget {
 }
 
 class _ChipSection extends StatelessWidget {
-  const _ChipSection({required this.title, required this.labels});
+  const _ChipSection({
+    required this.title,
+    required this.labels,
+    this.ids = const <String>[],
+    this.onTap,
+  });
 
   final String title;
   final List<String> labels;
+  final List<String> ids;
+  final void Function(String id, String label)? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -898,7 +913,13 @@ class _ChipSection extends StatelessWidget {
         runSpacing: 8,
         children: [
           for (var i = 0; i < items.length; i++)
-            HueChip(label: items[i], hue: AppHues.all[i % AppHues.all.length]),
+            HueChip(
+              label: items[i],
+              hue: AppHues.all[i % AppHues.all.length],
+              onTap: i < ids.length && ids[i].trim().isNotEmpty && onTap != null
+                  ? () => onTap!(ids[i].trim(), items[i])
+                  : null,
+            ),
         ],
       ),
     );

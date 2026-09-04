@@ -122,6 +122,27 @@ void main() {
     });
   });
 
+  test('findScenes 传递排序字段和方向', () async {
+    final adapter = _StashAdapter(
+      (_) => {
+        'data': {
+          'findScenes': {'count': 0, 'scenes': []},
+        },
+      },
+    );
+
+    await _apiFor(adapter).findScenes(sortBy: 'date', sortOrder: 'ASC');
+
+    final body = Map<String, dynamic>.from(adapter.requests.single.data as Map);
+    final variables = Map<String, dynamic>.from(body['variables'] as Map);
+    expect(variables['filter'], {
+      'page': 1,
+      'per_page': 24,
+      'sort': 'date',
+      'direction': 'ASC',
+    });
+  });
+
   test('Scene mutation 使用正确的返回字段', () async {
     final adapter = _StashAdapter((options) {
       final query = (options.data as Map)['query'].toString();

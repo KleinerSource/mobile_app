@@ -468,6 +468,7 @@ class MediaBrowserItem {
     this.runTimeTicks,
     this.overview,
     this.genres = const <String>[],
+    this.tagIds = const <String>[],
     this.people = const <MediaBrowserPerson>[],
     this.userData = const MediaBrowserUserData(),
     this.seriesId,
@@ -510,6 +511,7 @@ class MediaBrowserItem {
   final int? runTimeTicks;
   final String? overview;
   final List<String> genres;
+  final List<String> tagIds;
   final List<MediaBrowserPerson> people;
   final MediaBrowserUserData userData;
   final String? seriesId;
@@ -584,6 +586,7 @@ class MediaBrowserItem {
     runTimeTicks: runTimeTicks,
     overview: overview,
     genres: genres,
+    tagIds: tagIds,
     people: people,
     userData: userData,
     seriesId: seriesId,
@@ -660,6 +663,9 @@ class MediaBrowserItem {
       genres: genres is List
           ? genres.map((item) => item.toString()).toList(growable: false)
           : const <String>[],
+      tagIds: _stringList(
+        json['TagIds'] ?? json['tagIds'] ?? json['tag_ids'],
+      ),
       people: people is List
           ? people.map(MediaBrowserPerson.fromJson).toList(growable: false)
           : const <MediaBrowserPerson>[],

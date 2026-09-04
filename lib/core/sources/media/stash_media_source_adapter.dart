@@ -249,6 +249,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     int? limit,
     bool? isFavorite,
     String? personIds,
+    String? tagIds,
   }) async {
     final normalizedParent = parentId?.trim() ?? '';
     if (normalizedParent.isNotEmpty && normalizedParent != _libraryId) {
@@ -262,6 +263,10 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
         page: pageNumber,
         perPage: pageSize,
         searchText: searchTerm,
+        sortBy: _stashSortBy(sortBy),
+        sortOrder: _stashSortOrder(sortOrder),
+        tagIds: _splitIds(tagIds),
+        performerIds: _splitIds(personIds),
       ),
     );
     final items = page.scenes.map(_itemFromScene).toList(growable: false);
@@ -510,6 +515,16 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
   Future<T> _unsupported<T>(String message) =>
       Future<T>.error(SourceException(message));
 
+  String _stashSortBy(String? sortBy) => switch (sortBy?.trim()) {
+    'SortName' => 'title',
+    'ProductionYear' => 'date',
+    'CommunityRating' => 'rating100',
+    _ => 'created_at',
+  };
+
+  String _stashSortOrder(String? sortOrder) =>
+      (sortOrder?.toLowerCase().startsWith('desc') ?? true) ? 'DESC' : 'ASC';
+
   String? _imagePath(StashScene scene, String type) {
     final paths = scene.paths;
     if (type.toLowerCase() == 'backdrop') {
@@ -566,6 +581,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     performers: scene.performers,
     studio: scene.studio,
     tags: scene.tags,
+    tagIds: scene.tagIds,
   );
 
   MediaBrowserItemPage _emptyPage(int limit, {int startIndex = 0}) =>
@@ -603,3 +619,10 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
   double _secondsFromTicks(int ticks) =>
       ticks <= 0 ? 0 : ticks / mediaBrowserTicksPerSecond;
 }
+
+List<String> _splitIds(String? value) => (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .where((item) => item.isNotEmpty)
+    .toSet()
+    .toList(growable: false);

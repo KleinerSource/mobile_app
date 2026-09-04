@@ -28,6 +28,7 @@ class StashScene {
     this.performers = const <StashScenePerson>[],
     this.studio,
     this.tags = const <String>[],
+    this.tagIds = const <String>[],
   });
 
   final String id;
@@ -45,6 +46,7 @@ class StashScene {
   final List<StashScenePerson> performers;
   final StashScenePerson? studio;
   final List<String> tags;
+  final List<String> tagIds;
 
   factory StashScene.fromJson(Object? raw) {
     if (raw is! Map) return const StashScene(id: '');
@@ -52,6 +54,16 @@ class StashScene {
     final rawFiles = json['files'];
     final rawPerformers = json['performers'];
     final rawTags = json['tags'];
+    final tagNames = <String>[];
+    final tagIds = <String>[];
+    if (rawTags is List) {
+      for (final value in rawTags) {
+        final name = value is Map ? _string(value['name']) : _string(value);
+        if (name.isEmpty) continue;
+        tagNames.add(name);
+        tagIds.add(value is Map ? _string(value['id']) : '');
+      }
+    }
     return StashScene(
       id: _string(json['id']),
       title: _string(json['title']),
@@ -78,15 +90,8 @@ class StashScene {
       studio: json['studio'] == null
           ? null
           : StashScenePerson.fromJson(json['studio']),
-      tags: rawTags is List
-          ? rawTags
-                .map(
-                  (value) =>
-                      value is Map ? _string(value['name']) : _string(value),
-                )
-                .where((value) => value.isNotEmpty)
-                .toList(growable: false)
-          : const <String>[],
+      tags: tagNames,
+      tagIds: tagIds,
     );
   }
 }
