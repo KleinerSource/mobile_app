@@ -155,8 +155,11 @@ void main() {
   });
 
   testWidgets('暗色模式下搜索类型菜单支持长按滑动选择并显示 icon', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(preferences)],
         child: MaterialApp(
           theme: ThemeData(brightness: Brightness.dark),
           localizationsDelegates: AppL10n.localizationsDelegates,

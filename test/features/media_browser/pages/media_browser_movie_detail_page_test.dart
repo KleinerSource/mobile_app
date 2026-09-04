@@ -15,6 +15,7 @@ import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _ServerConfigState extends ServerConfigNotifier {
   _ServerConfigState(this.config);
@@ -69,9 +70,12 @@ Future<void> _pumpStashDetail(
   required MediaBrowserItem movie,
   required _RecordingMediaBrowserRepository repository,
 }) async {
+  SharedPreferences.setMockInitialValues({});
+  final preferences = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        sharedPrefsProvider.overrideWithValue(preferences),
         serverConfigProvider.overrideWith(
           () => _ServerConfigState(
             const ServerConfig(
@@ -359,6 +363,8 @@ void main() {
   });
 
   testWidgets('Emby 详情页点击 GenreItems 类型进入对应筛选列表', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
     final repository = _RecordingMediaBrowserRepository();
     final movie = MediaBrowserItem.fromJson(const {
       'Id': 'emby-movie-1',
@@ -372,6 +378,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPrefsProvider.overrideWithValue(preferences),
           serverConfigProvider.overrideWith(
             () => _ServerConfigState(
               const ServerConfig(
