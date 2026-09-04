@@ -184,15 +184,18 @@ void main() {
     );
 
     expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
-    expect(find.text('▆▆▆▆▆'), findsNWidgets(3));
+    // 番号与标题现在合并为同一行「[番号] 标题」，因此标题区只生成一个
+    // 隐私文本，加上元数据区共两个遮罩文本。
+    expect(find.text('▆▆▆▆▆'), findsNWidgets(2));
 
     await tester.tap(find.byType(DbOnlineMovieCard));
     await tester.pump();
     expect(tapped, isFalse);
     expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
     expect(find.text('▆▆▆▆▆'), findsNothing);
-    expect(find.text('示例影片'), findsNWidgets(2));
-    expect(find.text('ABC-001'), findsOneWidget);
+    expect(find.text('示例影片'), findsOneWidget);
+    expect(find.text('[ABC-001] 示例影片'), findsOneWidget);
+    expect(find.text('ABC-001'), findsNothing);
 
     await tester.tap(find.byType(DbOnlineMovieCard));
     expect(tapped, isTrue);
