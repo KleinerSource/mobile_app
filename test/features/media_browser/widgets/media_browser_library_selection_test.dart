@@ -66,6 +66,7 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
     int? limit,
     bool? isFavorite,
     String? personIds,
+    String? tagIds,
   }) async {
     itemPageCalls.add((parentId, includeItemTypes));
     if (itemPageDelay > Duration.zero) {
