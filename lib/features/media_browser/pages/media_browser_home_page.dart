@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
@@ -15,7 +14,6 @@ import 'package:omm/features/media_browser/widgets/media_browser_continue_watchi
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_next_up_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
-import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -241,28 +239,17 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
   }
 }
 
-/// 每个媒体库的「最近添加」横排 + 底部媒体库入口卡片。
+/// 每个媒体库的「最近添加」横排。
 ///
 /// 音乐库出「最新专辑」横排（方形封面）；图书/照片等无海报内容的库
-/// 不出影片行（入口卡片仍显示）；某个库没有可展示条目时整行隐藏；
+/// 不出影片行；某个库没有可展示条目时整行隐藏；
 /// Views 加载失败/为空时整个区块隐藏。
-class _MediaBrowserViewSections extends ConsumerStatefulWidget {
+class _MediaBrowserViewSections extends ConsumerWidget {
   const _MediaBrowserViewSections();
 
   @override
-  ConsumerState<_MediaBrowserViewSections> createState() =>
-      _MediaBrowserViewSectionsState();
-}
-
-class _MediaBrowserViewSectionsState
-    extends ConsumerState<_MediaBrowserViewSections> {
-  final _refreshingLibraryIds = <String>{};
-  final _refreshProgress = <String, double?>{};
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final views = ref.watch(mediaBrowserViewsProvider);
-    final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
     return views.maybeWhen(
       data: (list) {
         if (list.isEmpty) {
@@ -281,128 +268,11 @@ class _MediaBrowserViewSectionsState
                   view: view,
                 ),
               ),
-            SliverToBoxAdapter(
-              child: HomeLibrariesSection(
-                entries: [
-                  for (final view in list)
-                    HomeLibraryCardEntry(
-                      id: view.id,
-                      name: view.name,
-                      coverUrl: urls?.poster(
-                        view.id,
-                        maxWidth: 600,
-                        tag: view.primaryImageTag,
-                      ),
-                      imageHeaders: urls?.imageHeaders,
-                      onTap: () => _openLibrary(context, view.id),
-                      category: view.collectionType,
-                      onRefresh: () => unawaited(_refreshLibrary(view)),
-                      isRefreshing: _refreshingLibraryIds.contains(view.id),
-                      refreshProgress: _refreshProgress[view.id],
-                    ),
-                ],
-              ),
-            ),
           ],
         );
       },
       orElse: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
     );
-  }
-
-  void _openLibrary(BuildContext context, String viewId) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MediaBrowserLibraryPage(initialViewId: viewId),
-      ),
-    );
-  }
-
-  Future<void> _refreshLibrary(MediaBrowserItem view) async {
-    final libraryId = view.id.trim();
-    if (libraryId.isEmpty || _refreshingLibraryIds.contains(libraryId)) return;
-
-    setState(() {
-      _refreshingLibraryIds.add(libraryId);
-      _refreshProgress[libraryId] = null;
-    });
-
-    final l = AppL10n.of(context);
-    final repository = ref.read(mediaBrowserMediaRepositoryProvider);
-    final target = MediaBrowserLibraryRefreshTarget(
-      id: libraryId,
-      name: view.name,
-      category: view.collectionType ?? '',
-    );
-    var completed = false;
-    try {
-      final progress = await repository.refreshLibraryAndWait(
-        target: target,
-        onStarted: () {
-          if (mounted) {
-            _showRefreshMessage(l.mediaBrowserLibraryRefreshStarted(view.name));
-          }
-        },
-        onProgress: (progress) {
-          if (!mounted || !_refreshingLibraryIds.contains(libraryId)) return;
-          setState(() => _refreshProgress[libraryId] = progress.ratio);
-        },
-        shouldContinue: () =>
-            mounted && _refreshingLibraryIds.contains(libraryId),
-      );
-      if (!mounted) return;
-      if (progress.failed) {
-        _showRefreshError(l.mediaBrowserRefreshFailed(l.scanActionFailed));
-      } else if (!progress.isRunning) {
-        completed = true;
-      }
-
-      if (completed && mounted) _invalidateLibraryData(view, libraryId);
-    } catch (error) {
-      if (mounted) {
-        _showRefreshError(
-          l.mediaBrowserRefreshFailed(toApiException(error).message),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _refreshingLibraryIds.remove(libraryId);
-          _refreshProgress.remove(libraryId);
-        });
-      }
-    }
-  }
-
-  void _invalidateLibraryData(MediaBrowserItem view, String libraryId) {
-    ref.invalidate(mediaBrowserVirtualFoldersProvider);
-    ref.invalidate(mediaBrowserViewsProvider);
-    ref.invalidate(mediaBrowserLatestProvider);
-    ref.invalidate(mediaBrowserResumeProvider);
-    ref.invalidate(mediaBrowserNextUpProvider);
-    ref.invalidate(mediaBrowserLibraryStatsProvider);
-    final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
-    ref.invalidate(
-      mediaBrowserViewLatestProvider(
-        MediaBrowserViewLatestRequest(
-          serverId: activeServerId,
-          viewId: libraryId,
-          includeItemTypes: includeItemTypesForView(view.collectionType),
-        ),
-      ),
-    );
-  }
-
-  void _showRefreshMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _showRefreshError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

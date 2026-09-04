@@ -86,6 +86,8 @@ class _MediaBrowserLibraryPageState
   int _requestSerial = 0;
   bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
+  String? _autoPreviewId;
+  bool _autoPreviewUpdateScheduled = false;
 
   /// 当前选中库的类型过滤选项；音乐库切到「专辑/歌曲」。
   List<({String value, String Function(AppL10n l) label})> get _typeOptions =>
@@ -116,12 +118,17 @@ class _MediaBrowserLibraryPageState
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetchPage);
+    _scrollController.addListener(_scheduleAutoPreviewUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleAutoPreviewUpdate();
+    });
   }
 
   @override
   void dispose() {
     _completeRefresh();
     _controller.dispose();
+    _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
     _selection.dispose();
     super.dispose();
@@ -165,6 +172,7 @@ class _MediaBrowserLibraryPageState
       } else {
         _controller.appendPage(items, startIndex + _pageSize);
       }
+      _scheduleAutoPreviewUpdate();
       if (startIndex == 0) _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
@@ -226,10 +234,39 @@ class _MediaBrowserLibraryPageState
       _includeItemTypes = nextTypes;
       _sortBy = nextSortBy;
       _sortOrder = nextSortOrder;
+      _autoPreviewId = null;
     });
     _selection.exit();
     _requestSerial++;
     _refreshController();
+  }
+
+  void _scheduleAutoPreviewUpdate() {
+    if (_autoPreviewUpdateScheduled) return;
+    _autoPreviewUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoPreviewUpdateScheduled = false;
+      if (!mounted) return;
+      final next = _nextAutoPreviewId();
+      if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+    });
+  }
+
+  String? _nextAutoPreviewId() {
+    if (!_isStash) return null;
+    final items = _controller.itemList ?? const <MediaBrowserItem>[];
+    if (items.isEmpty) return null;
+    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
+      1.0,
+      double.infinity,
+    );
+    final index = stashPreviewItemIndexForScroll(
+      scrollOffset: _scrollController.hasClients ? _scrollController.offset : 0,
+      cardHeight: width * 9 / 16,
+      itemGap: 14,
+      itemCount: items.length,
+    );
+    return index == null ? null : items[index].id;
   }
 
   /// 从已加载的 Views 里解析选中库的 collectionType；「全部库」为 null。
@@ -575,6 +612,9 @@ class _MediaBrowserLibraryPageState
                                                         item: item,
                                                         urls: value,
                                                         width: width - 44,
+                                                        autoPlayPreview:
+                                                            item.id ==
+                                                            _autoPreviewId,
                                                         onTap: () => unawaited(
                                                           _openItem(item),
                                                         ),
@@ -587,8 +627,10 @@ class _MediaBrowserLibraryPageState
                                                       width: itemWidth,
                                                       index: index,
                                                       square: _isMusicGrid,
-                                                      showFavoriteBadge: !isStash,
-                                                      selectionEnabled: !isStash,
+                                                      showFavoriteBadge:
+                                                          !isStash,
+                                                      selectionEnabled:
+                                                          !isStash,
                                                       onOpen: _openItem,
                                                     ),
                                               firstPageProgressIndicatorBuilder:

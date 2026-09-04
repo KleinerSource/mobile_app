@@ -58,12 +58,19 @@ abstract class MediaBrowserServerUrls {
   /// 条目首选展示图（首页/详情 Hero、继续观看宽卡共用）：有背景图取
   /// Backdrop，否则有海报取 Primary，两者皆无返回 null。带 image tag，
   /// 服务器换图后 URL 变化，旧缓存自然失效。
+  ///
+  /// 逐项跳过空路径，避免某个来源把空的背景 tag 放在首位时直接遮掉
+  /// 后面的可用海报。Stash 的 tag 已由适配器按 screenshot → webp 顺序提供。
   String? heroImage(MediaBrowserItem item) {
-    if (item.backdropImageTags.isNotEmpty) {
-      return backdrop(item.id, tag: item.backdropImageTags.first);
+    for (final tag in item.backdropImageTags) {
+      if (tag.trim().isEmpty) continue;
+      final url = backdrop(item.id, tag: tag).trim();
+      if (url.isNotEmpty) return url;
     }
-    if (item.primaryImageTag != null) {
-      return poster(item.id, tag: item.primaryImageTag);
+    final primaryTag = item.primaryImageTag?.trim() ?? '';
+    if (primaryTag.isNotEmpty) {
+      final url = poster(item.id, tag: primaryTag).trim();
+      if (url.isNotEmpty) return url;
     }
     return null;
   }

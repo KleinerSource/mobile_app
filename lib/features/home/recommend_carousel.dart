@@ -324,8 +324,11 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     MovieListItem movie,
     String Function(String uuid) urlBuilder,
   ) {
-    final uuid = movie.fanartUuid ?? movie.posterUuid ?? movie.thumbUuid;
-    return uuid == null ? null : urlBuilder(uuid);
+    for (final uuid in [movie.fanartUuid, movie.posterUuid, movie.thumbUuid]) {
+      final value = uuid?.trim() ?? '';
+      if (value.isNotEmpty) return urlBuilder(value);
+    }
+    return null;
   }
 
   static String? _nullableUrl(String? value) {
@@ -477,6 +480,7 @@ class _HeroCover extends StatelessWidget {
             imageUrl: imageUrl!,
             httpHeaders: imageHeaders,
             fit: BoxFit.cover,
+            alignment: Alignment.centerRight,
             fadeInDuration: Duration.zero,
             placeholder: (_, __) => const SizedBox.shrink(),
             errorWidget: (_, __, ___) => const SizedBox.shrink(),

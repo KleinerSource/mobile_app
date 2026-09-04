@@ -85,6 +85,45 @@ Widget _app({required Widget child}) => ProviderScope(
 );
 
 void main() {
+  test('自动预览候选在上一张封面离开视口时切到下一张', () {
+    expect(
+      stashPreviewItemIndexForScroll(
+        scrollOffset: 0,
+        cardHeight: 200,
+        itemGap: 14,
+        itemCount: 3,
+      ),
+      0,
+    );
+    expect(
+      stashPreviewItemIndexForScroll(
+        scrollOffset: 199,
+        cardHeight: 200,
+        itemGap: 14,
+        itemCount: 3,
+      ),
+      0,
+    );
+    expect(
+      stashPreviewItemIndexForScroll(
+        scrollOffset: 200,
+        cardHeight: 200,
+        itemGap: 14,
+        itemCount: 3,
+      ),
+      1,
+    );
+    expect(
+      stashPreviewItemIndexForScroll(
+        scrollOffset: 414,
+        cardHeight: 200,
+        itemGap: 14,
+        itemCount: 3,
+      ),
+      2,
+    );
+  });
+
   testWidgets('Stash 卡片占满一行并保持 16:9', (tester) async {
     final player = _FakePreviewPlayer();
     await tester.pumpWidget(
@@ -105,6 +144,34 @@ void main() {
     final size = tester.getSize(find.byType(StashSceneCard));
     expect(size.width, 356);
     expect(size.height, closeTo(200, 0.5));
+  });
+
+  testWidgets('标记为顶部候选时自动启动预览，取消候选时释放', (tester) async {
+    final player = _FakePreviewPlayer();
+    var autoPlay = true;
+
+    Widget buildCard() => _app(
+      child: StashPreviewScope(
+        child: StashSceneCard(
+          item: _item(),
+          urls: _urls(),
+          width: 356,
+          playerFactory: () => player,
+          autoPlayPreview: autoPlay,
+          onTap: () {},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(buildCard());
+    await tester.pump();
+    expect(player.openedUrl, 'http://stash.test:9999/previews/scene-1.mp4');
+
+    autoPlay = false;
+    await tester.pumpWidget(buildCard());
+    await tester.pump();
+    expect(player.stopCount, 1);
+    expect(player.disposeCount, 1);
   });
 
   testWidgets('长按后横向拖动按预览时间轴 seek，并在松手时释放', (tester) async {

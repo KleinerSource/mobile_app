@@ -227,6 +227,8 @@ class _MediaBrowserSearchResultsState
   final _scrollController = ScrollController();
   late final PagedSelectionController<MediaBrowserItem> _selection;
   bool _batchBusy = false;
+  String? _autoPreviewId;
+  bool _autoPreviewUpdateScheduled = false;
 
   @override
   void initState() {
@@ -234,11 +236,16 @@ class _MediaBrowserSearchResultsState
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
     _pagingController.addPageRequestListener(_fetchPage);
+    _scrollController.addListener(_scheduleAutoPreviewUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleAutoPreviewUpdate();
+    });
   }
 
   @override
   void dispose() {
     _pagingController.dispose();
+    _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
     _selection.dispose();
     super.dispose();
@@ -330,10 +337,40 @@ class _MediaBrowserSearchResultsState
       } else {
         _pagingController.appendPage(items, startIndex + _pageSize);
       }
+      _scheduleAutoPreviewUpdate();
     } catch (error) {
       if (!mounted) return;
       _pagingController.error = toApiException(error).message;
     }
+  }
+
+  void _scheduleAutoPreviewUpdate() {
+    if (_autoPreviewUpdateScheduled) return;
+    _autoPreviewUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoPreviewUpdateScheduled = false;
+      if (!mounted) return;
+      final next = _nextAutoPreviewId();
+      if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+    });
+  }
+
+  String? _nextAutoPreviewId() {
+    if (!_isStash) return null;
+    final items = _pagingController.itemList ?? const <MediaBrowserItem>[];
+    if (items.isEmpty) return null;
+    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
+      1.0,
+      double.infinity,
+    );
+    final index = stashPreviewItemIndexForScroll(
+      scrollOffset: _scrollController.hasClients ? _scrollController.offset : 0,
+      cardHeight: width * 9 / 16,
+      itemGap: 14,
+      itemCount: items.length,
+      leadingPadding: 4,
+    );
+    return index == null ? null : items[index].id;
   }
 
   @override
@@ -371,6 +408,8 @@ class _MediaBrowserSearchResultsState
                                       item: item,
                                       urls: value,
                                       width: width - 44,
+                                      autoPlayPreview:
+                                          item.id == _autoPreviewId,
                                       onTap: () => unawaited(_openItem(item)),
                                     ),
                                   )

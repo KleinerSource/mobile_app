@@ -124,6 +124,7 @@ class _BackdropArtLayer extends StatelessWidget {
                   imageUrl: art.url,
                   httpHeaders: art.imageHeaders,
                   fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
                   width: double.infinity,
                   height: double.infinity,
                   fadeInDuration: const Duration(milliseconds: 250),

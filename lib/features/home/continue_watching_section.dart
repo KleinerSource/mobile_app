@@ -140,6 +140,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                       title: entry.title,
                       aspectRatio: 16 / 10,
                       radius: 0,
+                      imageAlignment: Alignment.centerRight,
                       httpHeaders: entry.imageHeaders,
                     ),
                   ),

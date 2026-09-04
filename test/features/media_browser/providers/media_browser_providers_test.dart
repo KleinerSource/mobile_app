@@ -114,12 +114,18 @@ void main() {
       token: 'stash-key',
     );
 
-    expect(urls.poster('scene-1', tag: '/screenshots/scene-1.jpg'),
-        'http://stash.test:9999/screenshots/scene-1.jpg');
-    expect(urls.backdrop('scene-1', tag: 'screenshots/scene-1.jpg'),
-        'http://stash.test:9999/screenshots/scene-1.jpg');
-    expect(urls.preview('/previews/scene-1.mp4'),
-        'http://stash.test:9999/previews/scene-1.mp4');
+    expect(
+      urls.poster('scene-1', tag: '/screenshots/scene-1.jpg'),
+      'http://stash.test:9999/screenshots/scene-1.jpg',
+    );
+    expect(
+      urls.backdrop('scene-1', tag: 'screenshots/scene-1.jpg'),
+      'http://stash.test:9999/screenshots/scene-1.jpg',
+    );
+    expect(
+      urls.preview('/previews/scene-1.mp4'),
+      'http://stash.test:9999/previews/scene-1.mp4',
+    );
     expect(urls.imageHeaders, {'ApiKey': 'stash-key'});
     expect(urls.directHeaders, {'ApiKey': 'stash-key'});
   });
@@ -133,6 +139,38 @@ void main() {
 
     expect(urls.preview(null), isNull);
     expect(urls.preview(''), isNull);
+  });
+
+  test('首页展示图跳过空背景路径并按背景到海报回退', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.stash,
+      baseUrl: 'http://stash.test:9999',
+      token: 'stash-key',
+    );
+
+    expect(
+      urls.heroImage(
+        const MediaBrowserItem(
+          id: 'scene-1',
+          name: 'Scene',
+          type: 'Movie',
+          primaryImageTag: '/images/poster.webp',
+          backdropImageTags: ['', '/images/screenshot.jpg'],
+        ),
+      ),
+      'http://stash.test:9999/images/screenshot.jpg',
+    );
+    expect(
+      urls.heroImage(
+        const MediaBrowserItem(
+          id: 'scene-2',
+          name: 'Scene',
+          type: 'Movie',
+          primaryImageTag: '/images/poster.webp',
+        ),
+      ),
+      'http://stash.test:9999/images/poster.webp',
+    );
   });
 
   test('includeItemTypesForView 按库类型映射条目过滤', () {

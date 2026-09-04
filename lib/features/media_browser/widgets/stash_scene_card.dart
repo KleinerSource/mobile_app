@@ -33,6 +33,33 @@ abstract interface class StashPreviewPlayer {
 
 typedef StashPreviewPlayerFactory = StashPreviewPlayer Function();
 
+/// 根据列表滚动位置选择当前应自动预览的最上方 Scene。
+///
+/// 列表项之间有固定间距；当上一张封面已经完全离开视口时，立即切到下一张，
+/// 不必等下一张卡片真正贴到视口顶部。
+int? stashPreviewItemIndexForScroll({
+  required double scrollOffset,
+  required double cardHeight,
+  required double itemGap,
+  required int itemCount,
+  double leadingPadding = 0,
+}) {
+  if (itemCount <= 0 ||
+      !scrollOffset.isFinite ||
+      !cardHeight.isFinite ||
+      cardHeight <= 0 ||
+      !itemGap.isFinite ||
+      itemGap < 0) {
+    return null;
+  }
+  final offset = (scrollOffset - leadingPadding).clamp(0.0, double.infinity);
+  final itemExtent = cardHeight + itemGap;
+  final baseIndex = (offset / itemExtent).floor();
+  final withinItem = offset - baseIndex * itemExtent;
+  final index = withinItem >= cardHeight ? baseIndex + 1 : baseIndex;
+  return index.clamp(0, itemCount - 1);
+}
+
 /// 默认使用 media_kit 的 Stash 短视频播放器。
 class MediaKitStashPreviewPlayer implements StashPreviewPlayer {
   MediaKitStashPreviewPlayer()
@@ -186,6 +213,7 @@ class StashSceneCard extends ConsumerStatefulWidget {
     required this.onTap,
     this.coordinator,
     this.playerFactory = _defaultStashPreviewPlayerFactory,
+    this.autoPlayPreview = false,
   });
 
   final MediaBrowserItem item;
@@ -194,6 +222,9 @@ class StashSceneCard extends ConsumerStatefulWidget {
   final VoidCallback onTap;
   final StashPreviewCoordinator? coordinator;
   final StashPreviewPlayerFactory playerFactory;
+
+  /// 页面滚动选中该条目时自动播放短预览；手动长按仍可在 false 时启动。
+  final bool autoPlayPreview;
 
   @override
   ConsumerState<StashSceneCard> createState() => _StashSceneCardState();
@@ -210,6 +241,14 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
   bool _previewLoading = false;
   int _previewGeneration = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.autoPlayPreview) unawaited(_startPreview());
+    });
+  }
+
   void _releasePreview() {
     unawaited(_stopPreview());
   }
@@ -223,9 +262,22 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
   @override
   void didUpdateWidget(covariant StashSceneCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.id != widget.item.id ||
-        oldWidget.playerFactory != widget.playerFactory) {
+    final itemChanged = oldWidget.item.id != widget.item.id;
+    if (itemChanged || oldWidget.playerFactory != widget.playerFactory) {
       unawaited(_stopPreview());
+      if (widget.autoPlayPreview) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.autoPlayPreview) unawaited(_startPreview());
+        });
+      }
+      return;
+    }
+    if (oldWidget.autoPlayPreview != widget.autoPlayPreview) {
+      if (widget.autoPlayPreview) {
+        unawaited(_startPreview());
+      } else {
+        unawaited(_stopPreview());
+      }
     }
   }
 
