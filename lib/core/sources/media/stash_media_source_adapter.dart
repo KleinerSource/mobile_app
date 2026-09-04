@@ -389,6 +389,7 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
         played: scene.playCount > 0,
       ),
       primaryImageTag: _imagePath(scene, 'Primary'),
+      previewPath: scene.paths.preview,
       backdropImageTags: [
         if (_imagePath(scene, 'Backdrop') case final path?) path,
       ],
@@ -471,9 +472,9 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
   String? _imagePath(StashScene scene, String type) {
     final paths = scene.paths;
     if (type.toLowerCase() == 'backdrop') {
-      return paths.preview ?? paths.webp ?? paths.screenshot;
+      return paths.screenshot ?? paths.webp;
     }
-    return paths.screenshot ?? paths.webp ?? paths.preview;
+    return paths.screenshot ?? paths.webp;
   }
 
   String? _assetUrl(String? path) {

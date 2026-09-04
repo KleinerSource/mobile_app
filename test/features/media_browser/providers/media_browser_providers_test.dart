@@ -107,6 +107,34 @@ void main() {
     );
   });
 
+  test('Stash 图片、预览和直链使用根地址并携带 ApiKey', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.stash,
+      baseUrl: 'http://stash.test:9999',
+      token: 'stash-key',
+    );
+
+    expect(urls.poster('scene-1', tag: '/screenshots/scene-1.jpg'),
+        'http://stash.test:9999/screenshots/scene-1.jpg');
+    expect(urls.backdrop('scene-1', tag: 'screenshots/scene-1.jpg'),
+        'http://stash.test:9999/screenshots/scene-1.jpg');
+    expect(urls.preview('/previews/scene-1.mp4'),
+        'http://stash.test:9999/previews/scene-1.mp4');
+    expect(urls.imageHeaders, {'ApiKey': 'stash-key'});
+    expect(urls.directHeaders, {'ApiKey': 'stash-key'});
+  });
+
+  test('Stash 预览资源为空时返回 null，且不把路径当静态图', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.stash,
+      baseUrl: 'http://stash.test:9999',
+      token: 'stash-key',
+    );
+
+    expect(urls.preview(null), isNull);
+    expect(urls.preview(''), isNull);
+  });
+
   test('includeItemTypesForView 按库类型映射条目过滤', () {
     expect(includeItemTypesForView('movies'), 'Movie');
     expect(includeItemTypesForView('TVShows'), 'Series');

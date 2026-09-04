@@ -479,6 +479,7 @@ class MediaBrowserItem {
     this.albumArtist,
     this.artistNames = const <String>[],
     this.primaryImageTag,
+    this.previewPath,
     this.backdropImageTags = const <String>[],
     this.thumbImageTag,
     this.childCount,
@@ -527,6 +528,9 @@ class MediaBrowserItem {
   /// 参与艺术家名列表（不含专辑艺术家语义，顺序与服务器一致）。
   final List<String> artistNames;
   final String? primaryImageTag;
+
+  /// Stash Scene 的短预览视频路径；其他 MediaBrowser 来源为空。
+  final String? previewPath;
   final List<String> backdropImageTags;
   final String? thumbImageTag;
   final int? childCount;
@@ -589,6 +593,7 @@ class MediaBrowserItem {
     albumArtist: albumArtist,
     artistNames: artistNames,
     primaryImageTag: primaryImageTag,
+    previewPath: previewPath,
     backdropImageTags: backdropImageTags,
     thumbImageTag: thumbImageTag,
     childCount: childCount,

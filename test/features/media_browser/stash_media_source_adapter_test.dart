@@ -72,7 +72,7 @@ Map<String, dynamic> _scene() => {
   ],
   'paths': {
     'screenshot': '/images/scene-1.jpg',
-    'preview': '/images/scene-1-preview.jpg',
+    'preview': '/previews/scene-1.mp4',
   },
   'performers': [
     {'id': 'person-1', 'name': 'Actor One'},
@@ -151,7 +151,8 @@ void main() {
     expect(item.userData.resumeSeconds, 13);
     expect(item.userData.playCount, 2);
     expect(item.primaryImageTag, '/images/scene-1.jpg');
-    expect(item.backdropImageTags, ['/images/scene-1-preview.jpg']);
+    expect(item.previewPath, '/previews/scene-1.mp4');
+    expect(item.backdropImageTags, ['/images/scene-1.jpg']);
     expect(item.people.single.name, 'Actor One');
     expect(item.genres, ['Drama']);
 
@@ -200,5 +201,32 @@ void main() {
     expect(views.single.collectionType, 'movies');
     expect(views.single.childCount, 0);
     expect((await source.itemPage()).items, isEmpty);
+  });
+
+  test('缺少 screenshot 时使用 webp，且 preview 仍为空', () async {
+    final scene = _scene()
+      ..['paths'] = {'webp': '/images/scene-1.webp'};
+    final adapter = _StashAdapter(
+      (_) => {
+        'data': {
+          'findScenes': {
+            'count': 1,
+            'scenes': [scene],
+          },
+        },
+      },
+    );
+    final source = StashMediaSourceAdapter(
+      StashApi(
+        Dio(BaseOptions(baseUrl: 'http://stash.test'))
+          ..httpClientAdapter = adapter,
+      ),
+      endpoint: 'http://stash.test',
+    );
+
+    final item = (await source.itemPage()).items.single;
+    expect(item.primaryImageTag, '/images/scene-1.webp');
+    expect(item.backdropImageTags, ['/images/scene-1.webp']);
+    expect(item.previewPath, isNull);
   });
 }

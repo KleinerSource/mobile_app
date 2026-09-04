@@ -40,6 +40,9 @@ abstract class MediaBrowserServerUrls {
 
   String thumb(String itemId, {int maxWidth = 440, String? tag});
 
+  /// 短预览视频地址。只有支持预览视频的来源返回非空地址。
+  String? preview(String? path) => null;
+
   /// 带 token 的封面直连地址，供绕过图片缓存、用无鉴权裸 Dio 下载的
   /// 场景（通知栏封面）；产物是按 itemId 命名的临时文件，不存在缓存
   /// key 失稳问题。
@@ -281,6 +284,12 @@ class _StashServerUrls extends MediaBrowserServerUrls {
 
   @override
   String thumb(String itemId, {int maxWidth = 440, String? tag}) => _asset(tag);
+
+  @override
+  String? preview(String? path) {
+    final value = _asset(path);
+    return value.isEmpty ? null : value;
+  }
 
   @override
   String authedPoster(String itemId, {int maxWidth = 600, String? tag}) =>

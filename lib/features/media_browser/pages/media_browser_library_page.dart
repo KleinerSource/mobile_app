@@ -14,6 +14,7 @@ import 'package:omm/features/media_browser/navigation/media_browser_navigation.d
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/drag_selection.dart';
@@ -442,259 +443,310 @@ class _MediaBrowserLibraryPageState
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: PagedSelectionPopScope<MediaBrowserItem>(
-        selection: _selection,
-        child: GlowBackground(
-          child: SafeArea(
-            bottom: false,
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  ref
-                                          .watch(mediaBrowserConfigProvider)
-                                          ?.brandLabel ??
-                                      '',
-                                  style: AppText.eyebrow(context),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  _isPersonMode
-                                      ? (widget.personName?.trim().isNotEmpty ==
-                                                true
-                                            ? widget.personName!.trim()
-                                            : AppL10n.of(
-                                                context,
-                                              ).mediaBrowserActorWorks)
-                                      : AppL10n.of(
-                                          context,
-                                        ).mediaBrowserLibrariesTitle,
-                                  style: AppText.pageTitle(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                          _LibrarySortButton(
-                            ascending: _sortOrder == 'Ascending',
-                            onTap: () => _openSortMenu(context),
-                          ),
-                          const SizedBox(width: 8),
-                          if (!isStash)
-                            _LibraryFilterButton(
-                              active:
-                                  _includeItemTypes != _typeOptions.first.value,
-                              onTap: () => _openTypeMenu(context),
-                            ),
-                        ],
-                      ),
-                    ),
-                    views.maybeWhen(
-                      data: (list) => _isPersonMode || list.length <= 1
-                          ? const SizedBox.shrink()
-                          : SizedBox(
-                              height: 38,
-                              child: ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 22,
-                                ),
-                                scrollDirection: Axis.horizontal,
-                                itemCount: list.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(width: 8),
-                                itemBuilder: (context, index) {
-                                  final view = list[index];
-                                  final selected = view.id == _parentId;
-                                  return _ViewChip(
-                                    privacyId: view.id,
-                                    label: view.name,
-                                    selected: selected,
-                                    onTap: () => _reloadWith(parentId: view.id),
-                                  );
-                                },
+      body: StashPreviewScope(
+        child: PagedSelectionPopScope<MediaBrowserItem>(
+          selection: _selection,
+          child: GlowBackground(
+            child: SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    ref
+                                            .watch(mediaBrowserConfigProvider)
+                                            ?.brandLabel ??
+                                        '',
+                                    style: AppText.eyebrow(context),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    _isPersonMode
+                                        ? (widget.personName
+                                                      ?.trim()
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? widget.personName!.trim()
+                                              : AppL10n.of(
+                                                  context,
+                                                ).mediaBrowserActorWorks)
+                                        : AppL10n.of(
+                                            context,
+                                          ).mediaBrowserLibrariesTitle,
+                                    style: AppText.pageTitle(context),
+                                  ),
+                                ],
                               ),
                             ),
-                      orElse: () => const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: StatusBarScrollToTop(
-                        scrollController: _scrollController,
-                        child: RefreshIndicator(
-                          onRefresh: () async {
-                            ref.invalidate(mediaBrowserViewsProvider);
-                            await _refresh();
-                          },
-                          child: PagedSelectionScope<MediaBrowserItem>(
-                            selection: _selection,
-                            scrollController: _scrollController,
-                            layout: DragSelectionLayout.grid,
-                            child: CustomScrollView(
-                              controller: _scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              slivers: [
-                                SliverPadding(
+                            _LibrarySortButton(
+                              ascending: _sortOrder == 'Ascending',
+                              onTap: () => _openSortMenu(context),
+                            ),
+                            const SizedBox(width: 8),
+                            if (!isStash)
+                              _LibraryFilterButton(
+                                active:
+                                    _includeItemTypes !=
+                                    _typeOptions.first.value,
+                                onTap: () => _openTypeMenu(context),
+                              ),
+                          ],
+                        ),
+                      ),
+                      views.maybeWhen(
+                        data: (list) => _isPersonMode || list.length <= 1
+                            ? const SizedBox.shrink()
+                            : SizedBox(
+                                height: 38,
+                                child: ListView.separated(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 22,
                                   ),
-                                  sliver: urls.maybeWhen(
-                                    data: (value) => PagedSliverGrid<int, MediaBrowserItem>(
-                                      pagingController: _controller,
-                                      // 与 OMM 影片库一致：尾部提示整行跨列渲染，
-                                      // 否则「没有更多内容」会被塞进单个网格单元。
-                                      showNoMoreItemsIndicatorAsGridChild:
-                                          false,
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: crossAxisCount,
-                                            childAspectRatio: cardAspectRatio,
-                                            mainAxisSpacing: 14,
-                                            crossAxisSpacing: spacing,
-                                          ),
-                                      builderDelegate:
-                                          PagedChildBuilderDelegate<
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: list.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 8),
+                                  itemBuilder: (context, index) {
+                                    final view = list[index];
+                                    final selected = view.id == _parentId;
+                                    return _ViewChip(
+                                      privacyId: view.id,
+                                      label: view.name,
+                                      selected: selected,
+                                      onTap: () =>
+                                          _reloadWith(parentId: view.id),
+                                    );
+                                  },
+                                ),
+                              ),
+                        orElse: () => const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: StatusBarScrollToTop(
+                          scrollController: _scrollController,
+                          child: RefreshIndicator(
+                            onRefresh: () async {
+                              ref.invalidate(mediaBrowserViewsProvider);
+                              await _refresh();
+                            },
+                            child: PagedSelectionScope<MediaBrowserItem>(
+                              selection: _selection,
+                              scrollController: _scrollController,
+                              layout: isStash
+                                  ? DragSelectionLayout.list
+                                  : DragSelectionLayout.grid,
+                              child: CustomScrollView(
+                                controller: _scrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                slivers: [
+                                  SliverPadding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 22,
+                                    ),
+                                    sliver: urls.maybeWhen(
+                                      data: (value) {
+                                        final delegate =
+                                            PagedChildBuilderDelegate<
+                                              MediaBrowserItem
+                                            >(
+                                              itemBuilder:
+                                                  (
+                                                    context,
+                                                    item,
+                                                    index,
+                                                  ) => isStash
+                                                  ? Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            bottom: 14,
+                                                          ),
+                                                      child: StashSceneCard(
+                                                        item: item,
+                                                        urls: value,
+                                                        width: width - 44,
+                                                        onTap: () => unawaited(
+                                                          _openItem(item),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : mediaBrowserSelectableGridItem(
+                                                      selection: _selection,
+                                                      item: item,
+                                                      urls: value,
+                                                      width: itemWidth,
+                                                      index: index,
+                                                      square: _isMusicGrid,
+                                                      showFavoriteBadge: !isStash,
+                                                      selectionEnabled: !isStash,
+                                                      onOpen: _openItem,
+                                                    ),
+                                              firstPageProgressIndicatorBuilder:
+                                                  (_) => Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 56,
+                                                        ),
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            color:
+                                                                colors.accent,
+                                                          ),
+                                                    ),
+                                                  ),
+                                              newPageProgressIndicatorBuilder:
+                                                  (_) => const Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 18,
+                                                        ),
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(),
+                                                    ),
+                                                  ),
+                                              firstPageErrorIndicatorBuilder:
+                                                  (_) => _LibraryListError(
+                                                    message:
+                                                        _controller.error
+                                                            ?.toString() ??
+                                                        AppL10n.of(
+                                                          context,
+                                                        ).loadFailed,
+                                                    onRetry: _controller
+                                                        .retryLastFailedRequest,
+                                                  ),
+                                              newPageErrorIndicatorBuilder:
+                                                  (_) => PaginationRetry(
+                                                    onRetry: _controller
+                                                        .retryLastFailedRequest,
+                                                  ),
+                                              noItemsFoundIndicatorBuilder: (_) =>
+                                                  MediaBrowserEmptyPlaceholder(
+                                                    text: AppL10n.of(
+                                                      context,
+                                                    ).mediaBrowserNoMatchingItems,
+                                                  ),
+                                              noMoreItemsIndicatorBuilder:
+                                                  (_) => const NoMoreContent(),
+                                            );
+                                        if (isStash) {
+                                          return PagedSliverList<
+                                            int,
                                             MediaBrowserItem
                                           >(
-                                            itemBuilder: (context, item, index) =>
-                                                mediaBrowserSelectableGridItem(
-                                                  selection: _selection,
-                                                  item: item,
-                                                  urls: value,
-                                                  width: itemWidth,
-                                                  index: index,
-                                                  square: _isMusicGrid,
-                                                  showFavoriteBadge: !isStash,
-                                                  selectionEnabled: !isStash,
-                                                  onOpen: _openItem,
-                                                ),
-                                            firstPageProgressIndicatorBuilder:
-                                                (_) => Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 56,
-                                                      ),
-                                                  child: Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          color: colors.accent,
-                                                        ),
-                                                  ),
-                                                ),
-                                            newPageProgressIndicatorBuilder:
-                                                (_) => const Padding(
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical: 18,
-                                                  ),
-                                                  child: Center(
-                                                    child:
-                                                        CircularProgressIndicator(),
-                                                  ),
-                                                ),
-                                            firstPageErrorIndicatorBuilder:
-                                                (_) => _LibraryListError(
-                                                  message:
-                                                      _controller.error
-                                                          ?.toString() ??
-                                                      AppL10n.of(
-                                                        context,
-                                                      ).loadFailed,
-                                                  onRetry: _controller
-                                                      .retryLastFailedRequest,
-                                                ),
-                                            newPageErrorIndicatorBuilder: (_) =>
-                                                PaginationRetry(
-                                                  onRetry: _controller
-                                                      .retryLastFailedRequest,
-                                                ),
-                                            noItemsFoundIndicatorBuilder: (_) =>
-                                                MediaBrowserEmptyPlaceholder(
-                                                  text: AppL10n.of(
-                                                    context,
-                                                  ).mediaBrowserNoMatchingItems,
-                                                ),
-                                            noMoreItemsIndicatorBuilder: (_) =>
-                                                const NoMoreContent(),
-                                          ),
-                                    ),
-                                    loading: () => const SliverFillRemaining(
-                                      hasScrollBody: false,
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    ),
-                                    error: (error, _) => SliverFillRemaining(
-                                      hasScrollBody: false,
-                                      child: _LibraryListError(
-                                        message: toApiException(error).message,
-                                        onRetry: () => ref.invalidate(
-                                          mediaBrowserServerUrlsProvider,
+                                            pagingController: _controller,
+                                            builderDelegate: delegate,
+                                          );
+                                        }
+                                        return PagedSliverGrid<
+                                          int,
+                                          MediaBrowserItem
+                                        >(
+                                          pagingController: _controller,
+                                          // 与 OMM 影片库一致：尾部提示整行跨列渲染，
+                                          // 否则「没有更多内容」会被塞进单个网格单元。
+                                          showNoMoreItemsIndicatorAsGridChild:
+                                              false,
+                                          gridDelegate:
+                                              SliverGridDelegateWithFixedCrossAxisCount(
+                                                crossAxisCount: crossAxisCount,
+                                                childAspectRatio:
+                                                    cardAspectRatio,
+                                                mainAxisSpacing: 14,
+                                                crossAxisSpacing: spacing,
+                                              ),
+                                          builderDelegate: delegate,
+                                        );
+                                      },
+                                      loading: () => const SliverFillRemaining(
+                                        hasScrollBody: false,
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
                                         ),
                                       ),
-                                    ),
-                                    orElse: () => const SliverToBoxAdapter(
-                                      child: SizedBox.shrink(),
+                                      error: (error, _) => SliverFillRemaining(
+                                        hasScrollBody: false,
+                                        child: _LibraryListError(
+                                          message: toApiException(
+                                            error,
+                                          ).message,
+                                          onRetry: () => ref.invalidate(
+                                            mediaBrowserServerUrlsProvider,
+                                          ),
+                                        ),
+                                      ),
+                                      orElse: () => const SliverToBoxAdapter(
+                                        child: SizedBox.shrink(),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SliverToBoxAdapter(
-                                  child: SizedBox(height: 120),
-                                ),
-                              ],
+                                  const SliverToBoxAdapter(
+                                    child: SizedBox(height: 120),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                if (!isStash)
-                  PagedSelectionToolbar<MediaBrowserItem>(
-                    selection: _selection,
-                    onSelectAll: () => _selection.selectAll(
-                      _controller.itemList ?? const <MediaBrowserItem>[],
-                    ),
-                    actionsBuilder: (selected) => [
-                      EntityBatchAction(
-                        icon: Icons.favorite_rounded,
-                        label: AppL10n.of(context).mediaBrowserFavoriteAction,
-                        onTap: selected.isEmpty || _batchBusy
-                            ? null
-                            : () => unawaited(_applySelection(favorite: true)),
-                      ),
-                      EntityBatchAction(
-                        icon: Icons.favorite_border_rounded,
-                        label: AppL10n.of(context).mediaBrowserUnfavoriteAction,
-                        color: colors.danger,
-                        onTap: selected.isEmpty || _batchBusy
-                            ? null
-                            : () => unawaited(_applySelection(favorite: false)),
-                      ),
-                      EntityBatchAction(
-                        icon: Icons.task_alt_rounded,
-                        label: AppL10n.of(context).mediaBrowserMarkWatched,
-                        onTap: selected.isEmpty || _batchBusy
-                            ? null
-                            : () => unawaited(_applySelection(played: true)),
-                      ),
-                      EntityBatchAction(
-                        icon: Icons.check_circle_outline_rounded,
-                        label: AppL10n.of(context).mediaBrowserUnmarkWatched,
-                        onTap: selected.isEmpty || _batchBusy
-                            ? null
-                            : () => unawaited(_applySelection(played: false)),
-                      ),
                     ],
                   ),
-              ],
+                  if (!isStash)
+                    PagedSelectionToolbar<MediaBrowserItem>(
+                      selection: _selection,
+                      onSelectAll: () => _selection.selectAll(
+                        _controller.itemList ?? const <MediaBrowserItem>[],
+                      ),
+                      actionsBuilder: (selected) => [
+                        EntityBatchAction(
+                          icon: Icons.favorite_rounded,
+                          label: AppL10n.of(context).mediaBrowserFavoriteAction,
+                          onTap: selected.isEmpty || _batchBusy
+                              ? null
+                              : () =>
+                                    unawaited(_applySelection(favorite: true)),
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.favorite_border_rounded,
+                          label: AppL10n.of(
+                            context,
+                          ).mediaBrowserUnfavoriteAction,
+                          color: colors.danger,
+                          onTap: selected.isEmpty || _batchBusy
+                              ? null
+                              : () =>
+                                    unawaited(_applySelection(favorite: false)),
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.task_alt_rounded,
+                          label: AppL10n.of(context).mediaBrowserMarkWatched,
+                          onTap: selected.isEmpty || _batchBusy
+                              ? null
+                              : () => unawaited(_applySelection(played: true)),
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.check_circle_outline_rounded,
+                          label: AppL10n.of(context).mediaBrowserUnmarkWatched,
+                          onTap: selected.isEmpty || _batchBusy
+                              ? null
+                              : () => unawaited(_applySelection(played: false)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         ),

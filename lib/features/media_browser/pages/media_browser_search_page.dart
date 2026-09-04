@@ -13,6 +13,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
@@ -343,69 +344,95 @@ class _MediaBrowserSearchResultsState
         ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
-    return PagedSelectionPopScope<MediaBrowserItem>(
+    final content = PagedSelectionPopScope<MediaBrowserItem>(
       selection: _selection,
       child: Stack(
         children: [
           PagedSelectionScope<MediaBrowserItem>(
             selection: _selection,
             scrollController: _scrollController,
-            layout: DragSelectionLayout.grid,
+            layout: isStash
+                ? DragSelectionLayout.list
+                : DragSelectionLayout.grid,
             child: CustomScrollView(
               controller: _scrollController,
               primary: false,
               slivers: [
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-                  sliver: PagedSliverGrid<int, MediaBrowserItem>(
-                    pagingController: _pagingController,
-                    showNoMoreItemsIndicatorAsGridChild: false,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 0.5,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 14,
-                        ),
-                    builderDelegate:
-                        PagedChildBuilderDelegate<MediaBrowserItem>(
-                          itemBuilder: (context, item, index) => urls.maybeWhen(
-                            data: (value) => mediaBrowserSelectableGridItem(
-                              selection: _selection,
-                              item: item,
-                              urls: value,
-                              width: itemWidth,
-                              index: index,
-                              showFavoriteBadge: !isStash,
-                              selectionEnabled: !isStash,
-                              onOpen: _openItem,
+                  sliver: urls.maybeWhen(
+                    data: (value) {
+                      final delegate =
+                          PagedChildBuilderDelegate<MediaBrowserItem>(
+                            itemBuilder: (context, item, index) => isStash
+                                ? Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: StashSceneCard(
+                                      item: item,
+                                      urls: value,
+                                      width: width - 44,
+                                      onTap: () => unawaited(_openItem(item)),
+                                    ),
+                                  )
+                                : mediaBrowserSelectableGridItem(
+                                    selection: _selection,
+                                    item: item,
+                                    urls: value,
+                                    width: itemWidth,
+                                    index: index,
+                                    showFavoriteBadge: !isStash,
+                                    selectionEnabled: !isStash,
+                                    onOpen: _openItem,
+                                  ),
+                            firstPageProgressIndicatorBuilder: (_) =>
+                                const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                            firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                              message:
+                                  _pagingController.error?.toString() ??
+                                  AppL10n.of(context).loadFailed,
+                              onRetry: _pagingController.refresh,
                             ),
-                            orElse: () => const SizedBox.shrink(),
-                          ),
-                          firstPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: CircularProgressIndicator()),
-                          firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                            message:
-                                _pagingController.error?.toString() ??
-                                AppL10n.of(context).loadFailed,
-                            onRetry: _pagingController.refresh,
-                          ),
-                          newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                            onRetry: _pagingController.retryLastFailedRequest,
-                          ),
-                          noItemsFoundIndicatorBuilder: (_) => Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                AppL10n.of(context).searchNoResult,
-                                style: AppText.meta(context),
-                                textAlign: TextAlign.center,
+                            newPageErrorIndicatorBuilder: (_) =>
+                                PaginationRetry(
+                                  onRetry:
+                                      _pagingController.retryLastFailedRequest,
+                                ),
+                            noItemsFoundIndicatorBuilder: (_) => Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  AppL10n.of(context).searchNoResult,
+                                  style: AppText.meta(context),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
-                          ),
-                          noMoreItemsIndicatorBuilder: (_) =>
-                              const NoMoreContent(),
-                        ),
+                            noMoreItemsIndicatorBuilder: (_) =>
+                                const NoMoreContent(),
+                          );
+                      if (isStash) {
+                        return PagedSliverList<int, MediaBrowserItem>(
+                          pagingController: _pagingController,
+                          builderDelegate: delegate,
+                        );
+                      }
+                      return PagedSliverGrid<int, MediaBrowserItem>(
+                        pagingController: _pagingController,
+                        showNoMoreItemsIndicatorAsGridChild: false,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 0.5,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 14,
+                            ),
+                        builderDelegate: delegate,
+                      );
+                    },
+                    orElse: () =>
+                        const SliverToBoxAdapter(child: SizedBox.shrink()),
                   ),
                 ),
               ],
@@ -452,5 +479,6 @@ class _MediaBrowserSearchResultsState
         ],
       ),
     );
+    return isStash ? StashPreviewScope(child: content) : content;
   }
 }
