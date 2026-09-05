@@ -76,6 +76,26 @@ void main() {
       ),
       feiniu.avatarUrl,
     );
+
+    final omm = ServerProfile(
+      id: 'omm',
+      name: 'OMM',
+      lines: const [line],
+      projectName: ServerProject.ohMyMedia.projectName,
+      avatarUrl: 'https://omm.example/logo.png',
+    );
+    expect(
+      serverSwitchTransitionAvatarUrl(
+        server: omm,
+        profile: const ServerProfileData(
+          name: 'OMM',
+          avatarUrl: 'https://omm.example/profile.png',
+          userAvatarUrl: 'https://omm.example/user.png',
+        ),
+        showUserAvatar: true,
+      ),
+      isNull,
+    );
   });
 
   test('DB Online 初始化点击当前服务器复用统一登录流程', () async {

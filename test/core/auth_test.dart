@@ -19,6 +19,7 @@ import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/auth/totp_code.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_line_probe.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ==================== 原 test/core/auth_api_test.dart ====================
@@ -339,6 +340,69 @@ class _MemoryTokenStore implements AuthTokenStore {
 // ==================== loginForServer / TOTP 自动算码 ====================
 void _main_2() {
   const totpSecret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+
+  test('单服务器延迟写回不会触发鉴权重复线路探测', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    const line = ServerLine(
+      id: 'feiniu-line',
+      name: '主线路',
+      baseUrl: 'https://feiniu.example',
+    );
+    const server = ServerProfile(
+      id: 'feiniu-server',
+      name: '飞牛',
+      lines: [line],
+      activeLineId: 'feiniu-line',
+      projectName: 'feiniu',
+    );
+    const config = ServerConfig(
+      baseUrl: 'https://feiniu.example',
+      lines: [line],
+      servers: [server],
+      activeServerId: 'feiniu-server',
+    );
+    var probeCount = 0;
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        authSessionRepositoryProvider.overrideWithValue(sessions),
+        serverConfigProvider.overrideWith(
+          () => _FixedServerConfigNotifier(config),
+        ),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async {
+              probeCount++;
+              return ServerLineProbeResult.success(line, 12);
+            },
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final authSubscription = container.listen(
+      authControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(authSubscription.close);
+
+    await container.read(authControllerProvider.future);
+    expect(probeCount, 1);
+
+    await container
+        .read(serverConfigProvider.notifier)
+        .saveServerLineProbe(
+          server.id,
+          const ServerLineProbeResult.success(line, 25),
+        );
+    await container.read(authControllerProvider.future);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(probeCount, 1);
+  });
 
   test('TOTP 密钥按服务器作用域存取，clear 会话不影响密钥', () async {
     final repository = AuthSessionRepository(store: _MemoryTokenStore());

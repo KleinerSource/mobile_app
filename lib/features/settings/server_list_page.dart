@@ -346,7 +346,9 @@ class _ServerListCard extends StatelessWidget {
             children: [
               ServerAvatar(
                 displayName: server.name,
-                avatarUrl: server.avatarUrl,
+                avatarUrl: server.project == ServerProject.ohMyMedia
+                    ? null
+                    : server.avatarUrl,
                 size: 42,
                 colors: colors,
                 project: server.project,

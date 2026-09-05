@@ -129,7 +129,7 @@ void main() {
         ),
         showUserAvatar: true,
       ),
-      'https://omm.example/logo.png',
+      isNull,
     );
   });
 

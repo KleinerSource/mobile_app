@@ -161,7 +161,9 @@ class ServerConfigRepository {
           name: server.name.trim().isEmpty
               ? '服务器 ${servers.length + 1}'
               : server.name.trim(),
-          avatarUrl: server.avatarUrl,
+          avatarUrl: project == ServerProject.ohMyMedia
+              ? null
+              : server.avatarUrl,
           projectName: project.projectName,
           serverVersion: server.serverVersion,
           lines: lines,

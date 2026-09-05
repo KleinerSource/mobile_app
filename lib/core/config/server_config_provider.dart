@@ -487,7 +487,8 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         .where((server) => server.id != serverId)
         .toList();
     if (remaining.isEmpty) {
-      throw StateError('至少保留一台服务器');
+      await clear();
+      return;
     }
     final nextActive = current.activeServer?.id == serverId
         ? remaining.first

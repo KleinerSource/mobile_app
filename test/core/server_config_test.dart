@@ -61,6 +61,44 @@ void _main_0() {
     );
   });
 
+  test('删除最后一台服务器后进入未配置状态', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const line = ServerLine(
+      id: 'only-line',
+      name: '主线路',
+      baseUrl: 'https://only.example',
+    );
+    const server = ServerProfile(
+      id: 'only-server',
+      name: '唯一服务器',
+      projectName: 'oh-my-media',
+      lines: [line],
+      activeLineId: 'only-line',
+    );
+    final notifier = container.read(serverConfigProvider.notifier);
+    await notifier.save(
+      const ServerConfig(
+        baseUrl: 'https://only.example',
+        lines: [line],
+        servers: [server],
+        activeServerId: 'only-server',
+      ),
+    );
+
+    await notifier.deleteServer(server.id);
+
+    expect(container.read(serverConfigProvider), isNull);
+    expect(container.read(serverConfigRepoProvider).load(), isNull);
+    expect(prefs.getString('server.servers'), isNull);
+    expect(prefs.getString('server.active_server_id'), isNull);
+  });
+
   test('返回服务器选择器会卸载运行态但保留选择器配置', () async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
@@ -1055,7 +1093,7 @@ void _main_1() {
     expect(config?.servers[1].lines.single.baseUrl, 'https://media.example');
     expect(config?.servers[1].projectName, 'db_online');
     expect(config?.servers[1].serverVersion, '1.13.14-dev');
-    expect(config?.servers[0].avatarUrl, 'https://media.example/avatar.png');
+    expect(config?.servers[0].avatarUrl, isNull);
 
     await repo.save(
       config!.copyWith(
@@ -1070,7 +1108,7 @@ void _main_1() {
     expect(config?.servers[0].lines.single.baseUrl, 'http://192.168.1.10:8001');
   });
 
-  test('服务器头像地址会随本地配置保存并恢复', () async {
+  test('OMM 服务器头像地址不会写入本地配置', () async {
     final prefs = await SharedPreferences.getInstance();
     final repo = ServerConfigRepository(prefs);
     const server = ServerProfile(
@@ -1093,7 +1131,8 @@ void _main_1() {
       ),
     );
 
-    expect(repo.load()?.activeServer?.avatarUrl, server.avatarUrl);
+    expect(repo.load()?.activeServer?.avatarUrl, isNull);
+    expect(prefs.getString('server.servers'), isNot(contains('avatar_url')));
   });
 
   test('normalize 去除末尾斜杠', () {

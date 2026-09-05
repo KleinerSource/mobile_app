@@ -43,7 +43,7 @@ class ApiClient {
     FutureOr<void> Function()? onStashApiKeyInvalid,
   }) : auth = AuthApi(dio),
        system = SystemApi(dio),
-       systemExtended = SystemExtendedApi(dio, config: config),
+       systemExtended = SystemExtendedApi(dio),
        tasks = TasksApi(dio),
        movies = MoviesApi(dio),
        moviesExtended = MoviesExtendedApi(dio),

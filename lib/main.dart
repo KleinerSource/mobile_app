@@ -97,10 +97,9 @@ class OmmApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
-    final activeProject = ref
-        .watch(serverConfigProvider)
-        ?.activeServer
-        ?.project;
+    final activeProject = ref.watch(
+      serverConfigProvider.select((config) => config?.activeServer?.project),
+    );
     final playerSettings = ref.watch(playerSettingsProvider);
     final showPerformanceMonitor =
         playerSettings.debugMode && playerSettings.performanceMonitorEnabled;

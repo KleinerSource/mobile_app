@@ -11,6 +11,22 @@ import 'server_config_provider.dart';
 
 typedef ProviderReader = T Function<T>(ProviderListenable<T> provider);
 
+/// 返回服务器的用户界面显示名称。
+///
+/// OMM 服务端已移除自定义服务器名称，名称来源固定为用户的本地配置；
+/// 其它支持服务端身份名称的项目仍可按调用方要求使用资料缓存中的名称。
+String serverDisplayName(
+  ServerProfile server,
+  ServerProfileData? profile, {
+  bool useRemoteName = true,
+}) {
+  if (server.project == ServerProject.ohMyMedia || !useRemoteName) {
+    return server.name;
+  }
+  final remoteName = profile?.name.trim() ?? '';
+  return remoteName.isNotEmpty ? remoteName : server.name;
+}
+
 /// 加载 Emby/Jellyfin 当前用户资料并写入进程内缓存。
 ///
 /// 用户头像 URL 可能包含访问令牌，只通过运行时资料传递，不写入磁盘。

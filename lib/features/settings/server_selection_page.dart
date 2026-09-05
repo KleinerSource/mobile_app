@@ -580,10 +580,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
+    if (server.project == ServerProject.ohMyMedia) return null;
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
+    if (server.project == ServerProject.ohMyMedia) {
+      return ServerProfileData(name: server.name);
+    }
     final cached = _cachedProfileFor(server);
     final project = server.project;
     if (project == ServerProject.emby ||
@@ -598,25 +602,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       );
       return profile;
     }
-    final line = server.activeLine;
-    if (line == null) {
-      return cached;
-    }
-    try {
-      final profile = await ApiClient.fromConfig(
-        ServerConfig(
-          baseUrl: line.baseUrl,
-          lines: [line],
-          servers: [server],
-          activeServerId: server.id,
-        ),
-        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
-      ).systemExtended.serverProfile();
-      await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
-      return profile;
-    } catch (_) {
-      return cached;
-    }
+    return cached;
   }
 
   Future<ServerProfileData?> _loadMediaBrowserProfile(
@@ -1432,14 +1418,12 @@ class _ServerAvatarCard extends StatelessWidget {
       initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        // OMM、Emby、Jellyfin、飞牛可以从服务端取得真实名称；其他类型只显示
-        // 用户配置名称。线路名称不参与卡片标题。
+        // OMM 使用用户配置名称；Emby、Jellyfin、飞牛可按设置显示服务端身份。
+        // 线路名称不参与卡片标题。
         final supportsRemoteName =
-            server.project == ServerProject.ohMyMedia ||
             server.project == ServerProject.emby ||
             server.project == ServerProject.jellyfin ||
             server.project == ServerProject.feiniu;
-        final profileName = profile?.name.trim() ?? '';
         final isMediaBrowserIdentity =
             server.project == ServerProject.emby ||
             server.project == ServerProject.jellyfin ||
@@ -1447,13 +1431,15 @@ class _ServerAvatarCard extends StatelessWidget {
         final supportsUserAvatar =
             server.project == ServerProject.emby ||
             server.project == ServerProject.jellyfin;
-        final displayName =
-            supportsRemoteName &&
-                profileName.isNotEmpty &&
-                (!isMediaBrowserIdentity || showUsername)
-            ? profileName
-            : server.name;
-        final configuredAvatarUrl = supportsUserAvatar
+        final displayName = serverDisplayName(
+          server,
+          profile,
+          useRemoteName:
+              supportsRemoteName && (!isMediaBrowserIdentity || showUsername),
+        );
+        final configuredAvatarUrl = server.project == ServerProject.ohMyMedia
+            ? null
+            : supportsUserAvatar
             ? server.avatarUrl
             : (profile?.avatarUrl ?? server.avatarUrl);
         final avatarUrl = supportsUserAvatar && showAvatar

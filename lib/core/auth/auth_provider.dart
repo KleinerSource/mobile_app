@@ -24,12 +24,22 @@ final authControllerProvider = AsyncNotifierProvider<AuthController, AuthState>(
   AuthController.new,
 );
 
+class _AuthLineProbeCache {
+  String? key;
+}
+
+final _authLineProbeCacheProvider = Provider<_AuthLineProbeCache>(
+  (ref) => _AuthLineProbeCache(),
+);
+
 class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
+    final lineProbeCache = ref.read(_authLineProbeCacheProvider);
     final config = ref.watch(serverConfigProvider);
     ref.watch(authExpiryProvider);
     if (config == null) {
+      lineProbeCache.key = null;
       return const AuthState(phase: AuthPhase.unconfigured);
     }
 
@@ -49,7 +59,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     // 探测所有线路；这样初始化和首页切换都可以立即检查鉴权状态。
     var selectedConfig = config;
     ServerLineProbeResult? selectedProbe;
-    if (!serverSelectionReady) {
+    final lineProbeKey = _lineProbeKey(config);
+    if (!serverSelectionReady && lineProbeCache.key != lineProbeKey) {
+      lineProbeCache.key = lineProbeKey;
       final candidates = config.lines.where((line) => line.enabled).toList();
       final current = candidates.firstWhere(
         (line) => line.baseUrl == config.baseUrl,
@@ -59,11 +71,13 @@ class AuthController extends AsyncNotifier<AuthState> {
       );
       final alternatives = candidates.where((line) => line.id != current.id);
       final activeProject = config.activeServer?.projectName;
-      final selection = await ServerLineProbeCoordinator().selectPreferred(
-        current: current,
-        alternatives: alternatives,
-        expectedProjectName: activeProject,
-      );
+      final selection = await ref
+          .read(serverLineProbeCoordinatorProvider)
+          .selectPreferred(
+            current: current,
+            alternatives: alternatives,
+            expectedProjectName: activeProject,
+          );
       final selected = selection.selected;
       if (selected == null) {
         final incompatible = selection.results.any(
@@ -80,6 +94,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       }
       selectedConfig = _withSelectedLine(config, selected);
       selectedProbe = selected;
+      lineProbeCache.key = _lineProbeKey(selectedConfig);
     }
 
     if (selectedConfig != config) {
@@ -787,18 +802,34 @@ class AuthController extends AsyncNotifier<AuthState> {
     ServerConfig config,
     ServerLineProbeResult selected,
   ) {
-    final testedAt = DateTime.now();
-    final lines = config.lines
-        .map(
-          (line) => line.id == selected.line.id
-              ? line.copyWith(
-                  latencyMs: selected.latencyMs,
-                  lastTestedAt: testedAt,
-                )
-              : line,
-        )
-        .toList();
     final activeServer = config.activeServer;
+    final currentLine = activeServer?.activeLine;
+    final sameLine = currentLine != null && currentLine.id == selected.line.id;
+    final lineSelectionChanged =
+        activeServer == null ||
+        !sameLine ||
+        activeServer.activeLineId != selected.line.id;
+    final selectedVersion = selected.versionInfo?.version.trim();
+    final versionChanged =
+        selectedVersion?.isNotEmpty == true &&
+        selectedVersion != activeServer?.serverVersion?.trim();
+    if (!lineSelectionChanged && !versionChanged) return config;
+
+    // 当前线路没有变化时，鉴权启动探测只用于确认可用性，不再更新延迟
+    // 时间戳。否则配置写回会触发本 Provider 重建，单服务器会再次探测，
+    // 形成“探测 -> 写回 -> 重建 -> 再探测”的循环。
+    final lines = lineSelectionChanged
+        ? config.lines
+              .map(
+                (line) => line.id == selected.line.id
+                    ? line.copyWith(
+                        latencyMs: selected.latencyMs,
+                        lastTestedAt: DateTime.now(),
+                      )
+                    : line,
+              )
+              .toList()
+        : config.lines;
     final updatedServers = activeServer == null
         ? config.servers
         : config.servers
@@ -806,19 +837,36 @@ class AuthController extends AsyncNotifier<AuthState> {
                 (server) => server.id == activeServer.id
                     ? server.copyWith(
                         lines: lines,
-                        activeLineId: selected.line.id,
-                        serverVersion:
-                            selected.versionInfo?.version ??
-                            server.serverVersion,
+                        activeLineId: lineSelectionChanged
+                            ? selected.line.id
+                            : server.activeLineId,
+                        serverVersion: versionChanged
+                            ? selectedVersion
+                            : server.serverVersion,
                       )
                     : server,
               )
               .toList();
     return config.copyWith(
-      baseUrl: selected.line.baseUrl,
+      baseUrl: lineSelectionChanged ? selected.line.baseUrl : config.baseUrl,
       lines: lines,
       servers: updatedServers,
     );
+  }
+
+  String _lineProbeKey(ServerConfig config) {
+    final server = config.activeServer;
+    final lines = config.lines;
+    final project = server?.project;
+    return [
+      server?.id ?? '',
+      server?.projectName ?? '',
+      server?.activeLineId ?? '',
+      ...lines.map(
+        (line) =>
+            '${line.id}|${project == null ? ServerConfig.normalize(line.baseUrl) : ServerConfig.normalizeForProject(line.baseUrl, project)}|${line.enabled}',
+      ),
+    ].join('||');
   }
 
   Future<void> logout() async {

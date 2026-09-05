@@ -23,7 +23,6 @@ import 'package:omm/core/api/services/movies_api.dart';
 import 'package:omm/core/api/services/movies_extended_api.dart';
 import 'package:omm/core/api/services/playback_api.dart';
 import 'package:omm/core/api/services/series_api.dart';
-import 'package:omm/core/api/services/system_extended_api.dart';
 import 'package:omm/core/api/services/tags_api.dart';
 import 'package:omm/core/api/services/translation_api.dart';
 import 'package:omm/core/auth/auth_session.dart';
@@ -323,18 +322,6 @@ void _main_0() {
     }
   });
 
-  test('服务器资料接口读取名称并解析头像地址', () async {
-    final adapter = _RouteAdapter();
-    final profile = await SystemExtendedApi(
-      _dio(adapter),
-      config: const ServerConfig(baseUrl: 'http://test'),
-    ).serverProfile();
-
-    expect(adapter.paths.single, '/api/public/server-profile');
-    expect(profile.name, '测试服务器');
-    expect(profile.avatarUrl, 'http://test/api/public/avatar');
-  });
-
   test('翻译模型请求使用服务器已保存的 API Key', () async {
     final adapter = _RouteAdapter();
     final repository = TranslationRepository(TranslationApi(_dio(adapter)));
@@ -489,10 +476,6 @@ class _RouteAdapter implements HttpClientAdapter {
             'reused': false,
           },
         ],
-      },
-      '/api/public/server-profile' => {
-        'name': '测试服务器',
-        'avatar_url': '/api/public/avatar',
       },
       _ => null,
     };

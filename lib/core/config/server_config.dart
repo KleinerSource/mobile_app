@@ -114,13 +114,17 @@ class ServerProfile {
               .where((line) => line.baseUrl.isNotEmpty)
               .toList()
         : <ServerLine>[];
+    final projectName = _optionalString(json['project_name']);
+    final project = ServerProject.fromProjectName(projectName ?? '');
     return ServerProfile(
       id: id.isNotEmpty ? id : 'server-${name.hashCode}',
       name: name.isNotEmpty ? name : '服务器',
       lines: lines,
       activeLineId: json['active_line_id']?.toString(),
-      avatarUrl: _optionalString(json['avatar_url']),
-      projectName: _optionalString(json['project_name']),
+      avatarUrl: project == ServerProject.ohMyMedia
+          ? null
+          : _optionalString(json['avatar_url']),
+      projectName: projectName,
       serverVersion: _optionalString(json['server_version']),
     );
   }
@@ -130,7 +134,10 @@ class ServerProfile {
     'name': name,
     'lines': lines.map((line) => line.toJson()).toList(),
     if (activeLineId != null) 'active_line_id': activeLineId,
-    if (avatarUrl != null && avatarUrl!.isNotEmpty) 'avatar_url': avatarUrl,
+    if (project != ServerProject.ohMyMedia &&
+        avatarUrl != null &&
+        avatarUrl!.isNotEmpty)
+      'avatar_url': avatarUrl,
     if (projectName != null && projectName!.isNotEmpty)
       'project_name': projectName,
     if (serverVersion != null && serverVersion!.isNotEmpty)

@@ -68,6 +68,7 @@ String? serverSwitchTransitionAvatarUrl({
   required ServerProfileData? profile,
   required bool showUserAvatar,
 }) {
+  if (server.project == ServerProject.ohMyMedia) return null;
   final isMediaBrowser =
       server.project == ServerProject.emby ||
       server.project == ServerProject.jellyfin;
@@ -1139,9 +1140,7 @@ class _ServerSwitchTransitionOverlayState
     required double opacity,
   }) {
     final profile = _cachedProfileFor(server);
-    final name = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : server.name;
+    final name = serverDisplayName(server, profile);
     final rect = Rect.lerp(origin, destination, progress)!;
     return Positioned.fromRect(
       rect: rect,
@@ -1173,9 +1172,7 @@ class _ServerSwitchTransitionOverlayState
     bool busy = false,
   }) {
     final profile = _cachedProfileFor(server);
-    final name = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : server.name;
+    final name = serverDisplayName(server, profile);
     return ServerAvatar(
       displayName: name,
       avatarUrl: serverSwitchTransitionAvatarUrl(
@@ -1256,9 +1253,7 @@ class _ServerSwitchTransitionOverlayState
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : server.name;
+    final name = serverDisplayName(server, profile);
     return Column(
       key: const ValueKey('server-switch-checking'),
       children: [
@@ -1290,9 +1285,7 @@ class _ServerSwitchTransitionOverlayState
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : server.name;
+    final name = serverDisplayName(server, profile);
     final error =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
@@ -1415,9 +1408,7 @@ class _ServerSwitchTransitionOverlayState
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : server.name;
+    final name = serverDisplayName(server, profile);
     final error =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
@@ -1484,9 +1475,7 @@ class _ServerSwitchTransitionOverlayState
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : server.name;
+    final name = serverDisplayName(server, profile);
     final message = _resolveStateMessage(l, transition);
     return Column(
       key: const ValueKey('server-switch-error'),
@@ -1674,6 +1663,7 @@ class _ServerSwitchTransitionOverlayState
   }
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
+    if (server.project == ServerProject.ohMyMedia) return null;
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
 }

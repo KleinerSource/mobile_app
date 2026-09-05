@@ -441,7 +441,7 @@ void main() {
     expect(find.text('旧名称'), findsNothing);
   });
 
-  testWidgets('OMM 卡片显示真实名称，其他类型显示用户配置名称', (tester) async {
+  testWidgets('OMM 卡片不读取上游名称，使用用户配置名称', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
         {
@@ -487,8 +487,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('OMM 真实服务器名称'), findsOneWidget);
-    expect(find.text('OMM 用户配置名称'), findsNothing);
+    expect(find.text('OMM 用户配置名称'), findsOneWidget);
+    expect(find.text('OMM 真实服务器名称'), findsNothing);
     expect(find.text('OMM 公网线路'), findsOneWidget);
     expect(find.text('SMB 用户配置名称'), findsOneWidget);
     expect(find.text('不应显示的 SMB 服务端名称'), findsNothing);

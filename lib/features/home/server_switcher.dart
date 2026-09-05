@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/api/server_compatibility.dart';
-import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_profile_runtime_loader.dart';
@@ -24,6 +22,7 @@ String? homeServerSwitcherAvatarUrl({
   required ServerProfileData? profile,
   required bool showUserAvatar,
 }) {
+  if (server.project == ServerProject.ohMyMedia) return null;
   final isMediaBrowser =
       server.project == ServerProject.emby ||
       server.project == ServerProject.jellyfin;
@@ -74,27 +73,12 @@ class _HomeServerSwitcherMenuState
   final _avatarKey = GlobalKey();
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
-    final cached = _cachedProfileFor(server);
-    if (server.project != ServerProject.ohMyMedia) {
-      return ServerProfileData(name: server.name, avatarUrl: server.avatarUrl);
-    }
-    final line = server.activeLine;
-    if (line == null) return cached;
-    try {
-      final profile = await ApiClient.fromConfig(
-        ServerConfig(
-          baseUrl: line.baseUrl,
-          lines: [line],
-          servers: [server],
-          activeServerId: server.id,
-        ),
-        stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
-      ).systemExtended.serverProfile();
-      await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
-      return profile;
-    } catch (_) {
-      return cached;
-    }
+    return ServerProfileData(
+      name: server.name,
+      avatarUrl: server.project == ServerProject.ohMyMedia
+          ? null
+          : server.avatarUrl,
+    );
   }
 
   Future<ServerProfileData?> _loadActiveProfile(ServerProfile server) async {
@@ -106,6 +90,7 @@ class _HomeServerSwitcherMenuState
   }
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
+    if (server.project == ServerProject.ohMyMedia) return null;
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
 
@@ -158,9 +143,7 @@ class _HomeServerSwitcherMenuState
       initialData: _cachedProfileFor(widget.activeServer),
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        final displayName = profile?.name.trim().isNotEmpty == true
-            ? profile!.name.trim()
-            : widget.activeServer.name;
+        final displayName = serverDisplayName(widget.activeServer, profile);
         final avatarUrl = homeServerSwitcherAvatarUrl(
           server: widget.activeServer,
           profile: profile,
@@ -249,7 +232,9 @@ List<GlassMenuEntry<T>> buildServerQuickSwitchEntries<T>({
             label: displayName,
             leading: ServerAvatar(
               displayName: displayName,
-              avatarUrl: server.avatarUrl,
+              avatarUrl: server.project == ServerProject.ohMyMedia
+                  ? null
+                  : server.avatarUrl,
               size: 34,
               colors: colors,
               project: server.project,
@@ -299,10 +284,10 @@ class _ServerMenuRow extends StatelessWidget {
       initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        final displayName = profile?.name.trim().isNotEmpty == true
-            ? profile!.name.trim()
-            : server.name;
-        final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
+        final displayName = serverDisplayName(server, profile);
+        final avatarUrl = server.project == ServerProject.ohMyMedia
+            ? null
+            : profile?.avatarUrl ?? server.avatarUrl;
         return GlassMenuRow(
           label: displayName,
           leading: ServerAvatar(
