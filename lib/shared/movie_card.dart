@@ -57,6 +57,9 @@ class MovieCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final imageUuid = landscape
+        ? (movie.fanartUuid ?? movie.thumbUuid ?? movie.posterUuid)
+        : movie.posterUuid;
     final progress = movie.watchRecord?.progressRatio ?? 0.0;
     final completed = movie.watchRecord?.completed ?? false;
     final c = appColors(context);
@@ -139,9 +142,7 @@ class MovieCard extends ConsumerWidget {
           movieId: movie.id,
           radius: landscape ? 0 : MediaCardTemplate.posterRadius,
           child: Poster(
-            url: movie.posterUuid != null
-                ? posterUrlBuilder(movie.posterUuid!)
-                : null,
+            url: imageUuid != null ? posterUrlBuilder(imageUuid) : null,
             title: movie.title,
             year: movie.year,
             restricted: restricted,

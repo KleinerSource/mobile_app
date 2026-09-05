@@ -39,6 +39,62 @@ void main() {
     expect(find.byType(MovieCard), findsOneWidget);
   });
 
+  testWidgets('横屏封面按 fanart、thumb、poster 优先级选择', (tester) async {
+    Future<String?> pumpMovie(
+      MovieListItem movie, {
+      bool landscape = true,
+    }) async {
+      String? renderedUuid;
+      await tester.pumpWidget(
+        await wrap(
+          MovieCard(
+            movie: movie,
+            landscape: landscape,
+            posterUrlBuilder: (uuid) {
+              renderedUuid = uuid;
+              return '';
+            },
+          ),
+        ),
+      );
+      return renderedUuid;
+    }
+
+    expect(
+      await pumpMovie(
+        const MovieListItem(
+          id: 3,
+          fanartUuid: 'fanart',
+          thumbUuid: 'thumb',
+          posterUuid: 'poster',
+        ),
+      ),
+      'fanart',
+    );
+    expect(
+      await pumpMovie(
+        const MovieListItem(id: 4, thumbUuid: 'thumb', posterUuid: 'poster'),
+      ),
+      'thumb',
+    );
+    expect(
+      await pumpMovie(const MovieListItem(id: 5, posterUuid: 'poster')),
+      'poster',
+    );
+    expect(
+      await pumpMovie(
+        const MovieListItem(
+          id: 6,
+          fanartUuid: 'fanart',
+          thumbUuid: 'thumb',
+          posterUuid: 'poster',
+        ),
+        landscape: false,
+      ),
+      'poster',
+    );
+  });
+
   testWidgets('时长统一显示为分钟', (tester) async {
     await tester.pumpWidget(
       await wrap(
