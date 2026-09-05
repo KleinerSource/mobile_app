@@ -7,7 +7,6 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
-import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/shared/movie_card.dart';
@@ -157,11 +156,6 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
     } catch (_) {}
   }
 
-  double _ratio(Duration position, Duration duration) {
-    if (duration <= Duration.zero) return 0;
-    return (position.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0);
-  }
-
   Widget _buildCard() {
     final player = _previewPlayer;
     final card = AnimatedOpacity(
@@ -178,70 +172,49 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
     );
     if (player == null) return card;
 
-    return ValueListenableBuilder<Duration>(
-      valueListenable: player.position,
-      builder: (context, position, _) {
-        final ready = _previewing && !_previewLoading;
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : MediaQuery.sizeOf(context).width - 44;
-            final coverHeight = width * 9 / 16;
-            return Stack(
-              children: [
-                card,
-                if (ready)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: coverHeight,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(18),
-                      ),
-                      child: PrivacyMask(
-                        movieId: widget.movie.id,
-                        radius: 0,
-                        child: IgnorePointer(child: player.buildVideo()),
-                      ),
+    final ready = _previewing && !_previewLoading;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - 44;
+        final coverHeight = width * 9 / 16;
+        return Stack(
+          children: [
+            card,
+            if (ready)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: coverHeight,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(18),
+                  ),
+                  child: PrivacyMask(
+                    movieId: widget.movie.id,
+                    radius: 0,
+                    child: IgnorePointer(child: player.buildVideo()),
+                  ),
+                ),
+              ),
+            if (_previewLoading)
+              const Positioned(
+                top: 14,
+                right: 14,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
                     ),
                   ),
-                if (ready)
-                  Positioned(
-                    top: coverHeight - 3,
-                    left: 0,
-                    right: 0,
-                    child: IgnorePointer(
-                      child: LinearProgressIndicator(
-                        value: _ratio(position, player.duration.value),
-                        minHeight: 3,
-                        backgroundColor: Colors.black.withValues(alpha: 0.45),
-                        valueColor: AlwaysStoppedAnimation(
-                          appColors(context).accent,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_previewLoading)
-                  const Positioned(
-                    top: 14,
-                    right: 14,
-                    child: IgnorePointer(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
+                ),
+              ),
+          ],
         );
       },
     );
