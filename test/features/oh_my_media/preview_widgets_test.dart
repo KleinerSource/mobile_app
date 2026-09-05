@@ -13,6 +13,7 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_media_viewers
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/preview/preview_surface.dart';
 
 void main() {
   testWidgets('预览设置页加载配置并保存编辑后的值', (tester) async {
@@ -79,7 +80,49 @@ void main() {
     final trailer = tester.getRect(find.text('预告片'));
     expect(preview.left, lessThan(trailer.left));
   });
+
+  testWidgets('横版预览覆盖层只在有预览视频时显示动态标识', (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        const Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 180,
+            child: PreviewGestureSurface(
+              onTap: _noop,
+              showAvailabilityBadge: true,
+              availabilityLabel: '预览视频',
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.motion_photos_on_rounded), findsOneWidget);
+    expect(find.bySemanticsLabel('预览视频'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _localizedApp(
+        const Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 180,
+            child: PreviewGestureSurface(
+              onTap: _noop,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byIcon(Icons.motion_photos_on_rounded), findsNothing);
+  });
 }
+
+void _noop() {}
 
 Widget _localizedApp(Widget child) {
   return MaterialApp(

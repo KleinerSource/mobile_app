@@ -10,6 +10,7 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_scrub_controller.dart';
@@ -257,18 +258,6 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
   Widget _buildCard() {
     final player = _previewPlayer;
-    final card = AnimatedOpacity(
-      duration: const Duration(milliseconds: 180),
-      opacity: widget.selecting && !widget.selected ? 0.55 : 1.0,
-      child: MovieCard(
-        movie: widget.movie,
-        posterUrlBuilder: widget.posterUrlBuilder,
-        landscape: true,
-        selectionMode: widget.selecting,
-        selected: widget.selected,
-        onTap: widget.onTap,
-      ),
-    );
     final ready = _previewing && !_previewLoading;
     final watchRecord = widget.movie.watchRecord;
     final watchProgress = watchRecord?.progressRatio ?? 0;
@@ -277,31 +266,35 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
         !ref.watch(revealedMoviesProvider).contains(widget.movie.id);
     final showWatchProgress =
         !isMasked && watchRecord?.completed != true && watchProgress > 0;
+    final hasPreviewVideo =
+        widget.movie.previewVideoUrl?.trim().isNotEmpty == true;
+    final previewLabel = AppL10n.of(context).previewVideoAsset;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width - 44;
-        _lastCoverWidth = width;
-        final coverHeight = width * 9 / 16;
+        _lastCoverWidth = (width - 2).clamp(1.0, double.infinity).toDouble();
         final allowPreviewGesture = !widget.selecting;
         return Stack(
           children: [
-            card,
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: coverHeight,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
-                ),
-                child: PreviewGestureSurface(
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: widget.selecting && !widget.selected ? 0.55 : 1.0,
+              child: MovieCard(
+                movie: widget.movie,
+                posterUrlBuilder: widget.posterUrlBuilder,
+                landscape: true,
+                selectionMode: widget.selecting,
+                selected: widget.selected,
+                onTap: widget.onTap,
+                landscapeOverlay: PreviewGestureSurface(
                   onTap: _onTap,
                   enabled: allowPreviewGesture,
                   loading: _previewLoading,
                   showHint: ready,
+                  showAvailabilityBadge: hasPreviewVideo && !_previewing,
+                  availabilityLabel: previewLabel,
                   bottomOverlay: showWatchProgress
                       ? _OmmWatchProgressBar(
                           value: watchProgress,

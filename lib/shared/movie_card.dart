@@ -44,6 +44,7 @@ class MovieCard extends ConsumerWidget {
     this.selectionMode = false,
     this.selected = false,
     this.landscape = false,
+    this.landscapeOverlay,
   });
 
   final MovieListItem movie;
@@ -54,6 +55,9 @@ class MovieCard extends ConsumerWidget {
   final bool selectionMode;
   final bool selected;
   final bool landscape;
+
+  /// 横版海报上的覆盖层，尺寸与海报内容完全一致并受卡片裁剪约束。
+  final Widget? landscapeOverlay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,13 +151,18 @@ class MovieCard extends ConsumerWidget {
             year: movie.year,
             restricted: restricted,
             aspectRatio: landscape ? 16 / 9 : 2 / 3,
+            radius: landscape && landscapeOverlay != null
+                ? 0
+                : MediaCardTemplate.posterRadius,
           ),
         ),
         // 选择模式遮罩 + 对勾
         if (selectionMode)
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: landscape && landscapeOverlay != null
+                  ? BorderRadius.zero
+                  : BorderRadius.circular(10),
               child: Container(
                 color: selected
                     ? c.accent.withValues(alpha: 0.35)
@@ -252,6 +261,8 @@ class MovieCard extends ConsumerWidget {
               offset: positions.offsetOf(corner),
               children: byCorner[corner]!,
             ),
+        if (landscape && landscapeOverlay != null)
+          Positioned.fill(child: landscapeOverlay!),
       ],
     );
     final info = _MediaCardInfo(

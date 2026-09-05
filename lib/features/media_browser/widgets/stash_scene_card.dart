@@ -258,6 +258,9 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
         _previewing && !_previewLoading && previewPlayer != null;
     final imageUrl = widget.urls.heroImage(widget.item);
     final colors = appColors(context);
+    final l = AppL10n.of(context);
+    final hasPreviewVideo =
+        widget.urls.preview(widget.item.previewPath)?.trim().isNotEmpty == true;
     return SizedBox(
       width: widget.width,
       child: Container(
@@ -290,6 +293,8 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
                       onTap: _onTap,
                       loading: _previewLoading,
                       showHint: previewReady,
+                      showAvailabilityBadge: hasPreviewVideo && !_previewing,
+                      availabilityLabel: l.previewVideoAsset,
                       bottomOverlay: _ProgressBar(
                         value: _itemProgress(widget.item),
                         color: colors.accent,

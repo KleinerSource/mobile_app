@@ -12,6 +12,8 @@ class PreviewGestureSurface extends StatelessWidget {
     this.enabled = true,
     this.loading = false,
     this.showHint = false,
+    this.showAvailabilityBadge = false,
+    this.availabilityLabel = '',
     this.bottomOverlay,
     this.onHorizontalDragStart,
     this.onHorizontalDragUpdate,
@@ -24,6 +26,8 @@ class PreviewGestureSurface extends StatelessWidget {
   final bool enabled;
   final bool loading;
   final bool showHint;
+  final bool showAvailabilityBadge;
+  final String availabilityLabel;
   final Widget? bottomOverlay;
   final GestureDragStartCallback? onHorizontalDragStart;
   final GestureDragUpdateCallback? onHorizontalDragUpdate;
@@ -54,11 +58,17 @@ class PreviewGestureSurface extends StatelessWidget {
             bottom: 0,
             child: IgnorePointer(child: bottomOverlay),
           ),
+        if (showAvailabilityBadge)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: PreviewAvailabilityBadge(label: availabilityLabel),
+          ),
         if (loading)
-          const Positioned(
+          Positioned(
             top: 14,
-            right: 14,
-            child: IgnorePointer(
+            right: showAvailabilityBadge ? 34 : 14,
+            child: const IgnorePointer(
               child: SizedBox(
                 width: 18,
                 height: 18,
@@ -72,12 +82,37 @@ class PreviewGestureSurface extends StatelessWidget {
         if (showHint)
           const Positioned(
             top: 12,
-            right: 12,
+            right: 48,
             child: IgnorePointer(
               child: Icon(Icons.swipe_rounded, size: 20, color: Colors.white70),
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 表示封面存在可播放预览视频的轻量标识，视觉上接近 Live Photo 图标。
+class PreviewAvailabilityBadge extends StatelessWidget {
+  const PreviewAvailabilityBadge({super.key, this.label = ''});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = const Icon(
+      Icons.motion_photos_on_rounded,
+      size: 16,
+      color: Colors.white,
+      shadows: [Shadow(color: Colors.black87, blurRadius: 3)],
+    );
+    final labeledBadge = label.trim().isEmpty
+        ? badge
+        : Tooltip(message: label, child: badge);
+    return Semantics(
+      label: label.trim().isEmpty ? null : label,
+      image: true,
+      child: IgnorePointer(child: labeledBadge),
     );
   }
 }

@@ -234,6 +234,22 @@ void main() {
     expect(find.byIcon(Icons.people_alt_outlined), findsOneWidget);
   });
 
+  testWidgets('存在预览视频时横版封面显示 Live Photo 风格标识', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        child: StashSceneCard(
+          item: _item(),
+          urls: _urls(),
+          width: 356,
+          onTap: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.motion_photos_on_rounded), findsOneWidget);
+  });
+
   testWidgets('Stash 竖版卡片右对齐并只显示两行名称与元信息', (tester) async {
     await tester.pumpWidget(
       _app(
