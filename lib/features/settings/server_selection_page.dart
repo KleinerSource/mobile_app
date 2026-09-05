@@ -150,10 +150,25 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _statusFutures = <String, Future<_ServerStatus>>{};
   final _avatarKeys = <String, GlobalKey>{};
   final _listScrollController = ScrollController();
+  late final ProviderSubscription<bool> _selectionSubscription;
   var _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    _selectionSubscription = ref.listenManual<bool>(
+      serverSelectionRequestedProvider,
+      (previous, requested) {
+        if (requested && previous != true) {
+          unawaited(_refreshServers());
+        }
+      },
+    );
+  }
+
+  @override
   void dispose() {
+    _selectionSubscription.close();
     _listScrollController.dispose();
     super.dispose();
   }
@@ -464,11 +479,16 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final probe = await ref
         .read(serverLineProbeCoordinatorProvider)
         .probe(line, expectedProjectName: server.projectName);
-    final version = probe.versionInfo?.version.trim();
-    if (probe.success && version?.isNotEmpty == true) {
+    if (probe.success) {
+      final version = probe.versionInfo?.version.trim();
+      if (version?.isNotEmpty == true) {
+        await ref
+            .read(serverConfigProvider.notifier)
+            .saveServerVersion(server.id, version!);
+      }
       await ref
           .read(serverConfigProvider.notifier)
-          .saveServerVersion(server.id, version!);
+          .saveServerLineProbe(server.id, probe);
     }
 
     // SMB/WebDAV 的连接由文件浏览页在挂载来源时完成验证；选择器这里只

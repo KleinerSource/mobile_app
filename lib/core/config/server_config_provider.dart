@@ -297,6 +297,70 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     });
   }
 
+  /// 保存连接页一次探测得到的线路延迟，不改变当前服务器或线路选择。
+  Future<void> saveServerLineProbe(
+    String serverId,
+    ServerLineProbeResult probe,
+  ) {
+    if (!probe.success) return Future.value();
+
+    return _enqueueConfigWrite(() async {
+      final current = state ?? ref.read(serverConfigRepoProvider).load();
+      if (current == null) return;
+      ServerProfile? server;
+      for (final item in current.servers) {
+        if (item.id == serverId) {
+          server = item;
+          break;
+        }
+      }
+      final targetServer = server;
+      if (targetServer == null) return;
+
+      final project = targetServer.project;
+      final probeUrl = _normalizeServerUrl(probe.line.baseUrl, project);
+      var updated = false;
+      final testedAt = DateTime.now();
+      final lines = <ServerLine>[];
+      for (final line in targetServer.lines) {
+        if (line.id == probe.line.id &&
+            _normalizeServerUrl(line.baseUrl, project) == probeUrl) {
+          updated = true;
+          lines.add(
+            line.copyWith(
+              latencyMs: probe.latencyMs,
+              lastTestedAt: testedAt,
+            ),
+          );
+        } else {
+          lines.add(line);
+        }
+      }
+      if (!updated) return;
+
+      final updatedServers = current.servers
+          .map(
+            (item) => item.id == serverId
+                ? targetServer.copyWith(lines: lines)
+                : item,
+          )
+          .toList();
+      final activeServer = updatedServers.firstWhere(
+        (item) => item.id == current.activeServerId,
+        orElse: () => updatedServers.first,
+      );
+      final activeLine = activeServer.activeLine ?? activeServer.lines.first;
+      await _saveNow(
+        ServerConfig(
+          baseUrl: activeLine.baseUrl,
+          lines: activeServer.lines,
+          servers: updatedServers,
+          activeServerId: activeServer.id,
+        ),
+      );
+    });
+  }
+
   Future<void> _saveServerNow(
     ServerProfile server, {
     required bool select,
