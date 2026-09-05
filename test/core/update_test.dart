@@ -118,7 +118,7 @@ void _main_1() {
     build: 408,
   );
   final repository = GitHubRepository.parse(
-    'https://github.com/KleinerSource/mobile_app',
+    'https://github.com/example/app',
   );
 
   test('开启开发版检测会查询两个滚动标签并选择最高版本', () async {

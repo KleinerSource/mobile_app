@@ -4,7 +4,7 @@
 
 ## KSPlayer
 
-- 来源：<https://github.com/KleinerSource/KSPlayer>
+- 来源：<https://github.com/example/KSPlayer>
 - 固定 commit：`2fdbf66`
 - 许可证：GPL v3，详见 KSPlayer 仓库中的 `LICENSE`。
 - 说明：KSPlayer 的 Podspec 许可证字段与仓库 `LICENSE`/README 声明不一致；本项目以仓库实际 `LICENSE` 和作者 README 为准，按 GPL v3 处理。
@@ -18,7 +18,7 @@
 
 ## DisplayCriteria
 
-- 来源：<https://github.com/KleinerSource/KSPlayer>
+- 来源：<https://github.com/example/KSPlayer>
 - 固定 commit：`2fdbf66`
 - 许可证：MIT，详见该 commit 的 `DisplayCriteria.podspec` 及源文件声明。
 

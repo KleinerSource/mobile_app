@@ -329,32 +329,32 @@ void _main_3() {
 
   test('GitHub 地址规范化并生成 Release API 地址', () {
     final repository = GitHubRepository.parse(
-      'https://github.com/KleinerSource/mobile_app/releases',
+      'https://github.com/example/app/releases',
     );
 
     expect(
       repository.canonicalUrl,
-      'https://github.com/KleinerSource/mobile_app',
+      'https://github.com/example/app',
     );
     expect(
       repository.releasesApiUrl,
-      'https://api.github.com/repos/KleinerSource/mobile_app/releases?per_page=100',
+      'https://api.github.com/example/app/releases?per_page=100',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.ios),
-      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest',
+      'https://api.github.com/example/app/releases/tags/latest',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.android),
-      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-android',
+      'https://api.github.com/example/app/releases/tags/latest-android',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.ios, development: true),
-      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-ios-dev',
+      'https://api.github.com/example/app/releases/tags/latest-ios-dev',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.android, development: true),
-      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-android-dev',
+      'https://api.github.com/example/app/releases/tags/latest-android-dev',
     );
     expect(
       () => GitHubRepository.parse('https://example.com/owner/repo'),
@@ -364,7 +364,7 @@ void _main_3() {
 
   test('iOS 安装器 URI 会正确编码 GitHub IPA 下载地址', () {
     const downloadUrl =
-        'https://github.com/KleinerSource/mobile_app/releases/download/'
+        'https://github.com/example/app/releases/download/'
         'latest/omm_0.1.64+71.ipa';
 
     final installerUrl = IosUpdateInstaller.installUri(downloadUrl);
@@ -576,8 +576,8 @@ void _main_3() {
 fix: 修复服务器切换卡住
  - 增加快速鉴权路径
 
-commit: [d1081e5](https://github.com/example/mobile_app/commit/d1081e5)
-run: [308](https://github.com/example/mobile_app/actions/runs/123)''',
+commit: [d1081e5](https://github.com/example/app/commit/d1081e5)
+run: [308](https://github.com/example/app/actions/runs/123)''',
     });
 
     expect(release.updateNotes, 'fix: 修复服务器切换卡住\n - 增加快速鉴权路径');
