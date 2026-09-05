@@ -101,16 +101,20 @@ class TaskItem {
       phase: rawPhase,
       serverCanCancel: _asBoolOrNull(json['canCancel'] ?? json['can_cancel']),
       serverCanRetry: _asBoolOrNull(json['canRetry'] ?? json['can_retry']),
-      startTime: _asDateTime(json['startTime']),
-      queuePosition: _asInt(json['queuePosition']),
-      libraryIds: _asIntList(json['libraryIds']),
-      movieId: _asInt(json['movieId']),
-      movieTitle: _asString(json['movieTitle']),
-      movieFileName: _asString(json['movieFileName']),
-      fileName: _asString(json['fileName']),
+      startTime: _asDateTime(json['startTime'] ?? json['start_time']),
+      queuePosition: _asInt(json['queuePosition'] ?? json['queue_position']),
+      libraryIds: _asIntList(json['libraryIds'] ?? json['library_ids']),
+      movieId: _asInt(json['movieId'] ?? json['movie_id']),
+      movieTitle: _asString(json['movieTitle'] ?? json['movie_title']),
+      movieFileName: _asString(
+        json['movieFileName'] ?? json['movie_file_name'],
+      ),
+      fileName: _asString(json['fileName'] ?? json['file_name']),
       format: _asString(json['format']),
-      bitrateKbps: _asInt(json['bitrateKbps']),
-      updatedAt: DateTime.now(),
+      bitrateKbps: _asInt(json['bitrateKbps'] ?? json['bitrate_kbps']),
+      updatedAt:
+          _asDateTime(json['updatedAt'] ?? json['updated_at']) ??
+          DateTime.now(),
     );
   }
 
@@ -149,7 +153,9 @@ class TaskItem {
       movieFileName: _asString(
         json['movieFileName'] ?? json['movie_file_name'],
       ),
-      updatedAt: DateTime.now(),
+      updatedAt:
+          _asDateTime(json['updatedAt'] ?? json['updated_at']) ??
+          DateTime.now(),
     );
   }
 
@@ -183,7 +189,7 @@ class TaskItem {
       startTime: task.startTime,
       movieId: movieId,
       movieTitle: movieTitle,
-      updatedAt: DateTime.now(),
+      updatedAt: task.endTime ?? task.startTime ?? DateTime.now(),
     );
   }
 
@@ -261,7 +267,10 @@ class TaskItem {
       serverCanRetry: _asBoolOrNull(json['can_retry'] ?? json['canRetry']),
       updatedAt:
           _asDateTime(json['updated_at'] ?? json['updatedAt']) ??
-          DateTime.now(),
+          _asDateTime(json['end_time'] ?? json['endTime']) ??
+          _asDateTime(json['created_at'] ?? json['createdAt']) ??
+          _asDateTime(json['start_time'] ?? json['startTime']) ??
+          _epoch,
     );
   }
 
@@ -328,6 +337,16 @@ class TaskItem {
   bool get isFailed => status == 'failed';
 
   bool get isCanceled => status == 'canceled';
+
+  /// 用于任务中心排序的服务端时间。
+  ///
+  /// 活跃任务只使用开始时间，避免每次进度广播刷新 updatedAt 后任务跳动；
+  /// 终态任务优先使用更新时间，历史记录缺失时间时回退到开始时间和 epoch。
+  DateTime get sortTime {
+    if (isActive) return startTime ?? _epoch;
+    if (updatedAt != _epoch) return updatedAt;
+    return startTime ?? _epoch;
+  }
 
   bool get canCancel =>
       isActive &&
@@ -418,6 +437,7 @@ class TaskItem {
       bitrateKbps: incoming.bitrateKbps == 0
           ? bitrateKbps
           : incoming.bitrateKbps,
+      updatedAt: incoming.updatedAt == _epoch ? updatedAt : incoming.updatedAt,
     );
   }
 }

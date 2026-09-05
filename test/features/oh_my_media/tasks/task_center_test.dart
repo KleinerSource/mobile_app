@@ -60,6 +60,26 @@ void _main_0() {
     expect(task.canCancel, isTrue);
   });
 
+  test('任务时间兼容 snake_case，并且历史缺失时间不伪造为当前时间', () {
+    final running = TaskItem.fromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'scan-1',
+      'taskName': '目录扫描',
+      'status': 'running',
+      'isRunning': true,
+      'start_time': '2026-09-05T06:00:00Z',
+    });
+    expect(running.startTime, DateTime.parse('2026-09-05T06:00:00Z'));
+
+    final history = TaskItem.fromHistory(const {
+      'record_id': 'record-without-time',
+      'task_id': 'task-without-time',
+      'task_name': '音频提取',
+      'status': 'completed',
+    });
+    expect(history.updatedAt, DateTime.fromMillisecondsSinceEpoch(0));
+  });
+
   test('终态任务不显示取消操作，只有失败或取消任务允许重试', () {
     final completed = TaskItem.fromHistory(const {
       'record_id': 'record-completed',
@@ -177,6 +197,40 @@ void _main_0() {
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_provider_test.dart ====================
 void _main_1() {
+  test('任务中心按服务端时间排序，缺失时间时保持稳定顺序', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(taskCenterProvider.notifier);
+    notifier.restore(
+      TaskItem.fromHistory(const {
+        'record_id': 'record-new',
+        'task_id': 'task-new',
+        'task_name': '音频提取',
+        'status': 'completed',
+        'updated_at': '2026-09-05T08:00:00Z',
+      }),
+    );
+    notifier.restore(
+      TaskItem.fromHistory(const {
+        'record_id': 'record-old',
+        'task_id': 'task-old',
+        'task_name': '音频提取',
+        'status': 'completed',
+        'updated_at': '2026-09-05T07:00:00Z',
+      }),
+    );
+
+    expect(container.read(taskCenterProvider).map((task) => task.id), [
+      'task-new',
+      'task-old',
+    ]);
+  });
+
   test('进度广播交错到达时任务保持稳定顺序', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

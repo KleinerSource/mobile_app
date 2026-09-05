@@ -67,8 +67,8 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   int _reconnectAttempts = 0;
   bool _disposed = false;
 
-  /// 任务首次进入列表时分配的稳定序号。进度广播会高频到达并刷新
-  /// updatedAt，排序若依赖它会导致任务卡片不停换位，因此只按插入顺序排。
+  /// 任务首次进入列表时分配的稳定序号，用于服务端时间相同或缺失时
+  /// 保持稳定顺序。进度广播不会改变这个序号。
   final Map<String, int> _orderByKey = {};
   int _orderSeq = 0;
 
@@ -398,13 +398,16 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     state = next;
   }
 
-  /// 活跃任务置顶，其余保持稳定插入顺序（新的在前）。
+  /// 活跃任务置顶；同一状态按服务端任务时间倒序，时间缺失时按首次
+  /// 进入列表的稳定序号倒序。
   void _sortTasks(List<TaskItem> items) {
     for (final item in items) {
       _orderByKey.putIfAbsent(item.key, () => _orderSeq++);
     }
     items.sort((left, right) {
       if (left.isActive != right.isActive) return left.isActive ? -1 : 1;
+      final timeOrder = right.sortTime.compareTo(left.sortTime);
+      if (timeOrder != 0) return timeOrder;
       return _orderByKey[right.key]!.compareTo(_orderByKey[left.key]!);
     });
   }
