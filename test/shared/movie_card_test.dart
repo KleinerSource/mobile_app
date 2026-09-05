@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/shared/landscape_media_card.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -130,6 +131,33 @@ void main() {
     expect(find.text('ABC-123'), findsNothing);
     expect(find.text('2024 · 90 分钟'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('横版目录卡片和预览卡片共用横版卡片外壳', (tester) async {
+    await tester.pumpWidget(
+      await wrap(
+        const CatalogMovieCard(
+          title: '横版影片',
+          imageUrl: null,
+          meta: '2024',
+          width: 240,
+          landscape: true,
+        ),
+      ),
+    );
+    expect(find.byType(LandscapeMediaCard), findsOneWidget);
+
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: const MovieListItem(id: 7, title: '预览影片'),
+          posterUrlBuilder: (uuid) => 'http://x/$uuid',
+          landscape: true,
+          landscapeOverlay: const SizedBox.expand(),
+        ),
+      ),
+    );
+    expect(find.byType(LandscapeMediaCard), findsOneWidget);
   });
 
   testWidgets('completed=true 显示已看完角标 (隐私关闭)', (tester) async {

@@ -11,6 +11,7 @@ import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
+import 'package:omm/shared/landscape_media_card.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_scrub_controller.dart';
 import 'package:omm/shared/preview/preview_seek.dart';
@@ -261,61 +262,35 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
     final l = AppL10n.of(context);
     final hasPreviewVideo =
         widget.urls.preview(widget.item.previewPath)?.trim().isNotEmpty == true;
-    return SizedBox(
+    return LandscapeMediaCard(
       width: widget.width,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: colors.cardBorder),
+      cover: PrivacyMask(
+        movieId: widget.item.id,
+        radius: 0,
+        child: previewReady
+            ? previewPlayer.buildVideo()
+            : _CoverImage(url: imageUrl, headers: widget.urls.imageHeaders),
+      ),
+      coverOverlay: PreviewGestureSurface(
+        onTap: _onTap,
+        loading: _previewLoading,
+        showHint: previewReady,
+        showAvailabilityBadge: hasPreviewVideo && !_previewing,
+        availabilityLabel: l.previewVideoAsset,
+        bottomOverlay: _ProgressBar(
+          value: _itemProgress(widget.item),
+          color: colors.accent,
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PrivacyMask(
-                    movieId: widget.item.id,
-                    radius: 0,
-                    child: previewReady
-                        ? previewPlayer.buildVideo()
-                        : _CoverImage(
-                            url: imageUrl,
-                            headers: widget.urls.imageHeaders,
-                          ),
-                  ),
-                  Positioned.fill(
-                    child: PreviewGestureSurface(
-                      onTap: _onTap,
-                      loading: _previewLoading,
-                      showHint: previewReady,
-                      showAvailabilityBadge: hasPreviewVideo && !_previewing,
-                      availabilityLabel: l.previewVideoAsset,
-                      bottomOverlay: _ProgressBar(
-                        value: _itemProgress(widget.item),
-                        color: colors.accent,
-                      ),
-                      onHorizontalDragStart: _onHorizontalDragStart,
-                      onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                      onHorizontalDragEnd: _onHorizontalDragEnd,
-                      onHorizontalDragCancel: _onHorizontalDragCancel,
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _onTap,
-              child: StashSceneInfo(item: widget.item, landscape: true),
-            ),
-          ],
-        ),
+        onHorizontalDragStart: _onHorizontalDragStart,
+        onHorizontalDragUpdate: _onHorizontalDragUpdate,
+        onHorizontalDragEnd: _onHorizontalDragEnd,
+        onHorizontalDragCancel: _onHorizontalDragCancel,
+        child: const SizedBox.expand(),
+      ),
+      info: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _onTap,
+        child: StashSceneInfo(item: widget.item, landscape: true),
       ),
     );
   }

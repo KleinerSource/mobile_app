@@ -11,6 +11,7 @@ import '../l10n/generated/app_localizations.dart';
 import 'media_metadata_widgets.dart';
 import 'poster.dart';
 import 'stacked_badges.dart';
+import 'landscape_media_card.dart';
 
 /// 普通媒体卡片的共享模板参数。
 ///
@@ -151,16 +152,14 @@ class MovieCard extends ConsumerWidget {
             year: movie.year,
             restricted: restricted,
             aspectRatio: landscape ? 16 / 9 : 2 / 3,
-            radius: landscape && landscapeOverlay != null
-                ? 0
-                : MediaCardTemplate.posterRadius,
+            radius: landscape ? 0 : MediaCardTemplate.posterRadius,
           ),
         ),
         // 选择模式遮罩 + 对勾
         if (selectionMode)
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: landscape && landscapeOverlay != null
+              borderRadius: landscape
                   ? BorderRadius.zero
                   : BorderRadius.circular(10),
               child: Container(
@@ -261,8 +260,6 @@ class MovieCard extends ConsumerWidget {
               offset: positions.offsetOf(corner),
               children: byCorner[corner]!,
             ),
-        if (landscape && landscapeOverlay != null)
-          Positioned.fill(child: landscapeOverlay!),
       ],
     );
     final info = _MediaCardInfo(
@@ -276,22 +273,12 @@ class MovieCard extends ConsumerWidget {
       ),
     );
     final content = landscape
-        ? Container(
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: c.cardBorder),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                poster,
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: info,
-                ),
-              ],
+        ? LandscapeMediaCard(
+            cover: poster,
+            coverOverlay: landscapeOverlay,
+            info: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: info,
             ),
           )
         : Column(
@@ -572,34 +559,23 @@ class CatalogMovieCard extends ConsumerWidget {
       ],
     );
     final content = landscape
-        ? Container(
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: colors.cardBorder),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                privacyId == null
-                    ? poster
-                    : PrivacyMask(movieId: privacyId!, child: poster),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: _MediaCardInfo(
-                    title: displayTitle,
-                    code: displayCode,
-                    meta: displayMeta,
-                    privacyId: privacyId,
-                    showTitle: showTitle,
-                    showMeta: showMeta,
-                    titleStyle: AppText.cardTitle(
-                      context,
-                    ).copyWith(color: colors.text, fontSize: 15, height: 1.2),
-                  ),
-                ),
-              ],
+        ? LandscapeMediaCard(
+            cover: privacyId == null
+                ? poster
+                : PrivacyMask(movieId: privacyId!, child: poster),
+            info: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: _MediaCardInfo(
+                title: displayTitle,
+                code: displayCode,
+                meta: displayMeta,
+                privacyId: privacyId,
+                showTitle: showTitle,
+                showMeta: showMeta,
+                titleStyle: AppText.cardTitle(
+                  context,
+                ).copyWith(color: colors.text, fontSize: 15, height: 1.2),
+              ),
             ),
           )
         : Column(
