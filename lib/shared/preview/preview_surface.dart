@@ -14,6 +14,7 @@ class PreviewGestureSurface extends StatelessWidget {
     this.showHint = false,
     this.showAvailabilityBadge = false,
     this.availabilityLabel = '',
+    this.renderTopRightIndicators = true,
     this.bottomOverlay,
     this.onHorizontalDragStart,
     this.onHorizontalDragUpdate,
@@ -28,6 +29,7 @@ class PreviewGestureSurface extends StatelessWidget {
   final bool showHint;
   final bool showAvailabilityBadge;
   final String availabilityLabel;
+  final bool renderTopRightIndicators;
   final Widget? bottomOverlay;
   final GestureDragStartCallback? onHorizontalDragStart;
   final GestureDragUpdateCallback? onHorizontalDragUpdate;
@@ -36,6 +38,19 @@ class PreviewGestureSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topRightIndicators = <Widget>[
+      if (renderTopRightIndicators && loading)
+        const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+      if (renderTopRightIndicators && showHint)
+        const Icon(Icons.swipe_rounded, size: 20, color: Colors.white70),
+      if (renderTopRightIndicators && showAvailabilityBadge)
+        PreviewAvailabilityBadge(label: availabilityLabel),
+    ];
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -58,33 +73,22 @@ class PreviewGestureSurface extends StatelessWidget {
             bottom: 0,
             child: IgnorePointer(child: bottomOverlay),
           ),
-        if (showAvailabilityBadge)
+        if (topRightIndicators.isNotEmpty)
           Positioned(
             top: 10,
             right: 10,
-            child: PreviewAvailabilityBadge(label: availabilityLabel),
-          ),
-        if (loading)
-          Positioned(
-            top: 14,
-            right: showAvailabilityBadge ? 34 : 14,
-            child: const IgnorePointer(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        if (showHint)
-          const Positioned(
-            top: 12,
-            right: 12,
             child: IgnorePointer(
-              child: Icon(Icons.swipe_rounded, size: 20, color: Colors.white70),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < topRightIndicators.length; i++)
+                    Padding(
+                      padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                      child: topRightIndicators[i],
+                    ),
+                ],
+              ),
             ),
           ),
       ],

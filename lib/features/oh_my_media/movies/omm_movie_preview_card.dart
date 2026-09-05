@@ -269,6 +269,24 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
     final hasPreviewVideo =
         widget.movie.previewVideoUrl?.trim().isNotEmpty == true;
     final previewLabel = AppL10n.of(context).previewVideoAsset;
+    final Widget? previewIndicator;
+    if (_previewLoading) {
+      previewIndicator = const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+      );
+    } else if (ready) {
+      previewIndicator = const Icon(
+        Icons.swipe_rounded,
+        size: 20,
+        color: Colors.white70,
+      );
+    } else if (hasPreviewVideo && !_previewing) {
+      previewIndicator = PreviewAvailabilityBadge(label: previewLabel);
+    } else {
+      previewIndicator = null;
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
@@ -288,13 +306,11 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
                 selectionMode: widget.selecting,
                 selected: widget.selected,
                 onTap: widget.onTap,
+                landscapeOverlayTopRightIndicator: previewIndicator,
                 landscapeOverlay: PreviewGestureSurface(
                   onTap: _onTap,
                   enabled: allowPreviewGesture,
-                  loading: _previewLoading,
-                  showHint: ready,
-                  showAvailabilityBadge: hasPreviewVideo && !_previewing,
-                  availabilityLabel: previewLabel,
+                  renderTopRightIndicators: false,
                   bottomOverlay: showWatchProgress
                       ? _OmmWatchProgressBar(
                           value: watchProgress,

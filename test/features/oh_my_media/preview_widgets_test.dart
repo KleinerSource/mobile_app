@@ -120,6 +120,41 @@ void main() {
     await tester.pump();
     expect(find.byIcon(Icons.motion_photos_on_rounded), findsNothing);
   });
+
+  testWidgets('滑动和 Live Photo 指示器固定右上角并向左避让其他图标', (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        const Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 180,
+            child: PreviewGestureSurface(
+              onTap: _noop,
+              loading: true,
+              showHint: true,
+              showAvailabilityBadge: true,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final surface = tester.getRect(find.byType(PreviewGestureSurface));
+    final loading = tester.getRect(find.byType(CircularProgressIndicator));
+    final swipe = tester.getRect(find.byIcon(Icons.swipe_rounded));
+    final livePhoto = tester.getRect(
+      find.byIcon(Icons.motion_photos_on_rounded),
+    );
+
+    expect(livePhoto.right, closeTo(surface.right - 10, 0.01));
+    expect(livePhoto.top, greaterThanOrEqualTo(surface.top + 10));
+    expect(loading.right, lessThan(swipe.left));
+    expect(swipe.right, lessThan(livePhoto.left));
+    expect(loading.overlaps(swipe), isFalse);
+    expect(swipe.overlaps(livePhoto), isFalse);
+  });
 }
 
 void _noop() {}

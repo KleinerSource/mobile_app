@@ -6,7 +6,9 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/shared/landscape_media_card.dart';
 import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/portrait_media_card.dart';
+import 'package:omm/shared/preview/preview_surface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -96,6 +98,73 @@ void main() {
       ),
       'poster',
     );
+  });
+
+  testWidgets('横版预览指示器与右上角角标共用同一堆叠层', (tester) async {
+    const movie = MovieListItem(
+      id: 10,
+      title: '带预览影片',
+      rating: 8.6,
+      hasExternalSubtitle: true,
+      hasNewResources: true,
+    );
+
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: movie,
+          landscape: true,
+          posterUrlBuilder: (uuid) => 'http://x/$uuid',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final cardWithoutIndicator = tester.getRect(find.byType(MovieCard));
+    final newResourcesWithoutIndicator = tester.getRect(
+      find.byIcon(Icons.auto_awesome_rounded),
+    );
+    expect(
+      newResourcesWithoutIndicator.right,
+      closeTo(cardWithoutIndicator.right - 6, 1.1),
+    );
+
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: movie,
+          landscape: true,
+          posterUrlBuilder: (uuid) => 'http://x/$uuid',
+          landscapeOverlayTopRightIndicator: const Icon(
+            Icons.swipe_rounded,
+            size: 20,
+            color: Colors.white70,
+          ),
+          landscapeOverlay: const PreviewGestureSurface(
+            onTap: _noop,
+            renderTopRightIndicators: false,
+            child: SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final card = tester.getRect(find.byType(MovieCard));
+    final swipe = tester.getRect(find.byIcon(Icons.swipe_rounded));
+    final rating = tester.getRect(find.byType(RatingBadge));
+    final subtitle = tester.getRect(find.byIcon(Icons.closed_caption_rounded));
+    final newResources = tester.getRect(
+      find.byIcon(Icons.auto_awesome_rounded),
+    );
+
+    expect(swipe.right, closeTo(card.right - 10, 1.1));
+    expect(rating.right, lessThan(swipe.left));
+    expect(subtitle.right, lessThan(swipe.left));
+    expect(newResources.right, lessThan(swipe.left));
+    expect(rating.overlaps(swipe), isFalse);
+    expect(subtitle.overlaps(swipe), isFalse);
+    expect(newResources.overlaps(swipe), isFalse);
   });
 
   testWidgets('时长统一显示为分钟', (tester) async {
@@ -379,3 +448,5 @@ void main() {
     expect(find.byTooltip('AI 字幕'), findsOneWidget);
   });
 }
+
+void _noop() {}

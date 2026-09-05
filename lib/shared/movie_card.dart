@@ -47,6 +47,7 @@ class MovieCard extends ConsumerWidget {
     this.selected = false,
     this.landscape = false,
     this.landscapeOverlay,
+    this.landscapeOverlayTopRightIndicator,
   });
 
   final MovieListItem movie;
@@ -60,6 +61,9 @@ class MovieCard extends ConsumerWidget {
 
   /// 横版海报上的覆盖层，尺寸与海报内容完全一致并受卡片裁剪约束。
   final Widget? landscapeOverlay;
+
+  /// 横版覆盖层的指示器，与封面角标共用右上角横向堆叠层。
+  final Widget? landscapeOverlayTopRightIndicator;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -142,6 +146,14 @@ class MovieCard extends ConsumerWidget {
         movie.hasNewResources) {
       byCorner[positions.newResources]!.add(const NewResourcesIcon());
     }
+    if (landscape && landscapeOverlayTopRightIndicator != null) {
+      byCorner[BadgeCorner.topRight]!.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 4, right: 4),
+          child: landscapeOverlayTopRightIndicator!,
+        ),
+      );
+    }
 
     final poster = Stack(
       children: [
@@ -157,6 +169,8 @@ class MovieCard extends ConsumerWidget {
             radius: landscape ? 0 : MediaCardTemplate.posterRadius,
           ),
         ),
+        if (landscape && landscapeOverlay != null)
+          Positioned.fill(child: landscapeOverlay!),
         // 选择模式遮罩 + 对勾
         if (selectionMode)
           Positioned.fill(
@@ -277,7 +291,6 @@ class MovieCard extends ConsumerWidget {
     final content = landscape
         ? LandscapeMediaCard(
             cover: poster,
-            coverOverlay: landscapeOverlay,
             info: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               child: info,
