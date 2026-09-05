@@ -20,6 +20,14 @@ double sheetMaxHeight(BuildContext context) {
       .toDouble();
 }
 
+/// 动态数据面板的最小展示高度，避免异步加载时面板先占满屏幕。
+double sheetMinHeight(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  return (mediaQuery.size.height * 0.4)
+      .clamp(0.0, sheetMaxHeight(context))
+      .toDouble();
+}
+
 /// 底部面板统一标题。
 ///
 /// 标题始终左对齐，并通过图标建立面板用途的快速识别；副标题和右侧操作

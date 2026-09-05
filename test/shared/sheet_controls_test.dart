@@ -7,6 +7,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 void main() {
   testWidgets('sheetMaxHeight 为灵动岛设备保留顶部状态栏和更大的余量', (tester) async {
     double? actual;
+    double? minimum;
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(
@@ -16,6 +17,7 @@ void main() {
         child: Builder(
           builder: (context) {
             actual = sheetMaxHeight(context);
+            minimum = sheetMinHeight(context);
             return const SizedBox.shrink();
           },
         ),
@@ -23,6 +25,7 @@ void main() {
     );
 
     expect(actual, 733);
+    expect(minimum, closeTo(337.6, 0.1));
   });
 
   testWidgets('无滚动内容时，面板内容区下拉会带动面板并在释放后回弹', (tester) async {
@@ -112,6 +115,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(smallTop - _sheetTop(tester), closeTo(220, 0.5));
     expect(tester.getBottomLeft(find.byType(GlassPanel)).dy, smallBottom);
+  });
+
+  testWidgets('指定最小高度时，短内容面板不会低于最小展示高度', (tester) async {
+    await _pumpSheet(
+      tester,
+      const SizedBox(height: 40, child: Text('加载中')),
+      minHeight: 300,
+    );
+
+    expect(tester.getSize(find.byType(GlassPanel)).height, closeTo(300, 0.5));
+  });
+
+  testWidgets('最小高度不会把带 Flexible 的短列表撑到最大高度', (tester) async {
+    await _pumpSheet(
+      tester,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: const [SizedBox(height: 40)],
+            ),
+          ),
+        ],
+      ),
+      minHeight: 300,
+    );
+
+    expect(tester.getSize(find.byType(GlassPanel)).height, closeTo(300, 0.5));
   });
 
   testWidgets('滚动列表在顶部时，从内容区下拉会带动面板', (tester) async {
@@ -220,7 +253,11 @@ void main() {
   });
 }
 
-Future<void> _pumpSheet(WidgetTester tester, Widget content) async {
+Future<void> _pumpSheet(
+  WidgetTester tester,
+  Widget content, {
+  double? minHeight,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       localizationsDelegates: AppL10n.localizationsDelegates,
@@ -235,6 +272,7 @@ Future<void> _pumpSheet(WidgetTester tester, Widget content) async {
                 onPressed: () {
                   showGlassSheet<void>(
                     context: context,
+                    minHeight: minHeight,
                     builder: (_) => content,
                   );
                 },

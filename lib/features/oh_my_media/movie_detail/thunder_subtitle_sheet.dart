@@ -31,6 +31,7 @@ class ThunderSubtitleSheet extends ConsumerStatefulWidget {
     return showGlassSheet<void>(
       context: context,
       isScrollControlled: true,
+      minHeight: sheetMinHeight(context),
       builder: (_) =>
           ThunderSubtitleSheet(movieId: movieId, hostMessenger: hostMessenger),
     );
@@ -239,41 +240,43 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
             onPressed: _loading ? null : _load,
           ),
         ),
-        Flexible(fit: FlexFit.loose, child: _buildBody(c)),
+        if (_loading)
+          const SizedBox(
+            height: 96,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else
+          _buildBody(c),
       ],
     );
   }
 
   Widget _buildBody(AppColors c) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.error_outline, size: 36, color: c.danger),
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: c.danger,
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 36, color: c.danger),
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.danger,
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
     if (_items.isEmpty) {
-      return Center(
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -287,19 +290,22 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
         ),
       );
     }
-    return ListView.separated(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(horizontal: 22),
-      itemCount: _items.length,
-      separatorBuilder: (_, __) => Divider(height: 1, color: c.divider),
-      itemBuilder: (ctx, i) => _SubtitleRow(
-        index: i,
-        item: _items[i],
-        durationMs: _resolveDurationMs(_items[i]),
-        previewing: _previewingIndex == i,
-        downloading: _downloadingIndex == i,
-        onPreview: () => _openPreview(i, _items[i]),
-        onDownload: () => _download(i, _items[i]),
+    return Flexible(
+      fit: FlexFit.loose,
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        itemCount: _items.length,
+        separatorBuilder: (_, __) => Divider(height: 1, color: c.divider),
+        itemBuilder: (ctx, i) => _SubtitleRow(
+          index: i,
+          item: _items[i],
+          durationMs: _resolveDurationMs(_items[i]),
+          previewing: _previewingIndex == i,
+          downloading: _downloadingIndex == i,
+          onPreview: () => _openPreview(i, _items[i]),
+          onDownload: () => _download(i, _items[i]),
+        ),
       ),
     );
   }

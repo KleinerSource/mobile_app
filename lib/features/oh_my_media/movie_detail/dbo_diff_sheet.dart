@@ -30,6 +30,7 @@ class DboDiffSheet extends ConsumerStatefulWidget {
     return showGlassSheet<void>(
       context: context,
       isScrollControlled: true,
+      minHeight: sheetMinHeight(context),
       builder: (_) => DboDiffSheet(movie: movie),
     );
   }
@@ -341,55 +342,45 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
           ),
         ),
         // ===== 主体 =====
-        Flexible(
-          fit: FlexFit.loose,
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: c.danger,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                )
-              : _items.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(36),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline,
-                          size: 36,
-                          color: c.muted,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          l.dboUpToDate,
-                          style: AppText.body(
-                            context,
-                          ).copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l.dboNoOverridableFields,
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _buildDiffSections(context, c),
-        ),
+        if (_loading)
+          const SizedBox(
+            height: 96,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_error != null)
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.danger,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else if (_items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(36),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_outline, size: 36, color: c.muted),
+                const SizedBox(height: 10),
+                Text(
+                  l.dboUpToDate,
+                  style: AppText.body(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(l.dboNoOverridableFields, style: AppText.meta(context)),
+              ],
+            ),
+          )
+        else
+          Flexible(fit: FlexFit.loose, child: _buildDiffSections(context, c)),
         // ===== 底部 actions =====
         if (!_loading && _items.isNotEmpty)
           Padding(

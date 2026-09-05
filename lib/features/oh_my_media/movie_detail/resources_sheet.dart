@@ -27,6 +27,7 @@ class ResourcesSheet extends ConsumerStatefulWidget {
     return showGlassSheet<void>(
       context: context,
       isScrollControlled: true,
+      minHeight: sheetMinHeight(context),
       builder: (_) => ResourcesSheet(movie: movie),
     );
   }
