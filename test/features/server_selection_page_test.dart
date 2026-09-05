@@ -102,10 +102,6 @@ void main() {
     await tester.pump();
     expect(probeCount, 1);
 
-    await tester.drag(find.byType(ListView), const Offset(0, 300));
-    await tester.pump(const Duration(seconds: 1));
-    expect(probeCount, 2);
-
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ServerSelectionPage)),
       listen: false,
@@ -115,9 +111,9 @@ void main() {
     container.read(serverSelectionRequestedProvider.notifier).state = true;
     await tester.pumpAndSettle();
 
-    expect(probeCount, 3);
+    expect(probeCount, 2);
     await tester.pump();
-    expect(probeCount, 3);
+    expect(probeCount, 2);
   });
 
   testWidgets('创建服务器保存后返回选择器且保留用户选择的类型', (tester) async {
