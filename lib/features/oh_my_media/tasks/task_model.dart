@@ -63,6 +63,10 @@ class TaskItem {
     required this.isRunning,
     required this.progress,
     required this.message,
+    this.recordId = '',
+    this.phase = '',
+    this.serverCanCancel,
+    this.serverCanRetry,
     this.startTime,
     this.queuePosition = 0,
     this.libraryIds = const [],
@@ -80,8 +84,9 @@ class TaskItem {
     if (json['type'] == 'preview_task') {
       return TaskItem.fromPreviewMessage(json);
     }
+    final rawPhase = _asString(json['phase'] ?? json['status']);
     final running = json['isRunning'] == true;
-    final status = _asString(
+    final status = _normalizeStatus(
       json['status'],
       fallback: running ? 'running' : 'completed',
     );
@@ -89,9 +94,13 @@ class TaskItem {
       id: _asString(json['taskId']),
       name: _asString(json['taskName'], fallback: '后台任务'),
       status: status,
-      isRunning: running || _isActiveStatus(status),
+      isRunning: status == 'running',
       progress: TaskProgress.fromJson(json['progress']),
       message: _asString(json['message']),
+      recordId: _asString(json['recordId'] ?? json['record_id']),
+      phase: rawPhase,
+      serverCanCancel: _asBoolOrNull(json['canCancel'] ?? json['can_cancel']),
+      serverCanRetry: _asBoolOrNull(json['canRetry'] ?? json['can_retry']),
       startTime: _asDateTime(json['startTime']),
       queuePosition: _asInt(json['queuePosition']),
       libraryIds: _asIntList(json['libraryIds']),
@@ -108,7 +117,7 @@ class TaskItem {
   factory TaskItem.fromPreviewMessage(Map<String, dynamic> json) {
     final taskId = _asString(json['taskId'] ?? json['task_id']);
     final running = json['isRunning'] == true;
-    final status = _asString(
+    final status = _normalizeStatus(
       json['status'],
       fallback: running ? 'running' : 'completed',
     );
@@ -120,9 +129,13 @@ class TaskItem {
       id: taskId,
       name: '预览生成',
       status: status,
-      isRunning: running || _isActiveStatus(status),
+      isRunning: status == 'running',
       progress: progress,
       message: _asString(json['message']),
+      recordId: _asString(json['recordId'] ?? json['record_id']),
+      phase: _asString(json['phase'] ?? json['status']),
+      serverCanCancel: _asBoolOrNull(json['canCancel'] ?? json['can_cancel']),
+      serverCanRetry: _asBoolOrNull(json['canRetry'] ?? json['can_retry']),
       startTime: _asDateTime(json['startTime'] ?? json['start_time']),
       queuePosition: _asInt(json['queuePosition'] ?? json['queue_position']),
       movieId: _asInt(
@@ -155,7 +168,10 @@ class TaskItem {
     return TaskItem(
       id: task.taskId,
       name: '预览生成',
-      status: task.status,
+      status: _normalizeStatus(
+        task.status,
+        fallback: task.isActive ? 'running' : 'completed',
+      ),
       isRunning: task.isActive,
       progress: TaskProgress(
         total: task.totalCount,
@@ -163,6 +179,7 @@ class TaskItem {
         percent: task.overallProgress,
       ),
       message: task.message,
+      phase: task.status,
       startTime: task.startTime,
       movieId: movieId,
       movieTitle: movieTitle,
@@ -174,13 +191,17 @@ class TaskItem {
   /// 转译信息内嵌在音频资产行上，`id` 即音频资产 ID，
   /// 与 WS scheduler_status 推送的 taskId 同源，可直接用于取消/重试。
   factory TaskItem.fromTranscription(Map<String, dynamic> json) {
-    final status = _asString(json['status'], fallback: 'queued');
+    final phase = _asString(
+      json['phase'] ?? json['status'],
+      fallback: 'queued',
+    );
+    final status = _normalizeStatus(phase, fallback: 'running');
     final percent = _asDouble(json['percent']);
     return TaskItem(
       id: _asString(json['id']),
       name: '字幕转译',
       status: status,
-      isRunning: _isActiveStatus(status),
+      isRunning: status == 'running',
       progress: TaskProgress(
         total: 100,
         completed: percent.round(),
@@ -190,6 +211,9 @@ class TaskItem {
         json['message'],
         fallback: _asString(json['error_message']),
       ),
+      phase: phase,
+      serverCanCancel: _asBoolOrNull(json['can_cancel'] ?? json['canCancel']),
+      serverCanRetry: _asBoolOrNull(json['can_retry'] ?? json['canRetry']),
       startTime: _asDateTime(json['started_at'] ?? json['created_at']),
       movieId: _asInt(json['movie_id']),
       movieTitle: _asString(json['movie_title']),
@@ -199,13 +223,56 @@ class TaskItem {
     );
   }
 
+  factory TaskItem.fromHistory(Map<String, dynamic> json) {
+    final phase = _asString(json['phase'] ?? json['status']);
+    final status = _normalizeStatus(
+      json['status'] ?? phase,
+      fallback: phase == 'queued' || phase == 'idle' || phase == 'paused'
+          ? 'running'
+          : 'completed',
+    );
+    return TaskItem(
+      id: _asString(json['task_id'] ?? json['taskId']),
+      name: _asString(json['task_name'] ?? json['taskName'], fallback: '后台任务'),
+      status: status,
+      isRunning: status == 'running',
+      progress: TaskProgress(
+        total: _asInt(json['progress_total'] ?? json['progressTotal']),
+        completed: _asInt(
+          json['progress_completed'] ?? json['progressCompleted'],
+        ),
+        percent: _asDouble(json['progress_percent'] ?? json['progressPercent']),
+      ),
+      message: _asString(json['message']),
+      recordId: _asString(json['record_id'] ?? json['recordId']),
+      phase: phase,
+      startTime: _asDateTime(json['start_time'] ?? json['startTime']),
+      queuePosition: _asInt(json['queue_position'] ?? json['queuePosition']),
+      libraryIds: _asIntList(json['library_ids'] ?? json['libraryIds']),
+      movieId: _asInt(json['movie_id'] ?? json['movieId']),
+      movieTitle: _asString(json['movie_title'] ?? json['movieTitle']),
+      movieFileName: _asString(
+        json['movie_file_name'] ?? json['movieFileName'],
+      ),
+      fileName: _asString(json['file_name'] ?? json['fileName']),
+      format: _asString(json['format']),
+      bitrateKbps: _asInt(json['bitrate_kbps'] ?? json['bitrateKbps']),
+      serverCanCancel: _asBoolOrNull(json['can_cancel'] ?? json['canCancel']),
+      serverCanRetry: _asBoolOrNull(json['can_retry'] ?? json['canRetry']),
+      updatedAt:
+          _asDateTime(json['updated_at'] ?? json['updatedAt']) ??
+          DateTime.now(),
+    );
+  }
+
   factory TaskItem.fromScan({
     required int libraryId,
     required String libraryName,
     required String taskId,
     ScanTask? task,
   }) {
-    final status = task?.status ?? 'queued';
+    final phase = task?.status ?? 'queued';
+    final status = _normalizeStatus(phase, fallback: 'running');
     final total = task?.totalFiles ?? 0;
     final completed = task?.processedFiles ?? 0;
     final percent = total > 0 ? completed / total * 100 : 0.0;
@@ -213,13 +280,14 @@ class TaskItem {
       id: taskId.isEmpty ? 'scan-placeholder-$libraryId' : taskId,
       name: '目录扫描',
       status: status,
-      isRunning: _isActiveStatus(status),
+      isRunning: status == 'running',
       progress: TaskProgress(
         total: total,
         completed: completed,
         percent: percent,
       ),
       message: task?.currentFile ?? task?.message ?? kTaskMsgScanPreparing,
+      phase: phase,
       queuePosition: status == 'queued' ? 1 : 0,
       libraryIds: [libraryId],
       libraryName: libraryName,
@@ -228,6 +296,8 @@ class TaskItem {
   }
 
   final String id;
+  final String recordId;
+  final String phase;
   final String name;
   final String status;
   final bool isRunning;
@@ -244,34 +314,41 @@ class TaskItem {
   final String format;
   final int bitrateKbps;
   final DateTime updatedAt;
+  final bool? serverCanCancel;
+  final bool? serverCanRetry;
 
-  String get key => '$name:$id';
+  String get key => recordId.isNotEmpty ? 'record:$recordId' : '$name:$id';
 
   bool get isActive => isRunning || _isActiveStatus(status);
 
   bool get isTerminal => !_isActiveStatus(status) && !isRunning;
 
-  bool get isCompleted => const {
-    'completed',
-    'done',
-    'success',
-    'succeeded',
-    'skipped',
-  }.contains(status);
+  bool get isCompleted => status == 'completed';
 
-  bool get isFailed => const {'failed', 'error'}.contains(status);
+  bool get isFailed => status == 'failed';
 
-  bool get isCanceled => const {'canceled', 'cancelled'}.contains(status);
+  bool get isCanceled => status == 'canceled';
 
   bool get canCancel =>
-      (name == '音频提取' && (status == 'idle' || status == 'running')) ||
-      (name == '字幕转译' && (status == 'queued' || status == 'running')) ||
-      (name == '预览生成' && (status == 'queued' || status == 'running'));
+      isActive &&
+      (serverCanCancel ??
+          (name != '资源扫描' &&
+              name != '重复番号合并' &&
+              (name == '音频提取' ||
+                  name == '字幕转译' ||
+                  name == '预览生成' ||
+                  name == '预览图下载' ||
+                  name == 'NFO 同步' ||
+                  name == '演员关联同步' ||
+                  name.contains('扫描'))));
 
-  bool get canRetry => name == '字幕转译' && (isFailed || isCanceled);
+  bool get canRetry =>
+      (isFailed || isCanceled) && (serverCanRetry ?? (name == '字幕转译'));
 
   TaskItem copyWith({
     String? id,
+    String? recordId,
+    String? phase,
     String? name,
     String? status,
     bool? isRunning,
@@ -288,9 +365,13 @@ class TaskItem {
     String? format,
     int? bitrateKbps,
     DateTime? updatedAt,
+    bool? serverCanCancel,
+    bool? serverCanRetry,
   }) {
     return TaskItem(
       id: id ?? this.id,
+      recordId: recordId ?? this.recordId,
+      phase: phase ?? this.phase,
       name: name ?? this.name,
       status: status ?? this.status,
       isRunning: isRunning ?? this.isRunning,
@@ -307,12 +388,16 @@ class TaskItem {
       format: format ?? this.format,
       bitrateKbps: bitrateKbps ?? this.bitrateKbps,
       updatedAt: updatedAt ?? DateTime.now(),
+      serverCanCancel: serverCanCancel ?? this.serverCanCancel,
+      serverCanRetry: serverCanRetry ?? this.serverCanRetry,
     );
   }
 
   /// WebSocket 的轻量消息和列表接口的完整记录可以交错到达，保留已有元数据。
   TaskItem merge(TaskItem incoming) {
     return incoming.copyWith(
+      recordId: incoming.recordId.isEmpty ? recordId : incoming.recordId,
+      phase: incoming.phase.isEmpty ? phase : incoming.phase,
       message: incoming.message.isEmpty ? message : incoming.message,
       startTime: incoming.startTime ?? startTime,
       libraryIds: incoming.libraryIds.isEmpty
@@ -349,6 +434,35 @@ bool _isActiveStatus(String status) {
   }.contains(status);
 }
 
+String _normalizeStatus(Object? raw, {String fallback = 'completed'}) {
+  final value = raw?.toString().trim().toLowerCase() ?? '';
+  switch (value) {
+    case 'queued':
+    case 'idle':
+    case 'pending':
+    case 'paused':
+    case 'running':
+    case 'processing':
+      return 'running';
+    case 'failed':
+    case 'error':
+      return 'failed';
+    case 'canceled':
+    case 'cancelled':
+    case 'aborted':
+      return 'canceled';
+    case 'completed':
+    case 'complete':
+    case 'done':
+    case 'success':
+    case 'succeeded':
+    case 'skipped':
+      return 'completed';
+    default:
+      return fallback == 'running' ? 'running' : 'completed';
+  }
+}
+
 String _asString(Object? value, {String fallback = ''}) {
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? fallback : text;
@@ -362,6 +476,15 @@ int _asInt(Object? value) {
 double _asDouble(Object? value) {
   if (value is num) return value.toDouble();
   return double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+bool? _asBoolOrNull(Object? value) {
+  if (value is bool) return value;
+  if (value == null) return null;
+  final text = value.toString().trim().toLowerCase();
+  if (text == 'true' || text == '1') return true;
+  if (text == 'false' || text == '0') return false;
+  return null;
 }
 
 List<int> _asIntList(Object? value) {

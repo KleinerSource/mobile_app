@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/library.dart';
@@ -16,7 +18,32 @@ import 'task_model.dart';
 /// 所有后台任务的统一状态源。
 ///
 /// 后端 `/ws/scheduler/status` 会在连接建立时推送当前活跃任务，之后继续
-/// 推送实时进度。任务中心保留本次会话中收到的终态记录，方便用户查看结果。
+/// 推送实时进度；历史记录由服务端统一保存并在首次加载时恢复。
+@immutable
+class TaskCenterMeta {
+  const TaskCenterMeta({
+    this.total = 0,
+    this.hasMore = false,
+    this.loading = false,
+    this.stats = const <String, int>{},
+  });
+
+  final int total;
+  final bool hasMore;
+  final bool loading;
+  final Map<String, int> stats;
+}
+
+class TaskCenterMetaNotifier extends Notifier<TaskCenterMeta> {
+  @override
+  TaskCenterMeta build() => const TaskCenterMeta();
+}
+
+final taskCenterMetaProvider =
+    NotifierProvider<TaskCenterMetaNotifier, TaskCenterMeta>(
+      TaskCenterMetaNotifier.new,
+    );
+
 class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   @override
   List<TaskItem> build() {
@@ -27,7 +54,9 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     // 服务器切换时重建连接，避免任务状态串到旧线路。
     ref.watch(serverConfigProvider);
     _connectWs();
-    unawaited(refresh());
+    // 延后到 provider 完成初始化后再更新独立的摘要 provider，避免
+    // Riverpod 3 在 build 期间禁止修改其他 provider。
+    unawaited(Future<void>.microtask(() => loadHistory(reset: true)));
     return const [];
   }
 
@@ -42,6 +71,9 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   /// updatedAt，排序若依赖它会导致任务卡片不停换位，因此只按插入顺序排。
   final Map<String, int> _orderByKey = {};
   int _orderSeq = 0;
+
+  int _historyOffset = 0;
+  static const _historyPageSize = 50;
 
   void registerScan({
     required int libraryId,
@@ -88,10 +120,29 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   Future<void> refresh() async {
+    await loadHistory(reset: true);
+  }
+
+  Future<void> loadMore() async {
+    final meta = ref.read(taskCenterMetaProvider);
+    if (meta.loading || !meta.hasMore) return;
+    await loadHistory(reset: false);
+  }
+
+  Future<void> loadHistory({required bool reset}) async {
+    if (ref.read(taskCenterMetaProvider).loading) return;
+    final currentMeta = ref.read(taskCenterMetaProvider);
+    ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
+      total: currentMeta.total,
+      hasMore: currentMeta.hasMore,
+      loading: true,
+      stats: currentMeta.stats,
+    );
     try {
       final raw = await ref
-          .read(audioRepositoryProvider)
-          .listTranscriptions(limit: 100, offset: 0);
+          .read(requiredApiClientProvider)
+          .tasks
+          .list(limit: _historyPageSize, offset: reset ? 0 : _historyOffset);
       if (raw is! Map || raw['success'] != true) return;
       final data = raw['data'];
       final items = data is Map && data['items'] is List
@@ -99,14 +150,50 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
           : data is List
           ? data
           : const <dynamic>[];
+      final activeTasks = reset
+          ? state.where((task) => task.isActive).toList(growable: false)
+          : const <TaskItem>[];
+      if (reset) {
+        state = const [];
+        _orderByKey.clear();
+        _orderSeq = 0;
+        _historyOffset = 0;
+        // 历史请求与 WebSocket 并行；保留请求开始前的活跃任务，避免
+        // 响应返回时把实时任务短暂清空。后续历史项会按 recordId 合并。
+        for (final task in activeTasks) {
+          _upsert(task);
+        }
+      }
       for (final rawItem in items.whereType<Map>()) {
-        final task = TaskItem.fromTranscription(
-          Map<String, dynamic>.from(rawItem),
-        );
+        final task = TaskItem.fromHistory(Map<String, dynamic>.from(rawItem));
         if (task.id.isNotEmpty) _upsert(task);
       }
+      final total = _asInt(data is Map ? data['total'] : null);
+      final stats = <String, int>{};
+      if (data is Map && data['stats'] is Map) {
+        for (final entry in (data['stats'] as Map).entries) {
+          stats[entry.key.toString()] = _asInt(entry.value);
+        }
+      }
+      _historyOffset = (reset ? 0 : _historyOffset) + items.length;
+      ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
+        total: total,
+        hasMore: _historyOffset < total,
+        loading: false,
+        stats: stats,
+      );
     } catch (_) {
-      // WebSocket 仍可独立工作；服务器未配置或接口不可用时不打断任务页。
+      // WebSocket 仍可独立工作；旧服务端未提供统一接口时不打断任务页。
+    } finally {
+      final meta = ref.read(taskCenterMetaProvider);
+      if (meta.loading) {
+        ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
+          total: meta.total,
+          hasMore: meta.hasMore,
+          loading: false,
+          stats: meta.stats,
+        );
+      }
     }
   }
 
@@ -118,18 +205,46 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       _updateByKey(
         task.key,
         (current) => current.copyWith(
-          status: 'cancelled',
+          status: 'canceled',
           isRunning: false,
           message: kTaskMsgCanceled,
         ),
       );
       return;
     }
-    final raw = task.name == '字幕转译'
-        ? await ref
-              .read(audioRepositoryProvider)
-              .cancelTranscriptionRaw(task.id)
-        : await ref.read(audioRepositoryProvider).cancelExtractionRaw(task.id);
+    final client = ref.read(requiredApiClientProvider);
+    Object? raw;
+    switch (task.name) {
+      case '字幕转译':
+        raw = await ref
+            .read(audioRepositoryProvider)
+            .cancelTranscriptionRaw(task.id);
+        break;
+      case '音频提取':
+        raw = await ref
+            .read(audioRepositoryProvider)
+            .cancelExtractionRaw(task.id);
+        break;
+      case 'NFO 同步':
+        await client.moviesExtended.cancelNfoSync(task.id);
+        break;
+      case '演员关联同步':
+        raw = await client.mappings.actorExternalSyncBatchCancel(task.id);
+        break;
+      case '预览图下载':
+        await client.moviesExtended.cancelExtraFanart(task.id);
+        break;
+      default:
+        if (task.name.contains('扫描') && task.libraryIds.isNotEmpty) {
+          raw = await client.libraries.cancelScan(
+            task.libraryIds.first,
+            task.id,
+          );
+        } else {
+          raw = await client.moviesExtended.cancelPreviewTask(task.id);
+        }
+        break;
+    }
     _ensureSuccess(
       raw,
       task.name == '字幕转译' ? kTaskErrCancelTranscribe : kTaskErrCancelExtract,
@@ -137,7 +252,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     _updateByKey(
       task.key,
       (current) => current.copyWith(
-        status: task.name == '字幕转译' ? 'canceled' : 'canceled',
+        status: 'canceled',
         isRunning: false,
         message: kTaskMsgCanceled,
       ),
@@ -171,11 +286,10 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     );
   }
 
-  /// 删除当前客户端会话中的任务记录。
-  ///
-  /// 后端没有提供通用的历史任务删除接口，因此不影响服务端任务，只移除
-  /// 任务中心当前展示的记录。刷新或再次收到该任务广播时，记录可能重新出现。
-  void remove(TaskItem task) {
+  /// 删除服务端终态任务记录。运行中的任务由服务端拒绝删除。
+  Future<void> remove(TaskItem task) async {
+    if (!task.isTerminal || task.recordId.isEmpty) return;
+    await ref.read(requiredApiClientProvider).tasks.delete(task.recordId);
     final next = state.where((item) => item.key != task.key).toList();
     if (next.length != state.length) state = next;
   }
@@ -233,7 +347,22 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   void _upsert(TaskItem incoming) {
-    var index = state.indexWhere((item) => item.key == incoming.key);
+    var index = incoming.recordId.isNotEmpty
+        ? state.indexWhere((item) => item.recordId == incoming.recordId)
+        : state.indexWhere((item) => item.key == incoming.key);
+    if (index < 0 && incoming.recordId.isEmpty && incoming.id.isNotEmpty) {
+      index = state.indexWhere(
+        (item) =>
+            item.id == incoming.id &&
+            item.name == incoming.name &&
+            item.isActive,
+      );
+      if (index < 0 && !incoming.isActive) {
+        index = state.indexWhere(
+          (item) => item.id == incoming.id && item.name == incoming.name,
+        );
+      }
+    }
     if (index < 0 && _isScanTask(incoming)) {
       index = state.indexWhere(
         (item) => item.id == incoming.id && _isScanTask(item),
@@ -326,6 +455,11 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
 bool _isScanTask(TaskItem task) {
   return task.name.contains('扫描') && task.name != '资源扫描';
+}
+
+int _asInt(Object? value) {
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 void _ensureSuccess(Object? raw, String fallback) {

@@ -8,6 +8,12 @@ String taskNameLabel(AppL10n l, String name) {
       return l.taskNameTranscribe;
     case '目录扫描':
       return l.taskNameScan;
+    case '增量扫描':
+      return l.taskNameIncrementalScan;
+    case '全量扫描':
+      return l.taskNameFullScan;
+    case '定时增量扫描':
+      return l.taskNameScheduledScan;
     case '音频提取':
       return l.taskNameAudioExtract;
     case 'NFO 同步':
@@ -18,6 +24,10 @@ String taskNameLabel(AppL10n l, String name) {
       return l.taskNameActorSync;
     case '预览生成':
       return l.taskNamePreview;
+    case '预览图下载':
+      return l.taskNamePreviewDownload;
+    case '重复番号合并':
+      return l.taskNameDuplicateMerge;
     case '后台任务':
       return l.taskNameFallback;
     default:

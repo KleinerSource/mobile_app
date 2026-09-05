@@ -3890,6 +3890,21 @@ class AppL10nEn extends AppL10n {
   String get taskNamePreview => 'Preview generation';
 
   @override
+  String get taskNamePreviewDownload => 'Preview image download';
+
+  @override
+  String get taskNameDuplicateMerge => 'Duplicate number merge';
+
+  @override
+  String get taskNameIncrementalScan => 'Incremental scan';
+
+  @override
+  String get taskNameFullScan => 'Full scan';
+
+  @override
+  String get taskNameScheduledScan => 'Scheduled incremental scan';
+
+  @override
   String get previewStatusTitle => 'Preview assets';
 
   @override
@@ -5068,6 +5083,16 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get taskActionBusy => 'Busy';
+
+  @override
+  String get taskLoadMore => 'Load more';
+
+  @override
+  String get taskLoadingMore => 'Loading…';
+
+  @override
+  String get taskRecordDeleteConfirm =>
+      'Delete this task record from the server? This action cannot be undone.';
 
   @override
   String get taskActionRetry => 'Retry';

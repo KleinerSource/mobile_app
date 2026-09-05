@@ -7194,6 +7194,36 @@ abstract class AppL10n {
   /// **'预览生成'**
   String get taskNamePreview;
 
+  /// No description provided for @taskNamePreviewDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览图下载'**
+  String get taskNamePreviewDownload;
+
+  /// No description provided for @taskNameDuplicateMerge.
+  ///
+  /// In zh, this message translates to:
+  /// **'重复番号合并'**
+  String get taskNameDuplicateMerge;
+
+  /// No description provided for @taskNameIncrementalScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量扫描'**
+  String get taskNameIncrementalScan;
+
+  /// No description provided for @taskNameFullScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'全量扫描'**
+  String get taskNameFullScan;
+
+  /// No description provided for @taskNameScheduledScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时增量扫描'**
+  String get taskNameScheduledScan;
+
   /// No description provided for @previewStatusTitle.
   ///
   /// In zh, this message translates to:
@@ -9251,6 +9281,24 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'处理中'**
   String get taskActionBusy;
+
+  /// No description provided for @taskLoadMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多'**
+  String get taskLoadMore;
+
+  /// No description provided for @taskLoadingMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载中…'**
+  String get taskLoadingMore;
+
+  /// No description provided for @taskRecordDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定从服务端删除这条任务记录吗？删除后无法恢复。'**
+  String get taskRecordDeleteConfirm;
 
   /// No description provided for @taskActionRetry.
   ///

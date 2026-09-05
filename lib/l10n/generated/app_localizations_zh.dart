@@ -3815,6 +3815,21 @@ class AppL10nZh extends AppL10n {
   String get taskNamePreview => '预览生成';
 
   @override
+  String get taskNamePreviewDownload => '预览图下载';
+
+  @override
+  String get taskNameDuplicateMerge => '重复番号合并';
+
+  @override
+  String get taskNameIncrementalScan => '增量扫描';
+
+  @override
+  String get taskNameFullScan => '全量扫描';
+
+  @override
+  String get taskNameScheduledScan => '定时增量扫描';
+
+  @override
   String get previewStatusTitle => '预览资产';
 
   @override
@@ -4980,6 +4995,15 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get taskActionBusy => '处理中';
+
+  @override
+  String get taskLoadMore => '加载更多';
+
+  @override
+  String get taskLoadingMore => '加载中…';
+
+  @override
+  String get taskRecordDeleteConfirm => '确定从服务端删除这条任务记录吗？删除后无法恢复。';
 
   @override
   String get taskActionRetry => '重试';

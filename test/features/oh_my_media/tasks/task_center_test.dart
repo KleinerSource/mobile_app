@@ -60,6 +60,32 @@ void _main_0() {
     expect(task.canCancel, isTrue);
   });
 
+  test('终态任务不显示取消操作，只有失败或取消任务允许重试', () {
+    final completed = TaskItem.fromHistory(const {
+      'record_id': 'record-completed',
+      'task_id': 'transcription-1',
+      'task_name': '字幕转译',
+      'status': 'completed',
+      'phase': 'completed',
+      'can_cancel': true,
+      'can_retry': true,
+    });
+    final failed = TaskItem.fromHistory(const {
+      'record_id': 'record-failed',
+      'task_id': 'transcription-2',
+      'task_name': '字幕转译',
+      'status': 'failed',
+      'phase': 'failed',
+      'can_cancel': true,
+      'can_retry': true,
+    });
+
+    expect(completed.canCancel, isFalse);
+    expect(completed.canRetry, isFalse);
+    expect(failed.canCancel, isFalse);
+    expect(failed.canRetry, isTrue);
+  });
+
   test('字幕转译记录解析错误信息并区分可重试状态', () {
     final failed = TaskItem.fromTranscription(const {
       'id': 12,
@@ -191,6 +217,38 @@ void _main_1() {
     expect(tasks.map((task) => task.id), ['b', 'a']);
     expect(tasks.first.isActive, isTrue);
     expect(tasks.last.isTerminal, isTrue);
+  });
+
+  test('历史终态与无 recordId 的实时重试不会覆盖旧记录', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(taskCenterProvider.notifier);
+    notifier.restore(
+      TaskItem.fromHistory(const {
+        'record_id': 'record-old',
+        'task_id': 'retry-1',
+        'task_name': '字幕转译',
+        'status': 'completed',
+        'phase': 'completed',
+      }),
+    );
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'retry-1',
+      'taskName': '字幕转译',
+      'status': 'queued',
+      'isRunning': true,
+    });
+
+    final tasks = container.read(taskCenterProvider);
+    expect(tasks, hasLength(2));
+    expect(tasks.where((task) => task.recordId == 'record-old'), hasLength(1));
+    expect(tasks.where((task) => task.isActive), hasLength(1));
   });
 
   test('preview_task 消息进入任务中心并展示细粒度进度', () async {
@@ -450,11 +508,7 @@ class _ServerConfigState extends ServerConfigNotifier {
 }
 
 ServerConfig _serverConfig(String projectName) {
-  const line = ServerLine(
-    id: 'line',
-    name: '主线路',
-    baseUrl: '',
-  );
+  const line = ServerLine(id: 'line', name: '主线路', baseUrl: '');
   final server = ServerProfile(
     id: 'server',
     name: projectName,

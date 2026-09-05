@@ -28,8 +28,11 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final tasks = ref.watch(taskCenterProvider);
+    final meta = ref.watch(taskCenterMetaProvider);
     final visible = tasks.where(_matchesFilter).toList();
-    final activeCount = tasks.where((task) => task.isActive).length;
+    final totalCount = meta.total > 0 ? meta.total : tasks.length;
+    final activeCount =
+        meta.stats['running'] ?? tasks.where((task) => task.isActive).length;
     final groups = <String, List<TaskItem>>{};
     for (final task in visible) {
       groups.putIfAbsent(task.name, () => <TaskItem>[]).add(task);
@@ -44,8 +47,8 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
               eyebrow: l.taskCenterEyebrow,
               title: l.taskCenterTitle,
               subtitle: activeCount == 0
-                  ? l.taskCenterSubtitleIdle(tasks.length)
-                  : l.taskCenterSubtitleActive(activeCount, tasks.length),
+                  ? l.taskCenterSubtitleIdle(totalCount)
+                  : l.taskCenterSubtitleActive(activeCount, totalCount),
             ),
             body: RefreshIndicator(
               onRefresh: ref.read(taskCenterProvider.notifier).refresh,
@@ -53,7 +56,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                 primary: true,
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
                 children: [
-                  _buildSummary(colors, tasks, activeCount),
+                  _buildSummary(colors, tasks, activeCount, meta),
                   const SizedBox(height: 14),
                   _buildFilterBar(colors),
                   const SizedBox(height: 14),
@@ -75,6 +78,18 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                       ),
                       for (final task in entry.value) _buildTaskCard(task),
                     ],
+                  if (meta.hasMore)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: OutlinedButton(
+                        onPressed: meta.loading
+                            ? null
+                            : ref.read(taskCenterProvider.notifier).loadMore,
+                        child: Text(
+                          meta.loading ? l.taskLoadingMore : l.taskLoadMore,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -108,17 +123,25 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     AppColors colors,
     List<TaskItem> tasks,
     int activeCount,
+    TaskCenterMeta meta,
   ) {
     final l = AppL10n.of(context);
-    final failedCount = tasks
-        .where((task) => const {'failed', 'error'}.contains(task.status))
-        .length;
+    final stats = meta.stats;
+    final failedCount =
+        stats['failed'] ?? tasks.where((task) => task.isFailed).length;
+    final completedCount =
+        stats['completed'] ?? tasks.where((task) => task.isCompleted).length;
+    final canceledCount =
+        stats['canceled'] ?? tasks.where((task) => task.isCanceled).length;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: settingsCardDecoration(context),
       child: Row(
         children: [
-          _SummaryValue(label: l.taskFilterAll, value: tasks.length.toString()),
+          _SummaryValue(
+            label: l.taskFilterAll,
+            value: (meta.total > 0 ? meta.total : tasks.length).toString(),
+          ),
           _SummaryDivider(color: colors.divider),
           _SummaryValue(
             label: l.taskFilterActive,
@@ -128,6 +151,16 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           _SummaryValue(
             label: l.taskFilterFailed,
             value: failedCount.toString(),
+          ),
+          _SummaryDivider(color: colors.divider),
+          _SummaryValue(
+            label: l.taskFilterCompleted,
+            value: completedCount.toString(),
+          ),
+          _SummaryDivider(color: colors.divider),
+          _SummaryValue(
+            label: l.taskFilterCanceled,
+            value: canceledCount.toString(),
           ),
         ],
       ),
@@ -346,22 +379,39 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     ];
   }
 
-  void _deleteTask(TaskItem task) {
-    final notifier = ref.read(taskCenterProvider.notifier);
-    notifier.remove(task);
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(AppL10n.of(context).taskRecordRemoved),
-          action: SnackBarAction(
-            label: AppL10n.of(context).taskUndo,
-            onPressed: () => notifier.restore(task),
+  Future<void> _deleteTask(TaskItem task) async {
+    final l = AppL10n.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l.delete),
+        content: Text(l.taskRecordDeleteConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l.cancel),
           ),
-        ),
-      );
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final notifier = ref.read(taskCenterProvider.notifier);
+    try {
+      await notifier.remove(task);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.taskRecordRemoved)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+    }
   }
 
   String _emptyTitle(AppL10n l) {

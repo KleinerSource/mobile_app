@@ -32,6 +32,7 @@ import 'services/series_api.dart';
 import 'services/system_api.dart';
 import 'services/system_extended_api.dart';
 import 'services/tags_api.dart';
+import 'services/tasks_api.dart';
 import 'services/translation_api.dart';
 
 class ApiClient {
@@ -43,6 +44,7 @@ class ApiClient {
   }) : auth = AuthApi(dio),
        system = SystemApi(dio),
        systemExtended = SystemExtendedApi(dio, config: config),
+       tasks = TasksApi(dio),
        movies = MoviesApi(dio),
        moviesExtended = MoviesExtendedApi(dio),
        playback = PlaybackApi(dio),
@@ -109,6 +111,7 @@ class ApiClient {
   final ServerConfig? config;
   final AuthApi auth;
   final SystemApi system;
+  final TasksApi tasks;
   final MoviesApi movies;
   final MoviesExtendedApi moviesExtended;
   final PlaybackApi playback;
