@@ -222,80 +222,102 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
       actions: _taskActions(task, colors, busy),
       onTap: canOpenDetail ? () => _openMovieDetail(task) : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(_taskIcon(task), size: 20, color: _taskColor(task)),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    taskNameLabel(l, task.name),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.text,
-                      fontFamily: 'Inter',
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (title.isNotEmpty || task.message.isNotEmpty)
-                    Text(
-                      title.isNotEmpty
-                          ? title
-                          : taskMessageLabel(l, task.message),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.muted,
-                        fontFamily: 'Inter',
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(_taskIcon(task), size: 21, color: _taskColor(task)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        taskNameLabel(l, task.name),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.text,
+                          fontFamily: 'Inter',
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 48,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${task.progress.clampedPercent.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      color: colors.text,
-                      fontFamily: 'Inter',
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                    ),
+                      if (title.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.muted,
+                            fontFamily: 'Inter',
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  LinearProgressIndicator(
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 88),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: StatusPill(status: task.status),
+                  ),
+                ),
+                if (canOpenDetail) ...[
+                  const SizedBox(width: 5),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: colors.muted,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: LinearProgressIndicator(
                     value: progressValue,
-                    minHeight: 3,
+                    minHeight: 5,
                     borderRadius: BorderRadius.circular(8),
                     backgroundColor: colors.divider,
                     color: _taskColor(task),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 64,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: StatusPill(
-                  status: task.status,
-                  horizontalPadding: 6,
-                  fontSize: 10,
                 ),
+                const SizedBox(width: 9),
+                Text(
+                  '${task.progress.clampedPercent.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    color: colors.text,
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              task.message.isEmpty
+                  ? l.taskMsgWaitingUpdate
+                  : taskMessageLabel(l, task.message),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.muted,
+                fontFamily: 'Inter',
+                fontSize: 11,
+                height: 1.25,
               ),
             ),
           ],
