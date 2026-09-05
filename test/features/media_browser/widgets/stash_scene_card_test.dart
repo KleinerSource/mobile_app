@@ -21,7 +21,10 @@ class _FakePreviewPlayer implements StashPreviewPlayer {
   final positionNotifier = ValueNotifier(Duration.zero);
   String? openedUrl;
   Map<String, String>? openedHeaders;
+  bool? openedAutoplay;
   Duration? lastSeek;
+  int playCount = 0;
+  int pauseCount = 0;
   int stopCount = 0;
   int disposeCount = 0;
 
@@ -36,9 +39,24 @@ class _FakePreviewPlayer implements StashPreviewPlayer {
       const ColoredBox(color: Colors.black);
 
   @override
-  Future<void> open(String url, {Map<String, String>? headers}) async {
+  Future<void> open(
+    String url, {
+    Map<String, String>? headers,
+    bool autoplay = true,
+  }) async {
     openedUrl = url;
     openedHeaders = headers;
+    openedAutoplay = autoplay;
+  }
+
+  @override
+  Future<void> play() async {
+    playCount++;
+  }
+
+  @override
+  Future<void> pause() async {
+    pauseCount++;
   }
 
   @override
@@ -247,7 +265,7 @@ void main() {
     expect(player.disposeCount, 1);
   });
 
-  testWidgets('长按后横向拖动按预览时间轴 seek，并在松手时释放', (tester) async {
+  testWidgets('长按横向拖动时暂停预览，松手后继续播放', (tester) async {
     final player = _FakePreviewPlayer();
     await tester.pumpWidget(
       _app(
@@ -270,14 +288,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(player.openedUrl, 'http://stash.test:9999/previews/scene-1.mp4');
     expect(player.openedHeaders, {'ApiKey': 'stash-key'});
+    expect(player.openedAutoplay, isFalse);
+    expect(player.pauseCount, 1);
 
     await gesture.moveBy(const Offset(156, 0));
     await tester.pump();
     expect(player.lastSeek!.inMilliseconds, closeTo(5000, 100));
+    expect(player.pauseCount, 1);
 
     await gesture.up();
     await tester.pump();
-    expect(player.stopCount, 1);
-    expect(player.disposeCount, 1);
+    expect(player.playCount, 1);
+    expect(player.stopCount, 0);
+    expect(player.disposeCount, 0);
   });
 }

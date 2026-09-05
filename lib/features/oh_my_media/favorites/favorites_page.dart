@@ -32,9 +32,11 @@ import 'package:omm/features/oh_my_media/lists/list_model.dart';
 import 'package:omm/features/oh_my_media/lists/lists_providers.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/movies/omm_movie_preview_card.dart';
 import 'package:omm/features/oh_my_media/movies/resource_scan_progress_sheet.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'favorites_providers.dart';
@@ -87,6 +89,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   bool _newResourcesOnly = false;
   bool _resourceScanStarting = false;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+  int? _autoPreviewId;
+  Timer? _autoPreviewDebounce;
+  final _previewViewportKey = GlobalKey();
+  final _previewItemKeys = <int, GlobalKey>{};
+  final _previewCoordinator = StashPreviewCoordinator();
   bool get _selecting => _selection.isActive;
   Set<int> get _selected => _selection.selected;
 
@@ -98,6 +105,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleAutoPreviewUpdate();
+    });
   }
 
   MediaViewMode _loadViewMode() {
@@ -109,6 +119,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Future<void> _setViewMode(MediaViewMode mode) async {
     if (_viewMode == mode) return;
     setState(() => _viewMode = mode);
+    _scheduleAutoPreviewUpdate();
     await ref
         .read(sharedPrefsProvider)
         .setString(
@@ -119,21 +130,55 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   @override
   void dispose() {
+    _autoPreviewDebounce?.cancel();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _selection.dispose();
+    _previewCoordinator.dispose();
     super.dispose();
   }
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
+    _scheduleAutoPreviewUpdate();
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
   void _closeSwipeOnScroll() {
     if (_openSwipe.value != null) _openSwipe.value = null;
+    _scheduleAutoPreviewUpdate();
+  }
+
+  void _scheduleAutoPreviewUpdate() {
+    _autoPreviewDebounce?.cancel();
+    _autoPreviewDebounce = Timer(const Duration(milliseconds: 180), () {
+      _autoPreviewDebounce = null;
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final next = _nextAutoPreviewId();
+        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+      });
+    });
+  }
+
+  int? _nextAutoPreviewId() {
+    if (_viewMode != MediaViewMode.landscape || _selecting) return null;
+    final items = _controller.itemList ?? const <MovieListItem>[];
+    if (items.isEmpty) return null;
+    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
+      1.0,
+      double.infinity,
+    );
+    final coverHeight = width * 9 / 16;
+    final index = previewItemIndexForViewportKeys(
+      itemKeys: items.map((item) => _previewItemKeys[item.id]),
+      viewportKey: _previewViewportKey,
+      coverHeight: coverHeight,
+    );
+    return index == null ? null : items[index].id;
   }
 
   Future<void> _fetch(int offset) async {
@@ -159,6 +204,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         scrollController: _scrollController,
       );
       if (mounted) setState(() {});
+      _scheduleAutoPreviewUpdate();
     } catch (e) {
       _controller.error = toApiException(e).message;
     }
@@ -563,6 +609,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                             onSelectionEnd: _finishSelectionSweep,
                             selectionMode: _selecting,
                             child: CustomScrollView(
+                              key: _previewViewportKey,
                               controller: _scrollController,
                               slivers: [
                                 // ===== 统计条 =====
@@ -761,20 +808,37 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               : Alignment.topLeft,
           child: ValueListenableBuilder<Set<int>>(
             valueListenable: _selection.selectedListenable,
-            builder: (context, selected, _) => SelectableMovieCard(
-              movie: m,
-              posterUrlBuilder: urlBuilder,
-              landscape: landscape,
-              selected: selected.contains(m.id),
-              selecting: _selecting,
-              onTap: () {
-                if (_selecting) {
-                  _toggleSelect(m.id);
-                } else {
-                  unawaited(_openMovie(m));
-                }
-              },
-            ),
+            builder: (context, selected, _) => landscape
+                ? OmmMoviePreviewCard(
+                    key: _previewItemKeys.putIfAbsent(m.id, GlobalKey.new),
+                    movie: m,
+                    posterUrlBuilder: urlBuilder,
+                    coordinator: _previewCoordinator,
+                    autoPlayPreview: m.id == _autoPreviewId,
+                    selecting: _selecting,
+                    selected: selected.contains(m.id),
+                    onTap: () {
+                      if (_selecting) {
+                        _toggleSelect(m.id);
+                      } else {
+                        unawaited(_openMovie(m));
+                      }
+                    },
+                  )
+                : SelectableMovieCard(
+                    movie: m,
+                    posterUrlBuilder: urlBuilder,
+                    landscape: false,
+                    selected: selected.contains(m.id),
+                    selecting: _selecting,
+                    onTap: () {
+                      if (_selecting) {
+                        _toggleSelect(m.id);
+                      } else {
+                        unawaited(_openMovie(m));
+                      }
+                    },
+                  ),
           ),
         );
         return landscape

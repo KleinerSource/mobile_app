@@ -554,6 +554,7 @@ class OmmMediaSourceAdapter
       'file_size': movie.fileSize,
       'file_name': movie.fileName,
       'series_name': movie.seriesName,
+      'preview_video_url': movie.previewVideoUrl,
       'has_new_resources': movie.hasNewResources,
       'actors': movie.actors,
       'watch_record': movie.watchRecord,

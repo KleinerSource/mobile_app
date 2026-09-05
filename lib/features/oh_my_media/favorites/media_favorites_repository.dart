@@ -128,6 +128,7 @@ class MediaFavoritesRepository {
       posterUuid: item.poster,
       thumbUuid: item.thumbnail,
       fanartUuid: item.fanart,
+      previewVideoUrl: item.attributes['preview_video_url']?.toString(),
     );
   }
 }

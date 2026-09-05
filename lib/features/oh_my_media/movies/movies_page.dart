@@ -27,6 +27,7 @@ import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
@@ -39,6 +40,7 @@ import 'movie_data_changes.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
 import 'resource_scan_progress_sheet.dart';
+import 'omm_movie_preview_card.dart';
 
 const _moviesViewModeKey = 'movies.view_mode.v1';
 
@@ -66,6 +68,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   late MovieFilter _currentFilter;
   MediaViewMode _viewMode = MediaViewMode.portrait;
   int _totalCount = 0;
+  int? _autoPreviewId;
+  Timer? _autoPreviewDebounce;
+  final _previewViewportKey = GlobalKey();
+  final _previewItemKeys = <int, GlobalKey>{};
+  final _previewCoordinator = StashPreviewCoordinator();
 
   late final SelectionController<int> _selection;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
@@ -81,6 +88,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleAutoPreviewUpdate();
+    });
   }
 
   MediaViewMode _loadViewMode() {
@@ -92,6 +102,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Future<void> _setViewMode(MediaViewMode mode) async {
     if (_viewMode == mode) return;
     setState(() => _viewMode = mode);
+    _scheduleAutoPreviewUpdate();
     await ref
         .read(sharedPrefsProvider)
         .setString(
@@ -103,7 +114,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   @override
   void dispose() {
     _completeRefresh();
+    _autoPreviewDebounce?.cancel();
     _scrollController.removeListener(_closeSwipeOnScroll);
+    _previewCoordinator.dispose();
     _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
@@ -116,11 +129,53 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
+    _scheduleAutoPreviewUpdate();
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
   void _closeSwipeOnScroll() {
     if (_openSwipe.value != null) _openSwipe.value = null;
+    _scheduleAutoPreviewUpdate();
+  }
+
+  void _scheduleAutoPreviewUpdate() {
+    _autoPreviewDebounce?.cancel();
+    _autoPreviewDebounce = Timer(const Duration(milliseconds: 180), () {
+      _autoPreviewDebounce = null;
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final next = _nextAutoPreviewId();
+        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+      });
+    });
+  }
+
+  int? _nextAutoPreviewId() {
+    if (_viewMode != MediaViewMode.landscape || _selectionMode) return null;
+    final items = _controller.itemList ?? const <MovieListItem>[];
+    if (items.isEmpty) return null;
+    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
+      1.0,
+      double.infinity,
+    );
+    final coverHeight = width * 9 / 16;
+    final actualIndex = previewItemIndexForViewportKeys(
+      itemKeys: items.map((item) => _previewItemKeys[item.id]),
+      viewportKey: _previewViewportKey,
+      coverHeight: coverHeight,
+    );
+    final index =
+        actualIndex ??
+        stashPreviewItemIndexForScroll(
+          scrollOffset: _scrollController.hasClients
+              ? _scrollController.offset
+              : 0,
+          cardHeight: coverHeight,
+          itemGap: 14,
+          itemCount: items.length,
+        );
+    return index == null ? null : items[index].id;
   }
 
   Future<void> _fetch(int offset) async {
@@ -155,6 +210,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       );
       if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});
+      _scheduleAutoPreviewUpdate();
     } catch (e) {
       _controller.error = toApiException(e).message;
       if (offset == 0) _completeRefresh();
@@ -444,6 +500,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             onSelectionEnd: _finishSelectionSweep,
                             selectionMode: _selectionMode,
                             child: CustomScrollView(
+                              key: _previewViewportKey,
                               controller: _scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
                               slivers: [
@@ -570,14 +627,25 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
               : Alignment.topLeft,
           child: ValueListenableBuilder<Set<int>>(
             valueListenable: _selection.selectedListenable,
-            builder: (context, selected, _) => SelectableMovieCard(
-              movie: item,
-              posterUrlBuilder: urlBuilder,
-              landscape: landscape,
-              selecting: _selectionMode,
-              selected: selected.contains(item.id),
-              onTap: () => _handleMovieTap(item),
-            ),
+            builder: (context, selected, _) => landscape
+                ? OmmMoviePreviewCard(
+                    key: _previewItemKeys.putIfAbsent(item.id, GlobalKey.new),
+                    movie: item,
+                    posterUrlBuilder: urlBuilder,
+                    coordinator: _previewCoordinator,
+                    autoPlayPreview: item.id == _autoPreviewId,
+                    selecting: _selectionMode,
+                    selected: selected.contains(item.id),
+                    onTap: () => _handleMovieTap(item),
+                  )
+                : SelectableMovieCard(
+                    movie: item,
+                    posterUrlBuilder: urlBuilder,
+                    landscape: false,
+                    selecting: _selectionMode,
+                    selected: selected.contains(item.id),
+                    onTap: () => _handleMovieTap(item),
+                  ),
           ),
         );
         return landscape

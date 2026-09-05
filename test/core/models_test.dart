@@ -797,6 +797,16 @@ void _main_6() {
     expect(movie.hasFilenameSubtitle, isFalse);
   });
 
+  test('列表模型解析已生成的预览视频地址', () {
+    final movie = MovieListItem.fromJson({
+      'id': 3,
+      'title': '预览视频测试',
+      'preview_video_url': '/api/movies/id/3/previews/preview.mp4',
+    });
+
+    expect(movie.previewVideoUrl, '/api/movies/id/3/previews/preview.mp4');
+  });
+
   test('列表模型按文件名后缀识别内嵌字幕标识', () {
     final movie = MovieListItem.fromJson({
       'id': 4,

@@ -18,10 +18,12 @@ import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
+import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/movies/omm_movie_preview_card.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -262,18 +264,79 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
+  int? _autoPreviewId;
+  Timer? _autoPreviewDebounce;
+  final _previewViewportKey = GlobalKey();
+  final _previewItemKeys = <int, GlobalKey>{};
+  final _previewCoordinator = StashPreviewCoordinator();
 
   @override
   void initState() {
     super.initState();
     _controller.addPageRequestListener(_fetch);
+    _scrollController.addListener(_scheduleAutoPreviewUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleAutoPreviewUpdate();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _SearchResults oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.viewMode != widget.viewMode) {
+      _scheduleAutoPreviewUpdate();
+    }
   }
 
   @override
   void dispose() {
+    _autoPreviewDebounce?.cancel();
     _controller.dispose();
+    _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
+    _previewCoordinator.dispose();
     super.dispose();
+  }
+
+  void _scheduleAutoPreviewUpdate() {
+    _autoPreviewDebounce?.cancel();
+    _autoPreviewDebounce = Timer(const Duration(milliseconds: 180), () {
+      _autoPreviewDebounce = null;
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final next = _nextAutoPreviewId();
+        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
+      });
+    });
+  }
+
+  int? _nextAutoPreviewId() {
+    if (widget.viewMode != MediaViewMode.landscape) return null;
+    final items = _controller.itemList ?? const <MovieListItem>[];
+    if (items.isEmpty) return null;
+    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
+      1.0,
+      double.infinity,
+    );
+    final coverHeight = width * 9 / 16;
+    final actualIndex = previewItemIndexForViewportKeys(
+      itemKeys: items.map((item) => _previewItemKeys[item.id]),
+      viewportKey: _previewViewportKey,
+      coverHeight: coverHeight,
+    );
+    final index =
+        actualIndex ??
+        stashPreviewItemIndexForScroll(
+          scrollOffset: _scrollController.hasClients
+              ? _scrollController.offset
+              : 0,
+          cardHeight: coverHeight,
+          itemGap: 14,
+          itemCount: items.length,
+          leadingPadding: 4,
+        );
+    return index == null ? null : items[index].id;
   }
 
   Future<void> _openMovie(int movieId) async {
@@ -333,6 +396,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
         restorer: _scrollRestorer,
         scrollController: _scrollController,
       );
+      _scheduleAutoPreviewUpdate();
     } catch (error) {
       if (!mounted) return;
       _controller.error = toApiException(error).message;
@@ -345,6 +409,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     final isPortrait = widget.viewMode == MediaViewMode.portrait;
     final isLandscape = widget.viewMode == MediaViewMode.landscape;
     return CustomScrollView(
+      key: _previewViewportKey,
       controller: _scrollController,
       primary: false,
       slivers: [
@@ -396,11 +461,15 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                   pagingController: _controller,
                   builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                     itemBuilder: (ctx, movie, _) => isLandscape
-                        ? MovieCard(
-                            key: ValueKey(movie.id),
+                        ? OmmMoviePreviewCard(
+                            key: _previewItemKeys.putIfAbsent(
+                              movie.id,
+                              GlobalKey.new,
+                            ),
                             movie: movie,
                             posterUrlBuilder: urlBuilder,
-                            landscape: true,
+                            coordinator: _previewCoordinator,
+                            autoPlayPreview: movie.id == _autoPreviewId,
                             onTap: () => unawaited(_openMovie(movie.id)),
                           )
                         : CatalogListMovieCard(

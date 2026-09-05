@@ -36,6 +36,7 @@ abstract class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'video_width') int? videoWidth,
     @JsonKey(name: 'video_height') int? videoHeight,
     @JsonKey(name: 'file_name') String? fileName,
+    @JsonKey(name: 'preview_video_url') String? previewVideoUrl,
     @Default(<ActorRef>[]) List<ActorRef> actors,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
   }) = _MovieListItem;

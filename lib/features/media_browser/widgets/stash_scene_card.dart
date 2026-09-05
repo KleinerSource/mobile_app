@@ -24,7 +24,15 @@ abstract interface class StashPreviewPlayer {
 
   Widget buildVideo({BoxFit fit = BoxFit.cover});
 
-  Future<void> open(String url, {Map<String, String>? headers});
+  Future<void> open(
+    String url, {
+    Map<String, String>? headers,
+    bool autoplay = true,
+  });
+
+  Future<void> play();
+
+  Future<void> pause();
 
   Future<void> seek(Duration position);
 
@@ -79,7 +87,26 @@ int? stashPreviewItemIndexForViewport({
   required double coverHeight,
   double switchOutFraction = 0.6,
 }) {
-  if (items.isEmpty ||
+  return previewItemIndexForViewportKeys(
+    itemKeys: items.map((item) => itemKeys[item.id]),
+    viewportKey: viewportKey,
+    coverHeight: coverHeight,
+    switchOutFraction: switchOutFraction,
+  );
+}
+
+/// 按一组列表项的布局 key 选择当前应自动预览的项。
+///
+/// Stash 和 OMM 的媒体模型不同，但横版预览需要的视口计算完全一致，
+/// 因此这里只复用布局算法，不让 OMM 依赖 Stash 的数据模型。
+int? previewItemIndexForViewportKeys({
+  required Iterable<GlobalKey?> itemKeys,
+  required GlobalKey viewportKey,
+  required double coverHeight,
+  double switchOutFraction = 0.6,
+}) {
+  final keys = itemKeys.toList(growable: false);
+  if (keys.isEmpty ||
       !coverHeight.isFinite ||
       coverHeight <= 0 ||
       !switchOutFraction.isFinite ||
@@ -90,10 +117,13 @@ int? stashPreviewItemIndexForViewport({
   final viewport = viewportKey.currentContext?.findRenderObject();
   if (viewport is! RenderBox || !viewport.hasSize) return null;
   final viewportTop = viewport.localToGlobal(Offset.zero).dy;
-  for (var index = 0; index < items.length; index++) {
-    final card = itemKeys[items[index].id]?.currentContext?.findRenderObject();
+  final viewportBottom = viewportTop + viewport.size.height;
+  for (var index = 0; index < keys.length; index++) {
+    final card = keys[index]?.currentContext?.findRenderObject();
     if (card is! RenderBox || !card.hasSize) continue;
     final cardTop = card.localToGlobal(Offset.zero).dy;
+    final cardBottom = cardTop + card.size.height;
+    if (cardBottom <= viewportTop || cardTop >= viewportBottom) continue;
     final hidden = (viewportTop - cardTop).clamp(0.0, coverHeight);
     if (hidden <= coverHeight * switchOutFraction) return index;
   }
@@ -148,11 +178,15 @@ class MediaKitStashPreviewPlayer implements StashPreviewPlayer {
   );
 
   @override
-  Future<void> open(String url, {Map<String, String>? headers}) async {
+  Future<void> open(
+    String url, {
+    Map<String, String>? headers,
+    bool autoplay = true,
+  }) async {
     await _player
         .open(
           Media(url, httpHeaders: headers?.isEmpty == true ? null : headers),
-          play: true,
+          play: autoplay,
         )
         .timeout(const Duration(seconds: 3));
     try {
@@ -163,6 +197,12 @@ class MediaKitStashPreviewPlayer implements StashPreviewPlayer {
       // 某些平台不回报首帧，但播放器可能已经可以正常显示。
     }
   }
+
+  @override
+  Future<void> play() => _player.play();
+
+  @override
+  Future<void> pause() => _player.pause();
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
@@ -277,8 +317,11 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
   late final VoidCallback _releaseForCoordinator = _releasePreview;
   StashPreviewCoordinator? _coordinator;
   StashPreviewPlayer? _previewPlayer;
+  Future<void>? _previewOpening;
   bool _previewing = false;
   bool _previewLoading = false;
+  bool _longPressActive = false;
+  int _gestureGeneration = 0;
   int _previewGeneration = 0;
 
   @override
@@ -344,12 +387,28 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
 
   void _onLongPressStart(LongPressStartDetails details) {
     if (!_revealOrAllow()) return;
+    _longPressActive = true;
+    final gestureGeneration = ++_gestureGeneration;
     AppHaptics.light();
-    unawaited(_startPreview());
+    unawaited(
+      _startPreview(autoplay: false).then((_) {
+        if (!mounted || gestureGeneration != _gestureGeneration) return;
+        if (_previewPlayer == null) return;
+        unawaited((_longPressActive ? _pausePreview() : _playPreview()));
+      }),
+    );
   }
 
-  Future<void> _startPreview() async {
-    if (_previewing) return;
+  Future<void> _startPreview({bool autoplay = true}) async {
+    if (_previewing) {
+      final opening = _previewOpening;
+      if (opening != null) {
+        try {
+          await opening;
+        } catch (_) {}
+      }
+      return;
+    }
     final url = widget.urls.preview(widget.item.previewPath);
     if (url == null || url.isEmpty) return;
 
@@ -363,8 +422,15 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
         _previewLoading = true;
       });
     }
+    Future<void>? openFuture;
     try {
-      await player.open(url, headers: widget.urls.directHeaders);
+      openFuture = player.open(
+        url,
+        headers: widget.urls.directHeaders,
+        autoplay: autoplay,
+      );
+      _previewOpening = openFuture;
+      await openFuture;
       if (!mounted ||
           generation != _previewGeneration ||
           player != _previewPlayer) {
@@ -378,7 +444,25 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
       } else {
         await player.dispose();
       }
+    } finally {
+      if (identical(_previewOpening, openFuture)) _previewOpening = null;
     }
+  }
+
+  Future<void> _pausePreview() async {
+    final player = _previewPlayer;
+    if (player == null) return;
+    try {
+      await player.pause();
+    } catch (_) {}
+  }
+
+  Future<void> _playPreview() async {
+    final player = _previewPlayer;
+    if (player == null) return;
+    try {
+      await player.play();
+    } catch (_) {}
   }
 
   void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
@@ -398,10 +482,24 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
   }
 
   void _onLongPressEnd(LongPressEndDetails details) {
-    unawaited(_stopPreview());
+    _finishLongPress();
+  }
+
+  void _onLongPressCancel() {
+    _finishLongPress();
+  }
+
+  void _finishLongPress() {
+    if (!_longPressActive) return;
+    _longPressActive = false;
+    if (!_previewLoading && _previewOpening == null) {
+      unawaited(_playPreview());
+    }
   }
 
   Future<void> _stopPreview({bool rebuild = true}) async {
+    _longPressActive = false;
+    ++_gestureGeneration;
     ++_previewGeneration;
     final player = _previewPlayer;
     _previewPlayer = null;
@@ -476,6 +574,7 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
                       onLongPressStart: _onLongPressStart,
                       onLongPressMoveUpdate: _onLongPressMoveUpdate,
                       onLongPressEnd: _onLongPressEnd,
+                      onLongPressCancel: _onLongPressCancel,
                       child: const SizedBox.expand(),
                     ),
                   ),
