@@ -3917,9 +3917,6 @@ class AppL10nEn extends AppL10n {
   String get previewGenerate => 'Generate preview';
 
   @override
-  String get previewRegenerate => 'Regenerate';
-
-  @override
   String get previewGenerating => 'Generating preview…';
 
   @override

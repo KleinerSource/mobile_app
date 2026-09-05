@@ -40,10 +40,10 @@ import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import 'audio_extraction_sheet.dart';
-import 'preview_status_card.dart';
 import 'package:omm/features/home/home_movie_view_state.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
+import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 
 class MovieDetailPage extends ConsumerStatefulWidget {
   const MovieDetailPage({
@@ -177,6 +177,26 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     final l = AppL10n.of(context);
     final movie = widget.movie;
     final urlBuilder = widget.urlBuilder;
+    ref.listen(taskCenterProvider, (previous, next) {
+      bool isPreviewTask(dynamic task) {
+        return task.movieId == movie.id &&
+            (task.name == l.taskNamePreview || task.name == '预览生成');
+      }
+
+      final wasActive =
+          previous?.any((task) => isPreviewTask(task) && task.isActive) ??
+          false;
+      final isTerminal = next.any(
+        (task) => isPreviewTask(task) && task.isTerminal,
+      );
+      if (wasActive && isTerminal) {
+        ref.invalidate(previewStatusProvider(movie.id));
+        ref.invalidate(previewVideoUrlProvider(movie.id));
+      }
+    });
+    final previewVideoUrl = ref
+        .watch(previewVideoUrlProvider(movie.id))
+        .maybeWhen(data: (url) => url, orElse: () => null);
     final favStatus = ref.watch(favoriteStatusProvider);
     // 初始化收藏状态种子
     if (!favStatus.containsKey(movie.id)) {
@@ -205,16 +225,6 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             child: _ActionRow(movie: movie),
           ),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            child: PreviewStatusCard(
-              movieId: movie.id,
-              movieTitle: movie.title,
-              filePath: movie.filePath,
-            ),
-          ),
-        ),
         if (movie.plot != null && movie.plot!.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
@@ -229,6 +239,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             canFetch: movie.num?.trim().isNotEmpty == true,
             trailerUrl: _trailerUrl(movie),
             posterUrl: _trailerPosterUrl(movie, urlBuilder),
+            previewVideoUrl: previewVideoUrl,
           ),
         ),
         if (movie.actors.isNotEmpty)
@@ -1062,9 +1073,10 @@ class _MoreMenuButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final isOmm = ref.watch(serverConfigProvider)?.isOmm == true;
     return GlassMenuAnchor<String>(
       width: 244,
-      entries: _movieMoreEntries(c, l),
+      entries: _movieMoreEntries(c, l, includePreview: isOmm),
       tooltip: l.more,
       offset: const Offset(0, 8),
       placement: GlassMenuPlacement.below,
@@ -1080,6 +1092,35 @@ class _MoreMenuButton extends ConsumerWidget {
         switch (v) {
           case 'edit':
             await MovieEditorSheet.show(context, movie);
+            break;
+          case 'generate_preview':
+            try {
+              final result = await ref
+                  .read(mediaRepositoryProvider)
+                  .generatePreview(movie.id, overwrite: false);
+              if (!context.mounted) return;
+              ref
+                  .read(taskCenterProvider.notifier)
+                  .registerPreview(
+                    result.task,
+                    movieId: movie.id,
+                    movieTitle: movie.title,
+                  );
+              ref.invalidate(previewStatusProvider(movie.id));
+              ref.invalidate(previewVideoUrlProvider(movie.id));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(l.previewGenerating)));
+            } catch (error) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    l.operationFailed(toApiException(error).message),
+                  ),
+                ),
+              );
+            }
             break;
           case 'subtitle':
             await ThunderSubtitleSheet.show(context, movie.id);
@@ -1134,7 +1175,11 @@ class _MoreMenuButton extends ConsumerWidget {
     );
   }
 
-  List<GlassMenuEntry<String>> _movieMoreEntries(AppColors c, AppL10n l) => [
+  List<GlassMenuEntry<String>> _movieMoreEntries(
+    AppColors c,
+    AppL10n l, {
+    required bool includePreview,
+  }) => [
     GlassMenuEntry<String>.action(
       value: 'edit',
       builder: (context, selected, onTap) => GlassMenuRow(
@@ -1144,6 +1189,16 @@ class _MoreMenuButton extends ConsumerWidget {
         onTap: onTap,
       ),
     ),
+    if (includePreview && _canGeneratePreview)
+      GlassMenuEntry<String>.action(
+        value: 'generate_preview',
+        builder: (context, selected, onTap) => GlassMenuRow(
+          icon: Icons.video_settings_outlined,
+          label: l.previewGenerate,
+          selected: selected,
+          onTap: onTap,
+        ),
+      ),
     GlassMenuEntry<String>.divider(dividerColor: c.divider),
     GlassMenuEntry<String>.action(
       value: 'dbo_meta',
@@ -1213,6 +1268,11 @@ class _MoreMenuButton extends ConsumerWidget {
       ),
     ),
   ];
+
+  bool get _canGeneratePreview {
+    final path = movie.filePath?.trim().toLowerCase() ?? '';
+    return path.isNotEmpty && !path.endsWith('.strm');
+  }
 
   Future<void> _confirmAndRun(
     BuildContext context,

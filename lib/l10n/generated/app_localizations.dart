@@ -7248,12 +7248,6 @@ abstract class AppL10n {
   /// **'生成预览'**
   String get previewGenerate;
 
-  /// No description provided for @previewRegenerate.
-  ///
-  /// In zh, this message translates to:
-  /// **'重新生成'**
-  String get previewRegenerate;
-
   /// No description provided for @previewGenerating.
   ///
   /// In zh, this message translates to:

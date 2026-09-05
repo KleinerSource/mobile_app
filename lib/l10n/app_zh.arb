@@ -1330,7 +1330,6 @@
   "previewReady": "已就绪",
   "previewNotReady": "未生成",
   "previewGenerate": "生成预览",
-  "previewRegenerate": "重新生成",
   "previewGenerating": "正在生成预览…",
   "previewQueued": "已排队",
   "previewCompleted": "预览生成完成",

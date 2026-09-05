@@ -3842,9 +3842,6 @@ class AppL10nZh extends AppL10n {
   String get previewGenerate => '生成预览';
 
   @override
-  String get previewRegenerate => '重新生成';
-
-  @override
   String get previewGenerating => '正在生成预览…';
 
   @override

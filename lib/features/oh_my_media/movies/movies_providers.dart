@@ -97,3 +97,20 @@ final previewStatusProvider = FutureProvider.autoDispose
     .family<PreviewStatus, int>((ref, id) async {
       return ref.read(mediaRepositoryProvider).previewStatus(id);
     });
+
+/// 详情页只需要展示已生成的预览视频，不读取任务进度或其它资产状态。
+/// 预览是 OMM 独有能力，非 OMM 线路不应触发本地媒体库请求。
+final previewVideoUrlProvider = FutureProvider.autoDispose.family<String?, int>(
+  (ref, id) async {
+    final config = ref.watch(serverConfigProvider);
+    if (config?.isOmm != true) return null;
+
+    final status = await ref.watch(previewStatusProvider(id).future);
+    final asset = status.assets['video'];
+    final rawUrl = asset?.url.trim() ?? '';
+    if (asset?.ready != true || rawUrl.isEmpty) return null;
+
+    final token = await ref.read(authSessionRepositoryProvider).accessToken();
+    return resolveProtectedUrl(config!, rawUrl, token);
+  },
+);

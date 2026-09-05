@@ -5,17 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/core/api/services/configs_api.dart';
 import 'package:omm/core/api/services/configs_extended_api.dart';
-import 'package:omm/core/config/server_config.dart';
-import 'package:omm/core/config/server_config_provider.dart';
-import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/preview_config.dart';
-import 'package:omm/core/sources/media/media_source.dart';
-import 'package:omm/core/sources/media/omm_media_operations_source.dart';
 import 'package:omm/features/oh_my_media/configs/configs_providers.dart';
 import 'package:omm/features/oh_my_media/configs/configs_repository.dart';
 import 'package:omm/features/oh_my_media/configs/preview_settings_page.dart';
-import 'package:omm/features/oh_my_media/movie_detail/preview_status_card.dart';
-import 'package:omm/features/oh_my_media/movies/media_repository.dart';
+import 'package:omm/features/oh_my_media/movie_detail/movie_detail_media_viewers.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -35,7 +29,8 @@ void main() {
         child: _localizedApp(const PreviewSettingsPage()),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('预览生成'), findsOneWidget);
     expect(find.text('配置预览视频、Sprite 和 VTT 的生成策略。'), findsOneWidget);
@@ -57,93 +52,32 @@ void main() {
     expect(find.text('预览配置已保存'), findsOneWidget);
   });
 
-  testWidgets('预览状态卡片展示资产状态和进行中的细粒度进度', (tester) async {
-    final task = const PreviewTask(
-      taskId: 'preview-running',
-      status: 'running',
-      totalCount: 1,
-      currentMovieId: 7,
-      currentMovieTitle: '长视频',
-      progress: 42.5,
-    );
-    final repository = _FakeMediaRepository(
-      PreviewStatus(
-        movieId: 7,
-        sourceState: 'ready',
-        assets: const {
-          'video': PreviewAssetStatus(ready: true),
-          'sprite': PreviewAssetStatus(ready: true),
-          'vtt': PreviewAssetStatus(ready: false),
-        },
-        task: task,
-      ),
-      task: task,
-    );
-
+  testWidgets('已生成预览视频排在预告片和预览图之前', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          serverConfigProvider.overrideWith(
-            () => _ServerConfigState(_ommConfig),
-          ),
-          mediaRepositoryProvider.overrideWithValue(repository),
+          extraFanartsProvider(7).overrideWith((ref) async => const ['image']),
         ],
         child: _localizedApp(
           const Scaffold(
-            body: PreviewStatusCard(
+            body: MovieExtraFanartSection(
               movieId: 7,
               movieTitle: '长视频',
-              filePath: '/media/movie.mp4',
+              canFetch: false,
+              previewVideoUrl: 'https://omm.example/preview.mp4',
+              trailerUrl: 'https://omm.example/trailer.mp4',
+              posterUrl: null,
             ),
           ),
         ),
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('预览资产'), findsOneWidget);
-    expect(find.text('预览视频'), findsOneWidget);
-    expect(find.text('Sprite'), findsOneWidget);
-    expect(find.text('VTT'), findsOneWidget);
-    expect(find.text('42.5%'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.text('生成预览'), findsNothing);
-    expect(find.text('重新生成'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('不支持的 strm 源文件禁用预览生成', (tester) async {
-    final repository = _FakeMediaRepository(
-      const PreviewStatus(movieId: 8, sourceState: 'unsupported'),
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          serverConfigProvider.overrideWith(
-            () => _ServerConfigState(_ommConfig),
-          ),
-          mediaRepositoryProvider.overrideWithValue(repository),
-        ],
-        child: _localizedApp(
-          const Scaffold(
-            body: PreviewStatusCard(
-              movieId: 8,
-              movieTitle: '流媒体占位',
-              filePath: '/media/movie.strm',
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-
-    expect(find.text('源文件不支持预览生成'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.byType(FilledButton));
-    expect(button.onPressed, isNull);
+    final preview = tester.getRect(find.text('预览视频'));
+    final trailer = tester.getRect(find.text('预告片'));
+    expect(preview.left, lessThan(trailer.left));
   });
 }
 
@@ -173,68 +107,3 @@ class _FakeConfigsRepository extends ConfigsRepository {
     return config;
   }
 }
-
-class _FakeMediaRepository extends MediaRepository {
-  _FakeMediaRepository(this.status, {PreviewTask? task})
-    : task = task ?? status.task,
-      super(
-        catalog: _NoopCatalogSource(),
-        details: _NoopMovieDetailSource(),
-        operations: _NoopOmmOperationsSource(),
-      );
-
-  PreviewStatus status;
-  final PreviewTask? task;
-
-  @override
-  Future<PreviewStatus> previewStatus(int id, {String? taskId}) async => status;
-
-  @override
-  Future<PreviewTask> previewTask(String taskId) async => task!;
-}
-
-class _NoopCatalogSource implements CatalogSource {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(invocation.memberName.toString());
-}
-
-class _NoopMovieDetailSource implements MovieDetailSource {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(invocation.memberName.toString());
-}
-
-class _NoopOmmOperationsSource implements OmmMediaOperationsSource {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(invocation.memberName.toString());
-}
-
-class _ServerConfigState extends ServerConfigNotifier {
-  _ServerConfigState(this.config);
-
-  final ServerConfig config;
-
-  @override
-  ServerConfig build() => config;
-}
-
-const _ommConfig = ServerConfig(
-  baseUrl: 'https://omm.example',
-  lines: [
-    ServerLine(id: 'omm-line', name: '主线路', baseUrl: 'https://omm.example'),
-  ],
-  servers: [
-    ServerProfile(
-      id: 'omm',
-      name: 'OMM',
-      lines: [
-        ServerLine(id: 'omm-line', name: '主线路', baseUrl: 'https://omm.example'),
-      ],
-      activeLineId: 'omm-line',
-      projectName: 'oh-my-media',
-    ),
-  ],
-  activeServerId: 'omm',
-);

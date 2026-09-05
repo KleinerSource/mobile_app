@@ -24,6 +24,7 @@ class MovieExtraFanartSection extends ConsumerStatefulWidget {
     required this.canFetch,
     required this.trailerUrl,
     required this.posterUrl,
+    this.previewVideoUrl,
   });
 
   final int movieId;
@@ -31,6 +32,7 @@ class MovieExtraFanartSection extends ConsumerStatefulWidget {
   final bool canFetch;
   final String? trailerUrl;
   final String? posterUrl;
+  final String? previewVideoUrl;
 
   @override
   ConsumerState<MovieExtraFanartSection> createState() =>
@@ -145,23 +147,62 @@ class _MovieExtraFanartSectionState
     );
   }
 
-  Widget _trailerOnlyPreview(BuildContext context) {
+  bool get _hasPreviewVideo =>
+      widget.previewVideoUrl?.trim().isNotEmpty == true;
+
+  bool get _hasTrailer => widget.trailerUrl?.trim().isNotEmpty == true;
+
+  Widget _videoOnlyPreview(BuildContext context) {
     final cardWidth = _cardWidth(context);
     final cardHeight = cardWidth * 9 / 16;
+    final cards = <Widget>[
+      if (_hasPreviewVideo)
+        SizedBox(
+          width: cardWidth,
+          child: _TrailerThumbnail(
+            posterUrl: widget.posterUrl,
+            label: AppL10n.of(context).previewVideoAsset,
+            onTap: () => _playPreview(context),
+          ),
+        ),
+      if (_hasTrailer)
+        SizedBox(
+          width: cardWidth,
+          child: _TrailerThumbnail(
+            posterUrl: widget.posterUrl,
+            label: AppL10n.of(context).detailTrailer,
+            onTap: () => _playTrailer(context),
+          ),
+        ),
+    ];
     return MovieDetailFullBleedSection(
       bottom: 32,
       gap: 12,
       header: _header(context, hasImages: true),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        child: SizedBox(
-          height: cardHeight,
-          width: cardWidth,
-          child: _TrailerThumbnail(
-            posterUrl: widget.posterUrl,
-            onTap: () => _playTrailer(context),
-          ),
+      child: SizedBox(
+        height: cardHeight,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          itemCount: cards.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, index) => cards[index],
         ),
+      ),
+    );
+  }
+
+  Widget _videoCard({
+    required double cardWidth,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: cardWidth,
+      child: _TrailerThumbnail(
+        posterUrl: widget.posterUrl,
+        label: label,
+        onTap: onTap,
       ),
     );
   }
@@ -188,23 +229,24 @@ class _MovieExtraFanartSectionState
     final async = ref.watch(extraFanartsProvider(widget.movieId));
     final l = AppL10n.of(context);
     return async.when(
-      loading: () => widget.trailerUrl != null
-          ? _trailerOnlyPreview(context)
+      loading: () => (_hasPreviewVideo || _hasTrailer)
+          ? _videoOnlyPreview(context)
           : _placeholderState(
               context,
               message: l.fanartLoading,
               icon: Icons.hourglass_empty_rounded,
             ),
-      error: (error, _) => widget.trailerUrl != null
-          ? _trailerOnlyPreview(context)
+      error: (error, _) => (_hasPreviewVideo || _hasTrailer)
+          ? _videoOnlyPreview(context)
           : _placeholderState(
               context,
               message: l.fanartLoadFailed(toApiException(error).message),
               icon: Icons.broken_image_outlined,
             ),
       data: (urls) {
-        final hasTrailer = widget.trailerUrl != null;
-        if (!hasTrailer && urls.isEmpty) {
+        final hasTrailer = _hasTrailer;
+        final hasPreviewVideo = _hasPreviewVideo;
+        if (!hasPreviewVideo && !hasTrailer && urls.isEmpty) {
           return _placeholderState(
             context,
             message: l.fanartEmpty,
@@ -214,7 +256,9 @@ class _MovieExtraFanartSectionState
 
         final cardWidth = _cardWidth(context);
         final cardHeight = cardWidth * 9 / 16;
-        final itemCount = urls.length + (hasTrailer ? 1 : 0);
+        final previewOffset = hasPreviewVideo ? 1 : 0;
+        final trailerOffset = hasTrailer ? 1 : 0;
+        final itemCount = urls.length + previewOffset + trailerOffset;
 
         return MovieDetailFullBleedSection(
           bottom: 32,
@@ -230,17 +274,24 @@ class _MovieExtraFanartSectionState
               itemCount: itemCount,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
-                if (hasTrailer && index == 0) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _TrailerThumbnail(
-                      posterUrl: widget.posterUrl,
-                      onTap: () => _playTrailer(context),
-                    ),
+                if (hasPreviewVideo && index == 0) {
+                  return _videoCard(
+                    cardWidth: cardWidth,
+                    label: l.previewVideoAsset,
+                    onTap: () => _playPreview(context),
                   );
                 }
 
-                final imageIndex = index - (hasTrailer ? 1 : 0);
+                final trailerIndex = previewOffset;
+                if (hasTrailer && index == trailerIndex) {
+                  return _videoCard(
+                    cardWidth: cardWidth,
+                    label: l.detailTrailer,
+                    onTap: () => _playTrailer(context),
+                  );
+                }
+
+                final imageIndex = index - previewOffset - trailerOffset;
                 final url = urls[imageIndex];
                 return SizedBox(
                   width: cardWidth,
@@ -250,7 +301,14 @@ class _MovieExtraFanartSectionState
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
                       onTap: () {
-                        unawaited(_openViewer(context, urls, index));
+                        unawaited(
+                          _openViewer(
+                            context,
+                            urls,
+                            listIndex: index,
+                            viewerIndex: imageIndex + (hasTrailer ? 1 : 0),
+                          ),
+                        );
                       },
                       child: CachedNetworkImage(
                         cacheManager: AppImageCacheManager.instance,
@@ -282,10 +340,11 @@ class _MovieExtraFanartSectionState
 
   Future<void> _openViewer(
     BuildContext context,
-    List<String> urls,
-    int initialIndex,
-  ) {
-    _syncPreviewScroll(context, initialIndex);
+    List<String> urls, {
+    required int listIndex,
+    required int viewerIndex,
+  }) {
+    _syncPreviewScroll(context, listIndex);
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -296,8 +355,24 @@ class _MovieExtraFanartSectionState
         urls: urls,
         trailerUrl: widget.trailerUrl,
         posterUrl: widget.posterUrl,
-        initialIndex: initialIndex,
-        onPageChanged: (index) => _syncPreviewScroll(context, index),
+        initialIndex: viewerIndex,
+        onPageChanged: (index) =>
+            _syncPreviewScroll(context, index + (_hasPreviewVideo ? 1 : 0)),
+      ),
+    );
+  }
+
+  void _playPreview(BuildContext context) {
+    final url = widget.previewVideoUrl?.trim();
+    if (url == null || url.isEmpty) return;
+    unawaited(
+      VideoPlayerPage.open(
+        context,
+        movieId: widget.movieId,
+        title:
+            '${widget.movieTitle} · ${AppL10n.of(context).previewVideoAsset}',
+        directUrl: url,
+        engineKind: PlaybackEngineKind.libmpv,
       ),
     );
   }
@@ -318,15 +393,19 @@ class _MovieExtraFanartSectionState
 }
 
 class _TrailerThumbnail extends StatelessWidget {
-  const _TrailerThumbnail({required this.posterUrl, required this.onTap});
+  const _TrailerThumbnail({
+    required this.posterUrl,
+    required this.label,
+    required this.onTap,
+  });
 
   final String? posterUrl;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     final imageUrl = posterUrl?.trim() ?? '';
     return Material(
       color: c.surfaceAlt,
@@ -374,7 +453,7 @@ class _TrailerThumbnail extends StatelessWidget {
               left: 12,
               bottom: 10,
               child: Text(
-                l.detailTrailer,
+                label,
                 style: AppText.body(
                   context,
                 ).copyWith(color: Colors.white, fontWeight: FontWeight.w700),

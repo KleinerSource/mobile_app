@@ -1330,7 +1330,6 @@
   "previewReady": "Ready",
   "previewNotReady": "Not generated",
   "previewGenerate": "Generate preview",
-  "previewRegenerate": "Regenerate",
   "previewGenerating": "Generating preview…",
   "previewQueued": "Queued",
   "previewCompleted": "Preview generation complete",
