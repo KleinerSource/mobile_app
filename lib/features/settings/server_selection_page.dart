@@ -150,25 +150,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _statusFutures = <String, Future<_ServerStatus>>{};
   final _avatarKeys = <String, GlobalKey>{};
   final _listScrollController = ScrollController();
-  late final ProviderSubscription<bool> _selectionSubscription;
+  var _refreshInFlight = false;
   var _searchQuery = '';
 
   @override
-  void initState() {
-    super.initState();
-    _selectionSubscription = ref.listenManual<bool>(
-      serverSelectionRequestedProvider,
-      (previous, requested) {
-        if (requested && previous != true) {
-          unawaited(_refreshServers());
-        }
-      },
-    );
-  }
-
-  @override
   void dispose() {
-    _selectionSubscription.close();
     _listScrollController.dispose();
     super.dispose();
   }
@@ -326,24 +312,30 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 
   Future<void> _refreshServers() async {
-    _profileFutures.clear();
-    _statusFutures.clear();
-    if (!mounted) return;
-    setState(() {});
-
-    final config = ref.read(serverSelectionConfigProvider);
-    final allServers = config?.servers ?? const <ServerProfile>[];
-    final servers = allServers.length > 20
-        ? _filterServers(allServers, AppL10n.of(context))
-        : allServers;
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
     try {
-      await Future.wait<void>([
-        for (final server in servers) _profileFor(server).then<void>((_) {}),
-        for (final server in servers) _statusFor(server).then<void>((_) {}),
-      ]);
-    } catch (_) {
-      // 单台服务器探测失败不应让下拉刷新一直处于加载状态；卡片自身会
-      // 根据 FutureBuilder 的结果显示对应状态。
+      _profileFutures.clear();
+      _statusFutures.clear();
+      if (!mounted) return;
+      setState(() {});
+
+      final config = ref.read(serverSelectionConfigProvider);
+      final allServers = config?.servers ?? const <ServerProfile>[];
+      final servers = allServers.length > 20
+          ? _filterServers(allServers, AppL10n.of(context))
+          : allServers;
+      try {
+        await Future.wait<void>([
+          for (final server in servers) _profileFor(server).then<void>((_) {}),
+          for (final server in servers) _statusFor(server).then<void>((_) {}),
+        ]);
+      } catch (_) {
+        // 单台服务器探测失败不应让下拉刷新一直处于加载状态；卡片自身会
+        // 根据 FutureBuilder 的结果显示对应状态。
+      }
+    } finally {
+      _refreshInFlight = false;
     }
   }
 

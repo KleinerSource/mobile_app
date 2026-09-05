@@ -44,9 +44,7 @@ void main() {
     expect(find.text('连接到服务器'), findsOneWidget);
   });
 
-  testWidgets('连接页首次访问和返回时各刷新一次延迟，页面重建不重复探测', (
-    tester,
-  ) async {
+  testWidgets('连接页首次访问只探测一次，页面重建不重复探测', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
         {
@@ -106,14 +104,9 @@ void main() {
       tester.element(find.byType(ServerSelectionPage)),
       listen: false,
     );
-    container.read(serverSelectionRequestedProvider.notifier).state = false;
-    await tester.pump();
     container.read(serverSelectionRequestedProvider.notifier).state = true;
     await tester.pumpAndSettle();
-
-    expect(probeCount, 2);
-    await tester.pump();
-    expect(probeCount, 2);
+    expect(probeCount, 1);
   });
 
   testWidgets('创建服务器保存后返回选择器且保留用户选择的类型', (tester) async {

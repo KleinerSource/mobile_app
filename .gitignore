@@ -93,3 +93,5 @@ linux/
 findings.md
 progress.md
 task_plan.md
+release.keystore.base64
+release.keystore
