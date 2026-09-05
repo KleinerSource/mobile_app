@@ -82,7 +82,7 @@ class PreviewGestureSurface extends StatelessWidget {
         if (showHint)
           const Positioned(
             top: 12,
-            right: 48,
+            right: 12,
             child: IgnorePointer(
               child: Icon(Icons.swipe_rounded, size: 20, color: Colors.white70),
             ),
