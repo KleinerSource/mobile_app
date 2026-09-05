@@ -204,6 +204,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final percent = task.progress.clampedPercent / 100;
+    final percentLabel = task.progress.clampedPercent.toStringAsFixed(0);
     final progressValue = task.progress.total <= 0 && task.isActive
         ? null
         : percent.clamp(0.0, 1.0);
@@ -284,41 +285,65 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
             ),
             const SizedBox(height: 10),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: progressValue,
-                    minHeight: 5,
-                    borderRadius: BorderRadius.circular(8),
-                    backgroundColor: colors.divider,
-                    color: _taskColor(task),
+                Semantics(
+                  label: taskNameLabel(l, task.name),
+                  value: '$percentLabel%',
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.square(
+                        dimension: 28,
+                        child: CircularProgressIndicator(
+                          value: progressValue,
+                          strokeWidth: 2.5,
+                          color: _taskColor(task),
+                          backgroundColor: colors.divider,
+                        ),
+                      ),
+                      Text(
+                        percentLabel,
+                        style: TextStyle(
+                          color: colors.text,
+                          fontFamily: 'monospace',
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 9),
-                Text(
-                  '${task.progress.clampedPercent.toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    color: colors.text,
-                    fontFamily: 'Inter',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                const SizedBox(width: 10),
+                if (task.progress.total > 0) ...[
+                  Text(
+                    '${task.progress.completed}/${task.progress.total}',
+                    style: TextStyle(
+                      color: colors.muted,
+                      fontFamily: 'monospace',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    task.message.isEmpty
+                        ? l.taskMsgWaitingUpdate
+                        : taskMessageLabel(l, task.message),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.muted,
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      height: 1.25,
+                    ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 7),
-            Text(
-              task.message.isEmpty
-                  ? l.taskMsgWaitingUpdate
-                  : taskMessageLabel(l, task.message),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.muted,
-                fontFamily: 'Inter',
-                fontSize: 11,
-                height: 1.25,
-              ),
             ),
           ],
         ),
