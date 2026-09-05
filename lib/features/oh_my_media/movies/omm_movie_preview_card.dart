@@ -7,14 +7,18 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
-import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_scrub_controller.dart';
+import 'package:omm/shared/preview/preview_seek.dart';
+import 'package:omm/shared/preview/preview_surface.dart';
 
 /// OMM 横版影片卡片的自动预览层。
 ///
-/// 播放器和单实例协调逻辑复用 Stash；OMM 这里只启用滚动选中后的自动播放，
+/// 播放器和单实例协调逻辑复用公共预览模块；OMM 这里只启用滚动选中后的自动播放，
 /// 只在横版封面上响应横向拖动，不接管长按事件，避免与影片库现有的
 /// 长按选择手势冲突。
 class OmmMoviePreviewCard extends ConsumerStatefulWidget {
@@ -33,30 +37,33 @@ class OmmMoviePreviewCard extends ConsumerStatefulWidget {
   final MovieListItem movie;
   final String Function(String uuid) posterUrlBuilder;
   final VoidCallback onTap;
-  final StashPreviewCoordinator coordinator;
+  final PreviewCoordinator coordinator;
   final bool autoPlayPreview;
   final bool selecting;
   final bool selected;
-  final StashPreviewPlayerFactory playerFactory;
+  final PreviewPlayerFactory playerFactory;
 
   @override
   ConsumerState<OmmMoviePreviewCard> createState() =>
       _OmmMoviePreviewCardState();
 }
 
-StashPreviewPlayer _defaultOmmPreviewPlayerFactory() =>
-    MediaKitStashPreviewPlayer();
+PreviewPlayer _defaultOmmPreviewPlayerFactory() => MediaKitPreviewPlayer();
 
 class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
   late final VoidCallback _releaseForCoordinator = _releasePreview;
-  StashPreviewPlayer? _previewPlayer;
+  PreviewPlayer? _previewPlayer;
   Future<void>? _previewOpening;
   bool _previewLoading = false;
   bool _previewing = false;
-  bool _horizontalDragActive = false;
-  Offset? _pendingSeekPosition;
-  int _gestureGeneration = 0;
   int _previewGeneration = 0;
+  late final PreviewScrubController _scrubController = PreviewScrubController(
+    ensurePreview: () => _startPreview(autoplay: false, manual: true),
+    isReady: _isPreviewReady,
+    pause: _pausePreview,
+    play: _playPreview,
+    seek: _seekPreview,
+  );
 
   void _releasePreview() {
     unawaited(_stopPreview());
@@ -88,6 +95,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
   @override
   void dispose() {
+    _scrubController.dispose();
     widget.coordinator.release(_releaseForCoordinator);
     unawaited(_stopPreview(rebuild: false));
     super.dispose();
@@ -117,31 +125,18 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
   void _onHorizontalDragStart(DragStartDetails details) {
     if (widget.selecting || !_revealOrAllow()) return;
-    _horizontalDragActive = true;
-    _pendingSeekPosition = details.localPosition;
-    final gestureGeneration = ++_gestureGeneration;
-    unawaited(
-      _startPreview(autoplay: false, manual: true).then((_) async {
-        if (!mounted || gestureGeneration != _gestureGeneration) return;
-        final player = _previewPlayer;
-        if (player == null) return;
-        await _pausePreview();
-        final position = _pendingSeekPosition;
-        if (position != null) await _seekPreview(position);
-        if (!_horizontalDragActive) {
-          _pendingSeekPosition = null;
-          await _playPreview();
-        }
-      }),
-    );
+    _scrubController.start(details.localPosition);
   }
 
   void _onHorizontalDragUpdate(DragUpdateDetails details) {
-    if (!_horizontalDragActive) return;
-    _pendingSeekPosition = details.localPosition;
-    if (!_previewing || _previewLoading) return;
-    unawaited(_seekPreview(details.localPosition));
+    _scrubController.update(details.localPosition);
   }
+
+  bool _isPreviewReady() =>
+      _previewPlayer != null &&
+      _previewing &&
+      !_previewLoading &&
+      _previewOpening == null;
 
   Future<void> _seekPreview(Offset localPosition) async {
     final player = _previewPlayer;
@@ -158,20 +153,11 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
   }
 
   void _onHorizontalDragEnd(DragEndDetails details) {
-    _finishHorizontalDrag();
+    _scrubController.end();
   }
 
   void _onHorizontalDragCancel() {
-    _finishHorizontalDrag();
-  }
-
-  void _finishHorizontalDrag() {
-    if (!_horizontalDragActive) return;
-    _horizontalDragActive = false;
-    if (!_previewLoading && _previewOpening == null) {
-      _pendingSeekPosition = null;
-      unawaited(_playPreview());
-    }
+    _scrubController.cancel();
   }
 
   Future<void> _startPreview({
@@ -247,9 +233,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
   }
 
   Future<void> _stopPreview({bool rebuild = true}) async {
-    _horizontalDragActive = false;
-    _pendingSeekPosition = null;
-    ++_gestureGeneration;
+    _scrubController.reset();
     ++_previewGeneration;
     final player = _previewPlayer;
     _previewPlayer = null;
@@ -286,6 +270,13 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
       ),
     );
     final ready = _previewing && !_previewLoading;
+    final watchRecord = widget.movie.watchRecord;
+    final watchProgress = watchRecord?.progressRatio ?? 0;
+    final isMasked =
+        ref.watch(privacyShieldProvider) &&
+        !ref.watch(revealedMoviesProvider).contains(widget.movie.id);
+    final showWatchProgress =
+        !isMasked && watchRecord?.completed != true && watchProgress > 0;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
@@ -306,21 +297,21 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(18),
                 ),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                child: PreviewGestureSurface(
                   onTap: _onTap,
-                  onHorizontalDragStart: allowPreviewGesture
-                      ? _onHorizontalDragStart
+                  enabled: allowPreviewGesture,
+                  loading: _previewLoading,
+                  showHint: ready,
+                  bottomOverlay: showWatchProgress
+                      ? _OmmWatchProgressBar(
+                          value: watchProgress,
+                          color: appColors(context).accent,
+                        )
                       : null,
-                  onHorizontalDragUpdate: allowPreviewGesture
-                      ? _onHorizontalDragUpdate
-                      : null,
-                  onHorizontalDragEnd: allowPreviewGesture
-                      ? _onHorizontalDragEnd
-                      : null,
-                  onHorizontalDragCancel: allowPreviewGesture
-                      ? _onHorizontalDragCancel
-                      : null,
+                  onHorizontalDragStart: _onHorizontalDragStart,
+                  onHorizontalDragUpdate: _onHorizontalDragUpdate,
+                  onHorizontalDragEnd: _onHorizontalDragEnd,
+                  onHorizontalDragCancel: _onHorizontalDragCancel,
                   child: PrivacyMask(
                     movieId: widget.movie.id,
                     radius: 0,
@@ -333,21 +324,6 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
                 ),
               ),
             ),
-            if (_previewLoading)
-              const Positioned(
-                top: 14,
-                right: 14,
-                child: IgnorePointer(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -356,4 +332,21 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
   @override
   Widget build(BuildContext context) => _buildCard();
+}
+
+class _OmmWatchProgressBar extends StatelessWidget {
+  const _OmmWatchProgressBar({required this.value, required this.color});
+
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 3,
+    child: LinearProgressIndicator(
+      value: value.clamp(0.0, 1.0),
+      backgroundColor: Colors.black.withValues(alpha: 0.45),
+      valueColor: AlwaysStoppedAnimation(color),
+    ),
+  );
 }

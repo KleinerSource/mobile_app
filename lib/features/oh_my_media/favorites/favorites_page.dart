@@ -32,7 +32,8 @@ import 'package:omm/features/oh_my_media/lists/list_model.dart';
 import 'package:omm/features/oh_my_media/lists/lists_providers.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
-import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -93,7 +94,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Timer? _autoPreviewDebounce;
   final _previewViewportKey = GlobalKey();
   final _previewItemKeys = <int, GlobalKey>{};
-  final _previewCoordinator = StashPreviewCoordinator();
+  final _previewCoordinator = PreviewCoordinator();
   bool get _selecting => _selection.isActive;
   Set<int> get _selected => _selection.selected;
 

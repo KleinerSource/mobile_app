@@ -18,7 +18,8 @@ import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
-import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
@@ -268,7 +269,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   Timer? _autoPreviewDebounce;
   final _previewViewportKey = GlobalKey();
   final _previewItemKeys = <int, GlobalKey>{};
-  final _previewCoordinator = StashPreviewCoordinator();
+  final _previewCoordinator = PreviewCoordinator();
 
   @override
   void initState() {
@@ -327,7 +328,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     );
     final index =
         actualIndex ??
-        stashPreviewItemIndexForScroll(
+        previewItemIndexForScroll(
           scrollOffset: _scrollController.hasClients
               ? _scrollController.offset
               : 0,

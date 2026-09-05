@@ -10,13 +10,16 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/preview/preview_seek.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_visibility.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
   bool build() => false;
 }
 
-class _FakePreviewPlayer implements StashPreviewPlayer {
+class _FakePreviewPlayer implements PreviewPlayer {
   final durationNotifier = ValueNotifier(const Duration(seconds: 10));
   final positionNotifier = ValueNotifier(Duration.zero);
   String? openedUrl;
@@ -158,7 +161,7 @@ void main() {
 
   test('自动预览候选在上一张封面离开视口时切到下一张', () {
     expect(
-      stashPreviewItemIndexForScroll(
+      previewItemIndexForScroll(
         scrollOffset: 0,
         cardHeight: 200,
         itemGap: 14,
@@ -167,7 +170,7 @@ void main() {
       0,
     );
     expect(
-      stashPreviewItemIndexForScroll(
+      previewItemIndexForScroll(
         scrollOffset: 119,
         cardHeight: 200,
         itemGap: 14,
@@ -176,7 +179,7 @@ void main() {
       0,
     );
     expect(
-      stashPreviewItemIndexForScroll(
+      previewItemIndexForScroll(
         scrollOffset: 120,
         cardHeight: 200,
         itemGap: 14,
@@ -185,7 +188,7 @@ void main() {
       0,
     );
     expect(
-      stashPreviewItemIndexForScroll(
+      previewItemIndexForScroll(
         scrollOffset: 121,
         cardHeight: 200,
         itemGap: 14,
@@ -194,7 +197,7 @@ void main() {
       1,
     );
     expect(
-      stashPreviewItemIndexForScroll(
+      previewItemIndexForScroll(
         scrollOffset: 414,
         cardHeight: 200,
         itemGap: 14,
@@ -208,7 +211,7 @@ void main() {
     final player = _FakePreviewPlayer();
     await tester.pumpWidget(
       _app(
-        child: StashPreviewScope(
+        child: PreviewScope(
           child: StashSceneCard(
             item: _item(),
             urls: _urls(),
@@ -285,7 +288,7 @@ void main() {
     var autoPlay = true;
 
     Widget buildCard() => _app(
-      child: StashPreviewScope(
+      child: PreviewScope(
         child: StashSceneCard(
           item: _item(),
           urls: _urls(),
@@ -312,7 +315,7 @@ void main() {
     final player = _FakePreviewPlayer();
     await tester.pumpWidget(
       _app(
-        child: StashPreviewScope(
+        child: PreviewScope(
           child: StashSceneCard(
             item: _item(),
             urls: _urls(),

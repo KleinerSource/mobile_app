@@ -18,6 +18,8 @@ import 'package:omm/features/media_browser/widgets/media_browser_selection.dart'
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
@@ -304,15 +306,14 @@ class _MediaBrowserLibraryPageState
       double.infinity,
     );
     final coverHeight = width * 9 / 16;
-    final actualIndex = stashPreviewItemIndexForViewport(
-      items: items,
-      itemKeys: _itemKeys,
+    final actualIndex = previewItemIndexForViewportKeys(
+      itemKeys: items.map((item) => _itemKeys[item.id]),
       viewportKey: _listViewportKey,
       coverHeight: coverHeight,
     );
     final index =
         actualIndex ??
-        stashPreviewItemIndexForScroll(
+        previewItemIndexForScroll(
           scrollOffset: _scrollController.hasClients
               ? _scrollController.offset
               : 0,
@@ -543,7 +544,7 @@ class _MediaBrowserLibraryPageState
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: StashPreviewScope(
+      body: PreviewScope(
         child: PagedSelectionPopScope<MediaBrowserItem>(
           selection: _selection,
           child: GlowBackground(

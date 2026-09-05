@@ -16,6 +16,8 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
@@ -416,15 +418,14 @@ class _MediaBrowserSearchResultsState
       double.infinity,
     );
     final coverHeight = width * 9 / 16;
-    final actualIndex = stashPreviewItemIndexForViewport(
-      items: items,
-      itemKeys: _itemKeys,
+    final actualIndex = previewItemIndexForViewportKeys(
+      itemKeys: items.map((item) => _itemKeys[item.id]),
       viewportKey: _listViewportKey,
       coverHeight: coverHeight,
     );
     final index =
         actualIndex ??
-        stashPreviewItemIndexForScroll(
+        previewItemIndexForScroll(
           scrollOffset: _scrollController.hasClients
               ? _scrollController.offset
               : 0,
@@ -611,6 +612,6 @@ class _MediaBrowserSearchResultsState
         ],
       ),
     );
-    return isStash ? StashPreviewScope(child: content) : content;
+    return isStash ? PreviewScope(child: content) : content;
   }
 }

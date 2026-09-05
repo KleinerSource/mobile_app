@@ -27,7 +27,8 @@ import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
-import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
+import 'package:omm/shared/preview/preview_player.dart';
+import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
@@ -72,7 +73,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Timer? _autoPreviewDebounce;
   final _previewViewportKey = GlobalKey();
   final _previewItemKeys = <int, GlobalKey>{};
-  final _previewCoordinator = StashPreviewCoordinator();
+  final _previewCoordinator = PreviewCoordinator();
 
   late final SelectionController<int> _selection;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
@@ -167,7 +168,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     );
     final index =
         actualIndex ??
-        stashPreviewItemIndexForScroll(
+        previewItemIndexForScroll(
           scrollOffset: _scrollController.hasClients
               ? _scrollController.offset
               : 0,
