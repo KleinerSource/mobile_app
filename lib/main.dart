@@ -133,7 +133,10 @@ class OmmApp extends ConsumerWidget {
         onReady: () {
           ref.read(securityGateReadyProvider.notifier).state = true;
         },
-        child: const _AppNavigator(),
+        child: StartupUpdateGate(
+          enabled: ref.watch(securityGateReadyProvider),
+          child: const _AppNavigator(),
+        ),
       ),
     );
   }
@@ -423,28 +426,18 @@ class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
   }
 }
 
-class _AuthenticatedMediaHome extends ConsumerWidget {
+class _AuthenticatedMediaHome extends StatelessWidget {
   const _AuthenticatedMediaHome();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return StartupUpdateGate(
-      enabled: ref.watch(securityGateReadyProvider),
-      child: const MediaManagerShell(),
-    );
-  }
+  Widget build(BuildContext context) => const MediaManagerShell();
 }
 
-class _AuthenticatedFileHome extends ConsumerWidget {
+class _AuthenticatedFileHome extends StatelessWidget {
   const _AuthenticatedFileHome();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return StartupUpdateGate(
-      enabled: ref.watch(securityGateReadyProvider),
-      child: const FileManagerShell(),
-    );
-  }
+  Widget build(BuildContext context) => const FileManagerShell();
 }
 
 /// SharedPreferences 就绪前的冷启动闪屏，无法读取服务器配置，仅显示背景与

@@ -155,7 +155,7 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
   late final ProviderSubscription<String?> _repositorySubscription;
   Timer? _startTimer;
   String? _scheduledRepository;
-  String? _checkedRepository;
+  bool _startupCheckConsumed = false;
   bool _checking = false;
   String? _failureRepository;
   int _failureRetryCount = 0;
@@ -195,17 +195,21 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
 
   void _scheduleStart(String? repositoryUrl) {
     final repository = repositoryUrl?.trim();
-    if (!widget.enabled || repository == null || repository.isEmpty) {
+    if (!widget.enabled) {
       _startTimer?.cancel();
       _startTimer = null;
       _scheduledRepository = null;
       return;
     }
-    if (_checking ||
-        _checkedRepository == repository ||
-        _scheduledRepository == repository) {
+    if (_startupCheckConsumed) return;
+    _startupCheckConsumed = true;
+    if (repository == null || repository.isEmpty) {
+      _startTimer?.cancel();
+      _startTimer = null;
+      _scheduledRepository = null;
       return;
     }
+    if (_checking || _scheduledRepository == repository) return;
     if (_failureRepository != repository) {
       _failureRepository = repository;
       _failureRetryCount = 0;
@@ -254,7 +258,6 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
         if (completed || !mounted) break;
       }
       if (completed) {
-        _checkedRepository = repository;
         _failureRetryCount = 0;
       }
     } finally {
@@ -262,16 +265,6 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
       if (_scheduledRepository == repository) {
         _scheduledRepository = null;
       }
-    }
-
-    final currentRepository = ref.read(updateRepositoryUrlProvider)?.trim();
-    if (mounted &&
-        widget.enabled &&
-        currentRepository != null &&
-        currentRepository.isNotEmpty &&
-        currentRepository != repository) {
-      _scheduleStart(currentRepository);
-      return;
     }
 
     if (!completed &&
@@ -283,7 +276,10 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
       _startTimer = Timer(widget.retryAfterFailure, () {
         _startTimer = null;
         if (!mounted) return;
-        _scheduleStart(repository);
+        if (ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
+          return;
+        }
+        unawaited(_checkForUpdate(repository));
       });
     }
   }

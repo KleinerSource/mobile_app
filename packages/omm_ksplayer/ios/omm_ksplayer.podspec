@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version          = '0.1.0'
   s.summary          = 'KSPlayer engine bridge for omm.'
   s.description      = 'Typed Flutter bridge around KSPlayer for omm.'
-  s.homepage         = 'https://github.com/KleinerSource/mobile_app'
+  s.homepage         = 'https://github.com/example'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'omm' => 'dev@oh-my-media.local' }
   s.source           = { :path => '.' }

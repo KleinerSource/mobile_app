@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version          = '0.1.0'
   s.summary          = 'Native PCM output for single-deck DJ scratching.'
   s.description      = 'Bidirectional PCM cursor shared by normal and scratch playback handoff.'
-  s.homepage         = 'https://github.com/KleinerSource/mobile_app'
+  s.homepage         = 'https://github.com/example'
   s.license          = { :type => 'MIT' }
   s.author           = { 'omm' => 'dev@oh-my-media.local' }
   s.source           = { :path => '.' }

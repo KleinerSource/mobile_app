@@ -27,7 +27,7 @@ void _main_0() {
   testWidgets('鉴权与安全锁就绪后才执行启动更新检查', (tester) async {
     SharedPreferences.setMockInitialValues({
       UpdateSettingsRepository.githubRepositoryKey:
-          'https://github.com/example/mobile_app',
+          'https://github.com/example/app',
     });
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
@@ -65,7 +65,7 @@ void _main_0() {
     expect(checkCount, 1);
   });
 
-  testWidgets('更新源在启动门控创建后就绪仍会自动检查', (tester) async {
+  testWidgets('启动时未配置更新源，之后配置也不会自动检查', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
@@ -99,7 +99,50 @@ void _main_0() {
 
     await container
         .read(updateRepositoryUrlProvider.notifier)
-        .save('https://github.com/example/mobile_app');
+        .save('https://github.com/example/app');
+    await tester.pumpAndSettle();
+    expect(checkCount, 0);
+  });
+
+  testWidgets('启动检查完成后更新源变化不会再次自动检查', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      UpdateSettingsRepository.githubRepositoryKey:
+          'https://github.com/example/app',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+    var checkCount = 0;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: StartupUpdateGate(
+            enabled: true,
+            startDelay: Duration.zero,
+            retryDelays: const [Duration.zero],
+            retryAfterFailure: const Duration(hours: 1),
+            checkForUpdate: (_, __) async {
+              checkCount++;
+              return true;
+            },
+            child: const Scaffold(body: Text('home')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(checkCount, 1);
+
+    await container
+        .read(updateRepositoryUrlProvider.notifier)
+        .save('https://github.com/example/another_app');
     await tester.pumpAndSettle();
     expect(checkCount, 1);
   });
