@@ -33,10 +33,6 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     final totalCount = meta.total > 0 ? meta.total : tasks.length;
     final activeCount =
         meta.stats['running'] ?? tasks.where((task) => task.isActive).length;
-    final groups = <String, List<TaskItem>>{};
-    for (final task in visible) {
-      groups.putIfAbsent(task.name, () => <TaskItem>[]).add(task);
-    }
 
     return Scaffold(
       backgroundColor: colors.bg,
@@ -63,21 +59,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                   if (visible.isEmpty)
                     _buildEmpty(colors)
                   else
-                    for (final entry in groups.entries) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(2, 10, 2, 8),
-                        child: Text(
-                          '${taskNameLabel(l, entry.key)}  ·  ${entry.value.length}',
-                          style: TextStyle(
-                            color: colors.muted,
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      for (final task in entry.value) _buildTaskCard(task),
-                    ],
+                    _buildTaskTable(colors, visible),
                   if (meta.hasMore)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -202,7 +184,23 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     );
   }
 
-  Widget _buildTaskCard(TaskItem task) {
+  Widget _buildTaskTable(AppColors colors, List<TaskItem> tasks) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: settingsCardDecoration(context),
+      child: Column(
+        children: [
+          for (var index = 0; index < tasks.length; index++) ...[
+            if (index > 0)
+              Divider(height: 1, thickness: 1, color: colors.divider),
+            _buildTaskRow(tasks[index]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskRow(TaskItem task) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final percent = task.progress.clampedPercent / 100;
@@ -219,120 +217,88 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
         ? task.movieFileName
         : task.fileName;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: _TaskSwipeCard(
-        key: ValueKey(task.key),
-        actions: _taskActions(task, colors, busy),
-        onTap: canOpenDetail ? () => _openMovieDetail(task) : null,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: settingsCardDecoration(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return _TaskSwipeCard(
+      key: ValueKey(task.key),
+      actions: _taskActions(task, colors, busy),
+      onTap: canOpenDetail ? () => _openMovieDetail(task) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Row(
+          children: [
+            Icon(_taskIcon(task), size: 20, color: _taskColor(task)),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _taskColor(task).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Icon(
-                      _taskIcon(task),
-                      size: 19,
-                      color: _taskColor(task),
+                  Text(
+                    taskNameLabel(l, task.name),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.text,
+                      fontFamily: 'Inter',
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                taskNameLabel(l, task.name),
-                                style: TextStyle(
-                                  color: colors.text,
-                                  fontFamily: 'Inter',
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            StatusPill(status: task.status),
-                            if (canOpenDetail) ...[
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 18,
-                                color: colors.muted,
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (title.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.muted,
-                              fontFamily: 'Inter',
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: progressValue,
-                minHeight: 5,
-                borderRadius: BorderRadius.circular(8),
-                backgroundColor: colors.divider,
-                color: _taskColor(task),
-              ),
-              const SizedBox(height: 7),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      task.message.isEmpty
-                          ? l.taskMsgWaitingUpdate
+                  if (title.isNotEmpty || task.message.isNotEmpty)
+                    Text(
+                      title.isNotEmpty
+                          ? title
                           : taskMessageLabel(l, task.message),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: colors.muted,
                         fontFamily: 'Inter',
-                        fontSize: 11,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 48,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    '${task.progress.clampedPercent.toStringAsFixed(1)}%',
+                    '${task.progress.clampedPercent.toStringAsFixed(0)}%',
                     style: TextStyle(
                       color: colors.text,
                       fontFamily: 'Inter',
-                      fontSize: 11,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: progressValue,
+                    minHeight: 3,
+                    borderRadius: BorderRadius.circular(8),
+                    backgroundColor: colors.divider,
+                    color: _taskColor(task),
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 64,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: StatusPill(
+                  status: task.status,
+                  horizontalPadding: 6,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
