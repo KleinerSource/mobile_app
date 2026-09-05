@@ -37,7 +37,9 @@ class DbOnlineMovieCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
-    final imageValue = movie.thumbUrl ?? movie.coverUrl;
+    final imageValue = landscape
+        ? movie.coverUrl ?? movie.thumbUrl
+        : movie.thumbUrl ?? movie.coverUrl;
     final imageUrl = imageValue == null || config == null
         ? null
         : resolveServerUrl(config!, imageValue);
