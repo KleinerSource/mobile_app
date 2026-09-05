@@ -113,6 +113,49 @@ Widget _app({
 );
 
 void main() {
+  test('横向封面位置转换为预览时间并限制在有效范围', () {
+    expect(
+      previewSeekPositionForLocalOffset(
+        localPosition: const Offset(-10, 0),
+        width: 356,
+        duration: const Duration(seconds: 10),
+      ),
+      Duration.zero,
+    );
+    expect(
+      previewSeekPositionForLocalOffset(
+        localPosition: const Offset(178, 0),
+        width: 356,
+        duration: const Duration(seconds: 10),
+      ),
+      const Duration(seconds: 5),
+    );
+    expect(
+      previewSeekPositionForLocalOffset(
+        localPosition: const Offset(400, 0),
+        width: 356,
+        duration: const Duration(seconds: 10),
+      ),
+      const Duration(seconds: 10),
+    );
+    expect(
+      previewSeekPositionForLocalOffset(
+        localPosition: Offset.zero,
+        width: 0,
+        duration: const Duration(seconds: 10),
+      ),
+      isNull,
+    );
+    expect(
+      previewSeekPositionForLocalOffset(
+        localPosition: Offset.zero,
+        width: 356,
+        duration: Duration.zero,
+      ),
+      isNull,
+    );
+  });
+
   test('自动预览候选在上一张封面离开视口时切到下一张', () {
     expect(
       stashPreviewItemIndexForScroll(
@@ -265,7 +308,7 @@ void main() {
     expect(player.disposeCount, 1);
   });
 
-  testWidgets('长按横向拖动时暂停预览，松手后继续播放', (tester) async {
+  testWidgets('直接横向拖动时暂停预览，松手后继续播放', (tester) async {
     final player = _FakePreviewPlayer();
     await tester.pumpWidget(
       _app(
@@ -285,13 +328,14 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getTopLeft(find.byType(StashSceneCard)) + const Offset(22, 100),
     );
-    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
     expect(player.openedUrl, 'http://stash.test:9999/previews/scene-1.mp4');
     expect(player.openedHeaders, {'ApiKey': 'stash-key'});
     expect(player.openedAutoplay, isFalse);
     expect(player.pauseCount, 1);
 
-    await gesture.moveBy(const Offset(156, 0));
+    await gesture.moveBy(const Offset(136, 0));
     await tester.pump();
     expect(player.lastSeek!.inMilliseconds, closeTo(5000, 100));
     expect(player.pauseCount, 1);

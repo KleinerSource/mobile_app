@@ -9,12 +9,14 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/shared/movie_card.dart';
 
 /// OMM 横版影片卡片的自动预览层。
 ///
 /// 播放器和单实例协调逻辑复用 Stash；OMM 这里只启用滚动选中后的自动播放，
-/// 不接管长按事件，避免与影片库现有的拖选手势冲突。
+/// 只在横版封面上响应横向拖动，不接管长按事件，避免与影片库现有的
+/// 长按选择手势冲突。
 class OmmMoviePreviewCard extends ConsumerStatefulWidget {
   const OmmMoviePreviewCard({
     super.key,
@@ -48,8 +50,12 @@ StashPreviewPlayer _defaultOmmPreviewPlayerFactory() =>
 class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
   late final VoidCallback _releaseForCoordinator = _releasePreview;
   StashPreviewPlayer? _previewPlayer;
+  Future<void>? _previewOpening;
   bool _previewLoading = false;
   bool _previewing = false;
+  bool _horizontalDragActive = false;
+  Offset? _pendingSeekPosition;
+  int _gestureGeneration = 0;
   int _previewGeneration = 0;
 
   void _releasePreview() {
@@ -95,10 +101,93 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
     }
   }
 
-  Future<void> _startPreview() async {
-    if (_previewPlayer != null || !widget.autoPlayPreview || widget.selecting) {
+  bool _revealOrAllow() {
+    final shielded = ref.read(privacyShieldProvider);
+    final revealed = ref.read(revealedMoviesProvider).contains(widget.movie.id);
+    if (shielded && !revealed) {
+      ref.read(revealedMoviesProvider.notifier).reveal(widget.movie.id);
+      return false;
+    }
+    return true;
+  }
+
+  void _onTap() {
+    if (_revealOrAllow()) widget.onTap();
+  }
+
+  void _onHorizontalDragStart(DragStartDetails details) {
+    if (widget.selecting || !_revealOrAllow()) return;
+    _horizontalDragActive = true;
+    _pendingSeekPosition = details.localPosition;
+    final gestureGeneration = ++_gestureGeneration;
+    unawaited(
+      _startPreview(autoplay: false, manual: true).then((_) async {
+        if (!mounted || gestureGeneration != _gestureGeneration) return;
+        final player = _previewPlayer;
+        if (player == null) return;
+        await _pausePreview();
+        final position = _pendingSeekPosition;
+        if (position != null) await _seekPreview(position);
+        if (!_horizontalDragActive) {
+          _pendingSeekPosition = null;
+          await _playPreview();
+        }
+      }),
+    );
+  }
+
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    if (!_horizontalDragActive) return;
+    _pendingSeekPosition = details.localPosition;
+    if (!_previewing || _previewLoading) return;
+    unawaited(_seekPreview(details.localPosition));
+  }
+
+  Future<void> _seekPreview(Offset localPosition) async {
+    final player = _previewPlayer;
+    if (player == null) return;
+    final target = previewSeekPositionForLocalOffset(
+      localPosition: localPosition,
+      width: _lastCoverWidth,
+      duration: player.duration.value,
+    );
+    if (target == null) return;
+    try {
+      await player.seek(target);
+    } catch (_) {}
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    _finishHorizontalDrag();
+  }
+
+  void _onHorizontalDragCancel() {
+    _finishHorizontalDrag();
+  }
+
+  void _finishHorizontalDrag() {
+    if (!_horizontalDragActive) return;
+    _horizontalDragActive = false;
+    if (!_previewLoading && _previewOpening == null) {
+      _pendingSeekPosition = null;
+      unawaited(_playPreview());
+    }
+  }
+
+  Future<void> _startPreview({
+    bool autoplay = true,
+    bool manual = false,
+  }) async {
+    if (_previewPlayer != null) {
+      final opening = _previewOpening;
+      if (opening != null) {
+        try {
+          await opening;
+        } catch (_) {}
+      }
       return;
     }
+    if ((!widget.autoPlayPreview && !manual) || widget.selecting) return;
     final rawUrl = widget.movie.previewVideoUrl?.trim() ?? '';
     if (rawUrl.isEmpty) return;
 
@@ -116,10 +205,13 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
       });
     }
 
+    Future<void>? openFuture;
     try {
       final token = await ref.read(authSessionRepositoryProvider).accessToken();
       final url = resolveProtectedUrl(config!, rawUrl, token);
-      await player.open(url);
+      openFuture = player.open(url, autoplay: autoplay);
+      _previewOpening = openFuture;
+      await openFuture;
       if (!mounted ||
           generation != _previewGeneration ||
           player != _previewPlayer) {
@@ -133,10 +225,31 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
       } else {
         await player.dispose();
       }
+    } finally {
+      if (identical(_previewOpening, openFuture)) _previewOpening = null;
     }
   }
 
+  Future<void> _pausePreview() async {
+    final player = _previewPlayer;
+    if (player == null) return;
+    try {
+      await player.pause();
+    } catch (_) {}
+  }
+
+  Future<void> _playPreview() async {
+    final player = _previewPlayer;
+    if (player == null) return;
+    try {
+      await player.play();
+    } catch (_) {}
+  }
+
   Future<void> _stopPreview({bool rebuild = true}) async {
+    _horizontalDragActive = false;
+    _pendingSeekPosition = null;
+    ++_gestureGeneration;
     ++_previewGeneration;
     final player = _previewPlayer;
     _previewPlayer = null;
@@ -156,6 +269,8 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
     } catch (_) {}
   }
 
+  double _lastCoverWidth = 1;
+
   Widget _buildCard() {
     final player = _previewPlayer;
     final card = AnimatedOpacity(
@@ -170,35 +285,54 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
         onTap: widget.onTap,
       ),
     );
-    if (player == null) return card;
-
     final ready = _previewing && !_previewLoading;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width - 44;
+        _lastCoverWidth = width;
         final coverHeight = width * 9 / 16;
+        final allowPreviewGesture = !widget.selecting;
         return Stack(
           children: [
             card,
-            if (ready)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: coverHeight,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(18),
-                  ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: coverHeight,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(18),
+                ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _onTap,
+                  onHorizontalDragStart: allowPreviewGesture
+                      ? _onHorizontalDragStart
+                      : null,
+                  onHorizontalDragUpdate: allowPreviewGesture
+                      ? _onHorizontalDragUpdate
+                      : null,
+                  onHorizontalDragEnd: allowPreviewGesture
+                      ? _onHorizontalDragEnd
+                      : null,
+                  onHorizontalDragCancel: allowPreviewGesture
+                      ? _onHorizontalDragCancel
+                      : null,
                   child: PrivacyMask(
                     movieId: widget.movie.id,
                     radius: 0,
-                    child: IgnorePointer(child: player.buildVideo()),
+                    child: IgnorePointer(
+                      child: ready && player != null
+                          ? player.buildVideo()
+                          : const SizedBox.expand(),
+                    ),
                   ),
                 ),
               ),
+            ),
             if (_previewLoading)
               const Positioned(
                 top: 14,

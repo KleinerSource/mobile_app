@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
@@ -128,6 +127,19 @@ int? previewItemIndexForViewportKeys({
     if (hidden <= coverHeight * switchOutFraction) return index;
   }
   return null;
+}
+
+/// 将横版封面上的横向拖动位置转换为预览视频时间。
+///
+/// 返回值为空时表示播放器还没有有效时长或封面宽度不可用。
+Duration? previewSeekPositionForLocalOffset({
+  required Offset localPosition,
+  required double width,
+  required Duration duration,
+}) {
+  if (!width.isFinite || width <= 0 || duration <= Duration.zero) return null;
+  final fraction = (localPosition.dx / width).clamp(0.0, 1.0);
+  return Duration(microseconds: (duration.inMicroseconds * fraction).round());
 }
 
 /// 默认使用 media_kit 的 Stash 短视频播放器。
@@ -283,7 +295,7 @@ class _StashPreviewInherited extends InheritedWidget {
       coordinator != oldWidget.coordinator;
 }
 
-/// Stash Scene 横向卡片：全宽 16:9 封面，长按后可拖动预览视频时间轴。
+/// Stash Scene 横向卡片：全宽 16:9 封面，横向拖动可调整预览视频时间轴。
 class StashSceneCard extends ConsumerStatefulWidget {
   const StashSceneCard({
     super.key,
@@ -303,7 +315,7 @@ class StashSceneCard extends ConsumerStatefulWidget {
   final StashPreviewCoordinator? coordinator;
   final StashPreviewPlayerFactory playerFactory;
 
-  /// 页面滚动选中该条目时自动播放短预览；手动长按仍可在 false 时启动。
+  /// 页面滚动选中该条目时自动播放短预览；横向拖动也可手动启动预览。
   final bool autoPlayPreview;
 
   @override
@@ -320,7 +332,8 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
   Future<void>? _previewOpening;
   bool _previewing = false;
   bool _previewLoading = false;
-  bool _longPressActive = false;
+  bool _horizontalDragActive = false;
+  Offset? _pendingSeekPosition;
   int _gestureGeneration = 0;
   int _previewGeneration = 0;
 
@@ -385,21 +398,31 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
     if (_revealOrAllow()) widget.onTap();
   }
 
-  void _onLongPressStart(LongPressStartDetails details) {
+  void _onHorizontalDragStart(DragStartDetails details) {
     if (!_revealOrAllow()) return;
-    _longPressActive = true;
+    _horizontalDragActive = true;
+    _pendingSeekPosition = details.localPosition;
     final gestureGeneration = ++_gestureGeneration;
-    AppHaptics.light();
     unawaited(
-      _startPreview(autoplay: false).then((_) {
+      _startPreview(autoplay: false, manual: true).then((_) async {
         if (!mounted || gestureGeneration != _gestureGeneration) return;
-        if (_previewPlayer == null) return;
-        unawaited((_longPressActive ? _pausePreview() : _playPreview()));
+        final player = _previewPlayer;
+        if (player == null) return;
+        await _pausePreview();
+        final position = _pendingSeekPosition;
+        if (position != null) await _seekPreview(position);
+        if (!_horizontalDragActive) {
+          _pendingSeekPosition = null;
+          await _playPreview();
+        }
       }),
     );
   }
 
-  Future<void> _startPreview({bool autoplay = true}) async {
+  Future<void> _startPreview({
+    bool autoplay = true,
+    bool manual = false,
+  }) async {
     if (_previewing) {
       final opening = _previewOpening;
       if (opening != null) {
@@ -409,6 +432,7 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
       }
       return;
     }
+    if (!manual && !widget.autoPlayPreview) return;
     final url = widget.urls.preview(widget.item.previewPath);
     if (url == null || url.isEmpty) return;
 
@@ -465,40 +489,47 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
     } catch (_) {}
   }
 
-  void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    if (!_horizontalDragActive) return;
+    _pendingSeekPosition = details.localPosition;
     if (!_previewing || _previewLoading) return;
-    final offset = details.offsetFromOrigin;
-    if (offset.dx.abs() < 10 || offset.dx.abs() <= offset.dy.abs()) return;
+    unawaited(_seekPreview(details.localPosition));
+  }
+
+  Future<void> _seekPreview(Offset localPosition) async {
     final player = _previewPlayer;
     if (player == null) return;
-    final duration = player.duration.value;
-    if (duration <= Duration.zero) return;
-    final width = widget.width <= 0 ? 1 : widget.width;
-    final fraction = (details.localPosition.dx / width).clamp(0.0, 1.0);
-    final target = Duration(
-      microseconds: (duration.inMicroseconds * fraction).round(),
+    final target = previewSeekPositionForLocalOffset(
+      localPosition: localPosition,
+      width: widget.width,
+      duration: player.duration.value,
     );
-    unawaited(player.seek(target));
+    if (target == null) return;
+    try {
+      await player.seek(target);
+    } catch (_) {}
   }
 
-  void _onLongPressEnd(LongPressEndDetails details) {
-    _finishLongPress();
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    _finishHorizontalDrag();
   }
 
-  void _onLongPressCancel() {
-    _finishLongPress();
+  void _onHorizontalDragCancel() {
+    _finishHorizontalDrag();
   }
 
-  void _finishLongPress() {
-    if (!_longPressActive) return;
-    _longPressActive = false;
+  void _finishHorizontalDrag() {
+    if (!_horizontalDragActive) return;
+    _horizontalDragActive = false;
     if (!_previewLoading && _previewOpening == null) {
+      _pendingSeekPosition = null;
       unawaited(_playPreview());
     }
   }
 
   Future<void> _stopPreview({bool rebuild = true}) async {
-    _longPressActive = false;
+    _horizontalDragActive = false;
+    _pendingSeekPosition = null;
     ++_gestureGeneration;
     ++_previewGeneration;
     final player = _previewPlayer;
@@ -558,12 +589,7 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
                     right: 0,
                     bottom: 0,
                     child: _ProgressBar(
-                      value: previewReady
-                          ? _ratio(
-                              previewPlayer.position.value,
-                              previewPlayer.duration.value,
-                            )
-                          : _itemProgress(widget.item),
+                      value: _itemProgress(widget.item),
                       color: colors.accent,
                     ),
                   ),
@@ -571,10 +597,10 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: _onTap,
-                      onLongPressStart: _onLongPressStart,
-                      onLongPressMoveUpdate: _onLongPressMoveUpdate,
-                      onLongPressEnd: _onLongPressEnd,
-                      onLongPressCancel: _onLongPressCancel,
+                      onHorizontalDragStart: _onHorizontalDragStart,
+                      onHorizontalDragUpdate: _onHorizontalDragUpdate,
+                      onHorizontalDragEnd: _onHorizontalDragEnd,
+                      onHorizontalDragCancel: _onHorizontalDragCancel,
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -908,9 +934,4 @@ double _itemProgress(MediaBrowserItem item) {
   final seconds = mediaBrowserTicksToSeconds(duration);
   if (seconds <= 0) return 0;
   return (item.userData.resumeSeconds / seconds).clamp(0.0, 1.0);
-}
-
-double _ratio(Duration position, Duration duration) {
-  if (duration <= Duration.zero) return 0;
-  return (position.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0);
 }
