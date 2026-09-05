@@ -179,69 +179,79 @@ class VideoPlayerView extends ConsumerWidget {
             child: AnimatedOpacity(
               opacity: controlsVisible ? 1 : 0,
               duration: const Duration(milliseconds: 200),
-              child: VideoPlayerControls(
-                controller: controller,
-                previewSourceUri: pictureInPictureUrl,
-                previewSourceHeaders: pictureInPictureHeaders,
-                quality: quality,
-                qualityOptions: decision.qualityOptions,
-                showQualityButton: !isDirectPlayback,
-                onQualityChanged: onQualityChanged,
-                subtitleTracks: capabilities.textSubtitles
-                    ? decision.subtitleTracks
-                    : const [],
-                selectedSubtitle: selectedSubtitle,
-                onSubtitleChanged: onSubtitleChanged,
-                onOpenSubtitleSettings: onOpenSubtitleSettings,
-                audioTracks: capabilities.audioTracks
-                    ? decision.audioTracks
-                    : const [],
-                onAudioChanged: onAudioChanged,
-                decodeStatuses: decodeStatuses,
-                hapticProgressBar: settings.hapticProgressBar,
-                showPlayPauseButton: settings.showPlayPauseButton,
-                showSeekButtons: settings.showSeekButtons,
-                showSpeedButton:
-                    settings.showSpeedButton && capabilities.playbackRate,
-                showPipButton:
-                    settings.showPipButton && capabilities.pictureInPicture,
-                showOrientationButton: settings.showOrientationButton,
-                showMediaSwitchButton: settings.showMediaSwitchButton,
-                playbackRate: playbackRate,
-                onPictureInPicture: onPictureInPicture,
-                onPreviousMedia: onPreviousMedia,
-                onNextMedia: onNextMedia,
-                isLandscape: isLandscape,
-                onOrientationToggle: onOrientationToggle,
-                onTogglePlay: onTogglePlay,
-                onSeekBackward: onSeekBackward,
-                onSeekForward: onSeekForward,
-                onRateChanged: onRateChanged,
-                onSeek: controller.seek,
-                onInteraction: onInteraction,
-                onExit: onExit,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 8,
-          top: 0,
-          bottom: 0,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              child: IconButton(
-                tooltip: orientationSensorUnlocked
-                    ? AppL10n.of(context).playerOrientationLockGyroscope
-                    : AppL10n.of(context).playerOrientationUnlockGyroscope,
-                onPressed: onOrientationSensorLockToggle,
-                color: Colors.white,
-                icon: Icon(
-                  orientationSensorUnlocked ? Icons.lock_open : Icons.lock,
-                ),
+              child: Stack(
+                children: [
+                  VideoPlayerControls(
+                    controller: controller,
+                    previewSourceUri: pictureInPictureUrl,
+                    previewSourceHeaders: pictureInPictureHeaders,
+                    quality: quality,
+                    qualityOptions: decision.qualityOptions,
+                    showQualityButton: !isDirectPlayback,
+                    onQualityChanged: onQualityChanged,
+                    subtitleTracks: capabilities.textSubtitles
+                        ? decision.subtitleTracks
+                        : const [],
+                    selectedSubtitle: selectedSubtitle,
+                    onSubtitleChanged: onSubtitleChanged,
+                    onOpenSubtitleSettings: onOpenSubtitleSettings,
+                    audioTracks: capabilities.audioTracks
+                        ? decision.audioTracks
+                        : const [],
+                    onAudioChanged: onAudioChanged,
+                    decodeStatuses: decodeStatuses,
+                    hapticProgressBar: settings.hapticProgressBar,
+                    showPlayPauseButton: settings.showPlayPauseButton,
+                    showSeekButtons: settings.showSeekButtons,
+                    showSpeedButton:
+                        settings.showSpeedButton && capabilities.playbackRate,
+                    showPipButton:
+                        settings.showPipButton && capabilities.pictureInPicture,
+                    showOrientationButton: settings.showOrientationButton,
+                    showMediaSwitchButton: settings.showMediaSwitchButton,
+                    playbackRate: playbackRate,
+                    onPictureInPicture: onPictureInPicture,
+                    onPreviousMedia: onPreviousMedia,
+                    onNextMedia: onNextMedia,
+                    isLandscape: isLandscape,
+                    onOrientationToggle: onOrientationToggle,
+                    onTogglePlay: onTogglePlay,
+                    onSeekBackward: onSeekBackward,
+                    onSeekForward: onSeekForward,
+                    onRateChanged: onRateChanged,
+                    onSeek: controller.seek,
+                    onInteraction: onInteraction,
+                    onExit: onExit,
+                  ),
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Material(
+                        color: Colors.black54,
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          tooltip: orientationSensorUnlocked
+                              ? AppL10n.of(
+                                  context,
+                                ).playerOrientationLockGyroscope
+                              : AppL10n.of(
+                                  context,
+                                ).playerOrientationUnlockGyroscope,
+                          onPressed: onOrientationSensorLockToggle,
+                          color: Colors.white,
+                          icon: Icon(
+                            orientationSensorUnlocked
+                                ? Icons.lock_open
+                                : Icons.lock,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
