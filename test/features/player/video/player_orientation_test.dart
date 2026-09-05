@@ -6,7 +6,7 @@ import 'package:omm/features/player/common/player_settings.dart';
 
 void main() {
   group('player orientation mapping', () {
-    test('Android keeps physical camera-side mapping', () {
+    test('Android maps physical camera side to Flutter orientation', () {
       expect(
         playerLandscapeOrientationForPlatform(
           PlayerLandscapeSide.cameraLeft,
@@ -23,7 +23,7 @@ void main() {
       );
     });
 
-    test('iOS reverses the platform orientation enum', () {
+    test('iOS reverses horizontal physical camera-side mapping', () {
       expect(
         playerLandscapeOrientationForPlatform(
           PlayerLandscapeSide.cameraLeft,
@@ -42,18 +42,10 @@ void main() {
   });
 
   group('playerOrientationFromAccelerometer', () {
-    test('recognizes both landscape sides and ignores portrait', () {
+    test('Android recognizes all four device orientations', () {
       expect(
         playerOrientationFromAccelerometer(
-          0.2,
-          -9.7,
-          platform: TargetPlatform.android,
-        ),
-        isNull,
-      );
-      expect(
-        playerOrientationFromAccelerometer(
-          -9.7,
+          9.7,
           0.2,
           platform: TargetPlatform.android,
         ),
@@ -61,47 +53,70 @@ void main() {
       );
       expect(
         playerOrientationFromAccelerometer(
-          9.7,
+          -9.7,
           0.2,
           platform: TargetPlatform.android,
         ),
         DeviceOrientation.landscapeRight,
       );
+      expect(
+        playerOrientationFromAccelerometer(
+          0.2,
+          9.7,
+          platform: TargetPlatform.android,
+        ),
+        DeviceOrientation.portraitUp,
+      );
+      expect(
+        playerOrientationFromAccelerometer(
+          0.2,
+          -9.7,
+          platform: TargetPlatform.android,
+        ),
+        DeviceOrientation.portraitDown,
+      );
     });
 
-    test('ignores flat, diagonal, inverted and invalid readings', () {
+    test('iOS reverses only horizontal sensor targets', () {
       expect(
         playerOrientationFromAccelerometer(
-          1,
-          1,
-          platform: TargetPlatform.android,
+          9.7,
+          0.2,
+          platform: TargetPlatform.iOS,
         ),
-        isNull,
+        DeviceOrientation.landscapeRight,
       );
       expect(
         playerOrientationFromAccelerometer(
-          7,
-          7,
-          platform: TargetPlatform.android,
+          -9.7,
+          0.2,
+          platform: TargetPlatform.iOS,
         ),
-        isNull,
+        DeviceOrientation.landscapeLeft,
       );
       expect(
         playerOrientationFromAccelerometer(
-          0,
-          9.8,
-          platform: TargetPlatform.android,
+          0.2,
+          9.7,
+          platform: TargetPlatform.iOS,
         ),
-        isNull,
+        DeviceOrientation.portraitUp,
       );
       expect(
         playerOrientationFromAccelerometer(
-          double.nan,
-          0,
-          platform: TargetPlatform.android,
+          0.2,
+          -9.7,
+          platform: TargetPlatform.iOS,
         ),
-        isNull,
+        DeviceOrientation.portraitDown,
       );
+    });
+
+    test('ignores flat, diagonal and invalid readings', () {
+      expect(playerOrientationFromAccelerometer(1, 1), isNull);
+      expect(playerOrientationFromAccelerometer(7, 7), isNull);
+      expect(playerOrientationFromAccelerometer(0.2, 0.2), isNull);
+      expect(playerOrientationFromAccelerometer(double.nan, 0), isNull);
     });
   });
 }

@@ -37,6 +37,7 @@ void main() {
     );
     expect(addCard, findsOneWidget);
     expect(tester.getSize(addCard), const Size(354, 124));
+    expect(tester.getTopLeft(addCard).dx, 40);
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
 

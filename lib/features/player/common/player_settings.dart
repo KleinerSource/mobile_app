@@ -22,7 +22,7 @@ enum PlayerLandscapeSide {
   static PlayerLandscapeSide fromValue(String? value) {
     return values.firstWhere(
       (item) => item.value == value,
-      orElse: () => PlayerLandscapeSide.cameraRight,
+      orElse: () => PlayerLandscapeSide.cameraLeft,
     );
   }
 }
@@ -88,8 +88,9 @@ enum PlayerPreloadSize {
 class PlayerSettings {
   const PlayerSettings({
     this.resumeFromLastPosition = true,
-    this.landscapeSide = PlayerLandscapeSide.cameraRight,
+    this.landscapeSide = PlayerLandscapeSide.cameraLeft,
     this.entryOrientation = PlayerEntryOrientation.forceLandscape,
+    this.orientationSensorUnlocked = true,
     this.preloadSize = PlayerPreloadSize.mb250,
     this.iosEngine = PlaybackEngineKind.libmpv,
     this.debugMode = false,
@@ -115,6 +116,7 @@ class PlayerSettings {
   final bool resumeFromLastPosition;
   final PlayerLandscapeSide landscapeSide;
   final PlayerEntryOrientation entryOrientation;
+  final bool orientationSensorUnlocked;
   final PlayerPreloadSize preloadSize;
   final PlaybackEngineKind iosEngine;
   final bool debugMode;
@@ -140,6 +142,7 @@ class PlayerSettings {
     bool? resumeFromLastPosition,
     PlayerLandscapeSide? landscapeSide,
     PlayerEntryOrientation? entryOrientation,
+    bool? orientationSensorUnlocked,
     PlayerPreloadSize? preloadSize,
     PlaybackEngineKind? iosEngine,
     bool? debugMode,
@@ -166,6 +169,8 @@ class PlayerSettings {
           resumeFromLastPosition ?? this.resumeFromLastPosition,
       landscapeSide: landscapeSide ?? this.landscapeSide,
       entryOrientation: entryOrientation ?? this.entryOrientation,
+      orientationSensorUnlocked:
+          orientationSensorUnlocked ?? this.orientationSensorUnlocked,
       preloadSize: preloadSize ?? this.preloadSize,
       iosEngine: iosEngine ?? this.iosEngine,
       debugMode: debugMode ?? this.debugMode,
@@ -199,6 +204,8 @@ class PlayerSettingsRepository {
   static const _resumeKey = 'player.resume_from_last_position';
   static const _landscapeSideKey = 'player.landscape_side';
   static const _entryOrientationKey = 'player.entry_orientation';
+  static const _orientationSensorUnlockedKey =
+      'player.orientation_sensor_unlocked';
   static const _preloadSizeKey = 'player.preload_size';
   static const _debugModeKey = 'player.debug_mode';
   static const _performanceMonitorEnabledKey =
@@ -231,6 +238,8 @@ class PlayerSettingsRepository {
       entryOrientation: PlayerEntryOrientation.fromValue(
         _prefs.getString(_entryOrientationKey),
       ),
+      orientationSensorUnlocked:
+          _prefs.getBool(_orientationSensorUnlockedKey) ?? true,
       preloadSize: PlayerPreloadSize.fromValue(
         _prefs.getString(_preloadSizeKey),
       ),
@@ -264,6 +273,10 @@ class PlayerSettingsRepository {
       _prefs.setBool(_resumeKey, settings.resumeFromLastPosition),
       _prefs.setString(_landscapeSideKey, settings.landscapeSide.value),
       _prefs.setString(_entryOrientationKey, settings.entryOrientation.value),
+      _prefs.setBool(
+        _orientationSensorUnlockedKey,
+        settings.orientationSensorUnlocked,
+      ),
       _prefs.setString(_preloadSizeKey, settings.preloadSize.value),
       _prefs.setString(
         PlayerEnginePreference.storageKey,

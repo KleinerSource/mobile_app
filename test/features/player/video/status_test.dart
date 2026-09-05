@@ -171,8 +171,9 @@ void _main_2() {
     final settings = PlayerSettingsRepository(prefs).load();
 
     expect(settings.resumeFromLastPosition, isTrue);
-    expect(settings.landscapeSide, PlayerLandscapeSide.cameraRight);
+    expect(settings.landscapeSide, PlayerLandscapeSide.cameraLeft);
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
+    expect(settings.orientationSensorUnlocked, isTrue);
     expect(settings.preloadSize, PlayerPreloadSize.mb250);
     expect(settings.iosEngine, PlaybackEngineKind.libmpv);
     expect(settings.debugMode, isFalse);
@@ -194,15 +195,12 @@ void _main_2() {
     expect(settings.showMediaSwitchButton, isTrue);
   });
 
-  test('设备横屏方向未知值回退为摄像头在右侧', () async {
+  test('设备横屏方向未知值回退为摄像头在左侧', () async {
     expect(
       const PlayerSettings().landscapeSide,
-      PlayerLandscapeSide.cameraRight,
+      PlayerLandscapeSide.cameraLeft,
     );
-    expect(
-      PlayerLandscapeSide.fromValue(null),
-      PlayerLandscapeSide.cameraRight,
-    );
+    expect(PlayerLandscapeSide.fromValue(null), PlayerLandscapeSide.cameraLeft);
     SharedPreferences.setMockInitialValues({
       'player.landscape_side': 'unsupported',
     });
@@ -210,7 +208,7 @@ void _main_2() {
 
     expect(
       PlayerSettingsRepository(prefs).load().landscapeSide,
-      PlayerLandscapeSide.cameraRight,
+      PlayerLandscapeSide.cameraLeft,
     );
   });
 
@@ -255,6 +253,7 @@ void _main_2() {
       resumeFromLastPosition: false,
       landscapeSide: PlayerLandscapeSide.cameraRight,
       entryOrientation: PlayerEntryOrientation.forcePortrait,
+      orientationSensorUnlocked: false,
       preloadSize: PlayerPreloadSize.mb500,
       iosEngine: PlaybackEngineKind.ksPlayer,
       debugMode: true,
@@ -282,6 +281,7 @@ void _main_2() {
     expect(actual.resumeFromLastPosition, isFalse);
     expect(actual.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(actual.entryOrientation, PlayerEntryOrientation.forcePortrait);
+    expect(actual.orientationSensorUnlocked, isFalse);
     expect(actual.preloadSize, PlayerPreloadSize.mb500);
     expect(actual.iosEngine, PlaybackEngineKind.ksPlayer);
     expect(actual.debugMode, isTrue);

@@ -334,7 +334,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   DeviceOrientation? _pendingOrientationSensorTarget;
   bool _orientationSensorRequestInFlight = false;
   DateTime? _orientationSensorLastAppliedAt;
-  bool _orientationSensorUnlocked = false;
+  bool _orientationSensorUnlocked = true;
   int _orientationSensorRequestGeneration = 0;
   // 每个播放页的 Host 都是新建的。首次打开没有旧媒体可清理，尤其是
   // iOS Pigeon stop 在尚未 attach 原生视图时可能等待较久，不能阻塞直链起播。
@@ -356,6 +356,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       'engine=${widget.engineKind?.value ?? 'default'}',
     );
     final settings = ref.read(playerSettingsProvider);
+    _orientationSensorUnlocked = settings.orientationSensorUnlocked;
     _host = createVideoPlayerSession(
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
@@ -393,6 +394,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         MediaQuery.of(context).orientation == Orientation.landscape,
     };
     _orientationInitialized = true;
+    if (_orientationSensorUnlocked) _startOrientationSensor();
   }
 
   Future<void> _applyEntryOrientation(PlayerSettings settings) async {
@@ -417,7 +419,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         (defaultTargetPlatform != TargetPlatform.android &&
             defaultTargetPlatform != TargetPlatform.iOS) ||
         !_orientationSensorUnlocked ||
-        !_isLandscape ||
         _isLeaving) {
       return;
     }
@@ -447,16 +448,13 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   void _onOrientationSensorEvent(AccelerometerEvent event) {
-    if (_isLeaving ||
-        !mounted ||
-        !_orientationSensorUnlocked ||
-        !_isLandscape) {
+    if (_isLeaving || !mounted || !_orientationSensorUnlocked) {
       _orientationSensorCandidate = null;
       _orientationSensorCandidateSamples = 0;
       return;
     }
     final target = playerOrientationFromAccelerometer(event.x, event.y);
-    if (target == null || target == DeviceOrientation.portraitUp) {
+    if (target == null) {
       _orientationSensorCandidate = null;
       _orientationSensorCandidateSamples = 0;
       return;
@@ -495,10 +493,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       final requestGeneration = _orientationSensorRequestGeneration;
       try {
         await SystemChrome.setPreferredOrientations([target]);
-        if (!mounted ||
-            _isLeaving ||
-            !_orientationSensorUnlocked ||
-            !_isLandscape) {
+        if (!mounted || _isLeaving || !_orientationSensorUnlocked) {
           _pendingOrientationSensorTarget = null;
           break;
         }
@@ -506,6 +501,11 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           continue;
         }
         _orientationSensorApplied = target;
+        setState(() {
+          _isLandscape =
+              target == DeviceOrientation.landscapeLeft ||
+              target == DeviceOrientation.landscapeRight;
+        });
       } catch (_) {}
     }
     _orientationSensorRequestInFlight = false;
@@ -2180,20 +2180,20 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
 
   Future<void> _toggleOrientation() async {
     final nextIsLandscape = !_isLandscape;
+    _stopOrientationSensor();
     setState(() => _isLandscape = nextIsLandscape);
-    if (!nextIsLandscape) _stopOrientationSensor();
     try {
       final side = ref.read(playerSettingsProvider).landscapeSide;
       await SystemChrome.setPreferredOrientations(
         nextIsLandscape ? [_landscapeOrientation(side)] : _portraitOrientations,
       );
-      if (nextIsLandscape && _orientationSensorUnlocked && mounted) {
+      if (_orientationSensorUnlocked && mounted) {
         _startOrientationSensor();
       }
     } catch (_) {
       if (mounted) {
         setState(() => _isLandscape = !nextIsLandscape);
-        if (!nextIsLandscape && _orientationSensorUnlocked) {
+        if (_orientationSensorUnlocked && mounted) {
           _startOrientationSensor();
         }
       }
@@ -2204,6 +2204,15 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     if (!mounted) return;
     final unlocked = !_orientationSensorUnlocked;
     setState(() => _orientationSensorUnlocked = unlocked);
+    unawaited(
+      ref
+          .read(playerSettingsProvider.notifier)
+          .update(
+            ref
+                .read(playerSettingsProvider)
+                .copyWith(orientationSensorUnlocked: unlocked),
+          ),
+    );
     if (unlocked) {
       _startOrientationSensor();
     } else {

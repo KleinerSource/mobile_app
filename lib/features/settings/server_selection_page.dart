@@ -241,7 +241,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                         (constraints.maxWidth -
                                             _ServerSelectionMetrics.cardGap) /
                                         2;
-                                    return Center(
+                                    return Align(
+                                      alignment: Alignment.centerLeft,
                                       child: SizedBox(
                                         width: cardWidth,
                                         child: _AddServerCard(
