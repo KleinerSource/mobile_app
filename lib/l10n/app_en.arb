@@ -669,6 +669,8 @@
   "playerSettingDoubleTapEdgesSub": "Double tap edges",
   "playerSettingDoubleTapGroup": "Double tap",
   "playerSettingEntryOrientation": "Entry orientation",
+  "playerOrientationLockGyroscope": "Lock rotation",
+  "playerOrientationUnlockGyroscope": "Unlock rotation",
   "playerSettingHapticGroup": "Haptic",
   "playerSettingHapticLongPress": "Haptic long press",
   "playerSettingHapticProgressBar": "Haptic progress bar",

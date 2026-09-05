@@ -308,10 +308,10 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
       Theme.of(context).brightness,
     );
     return PopScope<void>(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_exitPlayer());
-      },
+      // 播放器没有需要确认的未保存状态，系统返回手势直接弹出当前路由。
+      // 不在 onPopInvokedWithResult 中手动 pop，避免嵌套 Navigator 的根路由
+      // 被误弹出而导致 Android 直接退出应用。
+      canPop: true,
       child: AudioPlayerTheme(
         child: Scaffold(
           backgroundColor: background,

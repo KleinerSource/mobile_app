@@ -669,6 +669,8 @@
   "playerSettingDoubleTapEdgesSub": "左侧快退,右侧快进",
   "playerSettingDoubleTapGroup": "双击手势",
   "playerSettingEntryOrientation": "进入播放器屏幕方向",
+  "playerOrientationLockGyroscope": "旋转锁定",
+  "playerOrientationUnlockGyroscope": "解除锁定",
   "playerSettingHapticGroup": "震动反馈",
   "playerSettingHapticLongPress": "长按屏幕",
   "playerSettingHapticProgressBar": "拖动进度条",

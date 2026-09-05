@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../core/api/dio_factory.dart';
@@ -32,6 +34,7 @@ import 'player_device_stats.dart';
 import 'player_error_disposition.dart';
 import 'player_error_view.dart';
 import '../common/player_overlay_indicators.dart';
+import '../common/player_orientation.dart';
 import '../common/player_queue.dart';
 import '../common/player_launch_gate.dart';
 import 'player_resume.dart';
@@ -255,6 +258,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   static const List<DeviceOrientation> _portraitOrientations = [
     DeviceOrientation.portraitUp,
   ];
+  static const _orientationSensorSampleCount = 4;
+  static const _orientationSensorCooldown = Duration(milliseconds: 800);
 
   late final PlayerSessionController _host;
   late final FilePlaybackProgressRepository _filePlaybackProgress;
@@ -322,6 +327,15 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   bool _completionHandled = false;
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
+  StreamSubscription<AccelerometerEvent>? _orientationSensorSubscription;
+  DeviceOrientation? _orientationSensorCandidate;
+  int _orientationSensorCandidateSamples = 0;
+  DeviceOrientation? _orientationSensorApplied;
+  DeviceOrientation? _pendingOrientationSensorTarget;
+  bool _orientationSensorRequestInFlight = false;
+  DateTime? _orientationSensorLastAppliedAt;
+  bool _orientationSensorUnlocked = false;
+  int _orientationSensorRequestGeneration = 0;
   // 每个播放页的 Host 都是新建的。首次打开没有旧媒体可清理，尤其是
   // iOS Pigeon stop 在尚未 attach 原生视图时可能等待较久，不能阻塞直链起播。
   bool _playerHasBeenOpened = false;
@@ -351,7 +365,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     );
     _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
+    unawaited(_applyEntryOrientation(settings));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     // 播放器内隐藏系统音量条 (手势调节走自绘指示器)，物理按键改动的音量
     // 通过监听系统广播在播放器内显示同样的音量条。
@@ -394,9 +408,107 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   DeviceOrientation _landscapeOrientation(PlayerLandscapeSide side) {
-    return side == PlayerLandscapeSide.cameraLeft
-        ? DeviceOrientation.landscapeLeft
-        : DeviceOrientation.landscapeRight;
+    return playerLandscapeOrientationForPlatform(side);
+  }
+
+  void _startOrientationSensor() {
+    if (_orientationSensorSubscription != null ||
+        kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS) ||
+        !_orientationSensorUnlocked ||
+        !_isLandscape ||
+        _isLeaving) {
+      return;
+    }
+    _orientationSensorCandidate = null;
+    _orientationSensorCandidateSamples = 0;
+    _orientationSensorSubscription =
+        accelerometerEventStream(
+          samplingPeriod: const Duration(milliseconds: 100),
+        ).listen(
+          _onOrientationSensorEvent,
+          onError: (_) {
+            _orientationSensorSubscription = null;
+          },
+        );
+  }
+
+  void _stopOrientationSensor() {
+    _orientationSensorRequestGeneration++;
+    final subscription = _orientationSensorSubscription;
+    _orientationSensorSubscription = null;
+    _orientationSensorCandidate = null;
+    _orientationSensorCandidateSamples = 0;
+    _orientationSensorApplied = null;
+    _pendingOrientationSensorTarget = null;
+    _orientationSensorLastAppliedAt = null;
+    if (subscription != null) unawaited(subscription.cancel());
+  }
+
+  void _onOrientationSensorEvent(AccelerometerEvent event) {
+    if (_isLeaving ||
+        !mounted ||
+        !_orientationSensorUnlocked ||
+        !_isLandscape) {
+      _orientationSensorCandidate = null;
+      _orientationSensorCandidateSamples = 0;
+      return;
+    }
+    final target = playerOrientationFromAccelerometer(event.x, event.y);
+    if (target == null || target == DeviceOrientation.portraitUp) {
+      _orientationSensorCandidate = null;
+      _orientationSensorCandidateSamples = 0;
+      return;
+    }
+    if (_orientationSensorCandidate != target) {
+      _orientationSensorCandidate = target;
+      _orientationSensorCandidateSamples = 1;
+      return;
+    }
+    _orientationSensorCandidateSamples++;
+    if (_orientationSensorCandidateSamples < _orientationSensorSampleCount) {
+      return;
+    }
+    _orientationSensorCandidate = null;
+    _orientationSensorCandidateSamples = 0;
+    if (_orientationSensorApplied == target) return;
+    final now = DateTime.now();
+    final lastAppliedAt = _orientationSensorLastAppliedAt;
+    if (lastAppliedAt != null &&
+        now.difference(lastAppliedAt) < _orientationSensorCooldown) {
+      return;
+    }
+    _orientationSensorLastAppliedAt = now;
+    _pendingOrientationSensorTarget = target;
+    _orientationSensorRequestGeneration++;
+    if (_orientationSensorRequestInFlight) return;
+    _orientationSensorRequestInFlight = true;
+    unawaited(_drainOrientationSensorRequests());
+  }
+
+  Future<void> _drainOrientationSensorRequests() async {
+    while (!_isLeaving) {
+      final target = _pendingOrientationSensorTarget;
+      _pendingOrientationSensorTarget = null;
+      if (target == null) break;
+      final requestGeneration = _orientationSensorRequestGeneration;
+      try {
+        await SystemChrome.setPreferredOrientations([target]);
+        if (!mounted ||
+            _isLeaving ||
+            !_orientationSensorUnlocked ||
+            !_isLandscape) {
+          _pendingOrientationSensorTarget = null;
+          break;
+        }
+        if (requestGeneration != _orientationSensorRequestGeneration) {
+          continue;
+        }
+        _orientationSensorApplied = target;
+      } catch (_) {}
+    }
+    _orientationSensorRequestInFlight = false;
   }
 
   Future<void> _initLevels() async {
@@ -448,6 +560,13 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isLeaving) return;
+    if (state == AppLifecycleState.resumed) {
+      _startOrientationSensor();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _stopOrientationSensor();
+    }
     if ((state == AppLifecycleState.inactive ||
             state == AppLifecycleState.paused) &&
         !_pictureInPictureRequesting &&
@@ -493,7 +612,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     _rateChangeGraceTimer?.cancel();
     _onRateBoostEnd();
     _indicatorTimer?.cancel();
-    unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
+    _stopOrientationSensor();
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
@@ -2062,13 +2181,33 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   Future<void> _toggleOrientation() async {
     final nextIsLandscape = !_isLandscape;
     setState(() => _isLandscape = nextIsLandscape);
+    if (!nextIsLandscape) _stopOrientationSensor();
     try {
       final side = ref.read(playerSettingsProvider).landscapeSide;
       await SystemChrome.setPreferredOrientations(
         nextIsLandscape ? [_landscapeOrientation(side)] : _portraitOrientations,
       );
+      if (nextIsLandscape && _orientationSensorUnlocked && mounted) {
+        _startOrientationSensor();
+      }
     } catch (_) {
-      if (mounted) setState(() => _isLandscape = !nextIsLandscape);
+      if (mounted) {
+        setState(() => _isLandscape = !nextIsLandscape);
+        if (!nextIsLandscape && _orientationSensorUnlocked) {
+          _startOrientationSensor();
+        }
+      }
+    }
+  }
+
+  void _toggleOrientationSensorLock() {
+    if (!mounted) return;
+    final unlocked = !_orientationSensorUnlocked;
+    setState(() => _orientationSensorUnlocked = unlocked);
+    if (unlocked) {
+      _startOrientationSensor();
+    } else {
+      _stopOrientationSensor();
     }
   }
 
@@ -2168,12 +2307,21 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     }
   }
 
+  Future<void> _restorePortraitOrientation() async {
+    try {
+      await SystemChrome.setPreferredOrientations(_portraitOrientations);
+    } catch (_) {}
+  }
+
   Future<void> _exitPlayer() async {
     if (_isLeaving) return;
     _isLeaving = true;
     _loadGeneration++;
+    // 先停止传感器并恢复竖屏，确保上一层页面显示时已经是正确方向。
+    _stopOrientationSensor();
     _hideTimer?.cancel();
     _onRateBoostEnd();
+    await _restorePortraitOrientation();
     // 先完成进度上报,让返回页面能准确判断是否需要刷新继续观看区块。
     await _reportProgress();
     unawaited(_stopPlayer());
@@ -2186,6 +2334,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   @override
   Widget build(BuildContext context) {
     return PopScope<void>(
+      // 返回前必须先恢复竖屏，否则路由会先以横屏退出，上一层页面再异步旋转。
+      // 拦截系统返回键和返回手势，让它们与播放器退出按钮走同一流程。
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_exitPlayer());
@@ -2278,6 +2428,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           ? () => unawaited(_switchMedia(widget.queueIndex + 1))
           : null,
       onOrientationToggle: () => unawaited(_toggleOrientation()),
+      orientationSensorUnlocked: _orientationSensorUnlocked,
+      onOrientationSensorLockToggle: _toggleOrientationSensorLock,
       onTogglePlay: _togglePlay,
       onSeekBackward: () => _onDoubleTapSeek(-10),
       onSeekForward: () => _onDoubleTapSeek(10),

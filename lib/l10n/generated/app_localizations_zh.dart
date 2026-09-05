@@ -1918,6 +1918,12 @@ class AppL10nZh extends AppL10n {
   String get playerSettingEntryOrientation => '进入播放器屏幕方向';
 
   @override
+  String get playerOrientationLockGyroscope => '旋转锁定';
+
+  @override
+  String get playerOrientationUnlockGyroscope => '解除锁定';
+
+  @override
   String get playerSettingHapticGroup => '震动反馈';
 
   @override

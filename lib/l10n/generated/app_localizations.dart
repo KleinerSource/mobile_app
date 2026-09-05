@@ -3691,6 +3691,18 @@ abstract class AppL10n {
   /// **'进入播放器屏幕方向'**
   String get playerSettingEntryOrientation;
 
+  /// No description provided for @playerOrientationLockGyroscope.
+  ///
+  /// In zh, this message translates to:
+  /// **'旋转锁定'**
+  String get playerOrientationLockGyroscope;
+
+  /// No description provided for @playerOrientationUnlockGyroscope.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除锁定'**
+  String get playerOrientationUnlockGyroscope;
+
   /// No description provided for @playerSettingHapticGroup.
   ///
   /// In zh, this message translates to:

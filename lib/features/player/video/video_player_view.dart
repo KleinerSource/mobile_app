@@ -55,6 +55,8 @@ class VideoPlayerView extends ConsumerWidget {
     required this.onPreviousMedia,
     required this.onNextMedia,
     required this.onOrientationToggle,
+    required this.orientationSensorUnlocked,
+    required this.onOrientationSensorLockToggle,
     required this.onTogglePlay,
     required this.onSeekBackward,
     required this.onSeekForward,
@@ -99,6 +101,8 @@ class VideoPlayerView extends ConsumerWidget {
   final VoidCallback? onPreviousMedia;
   final VoidCallback? onNextMedia;
   final VoidCallback onOrientationToggle;
+  final bool orientationSensorUnlocked;
+  final VoidCallback onOrientationSensorLockToggle;
   final VoidCallback onTogglePlay;
   final VoidCallback onSeekBackward;
   final VoidCallback onSeekForward;
@@ -216,6 +220,28 @@ class VideoPlayerView extends ConsumerWidget {
                 onSeek: controller.seek,
                 onInteraction: onInteraction,
                 onExit: onExit,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 8,
+          top: 0,
+          bottom: 0,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Material(
+              color: Colors.black54,
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: orientationSensorUnlocked
+                    ? AppL10n.of(context).playerOrientationLockGyroscope
+                    : AppL10n.of(context).playerOrientationUnlockGyroscope,
+                onPressed: onOrientationSensorLockToggle,
+                color: Colors.white,
+                icon: Icon(
+                  orientationSensorUnlocked ? Icons.lock_open : Icons.lock,
+                ),
               ),
             ),
           ),

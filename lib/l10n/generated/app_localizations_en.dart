@@ -1951,6 +1951,12 @@ class AppL10nEn extends AppL10n {
   String get playerSettingEntryOrientation => 'Entry orientation';
 
   @override
+  String get playerOrientationLockGyroscope => 'Lock rotation';
+
+  @override
+  String get playerOrientationUnlockGyroscope => 'Unlock rotation';
+
+  @override
   String get playerSettingHapticGroup => 'Haptic';
 
   @override
