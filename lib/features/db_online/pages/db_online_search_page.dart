@@ -54,10 +54,21 @@ extension on DbOnlineSearchType {
 }
 
 class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
+  static const _viewModeKey = 'db_online.search.view_mode.v1';
+
   final _controller = TextEditingController();
   String _submittedQuery = '';
   DbOnlineSearchType _searchType = DbOnlineSearchType.list;
   int _searchSerial = 0;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
+  }
 
   @override
   void dispose() {
@@ -95,6 +106,12 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
     });
   }
 
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -108,12 +125,26 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text('DBONLINE', style: AppText.eyebrow(context)),
-                  const SizedBox(height: 3),
-                  Text(l.searchFind, style: AppText.pageTitle(context)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('DBONLINE', style: AppText.eyebrow(context)),
+                        const SizedBox(height: 3),
+                        Text(l.searchFind, style: AppText.pageTitle(context)),
+                      ],
+                    ),
+                  ),
+                  if (_searchType == DbOnlineSearchType.list) ...[
+                    const SizedBox(width: 8),
+                    MediaViewModeToggle(
+                      mode: _viewMode,
+                      onChanged: (mode) => unawaited(_setViewMode(mode)),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -195,6 +226,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                       DbOnlineSearchType.list => _DbOnlineSearchResults(
                         key: ValueKey('list:$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,
+                        viewMode: _viewMode,
                       ),
                       DbOnlineSearchType.actor => _DbOnlineActorSearchResults(
                         key: ValueKey('actor:$_submittedQuery:$_searchSerial'),
@@ -239,9 +271,14 @@ class _DbOnlineSearchEmptyHint extends StatelessWidget {
 }
 
 class _DbOnlineSearchResults extends ConsumerStatefulWidget {
-  const _DbOnlineSearchResults({super.key, required this.query});
+  const _DbOnlineSearchResults({
+    super.key,
+    required this.query,
+    required this.viewMode,
+  });
 
   final String query;
+  final MediaViewMode viewMode;
 
   @override
   ConsumerState<_DbOnlineSearchResults> createState() =>
@@ -251,20 +288,15 @@ class _DbOnlineSearchResults extends ConsumerStatefulWidget {
 class _DbOnlineSearchResultsState
     extends ConsumerState<_DbOnlineSearchResults> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'db_online.search.view_mode.v1';
 
   final _pagingController = PagingController<int, DbOnlineMovie>(
     firstPageKey: 1,
   );
   final _scrollController = ScrollController();
-  MediaViewMode _viewMode = MediaViewMode.portrait;
 
   @override
   void initState() {
     super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
     _pagingController.addPageRequestListener(_fetchPage);
   }
 
@@ -313,18 +345,12 @@ class _DbOnlineSearchResultsState
     return 'number:${movie.number.trim()}';
   }
 
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
-  }
-
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(serverConfigProvider);
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
-    final isPortrait = _viewMode == MediaViewMode.portrait;
+    final isPortrait = widget.viewMode == MediaViewMode.portrait;
 
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
       itemBuilder: (context, movie, _) {
@@ -333,11 +359,11 @@ class _DbOnlineSearchResultsState
           movie: movie,
           config: config,
           width: isPortrait ? itemWidth : width - 44,
-          landscape: _viewMode == MediaViewMode.landscape,
-          compact: _viewMode == MediaViewMode.list,
+          landscape: widget.viewMode == MediaViewMode.landscape,
+          compact: widget.viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
-        return _viewMode == MediaViewMode.landscape
+        return widget.viewMode == MediaViewMode.landscape
             ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
             : card;
       },
@@ -367,18 +393,6 @@ class _DbOnlineSearchResultsState
       controller: _scrollController,
       primary: false,
       slivers: [
-        SliverToBoxAdapter(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-              child: MediaViewModeToggle(
-                mode: _viewMode,
-                onChanged: (mode) => unawaited(_setViewMode(mode)),
-              ),
-            ),
-          ),
-        ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
           sliver: isPortrait

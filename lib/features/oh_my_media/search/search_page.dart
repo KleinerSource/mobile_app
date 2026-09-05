@@ -82,17 +82,29 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    AppL10n.of(context).searchTitle.toUpperCase(),
-                    style: AppText.eyebrow(context),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppL10n.of(context).searchTitle.toUpperCase(),
+                          style: AppText.eyebrow(context),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          AppL10n.of(context).searchFind,
+                          style: AppText.pageTitle(context),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    AppL10n.of(context).searchFind,
-                    style: AppText.pageTitle(context),
+                  const SizedBox(width: 8),
+                  MediaViewModeToggle(
+                    mode: _viewMode,
+                    onChanged: (mode) => unawaited(_setViewMode(mode)),
                   ),
                 ],
               ),
@@ -162,16 +174,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     Icon(Icons.search, size: 18, color: c.muted),
                     const SizedBox(width: 14),
                   ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: MediaViewModeToggle(
-                  mode: _viewMode,
-                  onChanged: (mode) => unawaited(_setViewMode(mode)),
                 ),
               ),
             ),

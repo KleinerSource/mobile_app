@@ -40,9 +40,20 @@ class MediaBrowserSearchPage extends ConsumerStatefulWidget {
 
 class _MediaBrowserSearchPageState
     extends ConsumerState<MediaBrowserSearchPage> {
+  static const _viewModeKey = 'media_browser.search.view_mode.v1';
+
   final _controller = TextEditingController();
   String _submittedQuery = '';
   int _searchSerial = 0;
+  MediaViewMode _viewMode = MediaViewMode.portrait;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewMode = mediaViewModeFromPreference(
+      ref.read(sharedPrefsProvider).getString(_viewModeKey),
+    );
+  }
 
   @override
   void dispose() {
@@ -71,10 +82,18 @@ class _MediaBrowserSearchPageState
     });
   }
 
+  Future<void> _setViewMode(MediaViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
+    final isStash =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
 
     // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
@@ -88,15 +107,30 @@ class _MediaBrowserSearchPageState
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      ref.watch(mediaBrowserConfigProvider)?.brandLabel ?? '',
-                      style: AppText.eyebrow(context),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ref.watch(mediaBrowserConfigProvider)?.brandLabel ??
+                                '',
+                            style: AppText.eyebrow(context),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(l.searchFind, style: AppText.pageTitle(context)),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(l.searchFind, style: AppText.pageTitle(context)),
+                    if (!isStash) ...[
+                      const SizedBox(width: 8),
+                      MediaViewModeToggle(
+                        mode: _viewMode,
+                        onChanged: (mode) => unawaited(_setViewMode(mode)),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -170,6 +204,7 @@ class _MediaBrowserSearchPageState
                     : _MediaBrowserSearchResults(
                         key: ValueKey('$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,
+                        viewMode: _viewMode,
                       ),
               ),
             ],
@@ -205,9 +240,14 @@ class _MediaBrowserSearchEmptyHint extends StatelessWidget {
 }
 
 class _MediaBrowserSearchResults extends ConsumerStatefulWidget {
-  const _MediaBrowserSearchResults({super.key, required this.query});
+  const _MediaBrowserSearchResults({
+    super.key,
+    required this.query,
+    required this.viewMode,
+  });
 
   final String query;
+  final MediaViewMode viewMode;
 
   @override
   ConsumerState<_MediaBrowserSearchResults> createState() =>
@@ -217,7 +257,6 @@ class _MediaBrowserSearchResults extends ConsumerStatefulWidget {
 class _MediaBrowserSearchResultsState
     extends ConsumerState<_MediaBrowserSearchResults> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'media_browser.search.view_mode.v1';
 
   bool get _isStash =>
       ref.read(mediaBrowserConfigProvider)?.project == ServerProject.stash;
@@ -231,7 +270,6 @@ class _MediaBrowserSearchResultsState
   final _scrollController = ScrollController();
   late final PagedSelectionController<MediaBrowserItem> _selection;
   bool _batchBusy = false;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   String? _autoPreviewId;
   bool _autoPreviewUpdateScheduled = false;
   final _listViewportKey = GlobalKey();
@@ -242,9 +280,6 @@ class _MediaBrowserSearchResultsState
     super.initState();
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
     _pagingController.addPageRequestListener(_fetchPage);
     _scrollController.addListener(_scheduleAutoPreviewUpdate);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -263,12 +298,6 @@ class _MediaBrowserSearchResultsState
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
-  }
-
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   Future<void> _openItem(MediaBrowserItem item) async {
@@ -415,8 +444,8 @@ class _MediaBrowserSearchResultsState
         ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
-    final isPortrait = _viewMode == MediaViewMode.portrait;
-    final isLandscape = _viewMode == MediaViewMode.landscape;
+    final isPortrait = widget.viewMode == MediaViewMode.portrait;
+    final isLandscape = widget.viewMode == MediaViewMode.landscape;
     final content = PagedSelectionPopScope<MediaBrowserItem>(
       selection: _selection,
       child: Stack(
@@ -432,19 +461,6 @@ class _MediaBrowserSearchResultsState
               controller: _scrollController,
               primary: false,
               slivers: [
-                if (!isStash)
-                  SliverToBoxAdapter(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                        child: MediaViewModeToggle(
-                          mode: _viewMode,
-                          onChanged: (mode) => unawaited(_setViewMode(mode)),
-                        ),
-                      ),
-                    ),
-                  ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
                   sliver: urls.maybeWhen(
