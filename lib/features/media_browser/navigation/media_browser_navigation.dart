@@ -8,6 +8,9 @@ import 'package:omm/features/media_browser/pages/media_browser_album_detail_page
 import 'package:omm/features/media_browser/pages/media_browser_movie_detail_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_series_detail_page.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_playback.dart';
+import 'package:omm/shared/single_flight_gate.dart';
+
+final _mediaBrowserItemOpenGate = SingleFlightGate();
 
 /// 打开 Emby/Jellyfin 条目详情。
 ///
@@ -26,15 +29,17 @@ Future<void> openMediaBrowserItem(
     await openMediaBrowserAudioItem(context, ref, item: item);
     return;
   }
-  await Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(
-      builder: (_) => item.isSeries
-          ? MediaBrowserSeriesDetailPage(seriesId: id)
-          : item.isMusicAlbum
-          ? MediaBrowserAlbumDetailPage(albumId: id)
-          : MediaBrowserMovieDetailPage(itemId: id),
-    ),
-  );
+  await _mediaBrowserItemOpenGate.run(() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => item.isSeries
+            ? MediaBrowserSeriesDetailPage(seriesId: id)
+            : item.isMusicAlbum
+            ? MediaBrowserAlbumDetailPage(albumId: id)
+            : MediaBrowserMovieDetailPage(itemId: id),
+      ),
+    );
+  });
 }
 
 /// 与页面按钮保持一致的非阻塞导航调用。

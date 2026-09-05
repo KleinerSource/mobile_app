@@ -18,6 +18,9 @@ import 'package:omm/features/player/common/player_queue.dart';
 import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
+import 'package:omm/shared/single_flight_gate.dart';
+
+final _mediaBrowserVideoLaunchGate = SingleFlightGate();
 
 /// 打开 Emby/Jellyfin 条目播放。
 ///
@@ -25,6 +28,30 @@ import 'package:omm/features/player/video/video_player_page.dart';
 /// PlaybackInfo 返回的 HLS 转码地址。开播上报 Sessions/Playing，退出时
 /// 通过播放页的进度回调上报 Stopped，让服务器记住「继续观看」位置。
 Future<void> openMediaBrowserPlayback(
+  BuildContext context,
+  WidgetRef ref, {
+  required MediaBrowserItem item,
+  bool transcode = false,
+  String? mediaSourceId,
+  MediaBrowserVideoPart? part,
+  bool playAllParts = false,
+  PlaybackEngineKind? engineKind,
+}) {
+  return _mediaBrowserVideoLaunchGate.run(
+    () => _openMediaBrowserPlayback(
+      context,
+      ref,
+      item: item,
+      transcode: transcode,
+      mediaSourceId: mediaSourceId,
+      part: part,
+      playAllParts: playAllParts,
+      engineKind: engineKind,
+    ),
+  );
+}
+
+Future<void> _openMediaBrowserPlayback(
   BuildContext context,
   WidgetRef ref, {
   required MediaBrowserItem item,
@@ -235,22 +262,24 @@ Future<void> openMediaBrowserPlaybackWithEnginePicker(
   MediaBrowserVideoPart? part,
   bool playAllParts = false,
 }) async {
-  if (!playbackEnginePickerEnabled) return;
-  final engineKind = await pickPlaybackEngine(
-    context,
-    ref.read(playerSettingsProvider).iosEngine,
-  );
-  if (engineKind == null || !context.mounted) return;
-  await openMediaBrowserPlayback(
-    context,
-    ref,
-    item: item,
-    transcode: transcode,
-    mediaSourceId: mediaSourceId,
-    part: part,
-    playAllParts: playAllParts,
-    engineKind: engineKind,
-  );
+  await _mediaBrowserVideoLaunchGate.run(() async {
+    if (!playbackEnginePickerEnabled) return;
+    final engineKind = await pickPlaybackEngine(
+      context,
+      ref.read(playerSettingsProvider).iosEngine,
+    );
+    if (engineKind == null || !context.mounted) return;
+    await _openMediaBrowserPlayback(
+      context,
+      ref,
+      item: item,
+      transcode: transcode,
+      mediaSourceId: mediaSourceId,
+      part: part,
+      playAllParts: playAllParts,
+      engineKind: engineKind,
+    );
+  });
 }
 
 String _partPlaybackTitle(MediaBrowserItem item, int partNumber) {

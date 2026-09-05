@@ -89,11 +89,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                   ),
                   const SizedBox(width: 8),
                   SettingsAddButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const LibraryEditorPage(),
-                      ),
-                    ),
+                    onPressed: () => LibraryEditorPage.open(context),
                   ),
                 ],
               ),
@@ -489,11 +485,7 @@ class _LibraryCard extends ConsumerWidget {
               libraryName: library.name,
               taskId: scan.taskId,
             )
-          : () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => LibraryEditorPage(library: library),
-              ),
-            ),
+          : () => LibraryEditorPage.open(context, library: library),
       child: Container(
         padding: const EdgeInsets.all(16),
         // 分组连排行：透明背景，由外层分组容器提供表面；

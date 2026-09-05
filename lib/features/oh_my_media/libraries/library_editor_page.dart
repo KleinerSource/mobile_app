@@ -8,6 +8,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/shared/single_flight_gate.dart';
 import 'libraries_providers.dart';
 
 /// 媒体库编辑器
@@ -19,6 +20,18 @@ class LibraryEditorPage extends ConsumerStatefulWidget {
 
   /// 为 null 时新建; 非空时编辑
   final LibraryItem? library;
+
+  static final _openGate = SingleFlightGate();
+
+  static Future<void> open(BuildContext context, {LibraryItem? library}) {
+    return _openGate.run(() async {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => LibraryEditorPage(library: library),
+        ),
+      );
+    });
+  }
 
   @override
   ConsumerState<LibraryEditorPage> createState() => _LibraryEditorPageState();

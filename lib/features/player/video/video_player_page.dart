@@ -33,6 +33,7 @@ import 'player_error_disposition.dart';
 import 'player_error_view.dart';
 import '../common/player_overlay_indicators.dart';
 import '../common/player_queue.dart';
+import '../common/player_launch_gate.dart';
 import 'player_resume.dart';
 import '../common/player_settings.dart';
 import '../common/player_session_controller.dart';
@@ -172,22 +173,24 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     int queueIndex = 0,
     Future<void> Function()? onQueueDispose,
   }) {
-    return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VideoPlayerPage(
-          movieId: movieId,
-          title: title,
-          directUrl: directUrl,
-          directHeaders: directHeaders,
-          directFormatHint: directFormatHint,
-          engineKind: engineKind,
-          startPositionSec: startPositionSec,
-          queue: queue,
-          queueIndex: queueIndex,
-          onQueueDispose: onQueueDispose,
+    return playerPageOpenGate.run(() async {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => VideoPlayerPage(
+            movieId: movieId,
+            title: title,
+            directUrl: directUrl,
+            directHeaders: directHeaders,
+            directFormatHint: directFormatHint,
+            engineKind: engineKind,
+            startPositionSec: startPositionSec,
+            queue: queue,
+            queueIndex: queueIndex,
+            onQueueDispose: onQueueDispose,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   static Future<void> openDirect(
@@ -217,28 +220,30 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
       '[VideoPlayerPage] openDirect 入队: engine=${engineKind?.value ?? 'default'} '
       'url=$directUrl',
     );
-    return Navigator.of(context, rootNavigator: useRootNavigator).push(
-      MaterialPageRoute(
-        builder: (_) => VideoPlayerPage.direct(
-          title: title,
-          directUrl: directUrl,
-          directHeaders: directHeaders,
-          directFormatHint: directFormatHint,
-          engineKind: engineKind,
-          directPlaybackFileName: directPlaybackFileName,
-          directAudioTracks: directAudioTracks,
-          directSubtitleTracks: directSubtitleTracks,
-          directProgressReporter: directProgressReporter,
-          directPlaybackResolver: directPlaybackResolver,
-          directPreferFfmpegForHls: directPreferFfmpegForHls,
-          startPositionSec: startPositionSec,
-          queue: queue,
-          queueIndex: queueIndex,
-          onQueueDispose: onQueueDispose,
-          autoAdvanceQueue: autoAdvanceQueue,
+    return playerPageOpenGate.run(() async {
+      await Navigator.of(context, rootNavigator: useRootNavigator).push<void>(
+        MaterialPageRoute(
+          builder: (_) => VideoPlayerPage.direct(
+            title: title,
+            directUrl: directUrl,
+            directHeaders: directHeaders,
+            directFormatHint: directFormatHint,
+            engineKind: engineKind,
+            directPlaybackFileName: directPlaybackFileName,
+            directAudioTracks: directAudioTracks,
+            directSubtitleTracks: directSubtitleTracks,
+            directProgressReporter: directProgressReporter,
+            directPlaybackResolver: directPlaybackResolver,
+            directPreferFfmpegForHls: directPreferFfmpegForHls,
+            startPositionSec: startPositionSec,
+            queue: queue,
+            queueIndex: queueIndex,
+            onQueueDispose: onQueueDispose,
+            autoAdvanceQueue: autoAdvanceQueue,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   @override

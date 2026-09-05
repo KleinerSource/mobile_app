@@ -1065,18 +1065,47 @@ class _MediaInfoSection extends ConsumerWidget {
 }
 
 // ============ More menu (... popup) ============
-class _MoreMenuButton extends ConsumerWidget {
+class _MoreMenuButton extends ConsumerStatefulWidget {
   const _MoreMenuButton({required this.movie});
   final MovieDetail movie;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MoreMenuButton> createState() => _MoreMenuButtonState();
+}
+
+class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
+  bool _submittingPreview = false;
+
+  MovieDetail get movie => widget.movie;
+
+  @override
+  Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
     final isOmm = ref.watch(serverConfigProvider)?.isOmm == true;
+    final previewStatus = isOmm
+        ? ref
+              .watch(previewStatusProvider(movie.id))
+              .maybeWhen(data: (status) => status, orElse: () => null)
+        : null;
+    final previewVideoReady = previewStatus?.assets['video']?.ready == true;
+    final previewTaskActive = isOmm &&
+        (ref.watch(taskCenterProvider).any(
+              (task) =>
+                  task.movieId == movie.id &&
+                  (task.name == l.taskNamePreview || task.name == '预览生成') &&
+                  task.isActive,
+            ) ||
+            previewStatus?.task?.isActive == true);
     return GlassMenuAnchor<String>(
       width: 244,
-      entries: _movieMoreEntries(c, l, includePreview: isOmm),
+      entries: _movieMoreEntries(
+        c,
+        l,
+        includePreview: isOmm,
+        previewVideoReady: previewVideoReady,
+        previewTaskActive: previewTaskActive,
+      ),
       tooltip: l.more,
       offset: const Offset(0, 8),
       placement: GlassMenuPlacement.below,
@@ -1094,6 +1123,8 @@ class _MoreMenuButton extends ConsumerWidget {
             await MovieEditorSheet.show(context, movie);
             break;
           case 'generate_preview':
+            if (_submittingPreview) break;
+            setState(() => _submittingPreview = true);
             try {
               final result = await ref
                   .read(mediaRepositoryProvider)
@@ -1120,6 +1151,8 @@ class _MoreMenuButton extends ConsumerWidget {
                   ),
                 ),
               );
+            } finally {
+              if (mounted) setState(() => _submittingPreview = false);
             }
             break;
           case 'subtitle':
@@ -1179,6 +1212,8 @@ class _MoreMenuButton extends ConsumerWidget {
     AppColors c,
     AppL10n l, {
     required bool includePreview,
+    required bool previewVideoReady,
+    required bool previewTaskActive,
   }) => [
     GlassMenuEntry<String>.action(
       value: 'edit',
@@ -1189,7 +1224,11 @@ class _MoreMenuButton extends ConsumerWidget {
         onTap: onTap,
       ),
     ),
-    if (includePreview && _canGeneratePreview)
+    if (includePreview &&
+        _canGeneratePreview &&
+        !_submittingPreview &&
+        !previewVideoReady &&
+        !previewTaskActive)
       GlassMenuEntry<String>.action(
         value: 'generate_preview',
         builder: (context, selected, onTap) => GlassMenuRow(

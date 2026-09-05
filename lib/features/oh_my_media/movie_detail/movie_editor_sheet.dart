@@ -18,6 +18,7 @@ import 'package:omm/features/translation/translation_providers.dart';
 import 'entity_picker_sheet.dart';
 import 'movie_quick_flag.dart';
 import 'poster_crop_controller.dart';
+import '../../../shared/single_flight_gate.dart';
 
 /// 影片元数据编辑 bottom sheet (全功能)
 /// - 字段: 标题 / 原标题 / 番号 / 年份 / 评分 / 时长 / 国家 / 简介
@@ -27,12 +28,16 @@ class MovieEditorSheet extends ConsumerStatefulWidget {
   const MovieEditorSheet({super.key, required this.movie});
   final MovieDetail movie;
 
+  static final _openGate = SingleFlightGate();
+
   static Future<bool?> show(BuildContext context, MovieDetail movie) {
-    return showGlassSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => MovieEditorSheet(movie: movie),
-    );
+    return _openGate.runWithResult<bool>(() {
+      return showGlassSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => MovieEditorSheet(movie: movie),
+      );
+    });
   }
 
   @override

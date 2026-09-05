@@ -29,6 +29,7 @@ import '../../shared/glow_background.dart';
 import '../../shared/selection_controller.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
+import '../../shared/single_flight_gate.dart';
 import '../player/common/playback_engine.dart';
 import '../player/audio/audio_player_page.dart';
 import '../player/video/player_engine_picker.dart';
@@ -130,6 +131,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Timer? _operationDismissTimer;
   FileOperation? _operation;
   bool _busy = false;
+  final _fileOpenGate = SingleFlightGate();
   FileEntry? _pendingAutoOpen;
 
   AppL10n get _l10n => AppL10n.of(context);
@@ -1029,7 +1031,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       case 'favorite':
         _toggleFavorite(entry);
       case 'detail':
-        await _showDetails(entry);
+        await _runFileOpen(() async {
+          await _showDetailsAndMaybeOpenAsText(entry);
+        });
       case 'rename':
         await _rename(entry);
       case 'move':
@@ -1413,9 +1417,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     });
   }
 
-  Future<void> _showDetails(FileEntry entry) async {
+  Future<bool?> _showDetails(FileEntry entry) async {
     final l = _l10n;
-    await showGlassSheet<void>(
+    return showGlassSheet<bool>(
       context: context,
       useRootNavigator: true,
       builder: (context) => SafeArea(
@@ -1455,8 +1459,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
                 child: FilledButton.icon(
                   onPressed: () {
-                    Navigator.of(context).pop();
-                    unawaited(_previewText(entry));
+                    Navigator.of(context).pop(true);
                   },
                   icon: const Icon(Icons.text_snippet_outlined),
                   label: Text(l.fileOpenAsText),
@@ -1468,12 +1471,31 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
+  Future<void> _showDetailsAndMaybeOpenAsText(FileEntry entry) async {
+    final openAsText = await _showDetails(entry);
+    if (openAsText == true) await _previewText(entry);
+  }
+
   Future<void> _openFile(FileEntry entry) async {
-    if (_canPreview(entry)) {
-      await _preview(entry);
-      return;
-    }
-    await _showDetails(entry);
+    await _runFileOpen(() async {
+      if (_canPreview(entry)) {
+        await _preview(entry);
+        return;
+      }
+      await _showDetailsAndMaybeOpenAsText(entry);
+    });
+  }
+
+  Future<void> _runFileOpen(Future<void> Function() action) {
+    return _fileOpenGate.run(() async {
+      if (!mounted || _busy) return;
+      setState(() => _busy = true);
+      try {
+        await action();
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    });
   }
 
   bool _canOpenAsText(FileEntry entry) =>
@@ -1539,7 +1561,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
 
     var queueOwnershipTransferred = false;
-    setState(() => _busy = true);
     try {
       final repository = await _repository();
       final sourceKind = repository.source.descriptor.kind;
@@ -1660,7 +1681,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       if (!queueOwnershipTransferred) {
         await disposeQueueResources();
       }
-      if (mounted) setState(() => _busy = false);
     }
   }
 

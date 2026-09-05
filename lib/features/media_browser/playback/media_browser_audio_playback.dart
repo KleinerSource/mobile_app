@@ -20,6 +20,9 @@ import 'package:omm/features/player/audio/audio_playback_service.dart';
 import 'package:omm/features/player/audio/audio_player_page.dart';
 import 'package:omm/features/player/audio/lrc_parser.dart';
 import 'package:omm/features/player/common/player_queue.dart';
+import 'package:omm/shared/single_flight_gate.dart';
+
+final _mediaBrowserAudioLaunchGate = SingleFlightGate();
 
 /// 打开 Emby/Jellyfin 音频队列播放。
 ///
@@ -27,6 +30,22 @@ import 'package:omm/features/player/common/player_queue.dart';
 /// 完整缓存后由本地文件应答以保证任意时刻可 seek；切歌与退出时通过
 /// Sessions/Playing 上报让服务器累计播放次数。
 Future<void> openMediaBrowserAudioPlayback(
+  BuildContext context,
+  WidgetRef ref, {
+  required List<MediaBrowserItem> tracks,
+  int startIndex = 0,
+}) {
+  return _mediaBrowserAudioLaunchGate.run(
+    () => _openMediaBrowserAudioPlayback(
+      context,
+      ref,
+      tracks: tracks,
+      startIndex: startIndex,
+    ),
+  );
+}
+
+Future<void> _openMediaBrowserAudioPlayback(
   BuildContext context,
   WidgetRef ref, {
   required List<MediaBrowserItem> tracks,
@@ -99,10 +118,20 @@ Future<void> openMediaBrowserAudioItem(
   BuildContext context,
   WidgetRef ref, {
   required MediaBrowserItem item,
+}) {
+  return _mediaBrowserAudioLaunchGate.run(
+    () => _openMediaBrowserAudioItem(context, ref, item: item),
+  );
+}
+
+Future<void> _openMediaBrowserAudioItem(
+  BuildContext context,
+  WidgetRef ref, {
+  required MediaBrowserItem item,
 }) async {
   final albumId = item.albumId?.trim() ?? '';
   if (albumId.isEmpty) {
-    await openMediaBrowserAudioPlayback(context, ref, tracks: [item]);
+    await _openMediaBrowserAudioPlayback(context, ref, tracks: [item]);
     return;
   }
   try {
@@ -113,7 +142,7 @@ Future<void> openMediaBrowserAudioItem(
     );
     if (index >= 0) {
       if (!context.mounted) return;
-      await openMediaBrowserAudioPlayback(
+      await _openMediaBrowserAudioPlayback(
         context,
         ref,
         tracks: tracks,
@@ -125,7 +154,7 @@ Future<void> openMediaBrowserAudioItem(
     // 专辑曲目拉取失败时回退单曲播放。
   }
   if (!context.mounted) return;
-  await openMediaBrowserAudioPlayback(context, ref, tracks: [item]);
+  await _openMediaBrowserAudioPlayback(context, ref, tracks: [item]);
 }
 
 /// 一次音频播放会话：队列、元数据、封面临时文件与播放上报的载体。

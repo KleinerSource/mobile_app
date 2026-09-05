@@ -14,6 +14,7 @@ import 'package:omm/features/media_browser/widgets/media_browser_library_refresh
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/swipe_actions.dart';
+import 'package:omm/shared/single_flight_gate.dart';
 import 'package:omm/features/settings/settings_common.dart';
 
 /// Emby / Jellyfin 管理端媒体库配置页。
@@ -34,6 +35,7 @@ class _MediaBrowserLibrarySettingsPageState
   String? _busyLibraryId;
   double? _busyLibraryProgress;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+  final _editorOpenGate = SingleFlightGate();
 
   @override
   void dispose() {
@@ -357,11 +359,13 @@ class _MediaBrowserLibrarySettingsPageState
   }
 
   Future<void> _openEditor([MediaBrowserLibrary? library]) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => MediaBrowserLibraryEditorPage(library: library),
-      ),
-    );
+    final saved = await _editorOpenGate.runWithResult<bool>(() async {
+      return Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => MediaBrowserLibraryEditorPage(library: library),
+        ),
+      );
+    });
     if (!mounted || saved != true) return;
     _showMessage(
       library == null

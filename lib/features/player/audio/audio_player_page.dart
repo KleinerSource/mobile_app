@@ -10,6 +10,7 @@ import '../common/player_overlay_indicators.dart';
 import '../common/player_queue.dart';
 import '../common/player_session_controller.dart';
 import '../common/player_settings.dart';
+import '../common/player_launch_gate.dart';
 import 'audio_metadata.dart';
 import 'audio_now_playing_view.dart';
 import 'audio_playback_engine.dart';
@@ -68,23 +69,25 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
     bool useRootNavigator = false,
   }) {
     // 与子页面（含视频播放器）保持一致的标准页面转场。
-    return Navigator.of(context, rootNavigator: useRootNavigator).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AudioPlayerPage.direct(
-          title: title,
-          directUrl: directUrl,
-          directHeaders: directHeaders,
-          directFormatHint: directFormatHint,
-          directPlaybackFileName: directPlaybackFileName,
-          startPositionSec: startPositionSec,
-          queue: queue,
-          queueIndex: queueIndex,
-          audioMetadataLoader: audioMetadataLoader,
-          onQueueDispose: onQueueDispose,
-          scratchEnabled: scratchEnabled,
+    return playerPageOpenGate.run(() async {
+      await Navigator.of(context, rootNavigator: useRootNavigator).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => AudioPlayerPage.direct(
+            title: title,
+            directUrl: directUrl,
+            directHeaders: directHeaders,
+            directFormatHint: directFormatHint,
+            directPlaybackFileName: directPlaybackFileName,
+            startPositionSec: startPositionSec,
+            queue: queue,
+            queueIndex: queueIndex,
+            audioMetadataLoader: audioMetadataLoader,
+            onQueueDispose: onQueueDispose,
+            scratchEnabled: scratchEnabled,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   @override
