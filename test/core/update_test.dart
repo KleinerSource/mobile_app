@@ -117,9 +117,16 @@ void _main_1() {
     patch: 21,
     build: 408,
   );
-  final repository = GitHubRepository.parse(
-    'https://github.com/example/app',
-  );
+  final repository = GitHubRepository.parse('https://github.com/example/app');
+
+  test('下载进度优先使用 Release 大小并限制在 0 到 1', () {
+    expect(
+      normalizeDownloadProgress(25, 1, expectedTotal: 100),
+      closeTo(0.25, 0.0001),
+    );
+    expect(normalizeDownloadProgress(150, 1, expectedTotal: 100), 1.0);
+    expect(normalizeDownloadProgress(1, 0), isNull);
+  });
 
   test('开启开发版检测会查询两个滚动标签并选择最高版本', () async {
     final stub = _ReleaseApiStub({

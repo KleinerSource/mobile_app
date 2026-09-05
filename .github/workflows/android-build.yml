@@ -1,4 +1,4 @@
-name: Android Build (unsigned)
+name: Android Build
 
 on:
   push:
@@ -148,6 +148,43 @@ jobs:
             "${volume_controller_gradle}"
           grep -nE 'compileSdk(Version)?' "${volume_controller_gradle}"
 
+      # Release APK 必须始终使用同一份证书，否则在线更新会被 Android
+      # 安装器拒绝。请在仓库 Secrets 中配置以下四项：
+      # ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
+      # ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD。
+      # Pull Request 可能来自没有 Secrets 权限的 fork，继续使用本地 debug 回退，
+      # 但这类 APK 不会发布到在线更新源。
+      - name: 配置 Android 发布签名
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          github.ref == 'refs/heads/master' ||
+          github.ref == 'refs/heads/dev'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for variable in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD; do
+            if [ -z "${!variable}" ]; then
+              echo "::error::缺少 GitHub Secret ${variable}，不能构建可在线更新的 Android APK"
+              exit 1
+            fi
+          done
+
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/app/release.keystore
+          printf '%s\n' \
+            "storeFile=app/release.keystore" \
+            "storePassword=${ANDROID_KEYSTORE_PASSWORD}" \
+            "keyAlias=${ANDROID_KEY_ALIAS}" \
+            "keyPassword=${ANDROID_KEY_PASSWORD}" \
+            > android/key.properties
+
       - name: 诊断 Flutter/Dart 版本
         timeout-minutes: 2
         run: |
@@ -225,12 +262,12 @@ jobs:
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
           if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
             release_tag="latest-android-dev"
-            release_title="Latest unsigned Android dev build"
-            notes_title="未签名 Android Dev 构建产物（自动滚动更新）"
+            release_title="Latest Android dev build"
+            notes_title="Android Dev 构建产物（自动滚动更新）"
           else
             release_tag="latest-android"
-            release_title="Latest unsigned Android build"
-            notes_title="未签名 Android 构建产物（自动滚动更新）"
+            release_title="Latest Android build"
+            notes_title="Android 构建产物（自动滚动更新）"
           fi
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT

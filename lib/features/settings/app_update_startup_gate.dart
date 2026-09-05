@@ -353,7 +353,12 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
                 ),
                 if (_progress != null) ...[
                   const SizedBox(height: 16),
-                  LinearProgressIndicator(value: _progress),
+                  LinearProgressIndicator(
+                    value: _progress,
+                    minHeight: 4,
+                    valueColor: AlwaysStoppedAnimation<Color>(colors.accent),
+                    backgroundColor: colors.surfaceAlt,
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     l.settingsDownloadingUpdatePercent(
@@ -403,8 +408,13 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
     });
     try {
       await widget.onUpdate((received, total) {
-        if (!mounted || total <= 0) return;
-        setState(() => _progress = received / total);
+        final progress = normalizeDownloadProgress(received, total);
+        if (!mounted || progress == null) return;
+        setState(() {
+          if (_progress == null || progress >= _progress!) {
+            _progress = progress;
+          }
+        });
       });
       if (!mounted) return;
       AppHaptics.medium();

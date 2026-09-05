@@ -338,23 +338,23 @@ void _main_3() {
     );
     expect(
       repository.releasesApiUrl,
-      'https://api.github.com/example/app/releases?per_page=100',
+      'https://api.github.com/repos/example/app/releases?per_page=100',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.ios),
-      'https://api.github.com/example/app/releases/tags/latest',
+      'https://api.github.com/repos/example/app/releases/tags/latest',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.android),
-      'https://api.github.com/example/app/releases/tags/latest-android',
+      'https://api.github.com/repos/example/app/releases/tags/latest-android',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.ios, development: true),
-      'https://api.github.com/example/app/releases/tags/latest-ios-dev',
+      'https://api.github.com/repos/example/app/releases/tags/latest-ios-dev',
     );
     expect(
       repository.releaseTagApiUrl(UpdatePlatform.android, development: true),
-      'https://api.github.com/example/app/releases/tags/latest-android-dev',
+      'https://api.github.com/repos/example/app/releases/tags/latest-android-dev',
     );
     expect(
       () => GitHubRepository.parse('https://example.com/owner/repo'),

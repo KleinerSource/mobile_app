@@ -14,6 +14,23 @@ class UpdateException implements Exception {
   String toString() => message;
 }
 
+/// 将 Dio 的下载回调转换为稳定的 0..1 进度。
+///
+/// GitHub Release 的响应可能经过重定向或压缩，Dio 回调中的 [total]
+/// 不一定等于安装包实际大小。Release API 返回的 [expectedTotal] 优先级
+/// 更高；未知大小时才回退到 Dio 提供的 [total]。
+double? normalizeDownloadProgress(
+  int received,
+  int total, {
+  int? expectedTotal,
+}) {
+  final progressTotal = expectedTotal != null && expectedTotal > 0
+      ? expectedTotal
+      : total;
+  if (received < 0 || progressTotal <= 0) return null;
+  return (received / progressTotal).clamp(0.0, 1.0).toDouble();
+}
+
 class GitHubUpdateService {
   GitHubUpdateService({Dio? dio})
     : _dio =
@@ -169,11 +186,16 @@ class GitHubUpdateService {
       '${directory.path}${Platform.pathSeparator}omm_update_$fileName',
     );
     if (await file.exists()) await file.delete();
+    final expectedTotal = asset.size > 0 ? asset.size : null;
     try {
       await _dio.download(
         asset.downloadUrl,
         file.path,
-        onReceiveProgress: onReceiveProgress,
+        onReceiveProgress: onReceiveProgress == null
+            ? null
+            : (received, total) {
+                onReceiveProgress(received, expectedTotal ?? total);
+              },
         options: Options(
           responseType: ResponseType.bytes,
           headers: const {'Accept': 'application/octet-stream'},

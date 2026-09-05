@@ -691,8 +691,14 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
           .install(
             result,
             onReceiveProgress: (received, total) {
-              if (!mounted || total <= 0) return;
-              setState(() => _downloadProgress = received / total);
+              final progress = normalizeDownloadProgress(received, total);
+              if (!mounted || progress == null) return;
+              setState(() {
+                if (_downloadProgress == null ||
+                    progress >= _downloadProgress!) {
+                  _downloadProgress = progress;
+                }
+              });
             },
           );
       if (mounted) {
