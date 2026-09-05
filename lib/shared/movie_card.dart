@@ -9,7 +9,9 @@ import '../features/privacy/privacy_mask.dart';
 import '../features/privacy/privacy_providers.dart';
 import '../l10n/generated/app_localizations.dart';
 import 'media_metadata_widgets.dart';
+import 'media_list_row.dart';
 import 'poster.dart';
+import 'portrait_media_card.dart';
 import 'stacked_badges.dart';
 import 'landscape_media_card.dart';
 
@@ -21,7 +23,6 @@ class MediaCardTemplate {
   MediaCardTemplate._();
 
   static const posterRadius = 10.0;
-  static const posterInfoGap = 6.0;
   static const titleMetaGap = 2.0;
   static const homeCardWidth = 132.0;
   static const homeRowHeight = 268.0;
@@ -74,6 +75,7 @@ class MovieCard extends ConsumerWidget {
     final revealed = ref.watch(revealedMoviesProvider).contains(movie.id);
     final masked = privacyOn && !revealed;
     final positions = ref.watch(badgePositionsProvider);
+    final contentBadgeCorner = positions.contentBadge;
 
     // 按角分组收集 badge widgets
     final byCorner = <BadgeCorner, List<Widget>>{
@@ -84,7 +86,7 @@ class MovieCard extends ConsumerWidget {
       if (hasRating && positions.ratingEnabled) {
         byCorner[positions.rating]!.add(RatingBadge(rating: movie.rating!));
       }
-      if (positions.subtitleEnabled) {
+      if (positions.contentBadgeEnabled) {
         // 四种字幕来源: 外挂(橙) / AI(紫,文件名带 .ai. 标记) / 内嵌轨道(绿) / 文件名标识(黄),
         // 多来源时合并为叠加堆,点按展开
         final subBadges = <Widget>[
@@ -110,7 +112,7 @@ class MovieCard extends ConsumerWidget {
             ),
         ];
         if (subBadges.length > 1) {
-          final corner = positions.subtitle;
+          final corner = contentBadgeCorner;
           byCorner[corner]!.add(
             StackedBadges(
               tooltip: l.movieCardSubStack(subBadges.length),
@@ -121,16 +123,16 @@ class MovieCard extends ConsumerWidget {
             ),
           );
         } else {
-          byCorner[positions.subtitle]!.addAll(subBadges);
+          byCorner[contentBadgeCorner]!.addAll(subBadges);
         }
       }
-      if (positions.crackEnabled && movie.hasCracked) {
-        byCorner[positions.crack]!.add(const _CrackBadge());
+      if (positions.contentBadgeEnabled && movie.hasCracked) {
+        byCorner[contentBadgeCorner]!.add(const _CrackBadge());
       }
-      if (positions.resolutionEnabled) {
+      if (positions.contentBadgeEnabled) {
         final tier = movie.resolutionTier;
         if (tier != ResolutionTier.none) {
-          byCorner[positions.resolution]!.add(_ResolutionBadge(tier: tier));
+          byCorner[contentBadgeCorner]!.add(_ResolutionBadge(tier: tier));
         }
       }
     }
@@ -281,15 +283,7 @@ class MovieCard extends ConsumerWidget {
               child: info,
             ),
           )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              poster,
-              const SizedBox(height: MediaCardTemplate.posterInfoGap),
-              info,
-            ],
-          );
+        : PortraitMediaCard(cover: poster, info: info);
 
     return PrivacyAwareInkWell(
       movieId: movie.id,
@@ -486,8 +480,8 @@ class CatalogMovieCard extends ConsumerWidget {
         const OnlinePlayBadge(iconOnly: true),
       );
     }
-    if (hasSubtitle && positions.subtitleEnabled) {
-      badgesByCorner[positions.subtitle]!.add(
+    if (hasSubtitle && positions.contentBadgeEnabled) {
+      badgesByCorner[positions.contentBadge]!.add(
         _SubtitleBadge(
           color: const Color(0xFFFFD60A),
           tooltip: l.movieCardSubChinese,
@@ -578,23 +572,18 @@ class CatalogMovieCard extends ConsumerWidget {
               ),
             ),
           )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              privacyId == null
-                  ? poster
-                  : PrivacyMask(movieId: privacyId!, child: poster),
-              const SizedBox(height: MediaCardTemplate.posterInfoGap),
-              _MediaCardInfo(
-                title: displayTitle,
-                code: displayCode,
-                meta: displayMeta,
-                privacyId: privacyId,
-                showTitle: showTitle,
-                showMeta: showMeta,
-              ),
-            ],
+        : PortraitMediaCard(
+            cover: privacyId == null
+                ? poster
+                : PrivacyMask(movieId: privacyId!, child: poster),
+            info: _MediaCardInfo(
+              title: displayTitle,
+              code: displayCode,
+              meta: displayMeta,
+              privacyId: privacyId,
+              showTitle: showTitle,
+              showMeta: showMeta,
+            ),
           );
 
     return SizedBox(
@@ -664,9 +653,9 @@ class CatalogListMovieCard extends ConsumerWidget {
       );
     }
 
-    final thumbnail = SizedBox(
-      width: 52,
-      child: privacyId == null
+    return MediaListRow(
+      width: width,
+      thumbnail: privacyId == null
           ? Poster(
               url: imageUrl,
               title: displayTitle,
@@ -683,45 +672,18 @@ class CatalogListMovieCard extends ConsumerWidget {
                 httpHeaders: imageHeaders,
               ),
             ),
-    );
-
-    return SizedBox(
-      width: width,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: colors.divider)),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            children: [
-              thumbnail,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    text(
-                      value: displayText,
-                      style: TextStyle(
-                        color: colors.text,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    text(value: meta, style: AppText.meta(context)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+      title: text(
+        value: displayText,
+        style: TextStyle(
+          color: colors.text,
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          height: 1.2,
         ),
       ),
+      meta: text(value: meta, style: AppText.meta(context)),
+      onTap: onTap,
     );
   }
 }

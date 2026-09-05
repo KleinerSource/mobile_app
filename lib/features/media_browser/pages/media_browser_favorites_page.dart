@@ -21,6 +21,7 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
@@ -895,12 +896,22 @@ class _ListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final inner = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          if (selecting) ...[
-            Container(
+    final row = MediaListRow(
+      thumbnail: PrivacyMask(
+        movieId: item.id,
+        radius: 8,
+        child: Poster(
+          url: item.primaryImageTag == null
+              ? null
+              : urls.poster(item.id, tag: item.primaryImageTag),
+          title: item.name,
+          year: item.productionYear,
+          radius: 8,
+          httpHeaders: urls.imageHeaders,
+        ),
+      ),
+      leading: selecting
+          ? Container(
               width: 22,
               height: 22,
               decoration: BoxDecoration(
@@ -915,78 +926,35 @@ class _ListRow extends StatelessWidget {
               child: selected
                   ? const Icon(Icons.check, color: Colors.white, size: 14)
                   : null,
-            ),
-            const SizedBox(width: 14),
-          ],
-          SizedBox(
-            width: 52,
-            child: PrivacyMask(
-              movieId: item.id,
-              radius: 8,
-              child: Poster(
-                url: item.primaryImageTag == null
-                    ? null
-                    : urls.poster(item.id, tag: item.primaryImageTag),
-                title: item.name,
-                year: item.productionYear,
-                radius: 8,
-                httpHeaders: urls.imageHeaders,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PrivacyText(
-                  movieId: item.id,
-                  text: item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  mediaBrowserItemMetaText(context, item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.meta(context),
-                ),
-              ],
-            ),
-          ),
-        ],
+            )
+          : null,
+      title: PrivacyText(
+        movieId: item.id,
+        text: item.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: colors.text,
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          height: 1.2,
+        ),
       ),
+      meta: Text(
+        mediaBrowserItemMetaText(context, item),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppText.meta(context),
+      ),
+      onTap: onTap,
+      borderRadius: 12,
+      privacyId: item.id,
+      privacyAwareTap: !selecting,
     );
 
-    final row = selecting
-        ? InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: inner,
-          )
-        : PrivacyAwareInkWell(
-            movieId: item.id,
-            onTap: onTap,
-            borderRadius: 12,
-            child: inner,
-          );
-
     if (selecting) {
-      return Container(
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: colors.divider)),
-        ),
-        child: row,
-      );
+      return row;
     }
 
     // 左滑双逻辑：展开点击移除，或滑到头/快速左甩直接执行。
@@ -1002,12 +970,7 @@ class _ListRow extends StatelessWidget {
           onPressed: onRemove,
         ),
       ],
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: colors.divider)),
-        ),
-        child: row,
-      ),
+      child: row,
     );
   }
 }

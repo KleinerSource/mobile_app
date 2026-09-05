@@ -337,10 +337,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsBadgePositionsSub =>
-      'Rating / subtitle / crack / resolution / new resources';
+      'Rating / subtitle, crack, resolution / new resources';
 
   @override
   String get badgeRating => 'Rating';
+
+  @override
+  String get badgeContentGroup => 'Subtitle / crack / resolution';
 
   @override
   String get badgeSubtitle => 'Subtitle';
@@ -362,6 +365,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get badgeOffsetTitle => 'Fine tuning';
+
+  @override
+  String get badgePositionController => 'Unified corner controller';
 
   @override
   String get badgeOffsetHorizontal => 'Horizontal';

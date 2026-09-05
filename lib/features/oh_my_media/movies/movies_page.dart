@@ -11,6 +11,7 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/empty_view.dart';
@@ -1241,131 +1242,103 @@ class _ListRow extends ConsumerWidget {
       if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
     ].join(' · ');
 
-    final row = PrivacyAwareInkWell(
-      movieId: movie.id,
-      onTap: selectionMode ? onSelectionTap : onMovieTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: c.divider)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (selectionMode) ...[
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked,
-                color: selected ? c.accent : c.muted,
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-            ],
-            SizedBox(
-              width: 56,
-              height: 84,
-              child: PrivacyMask(
-                movieId: movie.id,
-                radius: 8,
-                child: Poster(
-                  url: movie.posterUuid != null
-                      ? urlBuilder(movie.posterUuid!)
-                      : null,
-                  title: movie.title,
-                  year: movie.year,
-                  radius: 8,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: PrivacyText(
-                          movieId: movie.id,
-                          text: movie.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                      if (!selectionMode && movie.hasNewResources) ...[
-                        const SizedBox(width: 6),
-                        const NewResourcesIcon(),
-                      ],
-                    ],
-                  ),
-                  if (meta.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(meta, style: AppText.meta(context)),
-                  ],
-                  if (!completed && progress > 0) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 3,
-                              backgroundColor: c.chipBg,
-                              valueColor: AlwaysStoppedAnimation(c.accent),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${(progress * 100).round()}%',
-                          style: TextStyle(
-                            color: c.muted,
-                            fontFamily: 'monospace',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (completed)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: c.accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  AppL10n.of(context).watchedDone,
-                  style: TextStyle(
-                    color: c.accent,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10.5,
-                  ),
-                ),
-              )
-            else
-              Icon(Icons.chevron_right, color: c.muted, size: 20),
-          ],
+    final row = MediaListRow(
+      thumbnailWidth: 56,
+      thumbnailHeight: 84,
+      thumbnailTextGap: 14,
+      thumbnail: PrivacyMask(
+        movieId: movie.id,
+        radius: 8,
+        child: Poster(
+          url: movie.posterUuid != null ? urlBuilder(movie.posterUuid!) : null,
+          title: movie.title,
+          year: movie.year,
+          radius: 8,
         ),
       ),
+      leading: selectionMode
+          ? Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              color: selected ? c.accent : c.muted,
+              size: 22,
+            )
+          : null,
+      leadingGap: 10,
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: PrivacyText(
+              movieId: movie.id,
+              text: movie.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                height: 1.25,
+              ),
+            ),
+          ),
+          if (!selectionMode && movie.hasNewResources) ...[
+            const SizedBox(width: 6),
+            const NewResourcesIcon(),
+          ],
+        ],
+      ),
+      meta: meta.isNotEmpty ? Text(meta, style: AppText.meta(context)) : null,
+      additional: !completed && progress > 0
+          ? Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(100),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 3,
+                      backgroundColor: c.chipBg,
+                      valueColor: AlwaysStoppedAnimation(c.accent),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: TextStyle(
+                    color: c.muted,
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            )
+          : null,
+      trailing: completed
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: c.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                AppL10n.of(context).watchedDone,
+                style: TextStyle(
+                  color: c.accent,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5,
+                ),
+              ),
+            )
+          : Icon(Icons.chevron_right, color: c.muted, size: 20),
+      privacyId: movie.id,
+      privacyAwareTap: true,
+      onTap: selectionMode ? onSelectionTap : onMovieTap,
     );
 
     if (selectionMode) return row;

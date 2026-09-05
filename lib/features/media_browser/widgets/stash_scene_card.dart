@@ -10,6 +10,7 @@ import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
+import 'package:omm/shared/portrait_media_card.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/landscape_media_card.dart';
 import 'package:omm/shared/preview/preview_player.dart';
@@ -319,60 +320,50 @@ class StashScenePortraitCard extends StatelessWidget {
         ? urls.poster(item.id, tag: item.primaryImageTag)
         : urls.heroImage(item);
     final progress = _itemProgress(item);
-    return SizedBox(
-      width: width,
-      child: PrivacyAwareInkWell(
-        movieId: item.id,
-        onTap: onTap,
-        borderRadius: 10,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              children: [
-                PrivacyMask(
-                  movieId: item.id,
-                  radius: 10,
-                  child: Poster(
-                    url: imageUrl,
-                    title: item.name,
-                    year: item.productionYear,
-                    aspectRatio: 2 / 3,
-                    radius: 10,
-                    imageAlignment: Alignment.centerRight,
-                    httpHeaders: urls.imageHeaders,
+    return PrivacyAwareInkWell(
+      movieId: item.id,
+      onTap: onTap,
+      borderRadius: 10,
+      child: PortraitMediaCard(
+        width: width,
+        cover: PrivacyMask(
+          movieId: item.id,
+          radius: 10,
+          child: Poster(
+            url: imageUrl,
+            title: item.name,
+            year: item.productionYear,
+            aspectRatio: 2 / 3,
+            radius: 10,
+            imageAlignment: Alignment.centerRight,
+            httpHeaders: urls.imageHeaders,
+          ),
+        ),
+        coverOverlay: progress > 0
+            ? Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(10),
+                    bottomRight: Radius.circular(10),
                   ),
-                ),
-                if (progress > 0)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(10),
-                        bottomRight: Radius.circular(10),
-                      ),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 3,
-                        backgroundColor: Colors.black.withValues(alpha: 0.45),
-                        valueColor: AlwaysStoppedAnimation(
-                          appColors(context).accent,
-                        ),
-                      ),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 3,
+                    backgroundColor: Colors.black.withValues(alpha: 0.45),
+                    valueColor: AlwaysStoppedAnimation(
+                      appColors(context).accent,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            StashSceneInfo(
-              item: item,
-              landscape: false,
-              padding: EdgeInsets.zero,
-            ),
-          ],
+                ),
+              )
+            : null,
+        info: StashSceneInfo(
+          item: item,
+          landscape: false,
+          padding: EdgeInsets.zero,
         ),
       ),
     );

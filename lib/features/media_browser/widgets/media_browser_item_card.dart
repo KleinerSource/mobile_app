@@ -7,6 +7,7 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/poster.dart';
 
@@ -154,12 +155,22 @@ class MediaBrowserListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          if (selecting) ...[
-            Container(
+    return MediaListRow(
+      thumbnail: PrivacyMask(
+        movieId: item.id,
+        radius: 8,
+        child: Poster(
+          url: item.primaryImageTag == null
+              ? urls.heroImage(item)
+              : urls.poster(item.id, tag: item.primaryImageTag),
+          title: item.name,
+          year: item.productionYear,
+          radius: 8,
+          httpHeaders: urls.imageHeaders,
+        ),
+      ),
+      leading: selecting
+          ? Container(
               width: 22,
               height: 22,
               decoration: BoxDecoration(
@@ -174,66 +185,30 @@ class MediaBrowserListRow extends StatelessWidget {
               child: selected
                   ? const Icon(Icons.check, color: Colors.white, size: 14)
                   : null,
-            ),
-            const SizedBox(width: 14),
-          ],
-          SizedBox(
-            width: 52,
-            child: PrivacyMask(
-              movieId: item.id,
-              radius: 8,
-              child: Poster(
-                url: item.primaryImageTag == null
-                    ? urls.heroImage(item)
-                    : urls.poster(item.id, tag: item.primaryImageTag),
-                title: item.name,
-                year: item.productionYear,
-                radius: 8,
-                httpHeaders: urls.imageHeaders,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PrivacyText(
-                  movieId: item.id,
-                  text: item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  mediaBrowserItemMetaText(context, item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.meta(context),
-                ),
-              ],
-            ),
-          ),
-        ],
+            )
+          : null,
+      title: PrivacyText(
+        movieId: item.id,
+        text: item.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: colors.text,
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          height: 1.2,
+        ),
       ),
-    );
-
-    final row = selecting
-        ? InkWell(onTap: onTap, child: content)
-        : PrivacyAwareInkWell(movieId: item.id, onTap: onTap, child: content);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.divider)),
+      meta: Text(
+        mediaBrowserItemMetaText(context, item),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppText.meta(context),
       ),
-      child: row,
+      onTap: onTap,
+      privacyId: item.id,
+      privacyAwareTap: !selecting,
     );
   }
 }

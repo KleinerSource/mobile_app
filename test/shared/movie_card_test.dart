@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/shared/landscape_media_card.dart';
+import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/portrait_media_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -158,6 +160,37 @@ void main() {
       ),
     );
     expect(find.byType(LandscapeMediaCard), findsOneWidget);
+  });
+
+  testWidgets('竖屏与列表卡片使用共享结构壳', (tester) async {
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: const MovieListItem(id: 8, title: '竖屏影片'),
+          posterUrlBuilder: (uuid) => 'http://x/$uuid',
+        ),
+      ),
+    );
+    expect(find.byType(PortraitMediaCard), findsOneWidget);
+
+    await tester.pumpWidget(
+      await wrap(
+        const CatalogMovieCard(
+          title: '目录竖屏影片',
+          imageUrl: null,
+          meta: '2024',
+          width: 140,
+        ),
+      ),
+    );
+    expect(find.byType(PortraitMediaCard), findsOneWidget);
+
+    await tester.pumpWidget(
+      await wrap(
+        const CatalogListMovieCard(title: '列表影片', imageUrl: null, meta: '2024'),
+      ),
+    );
+    expect(find.byType(MediaListRow), findsOneWidget);
   });
 
   testWidgets('completed=true 显示已看完角标 (隐私关闭)', (tester) async {

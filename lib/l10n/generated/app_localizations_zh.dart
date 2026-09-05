@@ -335,10 +335,13 @@ class AppL10nZh extends AppL10n {
   String get settingsBadgePositions => '封面角标位置';
 
   @override
-  String get settingsBadgePositionsSub => '评分 / 字幕 / 破解 / 清晰度 / 新资源';
+  String get settingsBadgePositionsSub => '评分 / 字幕、破解、清晰度 / 新资源';
 
   @override
   String get badgeRating => '评分';
+
+  @override
+  String get badgeContentGroup => '字幕 / 破解 / 清晰度';
 
   @override
   String get badgeSubtitle => '字幕';
@@ -360,6 +363,9 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get badgeOffsetTitle => '位置微调';
+
+  @override
+  String get badgePositionController => '统一角位控制器';
 
   @override
   String get badgeOffsetHorizontal => '左右';

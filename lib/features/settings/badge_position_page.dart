@@ -78,7 +78,7 @@ class BadgePositionPage extends ConsumerWidget {
                   child: ListView(
                     primary: true,
                     children: [
-                      // 5 项 badge 配置
+                      // 3 项 badge 配置：评分、字幕/破解/清晰度、新资源
                       SettingsGroup(
                         title: l.settingsBadgePositions,
                         items: [
@@ -95,40 +95,16 @@ class BadgePositionPage extends ConsumerWidget {
                                 .setEnabled(BadgeKind.rating, v),
                           ),
                           _CornerTile(
-                            label: l.badgeSubtitle,
-                            icon: Icons.closed_caption_rounded,
-                            value: pos.subtitle,
-                            enabled: pos.subtitleEnabled,
+                            label: l.badgeContentGroup,
+                            icon: Icons.subtitles_rounded,
+                            value: pos.contentBadge,
+                            enabled: pos.contentBadgeEnabled,
                             onChanged: (v) => ref
                                 .read(badgePositionsProvider.notifier)
-                                .setKind(BadgeKind.subtitle, v),
+                                .setContentBadgePosition(v),
                             onToggle: (v) => ref
                                 .read(badgePositionsProvider.notifier)
-                                .setEnabled(BadgeKind.subtitle, v),
-                          ),
-                          _CornerTile(
-                            label: l.badgeCrack,
-                            icon: Icons.lock_open_rounded,
-                            value: pos.crack,
-                            enabled: pos.crackEnabled,
-                            onChanged: (v) => ref
-                                .read(badgePositionsProvider.notifier)
-                                .setKind(BadgeKind.crack, v),
-                            onToggle: (v) => ref
-                                .read(badgePositionsProvider.notifier)
-                                .setEnabled(BadgeKind.crack, v),
-                          ),
-                          _CornerTile(
-                            label: l.badgeResolution,
-                            icon: Icons.high_quality_outlined,
-                            value: pos.resolution,
-                            enabled: pos.resolutionEnabled,
-                            onChanged: (v) => ref
-                                .read(badgePositionsProvider.notifier)
-                                .setKind(BadgeKind.resolution, v),
-                            onToggle: (v) => ref
-                                .read(badgePositionsProvider.notifier)
-                                .setEnabled(BadgeKind.resolution, v),
+                                .setContentBadgeEnabled(v),
                           ),
                           _CornerTile(
                             label: l.badgeNewResources,
@@ -144,18 +120,16 @@ class BadgePositionPage extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      // 每个角落单独微调，避免不同角落的 badge 相互牵连
-                      for (final corner in BadgeCorner.values)
-                        _CornerOffsetGroup(
-                          corner: corner,
-                          offset: pos.offsetOf(corner),
-                          onHorizontalChanged: (v) => ref
-                              .read(badgePositionsProvider.notifier)
-                              .setHorizontalOffset(corner, v),
-                          onVerticalChanged: (v) => ref
-                              .read(badgePositionsProvider.notifier)
-                              .setVerticalOffset(corner, v),
-                        ),
+                      _CornerOffsetController(
+                        contentCorner: pos.contentBadge,
+                        offsetOf: pos.offsetOf,
+                        onHorizontalChanged: (corner, value) => ref
+                            .read(badgePositionsProvider.notifier)
+                            .setHorizontalOffset(corner, value),
+                        onVerticalChanged: (corner, value) => ref
+                            .read(badgePositionsProvider.notifier)
+                            .setVerticalOffset(corner, value),
+                      ),
                       const SizedBox(height: 80),
                     ],
                   ),
@@ -253,38 +227,188 @@ class _OffsetSlider extends StatelessWidget {
   }
 }
 
-class _CornerOffsetGroup extends StatelessWidget {
-  const _CornerOffsetGroup({
-    required this.corner,
-    required this.offset,
+class _CornerOffsetController extends StatefulWidget {
+  const _CornerOffsetController({
+    required this.contentCorner,
+    required this.offsetOf,
     required this.onHorizontalChanged,
     required this.onVerticalChanged,
   });
 
-  final BadgeCorner corner;
-  final BadgeCornerOffset offset;
-  final ValueChanged<int> onHorizontalChanged;
-  final ValueChanged<int> onVerticalChanged;
+  final BadgeCorner contentCorner;
+  final BadgeCornerOffset Function(BadgeCorner) offsetOf;
+  final Future<void> Function(BadgeCorner, int) onHorizontalChanged;
+  final Future<void> Function(BadgeCorner, int) onVerticalChanged;
+
+  @override
+  State<_CornerOffsetController> createState() =>
+      _CornerOffsetControllerState();
+}
+
+class _CornerOffsetControllerState extends State<_CornerOffsetController> {
+  late BadgeCorner _selectedCorner;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCorner = widget.contentCorner;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CornerOffsetController oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contentCorner != widget.contentCorner &&
+        _selectedCorner == oldWidget.contentCorner) {
+      _selectedCorner = widget.contentCorner;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     final l = AppL10n.of(context);
+    final offset = widget.offsetOf(_selectedCorner);
+
     return SettingsGroup(
-      title: '${_cornerLabel(corner, l)} · ${l.badgeOffsetTitle}',
+      title: l.badgePositionController,
       items: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${l.badgeContentGroup} · ${_cornerLabel(widget.contentCorner, l)}',
+                style: AppText.body(
+                  context,
+                ).copyWith(color: c.text, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Text(l.badgeOffsetTitle, style: AppText.meta(context)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _CornerChoice(
+                      corner: BadgeCorner.topLeft,
+                      selected: _selectedCorner == BadgeCorner.topLeft,
+                      onTap: () => _selectCorner(BadgeCorner.topLeft),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _CornerChoice(
+                      corner: BadgeCorner.topRight,
+                      selected: _selectedCorner == BadgeCorner.topRight,
+                      onTap: () => _selectCorner(BadgeCorner.topRight),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _CornerChoice(
+                      corner: BadgeCorner.bottomLeft,
+                      selected: _selectedCorner == BadgeCorner.bottomLeft,
+                      onTap: () => _selectCorner(BadgeCorner.bottomLeft),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _CornerChoice(
+                      corner: BadgeCorner.bottomRight,
+                      selected: _selectedCorner == BadgeCorner.bottomRight,
+                      onTap: () => _selectCorner(BadgeCorner.bottomRight),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
         _OffsetSlider(
           label: l.badgeOffsetHorizontal,
           icon: Icons.swap_horiz_rounded,
           value: offset.horizontal,
-          onChanged: onHorizontalChanged,
+          onChanged: (value) =>
+              widget.onHorizontalChanged(_selectedCorner, value),
         ),
         _OffsetSlider(
           label: l.badgeOffsetVertical,
           icon: Icons.swap_vert_rounded,
           value: offset.vertical,
-          onChanged: onVerticalChanged,
+          onChanged: (value) =>
+              widget.onVerticalChanged(_selectedCorner, value),
         ),
       ],
+    );
+  }
+
+  void _selectCorner(BadgeCorner corner) {
+    if (_selectedCorner == corner) return;
+    setState(() => _selectedCorner = corner);
+  }
+}
+
+class _CornerChoice extends StatelessWidget {
+  const _CornerChoice({
+    required this.corner,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final BadgeCorner corner;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: selected
+                ? c.accent.withValues(alpha: 0.14)
+                : c.bg.withValues(alpha: 0.45),
+            border: Border.all(
+              color: selected ? c.accent : c.cardBorder,
+              width: selected ? 1.4 : 1,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _cornerIcon(corner),
+                color: selected ? c.accent : c.muted,
+                size: 17,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  _cornerLabel(corner, l),
+                  style: TextStyle(
+                    color: selected ? c.text : c.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_rounded, color: c.accent, size: 17),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -365,5 +489,18 @@ String _cornerLabel(BadgeCorner corner, AppL10n l) {
       return l.cornerBottomLeft;
     case BadgeCorner.bottomRight:
       return l.cornerBottomRight;
+  }
+}
+
+IconData _cornerIcon(BadgeCorner corner) {
+  switch (corner) {
+    case BadgeCorner.topLeft:
+      return Icons.north_west_rounded;
+    case BadgeCorner.topRight:
+      return Icons.north_east_rounded;
+    case BadgeCorner.bottomLeft:
+      return Icons.south_west_rounded;
+    case BadgeCorner.bottomRight:
+      return Icons.south_east_rounded;
   }
 }

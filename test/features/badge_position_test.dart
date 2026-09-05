@@ -16,19 +16,53 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('旧版全局偏移会迁移到四个角落', () {
+  test('角标位置只使用统一结构', () {
     final positions = BadgePositions.fromJson(const {
+      'contentBadge': 'tr',
+      'contentBadgeEnabled': false,
+      'subtitle': 'tl',
+      'crack': 'br',
+      'resolution': 'bl',
       'horizontalOffset': 5,
       'verticalOffset': -3,
     });
 
-    for (final corner in BadgeCorner.values) {
-      final offset = positions.offsetOf(corner);
-      expect(offset.horizontal, 5);
-      expect(offset.vertical, -3);
-    }
+    expect(positions.contentBadge, BadgeCorner.topRight);
+    expect(positions.contentBadgeEnabled, isFalse);
+    expect(positions.offsetOf(BadgeCorner.topLeft).horizontal, 0);
+    expect(positions.offsetOf(BadgeCorner.topLeft).vertical, 0);
     expect(positions.newResources, BadgeCorner.topRight);
     expect(positions.newResourcesEnabled, isTrue);
+    expect(positions.toJson().containsKey('subtitle'), isFalse);
+    expect(positions.toJson().containsKey('crack'), isFalse);
+    expect(positions.toJson().containsKey('resolution'), isFalse);
+    expect(positions.toJson().containsKey('horizontalOffset'), isFalse);
+    expect(positions.toJson().containsKey('verticalOffset'), isFalse);
+  });
+
+  test('字幕破解清晰度使用同一个角标位置和开关', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(badgePositionsProvider.notifier);
+    await notifier.setContentBadgePosition(BadgeCorner.topLeft);
+    await notifier.setContentBadgeEnabled(false);
+
+    final positions = container.read(badgePositionsProvider);
+    expect(positions.contentBadge, BadgeCorner.topLeft);
+    expect(positions.contentBadgeEnabled, isFalse);
+
+    final saved =
+        jsonDecode(prefs.getString('app.badgePositions')!)
+            as Map<String, dynamic>;
+    expect(saved['contentBadge'], 'tl');
+    expect(saved['contentBadgeEnabled'], isFalse);
+    expect(saved.containsKey('subtitle'), isFalse);
+    expect(saved.containsKey('crack'), isFalse);
+    expect(saved.containsKey('resolution'), isFalse);
   });
 
   test('新资源角落和四角偏移可以独立持久化', () async {
@@ -125,6 +159,7 @@ void main() {
 
     final preview = find.byType(MovieCard);
     expect(preview, findsOneWidget);
+    expect(find.text('字幕 / 破解 / 清晰度'), findsOneWidget);
     final initialTop = tester.getTopLeft(preview).dy;
     final scrollable = find.byType(Scrollable);
     final scrollState = tester.state<ScrollableState>(scrollable);

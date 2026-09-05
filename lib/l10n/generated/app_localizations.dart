@@ -724,7 +724,7 @@ abstract class AppL10n {
   /// No description provided for @settingsBadgePositionsSub.
   ///
   /// In zh, this message translates to:
-  /// **'评分 / 字幕 / 破解 / 清晰度 / 新资源'**
+  /// **'评分 / 字幕、破解、清晰度 / 新资源'**
   String get settingsBadgePositionsSub;
 
   /// No description provided for @badgeRating.
@@ -732,6 +732,12 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'评分'**
   String get badgeRating;
+
+  /// No description provided for @badgeContentGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕 / 破解 / 清晰度'**
+  String get badgeContentGroup;
 
   /// No description provided for @badgeSubtitle.
   ///
@@ -774,6 +780,12 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'位置微调'**
   String get badgeOffsetTitle;
+
+  /// No description provided for @badgePositionController.
+  ///
+  /// In zh, this message translates to:
+  /// **'统一角位控制器'**
+  String get badgePositionController;
 
   /// No description provided for @badgeOffsetHorizontal.
   ///

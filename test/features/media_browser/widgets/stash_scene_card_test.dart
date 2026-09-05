@@ -7,12 +7,15 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/preview/preview_seek.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
+import 'package:omm/shared/media_list_row.dart';
+import 'package:omm/shared/portrait_media_card.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
@@ -263,6 +266,8 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.byType(PortraitMediaCard), findsOneWidget);
+
     final size = tester.getSize(find.byType(StashScenePortraitCard));
     expect(size.width, 132);
     expect(size.height, greaterThan(190));
@@ -270,6 +275,17 @@ void main() {
     expect(find.text('演员一、演员二'), findsNothing);
     expect(find.text('电影'), findsNothing);
     expect(find.text('2024 · 2 分钟'), findsOneWidget);
+  });
+
+  testWidgets('MediaBrowser 列表行复用公共列表结构', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        child: MediaBrowserListRow(item: _item(), urls: _urls(), onTap: () {}),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(MediaListRow), findsOneWidget);
   });
 
   testWidgets('Stash 卡片暗色主题使用暗色卡片色板', (tester) async {

@@ -16,6 +16,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -1038,13 +1039,19 @@ class _ListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    // 多选模式下走原 InkWell (点击切换勾选), 其他情况下走 PrivacyAwareInkWell
-    final inner = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          if (selecting) ...[
-            Container(
+    final row = MediaListRow(
+      thumbnail: PrivacyMask(
+        movieId: movie.id,
+        radius: 8,
+        child: Poster(
+          url: movie.posterUuid != null ? urlBuilder(movie.posterUuid!) : null,
+          title: movie.title,
+          year: movie.year,
+          radius: 8,
+        ),
+      ),
+      leading: selecting
+          ? Container(
               width: 22,
               height: 22,
               decoration: BoxDecoration(
@@ -1059,93 +1066,50 @@ class _ListRow extends StatelessWidget {
               child: selected
                   ? const Icon(Icons.check, color: Colors.white, size: 14)
                   : null,
-            ),
-            const SizedBox(width: 14),
-          ],
-          SizedBox(
-            width: 52,
-            child: PrivacyMask(
+            )
+          : null,
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: PrivacyText(
               movieId: movie.id,
-              radius: 8,
-              child: Poster(
-                url: movie.posterUuid != null
-                    ? urlBuilder(movie.posterUuid!)
-                    : null,
-                title: movie.title,
-                year: movie.year,
-                radius: 8,
+              text: movie.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                height: 1.2,
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: PrivacyText(
-                        movieId: movie.id,
-                        text: movie.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                    if (!selecting && movie.hasNewResources) ...[
-                      const SizedBox(width: 6),
-                      const NewResourcesIcon(),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  [
-                    if (movie.year != null) '${movie.year}',
-                    if (movie.runtime != null && movie.runtime! > 0)
-                      l.mediaDurationMinutes(movie.runtime!),
-                    if (movie.rating != null && movie.rating! > 0)
-                      '★ ${movie.rating!.toStringAsFixed(1)}',
-                  ].join(' · '),
-                  style: AppText.meta(context),
-                ),
-              ],
-            ),
-          ),
+          if (!selecting && movie.hasNewResources) ...[
+            const SizedBox(width: 6),
+            const NewResourcesIcon(),
+          ],
         ],
       ),
+      meta: Text(
+        [
+          if (movie.year != null) '${movie.year}',
+          if (movie.runtime != null && movie.runtime! > 0)
+            l.mediaDurationMinutes(movie.runtime!),
+          if (movie.rating != null && movie.rating! > 0)
+            '★ ${movie.rating!.toStringAsFixed(1)}',
+        ].join(' · '),
+        style: AppText.meta(context),
+      ),
+      onTap: onTap,
+      borderRadius: 12,
+      privacyId: movie.id,
+      privacyAwareTap: !selecting,
     );
 
-    final row = selecting
-        ? InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: inner,
-          )
-        : PrivacyAwareInkWell(
-            movieId: movie.id,
-            onTap: onTap,
-            borderRadius: 12,
-            child: inner,
-          );
-
     if (selecting) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 0),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: c.divider)),
-        ),
-        child: row,
-      );
+      return row;
     }
 
     // 左滑双逻辑：展开点击移除，或滑到头/快速左甩直接执行。
@@ -1161,12 +1125,7 @@ class _ListRow extends StatelessWidget {
           onPressed: onRemove,
         ),
       ],
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: c.divider)),
-        ),
-        child: row,
-      ),
+      child: row,
     );
   }
 }

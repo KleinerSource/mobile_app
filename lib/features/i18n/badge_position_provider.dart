@@ -24,7 +24,7 @@ enum BadgeCorner {
 }
 
 /// 哪种 badge
-enum BadgeKind { rating, subtitle, crack, resolution, newResources }
+enum BadgeKind { rating, content, newResources }
 
 @immutable
 class BadgeCornerOffset {
@@ -60,14 +60,10 @@ class BadgeCornerOffset {
 class BadgePositions {
   const BadgePositions({
     this.rating = BadgeCorner.topRight,
-    this.subtitle = BadgeCorner.bottomLeft,
-    this.crack = BadgeCorner.bottomLeft,
-    this.resolution = BadgeCorner.bottomLeft,
+    this.contentBadge = BadgeCorner.bottomLeft,
     this.newResources = BadgeCorner.topRight,
     this.ratingEnabled = true,
-    this.subtitleEnabled = true,
-    this.crackEnabled = true,
-    this.resolutionEnabled = true,
+    this.contentBadgeEnabled = true,
     this.newResourcesEnabled = true,
     this.topLeftOffset = const BadgeCornerOffset(),
     this.topRightOffset = const BadgeCornerOffset(),
@@ -76,14 +72,10 @@ class BadgePositions {
   });
 
   final BadgeCorner rating;
-  final BadgeCorner subtitle;
-  final BadgeCorner crack;
-  final BadgeCorner resolution;
+  final BadgeCorner contentBadge;
   final BadgeCorner newResources;
   final bool ratingEnabled;
-  final bool subtitleEnabled;
-  final bool crackEnabled;
-  final bool resolutionEnabled;
+  final bool contentBadgeEnabled;
   final bool newResourcesEnabled;
 
   final BadgeCornerOffset topLeftOffset;
@@ -95,12 +87,8 @@ class BadgePositions {
     switch (k) {
       case BadgeKind.rating:
         return rating;
-      case BadgeKind.subtitle:
-        return subtitle;
-      case BadgeKind.crack:
-        return crack;
-      case BadgeKind.resolution:
-        return resolution;
+      case BadgeKind.content:
+        return contentBadge;
       case BadgeKind.newResources:
         return newResources;
     }
@@ -110,12 +98,8 @@ class BadgePositions {
     switch (k) {
       case BadgeKind.rating:
         return ratingEnabled;
-      case BadgeKind.subtitle:
-        return subtitleEnabled;
-      case BadgeKind.crack:
-        return crackEnabled;
-      case BadgeKind.resolution:
-        return resolutionEnabled;
+      case BadgeKind.content:
+        return contentBadgeEnabled;
       case BadgeKind.newResources:
         return newResourcesEnabled;
     }
@@ -136,14 +120,10 @@ class BadgePositions {
 
   BadgePositions copyWith({
     BadgeCorner? rating,
-    BadgeCorner? subtitle,
-    BadgeCorner? crack,
-    BadgeCorner? resolution,
+    BadgeCorner? contentBadge,
     BadgeCorner? newResources,
     bool? ratingEnabled,
-    bool? subtitleEnabled,
-    bool? crackEnabled,
-    bool? resolutionEnabled,
+    bool? contentBadgeEnabled,
     bool? newResourcesEnabled,
     BadgeCornerOffset? topLeftOffset,
     BadgeCornerOffset? topRightOffset,
@@ -151,14 +131,10 @@ class BadgePositions {
     BadgeCornerOffset? bottomRightOffset,
   }) => BadgePositions(
     rating: rating ?? this.rating,
-    subtitle: subtitle ?? this.subtitle,
-    crack: crack ?? this.crack,
-    resolution: resolution ?? this.resolution,
+    contentBadge: contentBadge ?? this.contentBadge,
     newResources: newResources ?? this.newResources,
     ratingEnabled: ratingEnabled ?? this.ratingEnabled,
-    subtitleEnabled: subtitleEnabled ?? this.subtitleEnabled,
-    crackEnabled: crackEnabled ?? this.crackEnabled,
-    resolutionEnabled: resolutionEnabled ?? this.resolutionEnabled,
+    contentBadgeEnabled: contentBadgeEnabled ?? this.contentBadgeEnabled,
     newResourcesEnabled: newResourcesEnabled ?? this.newResourcesEnabled,
     topLeftOffset: topLeftOffset ?? this.topLeftOffset,
     topRightOffset: topRightOffset ?? this.topRightOffset,
@@ -168,14 +144,10 @@ class BadgePositions {
 
   Map<String, dynamic> toJson() => {
     'rating': rating.value,
-    'subtitle': subtitle.value,
-    'crack': crack.value,
-    'resolution': resolution.value,
+    'contentBadge': contentBadge.value,
     'newResources': newResources.value,
     'ratingEnabled': ratingEnabled,
-    'subtitleEnabled': subtitleEnabled,
-    'crackEnabled': crackEnabled,
-    'resolutionEnabled': resolutionEnabled,
+    'contentBadgeEnabled': contentBadgeEnabled,
     'newResourcesEnabled': newResourcesEnabled,
     'cornerOffsets': {
       for (final corner in BadgeCorner.values)
@@ -184,15 +156,11 @@ class BadgePositions {
   };
 
   factory BadgePositions.fromJson(Map<String, dynamic> j) {
-    final legacyOffset = BadgeCornerOffset(
-      horizontal: (j['horizontalOffset'] as num?)?.toInt() ?? 0,
-      vertical: (j['verticalOffset'] as num?)?.toInt() ?? 0,
-    );
     final rawOffsets = j['cornerOffsets'];
 
     BadgeCornerOffset readOffset(BadgeCorner corner) {
       final raw = rawOffsets is Map ? rawOffsets[corner.value] : null;
-      return BadgeCornerOffset.fromJson(raw, legacyOffset);
+      return BadgeCornerOffset.fromJson(raw);
     }
 
     return BadgePositions(
@@ -200,16 +168,8 @@ class BadgePositions {
         j['rating'] as String?,
         BadgeCorner.topRight,
       ),
-      subtitle: BadgeCorner.fromValue(
-        j['subtitle'] as String?,
-        BadgeCorner.bottomLeft,
-      ),
-      crack: BadgeCorner.fromValue(
-        j['crack'] as String?,
-        BadgeCorner.bottomLeft,
-      ),
-      resolution: BadgeCorner.fromValue(
-        j['resolution'] as String?,
+      contentBadge: BadgeCorner.fromValue(
+        j['contentBadge'] as String?,
         BadgeCorner.bottomLeft,
       ),
       newResources: BadgeCorner.fromValue(
@@ -217,9 +177,7 @@ class BadgePositions {
         BadgeCorner.topRight,
       ),
       ratingEnabled: j['ratingEnabled'] != false,
-      subtitleEnabled: j['subtitleEnabled'] != false,
-      crackEnabled: j['crackEnabled'] != false,
-      resolutionEnabled: j['resolutionEnabled'] != false,
+      contentBadgeEnabled: j['contentBadgeEnabled'] != false,
       newResourcesEnabled: j['newResourcesEnabled'] != false,
       topLeftOffset: readOffset(BadgeCorner.topLeft),
       topRightOffset: readOffset(BadgeCorner.topRight),
@@ -255,9 +213,7 @@ class BadgePositionsNotifier extends Notifier<BadgePositions> {
   Future<void> setKind(BadgeKind k, BadgeCorner v) async {
     final next = switch (k) {
       BadgeKind.rating => state.copyWith(rating: v),
-      BadgeKind.subtitle => state.copyWith(subtitle: v),
-      BadgeKind.crack => state.copyWith(crack: v),
-      BadgeKind.resolution => state.copyWith(resolution: v),
+      BadgeKind.content => state.copyWith(contentBadge: v),
       BadgeKind.newResources => state.copyWith(newResources: v),
     };
     await _persist(next);
@@ -266,12 +222,18 @@ class BadgePositionsNotifier extends Notifier<BadgePositions> {
   Future<void> setEnabled(BadgeKind k, bool enabled) async {
     final next = switch (k) {
       BadgeKind.rating => state.copyWith(ratingEnabled: enabled),
-      BadgeKind.subtitle => state.copyWith(subtitleEnabled: enabled),
-      BadgeKind.crack => state.copyWith(crackEnabled: enabled),
-      BadgeKind.resolution => state.copyWith(resolutionEnabled: enabled),
+      BadgeKind.content => state.copyWith(contentBadgeEnabled: enabled),
       BadgeKind.newResources => state.copyWith(newResourcesEnabled: enabled),
     };
     await _persist(next);
+  }
+
+  Future<void> setContentBadgePosition(BadgeCorner corner) async {
+    await _persist(state.copyWith(contentBadge: corner));
+  }
+
+  Future<void> setContentBadgeEnabled(bool enabled) async {
+    await _persist(state.copyWith(contentBadgeEnabled: enabled));
   }
 
   Future<void> setHorizontalOffset(BadgeCorner corner, int v) async {

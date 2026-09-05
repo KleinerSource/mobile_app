@@ -109,7 +109,7 @@ void main() {
       tester,
       canPlay: false,
       hasCnsub: true,
-      badgePositions: const BadgePositions(subtitle: BadgeCorner.topRight),
+      badgePositions: const BadgePositions(contentBadge: BadgeCorner.topRight),
     );
 
     final poster = tester.getRect(find.byType(Poster));
@@ -121,7 +121,7 @@ void main() {
       tester,
       canPlay: false,
       hasCnsub: true,
-      badgePositions: const BadgePositions(subtitleEnabled: false),
+      badgePositions: const BadgePositions(contentBadgeEnabled: false),
     );
     expect(find.byIcon(Icons.closed_caption_rounded), findsNothing);
   });
