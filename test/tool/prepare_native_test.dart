@@ -71,4 +71,63 @@ void main() {
     prepareVolumePlugin(root);
     expect(gradle.readAsStringSync(), 'compileSdkVersion 36\n// 中文');
   });
+
+  test('缺少插件 Gradle 文件时返回可诊断错误', () {
+    final root = Directory.systemTemp.createTempSync('native_prepare_missing_');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final config = File('${root.path}/.dart_tool/package_config.json');
+    config.parent.createSync();
+    config.writeAsStringSync(
+      jsonEncode({
+        'packages': [
+          {'name': 'flutter_volume_controller', 'rootUri': '../volume/'},
+        ],
+      }),
+    );
+
+    expect(
+      () => prepareVolumePlugin(
+        root,
+        pubCachePath: '${root.path}/empty-pub-cache',
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('找不到 flutter_volume_controller 的 Android Gradle 文件'),
+        ),
+      ),
+    );
+  });
+
+  test('package_config 的绝对 URI 没有结尾斜杠时仍能定位插件', () {
+    final root = Directory.systemTemp.createTempSync(
+      'native_prepare_absolute_',
+    );
+    addTearDown(() => root.deleteSync(recursive: true));
+    final packageRoot = Directory('${root.path}/volume plugin')
+      ..createSync(recursive: true);
+    final gradle = File('${packageRoot.path}/android/build.gradle')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('compileSdkVersion 31');
+    final config = File('${root.path}/.dart_tool/package_config.json')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(
+        jsonEncode({
+          'packages': [
+            {
+              'name': 'flutter_volume_controller',
+              'rootUri': packageRoot.absolute.uri.toString().replaceFirst(
+                RegExp(r'/$'),
+                '',
+              ),
+            },
+          ],
+        }),
+      );
+
+    prepareVolumePlugin(root);
+    expect(gradle.readAsStringSync(), 'compileSdkVersion 36');
+    expect(config.existsSync(), isTrue);
+  });
 }

@@ -148,6 +148,7 @@ class OmmMediaSourceAdapter
     }
     return PlaybackDescriptor(
       uri: uri,
+      headers: decision.strmHeaders,
       mimeType: decision.mimeType,
       startAt: decision.startSec,
       isTranscode: decision.isTranscode,

@@ -313,6 +313,7 @@ class PlaybackDecision {
     required this.mode,
     required this.streamUrl,
     this.directUrl = '',
+    this.strmUserAgent = '',
     this.qualityOptions = const [],
     required this.mimeType,
     this.container = '',
@@ -334,6 +335,7 @@ class PlaybackDecision {
   final String mode;
   final String streamUrl;
   final String directUrl;
+  final String strmUserAgent;
   final List<QualityOption> qualityOptions;
   final String mimeType;
   final String container;
@@ -352,6 +354,9 @@ class PlaybackDecision {
   final double startSec;
 
   bool get isTranscode => mode == 'transcode';
+
+  Map<String, String> get strmHeaders =>
+      strmUserAgent.isEmpty ? const {} : {'User-Agent': strmUserAgent};
   bool get isDirect =>
       mode == 'direct_play' || mode == 'remux' || mode == 'direct_stream';
 
@@ -367,6 +372,7 @@ class PlaybackDecision {
       mode: _asString(json['mode']),
       streamUrl: _asString(json['stream_url']),
       directUrl: directUrl,
+      strmUserAgent: _asString(json['strm_user_agent']),
       qualityOptions: qualityOptions,
       mimeType: _asString(json['mime_type']),
       container: _asString(json['container']),

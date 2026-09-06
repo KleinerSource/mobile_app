@@ -71,6 +71,14 @@ const _directPlaybackDecision = playback_models.PlaybackDecision(
   startSec: 0,
 );
 
+String _safePlaybackUrlForLog(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null) return '<invalid-url>';
+  return uri
+      .replace(queryParameters: const <String, String>{}, fragment: '')
+      .toString();
+}
+
 playback_models.PlaybackDecision _directPlaybackDecisionForTracks({
   required List<playback_models.AudioTrack> audioTracks,
   required List<playback_models.SubtitleTrack> subtitleTracks,
@@ -227,7 +235,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
   }) {
     appLog(
       '[VideoPlayerPage] openDirect 入队: engine=${engineKind?.value ?? 'default'} '
-      'url=$directUrl',
+      'url=${_safePlaybackUrlForLog(directUrl)}',
     );
     return playerPageOpenGate.run(() async {
       await Navigator.of(context, rootNavigator: useRootNavigator).push<void>(
@@ -641,7 +649,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         _bindProgress();
         setState(() => _loading = false);
         _restartHideTimer();
-        _playerLog('开始直链播放: $trailerUrl');
+        _playerLog('开始直链播放: ${_safePlaybackUrlForLog(trailerUrl)}');
         _playerLog(
           '配置播放器: preload=${ref.read(playerSettingsProvider).preloadSize.bytes}',
         );
@@ -732,10 +740,15 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         if (rawDirectUrl.isEmpty) {
           throw StateError('服务器版本不兼容：播放决策缺少 direct_url');
         }
-        directUrl = _protectedUrl(cfg, rawDirectUrl, token);
-        ommDirectHeaders = !isExternalUrl(cfg, rawDirectUrl)
-            ? _authorizationHeaders(token)
-            : null;
+        if (decision.strmUserAgent.isNotEmpty) {
+          directUrl = rawDirectUrl;
+          ommDirectHeaders = decision.strmHeaders;
+        } else {
+          directUrl = _protectedUrl(cfg, rawDirectUrl, token);
+          ommDirectHeaders = !isExternalUrl(cfg, rawDirectUrl)
+              ? _authorizationHeaders(token)
+              : null;
+        }
       }
 
       // 预载档位在每次打开时读取，修改档位后下一次打开即生效。
@@ -834,7 +847,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }) async {
     _playerLog(
       '调用播放器 open: engine=${_host.kind.value} '
-      'url=$url formatHint=${formatHint ?? ''}',
+      'url=${_safePlaybackUrlForLog(url)} formatHint=${formatHint ?? ''}',
     );
     try {
       await _host

@@ -8,6 +8,14 @@ import '../../../core/platform/app_log_store.dart';
 import 'ks_player_seek_recovery.dart';
 import '../common/playback_engine.dart';
 
+String _safePlaybackUrlForLog(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null) return '<invalid-url>';
+  return uri
+      .replace(queryParameters: const <String, String>{}, fragment: '')
+      .toString();
+}
+
 class KsPlayerPlaybackEngine implements PlaybackEngine {
   KsPlayerPlaybackEngine()
     : _playerFuture = OmmKsPlayer.create(),
@@ -220,7 +228,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
     final player = await _ensurePlayer();
     appLog(
       '[KsPlayer] 调用原生 open: id=${player.playerId} '
-      'url=${request.url} formatHint=${request.formatHint ?? ''} '
+      'url=${_safePlaybackUrlForLog(request.url)} formatHint=${request.formatHint ?? ''} '
       'hw=$_hardwareAcceleration',
     );
     try {

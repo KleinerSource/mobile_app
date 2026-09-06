@@ -12,6 +12,7 @@
 6. 五个大型模块按文件操作/预览/目录选择、播放器进度/转码/设备、服务器操作/卡片、演员同步会话/应用/展示、服务器切换流程/转场拆分。使用 Dart part 和私有 State extension 保留同一个 State 及既有 Session/Tracker 的资源所有权；没有新增一套状态或通用仓储。
 7. 删除旧 MediaInfo、isCupertino、LibraryMoviesPage、HomeLibrariesSection 和无引用兼容导出。保留条件导出的 smb2_api_web、测试 sources.dart、json_annotation、本地媒体库与原生注册插件。旧进度组件场景迁到生产使用的 MediaBrowserLibraryRefreshIndicator；现有库隐私首次揭示、首页隐私轮播及库设置侧滑刷新测试保留。
 8. Dio 升至 5.11.1、flutter_riverpod/riverpod 升至 3.4.3。保留其余版本及 CI Flutter 3.44.0。新增共用原生准备脚本、Android 按 ABI 下载逻辑；保留工作流其它步骤和已有用户修改。README、原生版本说明、大版本迁移路线已补齐。
+9. 修复 `prepare_native.dart configure android` 在 CI package cache 布局差异下抛出 `Bad state: No element`：package config 现在兼容绝对/相对 URI 和无尾斜杠路径，插件 Gradle 文件支持 `.gradle`/`.gradle.kts` 及受限递归回退查找；找不到时返回包含检查路径的诊断错误。
 
 ## 验证
 
@@ -23,6 +24,8 @@
 | `flutter analyze --no-pub` | 通过，No issues found |
 | `flutter test --no-pub --reporter expanded` | 全部 1,115 项通过（约 1 分 42 秒） |
 | Dart 格式化、`git diff --check`、UTF-8 解码检查 | 通过；已撤回确认无关的单纯格式变更 |
+| `flutter test --no-pub test/tool/prepare_native_test.dart --reporter expanded` | 6 项通过，覆盖幂等性、含空格/绝对 URI、缺失 Gradle 文件诊断 |
+| `dart tool/prepare_native.dart configure android` | 本机成功；CI package cache 差异路径已覆盖回归测试 |
 | core → features 引用扫描 | 0 项 |
 | `flutter build apk --release --target-platform android-arm64 --no-pub` | 未通过：No Android SDK found，尚未进入 Gradle 编译 |
 | iOS 构建、真机/内存/帧率 | 本机不可执行，尚未验证 |

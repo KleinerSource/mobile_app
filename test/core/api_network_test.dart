@@ -281,6 +281,8 @@ void _main_0() {
 
     final decision = await api.decision(7, caps);
     expect(decision.mode, 'direct_play');
+    expect(adapter.requestBodies.first['resolve_private_strm'], isTrue);
+    expect(adapter.requestBodies.first['ua'], startsWith('omm/'));
     expect(await api.streamUrl(7), '/api/movies/id/7/stream?mode=direct');
     expect((await api.status(7)).active, isTrue);
     expect((await api.events(7).toList()).single.quality, '1080p');
@@ -298,6 +300,21 @@ void _main_0() {
         '/api/movies/id/7/dbonline/resources/acknowledge',
       ]),
     );
+  });
+
+  test('辅助解析传递播放器 UA，不使用 API 客户端 UA', () async {
+    final adapter = _RouteAdapter();
+    final dio = _dio(adapter);
+    dio.options.headers['User-Agent'] = 'api-client';
+    await PlaybackApi(dio).decision(
+      7,
+      PlaybackClientCaps.mediaKit(
+        qualityPreset: 'original',
+        userAgent: 'omm/android player/1.0',
+      ),
+    );
+    expect(adapter.requestBodies.single['ua'], 'omm/android player/1.0');
+    expect(adapter.requestBodies.single['resolve_private_strm'], isTrue);
   });
 
   test('转码状态接口透传完整会话参数', () async {

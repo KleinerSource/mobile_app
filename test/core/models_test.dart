@@ -124,6 +124,17 @@ Map<String, dynamic> _minimalDecisionJson() => {
 };
 
 void _main_1() {
+  test('STRM UA 可选并生成独立的播放请求头', () {
+    final legacy = PlaybackDecision.fromJson(_minimalDecisionJson());
+    expect(legacy.strmUserAgent, isEmpty);
+    expect(legacy.strmHeaders, isEmpty);
+    final resolved = PlaybackDecision.fromJson({
+      ..._minimalDecisionJson(),
+      'strm_user_agent': 'omm/ios player/1.0',
+    });
+    expect(resolved.strmHeaders, {'User-Agent': 'omm/ios player/1.0'});
+  });
+
   test('播放决策解析模式、音轨和字幕轨', () {
     final decision = PlaybackDecision.fromJson(const {
       'mode': 'transcode',

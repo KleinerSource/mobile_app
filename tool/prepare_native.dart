@@ -92,18 +92,16 @@ void prepareAndroidProject(Directory root) {
   );
 }
 
-void prepareVolumePlugin(Directory root) {
+void prepareVolumePlugin(Directory root, {String? pubCachePath}) {
   final config = File('${root.path}/.dart_tool/package_config.json');
   final packages =
       (jsonDecode(config.readAsStringSync()) as Map)['packages'] as List;
   final package = packages.cast<Map>().singleWhere(
     (package) => package['name'] == 'flutter_volume_controller',
   );
-  final uri = config.absolute.uri.resolve(package['rootUri'] as String);
-  final android = Directory.fromUri(uri.resolve('android/'));
-  final file = ['build.gradle', 'build.gradle.kts']
-      .map((name) => File('${android.path}/$name'))
-      .firstWhere((file) => file.existsSync());
+  final packageUri = _resolvePackageUri(config, package['rootUri'] as String);
+  final packageRoot = Directory.fromUri(packageUri);
+  final file = _findVolumePluginGradle(packageRoot, pubCachePath: pubCachePath);
   updateFile(
     file,
     (text) => text.replaceAllMapped(
@@ -111,6 +109,95 @@ void prepareVolumePlugin(Directory root) {
       (match) => '${match[1]}36',
     ),
   );
+}
+
+Uri _resolvePackageUri(File packageConfig, String rootUri) {
+  final parsed = Uri.parse(rootUri);
+  final resolved = parsed.isAbsolute
+      ? parsed
+      : packageConfig.absolute.uri.resolve(rootUri);
+  return resolved.path.endsWith('/')
+      ? resolved
+      : resolved.replace(path: '${resolved.path}/');
+}
+
+File _findVolumePluginGradle(Directory packageRoot, {String? pubCachePath}) {
+  File? directCandidate(Directory root) {
+    for (final name in ['build.gradle', 'build.gradle.kts']) {
+      final file = File('${root.path}/android/$name');
+      if (file.existsSync()) return file;
+    }
+    return null;
+  }
+
+  final direct = directCandidate(packageRoot);
+  if (direct != null) return direct;
+
+  File? recursiveCandidate(Directory root) {
+    if (!root.existsSync()) return null;
+    final files =
+        root
+            .listSync(recursive: true, followLinks: false)
+            .whereType<File>()
+            .where((file) {
+              final path = file.path.replaceAll('\\', '/');
+              return (path.endsWith('/build.gradle') ||
+                      path.endsWith('/build.gradle.kts')) &&
+                  !path.contains('/example/');
+            })
+            .toList()
+          ..sort((a, b) => a.path.length.compareTo(b.path.length));
+    return files.isEmpty ? null : files.first;
+  }
+
+  final recursive = recursiveCandidate(packageRoot);
+  if (recursive != null) return recursive;
+
+  // package_config 是首选来源，但 pub cache 中的版本目录在不同 Flutter
+  // runner 上可能被链接或规范化为不同 URI；保留一个受限的同包回退查找。
+  final pubCache =
+      pubCachePath ??
+      Platform.environment['PUB_CACHE'] ??
+      (Platform.isWindows
+          ? Platform.environment['LOCALAPPDATA'] == null
+                ? null
+                : '${Platform.environment['LOCALAPPDATA']}/Pub/Cache'
+          : Platform.environment['HOME'] == null
+          ? null
+          : '${Platform.environment['HOME']}/.pub-cache');
+  if (pubCache != null && pubCache.isNotEmpty) {
+    final hosted = Directory('$pubCache/hosted/pub.dev');
+    if (hosted.existsSync()) {
+      final alternatives =
+          hosted
+              .listSync()
+              .whereType<Directory>()
+              .where(
+                (directory) => RegExp(
+                  r'^flutter_volume_controller-',
+                ).hasMatch(_basename(directory.path)),
+              )
+              .toList()
+            ..sort((a, b) => b.path.compareTo(a.path));
+      for (final alternative in alternatives) {
+        final candidate =
+            directCandidate(alternative) ?? recursiveCandidate(alternative);
+        if (candidate != null) return candidate;
+      }
+    }
+  }
+
+  throw StateError(
+    '找不到 flutter_volume_controller 的 Android Gradle 文件。'
+    '已检查 package root: ${packageRoot.path}；请确认 pub get 已完成，'
+    '并包含 android/build.gradle 或 android/build.gradle.kts。',
+  );
+}
+
+String _basename(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final index = normalized.lastIndexOf('/');
+  return index < 0 ? normalized : normalized.substring(index + 1);
 }
 
 void prepareIosProject(Directory root) {

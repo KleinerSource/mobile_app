@@ -21,6 +21,14 @@ EnginePlaybackRoute playbackRouteForQuality({
   required playback_models.PlaybackDecision decision,
   bool forceServerRoute = false,
 }) {
+  // 辅助解析后的 STRM（包括公网 HLS）始终由客户端带 UA 直连。
+  if (decision.strmUserAgent.isNotEmpty) {
+    return const EnginePlaybackRoute(
+      useBackendStream: false,
+      useServerRoute: false,
+      usesManagedTranscode: false,
+    );
+  }
   final normalized = quality.trim().toLowerCase();
   final useDecisionStream = forceServerRoute || normalized != 'auto';
   final useServerRoute = useDecisionStream && decisionHasHlsUrl(decision);
@@ -87,7 +95,8 @@ ServerFallbackPlan? serverFallbackPlanFor({
   required playback_models.PlaybackDecision decision,
 }) {
   final normalized = quality.trim().toLowerCase();
-  if (alreadyAttempted ||
+  if (decision.strmUserAgent.isNotEmpty ||
+      alreadyAttempted ||
       usingHls ||
       (normalized != 'auto' && normalized != 'original')) {
     return null;

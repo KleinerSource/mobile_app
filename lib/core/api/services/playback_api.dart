@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/playback.dart';
 import '../envelope.dart';
@@ -17,7 +18,13 @@ class PlaybackApi {
   ) async {
     final response = await _dio.post<dynamic>(
       '/movies/id/$movieId/playback-decision',
-      data: caps.toJson(),
+      data: {
+        ...caps.toJson(),
+        'resolve_private_strm': true,
+        'ua': caps.userAgent?.trim().isNotEmpty == true
+            ? caps.userAgent
+            : 'omm/${kIsWeb ? 'flutter-web' : defaultTargetPlatform.name.toLowerCase()}',
+      },
     );
     return unwrapStd<PlaybackDecision>(
       response.data,
