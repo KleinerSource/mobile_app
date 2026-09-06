@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/library.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
+import '../../shared/collection_card_layout.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
@@ -24,6 +27,7 @@ import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
 
 const _homeSectionTitleGap = 14.0;
+const _homeSectionGap = 24.0;
 
 /// omm 首页 · 现代化半屏 hero 设计:
 /// - 背景为当前轮播封面的大模糊毛玻璃氛围层
@@ -137,6 +141,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final recent = ref.watch(recentlyAddedProvider);
     final continueW = ref.watch(continueWatchingProvider);
     final carousel = ref.watch(recommendCarouselProvider);
+    final libraries = ref.watch(librariesProvider);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final viewedMovieIds = ref
         .watch(homeMovieViewStateProvider)
@@ -272,6 +277,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
                 ],
+              );
+            },
+          ),
+        ),
+
+        // -------- 4. Your libraries (最底部) --------
+        SliverToBoxAdapter(
+          child: libraries.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (libs) {
+              if (libs.isEmpty) return const SizedBox.shrink();
+              return _CollectionsSection(
+                libraries: libs,
+                onMovieReturned: _refreshMovieSections,
               );
             },
           ),
@@ -534,4 +554,206 @@ String? _movieCoverUrl(
     if (value.isNotEmpty) return urlBuilder(value);
   }
   return null;
+}
+
+// ============ Your libraries (媒体库 · 最底部) ============
+class _CollectionsSection extends ConsumerWidget {
+  const _CollectionsSection({
+    required this.libraries,
+    required this.onMovieReturned,
+  });
+
+  final List<LibraryItem> libraries;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final covers =
+        ref.watch(libraryCoverImagesProvider).value ?? const <int, Uint8List>{};
+    return Padding(
+      padding: const EdgeInsets.only(top: _homeSectionGap, bottom: 28),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = collectionCardWidth(constraints.maxWidth - 44);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: Text(
+                  AppL10n.of(context).homeYourLibraries,
+                  style: AppText.sectionTitle(context),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: cardWidth / (5 / 3),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  itemCount: libraries.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) => SizedBox(
+                    key: ValueKey(libraries[i].id),
+                    width: cardWidth,
+                    child: _LibraryCard(
+                      library: libraries[i],
+                      hue: AppHues.all[i % AppHues.all.length],
+                      cover: covers[libraries[i].id],
+                      onMovieReturned: onMovieReturned,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LibraryCard extends StatelessWidget {
+  const _LibraryCard({
+    required this.library,
+    required this.hue,
+    required this.onMovieReturned,
+    this.cover,
+  });
+
+  final LibraryItem library;
+  final int hue;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
+  final Uint8List? cover;
+
+  @override
+  Widget build(BuildContext context) {
+    return PrivacyAwareInkWell(
+      movieId: library.id,
+      scope: PrivacyScope.library,
+      onTap: () async {
+        final changesBeforeVisit = MovieDataChanges.snapshot();
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                MoviesPage(initialFilter: MovieFilter(libraryId: library.id)),
+          ),
+        );
+        if (context.mounted) onMovieReturned(changesBeforeVisit);
+      },
+      borderRadius: 16,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 5 / 3,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              PrivacyMask(
+                movieId: library.id,
+                scope: PrivacyScope.library,
+                radius: 0,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    fit: StackFit.expand,
+                    alignment: Alignment.center,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  child: cover != null
+                      ? KeyedSubtree(
+                          key: ValueKey('cover-${library.id}'),
+                          child: Image.memory(cover!, fit: BoxFit.cover),
+                        )
+                      : KeyedSubtree(
+                          key: ValueKey('hue-$hue'),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                              ),
+                            ),
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  top: -30,
+                                  right: -30,
+                                  width: 100,
+                                  height: 100,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppHues.highlight(hue),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              if (cover != null)
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black54,
+                        Colors.black87,
+                      ],
+                      stops: [0.35, 0.7, 1.0],
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PrivacyText(
+                        movieId: library.id,
+                        scope: PrivacyScope.library,
+                        text: library.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          letterSpacing: -0.3,
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppL10n.of(context).libraryCount(library.fileCount),
+                        style: const TextStyle(
+                          color: Color(0xCCFFFFFF),
+                          fontFamily: 'Inter',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
