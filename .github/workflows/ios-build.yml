@@ -215,6 +215,21 @@ jobs:
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "path=build/ios/iphoneos/${artifact_name}" >> "${GITHUB_OUTPUT}"
 
+      - name: 验证 iOS IPA 不含 KleinerSource 相关信息
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          ipa_path="${{ steps.ios_artifact.outputs.path }}"
+          scan_dir="$(mktemp -d)"
+          trap 'rm -rf "${scan_dir}"' EXIT
+          unzip -q "${ipa_path}" -d "${scan_dir}"
+          if grep -R -a -q -i -E \
+            'KleinerSource|KleinerSource@me\.com|github\.com/KleinerSource' \
+            "${scan_dir}"; then
+            echo "IPA 包含 KleinerSource 相关信息"
+            exit 1
+          fi
+
       - name: 上传 iOS Actions 产物
         uses: actions/upload-artifact@v6
         with:

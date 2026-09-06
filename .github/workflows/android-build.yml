@@ -226,6 +226,16 @@ jobs:
             exit 1
           fi
 
+          scan_dir="$(mktemp -d)"
+          trap 'rm -rf "${scan_dir}"' EXIT
+          unzip -q "${apk_path}" -d "${scan_dir}"
+          if grep -R -a -q -i -E \
+            'KleinerSource|KleinerSource@me\.com|github\.com/KleinerSource' \
+            "${scan_dir}"; then
+            echo "APK 包含 KleinerSource 相关信息"
+            exit 1
+          fi
+
       - name: 添加版本号到 Android 产物
         id: android_artifact
         timeout-minutes: 2
