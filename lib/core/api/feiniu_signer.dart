@@ -72,13 +72,10 @@ class FeiniuRequestSigner {
       entries.add(MapEntry(entry.key, value.toString()));
     }
     entries.sort((a, b) => a.key.compareTo(b.key));
-    return entries
-        .map(
-          (entry) =>
-              '${Uri.encodeQueryComponent(entry.key)}='
-              '${Uri.encodeQueryComponent(entry.value)}',
-        )
-        .join('&');
+    // fnOS Web 端先用 URLSearchParams 编码，再 decodeURIComponent 后参与摘要。
+    // 因此签名载荷应保留中文、空格和斜杠等解码后的查询值，而不是使用最终
+    // URL 中的百分号编码文本。
+    return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
   }
 
   static String _md5(String value) =>

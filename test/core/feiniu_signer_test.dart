@@ -31,7 +31,7 @@ void main() {
     );
   });
 
-  test('GET 签名按 key 排序并进行 URL 编码', () {
+  test('GET 签名按 key 排序并使用解码后的查询值', () {
     final signer = FeiniuRequestSigner(
       apiKey: 'key',
       apiSecret: 'secret',
@@ -43,9 +43,7 @@ void main() {
       pathname: '/v/api/v1/item/1',
       query: {'z': 'a b', 'skip': null, 'a': 'x/y'},
     );
-    final query =
-        'a=${Uri.encodeQueryComponent('x/y')}'
-        '&z=${Uri.encodeQueryComponent('a b')}';
+    final query = 'a=x/y&z=a b';
     final digest = _md5(query);
     final expectedSign = _md5(
       'key_/v/api/v1/item/1_nonce-2_1700000000001_${digest}_secret',
