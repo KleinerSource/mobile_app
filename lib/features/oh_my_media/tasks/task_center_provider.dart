@@ -225,7 +225,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
             .read(audioRepositoryProvider)
             .cancelExtractionRaw(task.id);
         break;
-      case 'NFO 同步':
+      case 'NFO 写入':
         await client.moviesExtended.cancelNfoSync(task.id);
         break;
       case '演员关联同步':

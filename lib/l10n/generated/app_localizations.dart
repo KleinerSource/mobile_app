@@ -9495,7 +9495,7 @@ abstract class AppL10n {
   /// No description provided for @taskNameNfoSync.
   ///
   /// In zh, this message translates to:
-  /// **'NFO 同步'**
+  /// **'NFO 写入'**
   String get taskNameNfoSync;
 
   /// No description provided for @taskNameResourceScan.
@@ -10617,7 +10617,7 @@ abstract class AppL10n {
   /// No description provided for @detailSyncNfoTitle.
   ///
   /// In zh, this message translates to:
-  /// **'同步到 NFO'**
+  /// **'写入 NFO'**
   String get detailSyncNfoTitle;
 
   /// No description provided for @detailSyncNfoMessage.
@@ -10629,25 +10629,25 @@ abstract class AppL10n {
   /// No description provided for @detailSyncNfoSuccess.
   ///
   /// In zh, this message translates to:
-  /// **'已同步到 NFO'**
+  /// **'已写入 NFO'**
   String get detailSyncNfoSuccess;
 
   /// No description provided for @detailRefreshNfoTitle.
   ///
   /// In zh, this message translates to:
-  /// **'从 NFO 刷新'**
+  /// **'读取 NFO'**
   String get detailRefreshNfoTitle;
 
   /// No description provided for @detailRefreshNfoMessage.
   ///
   /// In zh, this message translates to:
-  /// **'从磁盘 NFO 重新加载,会覆盖当前元数据。'**
+  /// **'从磁盘 NFO 读取影片信息,会覆盖当前元数据。'**
   String get detailRefreshNfoMessage;
 
   /// No description provided for @detailRefreshNfoSuccess.
   ///
   /// In zh, this message translates to:
-  /// **'已从 NFO 重载'**
+  /// **'已读取 NFO'**
   String get detailRefreshNfoSuccess;
 
   /// No description provided for @detailEditMovie.
@@ -11409,7 +11409,7 @@ abstract class AppL10n {
   /// No description provided for @moviesNfoSynced.
   ///
   /// In zh, this message translates to:
-  /// **'NFO 已同步'**
+  /// **'NFO 已写入'**
   String get moviesNfoSynced;
 
   /// No description provided for @moviesApplyFailed.
@@ -11427,7 +11427,7 @@ abstract class AppL10n {
   /// No description provided for @moviesCompareNfoSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'为每个字段选择同步来源'**
+  /// **'为每个字段选择写入来源'**
   String get moviesCompareNfoSubtitle;
 
   /// No description provided for @moviesCompareNfoNoChanges.
@@ -11445,7 +11445,7 @@ abstract class AppL10n {
   /// No description provided for @moviesApplySync.
   ///
   /// In zh, this message translates to:
-  /// **'应用同步'**
+  /// **'应用到已选影片'**
   String get moviesApplySync;
 
   /// No description provided for @moviesMovieWithId.

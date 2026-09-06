@@ -356,7 +356,7 @@ class TaskItem {
                   name == '字幕转译' ||
                   name == '预览生成' ||
                   name == '预览图下载' ||
-                  name == 'NFO 同步' ||
+                  name == 'NFO 写入' ||
                   name == '演员关联同步' ||
                   name.contains('扫描'))));
 

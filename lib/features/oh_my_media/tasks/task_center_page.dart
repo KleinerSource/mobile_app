@@ -680,7 +680,7 @@ class _TaskSwipeActionButton extends StatelessWidget {
 }
 
 IconData _taskIcon(TaskItem task) {
-  if (task.name == 'NFO 同步') return Icons.description_outlined;
+  if (task.name == 'NFO 写入') return Icons.description_outlined;
   if (task.name == '字幕转译') return Icons.cloud_sync_outlined;
   if (task.name == '音频提取') return Icons.audiotrack_outlined;
   if (task.name == '资源扫描') return Icons.manage_search_outlined;
@@ -694,7 +694,7 @@ IconData _taskIcon(TaskItem task) {
 Color _taskColor(TaskItem task) {
   if (task.name == '字幕转译') return AppHues.top(AppHues.sky);
   if (task.name == '音频提取') return AppHues.top(AppHues.lavender);
-  if (task.name == 'NFO 同步') return AppHues.top(AppHues.solar);
+  if (task.name == 'NFO 写入') return AppHues.top(AppHues.solar);
   return AppHues.top(AppHues.mint);
 }
 

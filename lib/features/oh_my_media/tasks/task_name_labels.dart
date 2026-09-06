@@ -16,7 +16,7 @@ String taskNameLabel(AppL10n l, String name) {
       return l.taskNameScheduledScan;
     case '音频提取':
       return l.taskNameAudioExtract;
-    case 'NFO 同步':
+    case 'NFO 写入':
       return l.taskNameNfoSync;
     case '资源扫描':
       return l.taskNameResourceScan;

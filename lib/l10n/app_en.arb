@@ -1776,7 +1776,7 @@
   "taskNameActorSync": "Actor sync",
   "taskNameAudioExtract": "Audio extraction",
   "taskNameFallback": "Background task",
-  "taskNameNfoSync": "NFO sync",
+  "taskNameNfoSync": "Write NFO",
   "taskNameResourceScan": "Resource scan",
   "taskNameScan": "Library scan",
   "taskNameTranscribe": "Transcription",
@@ -2011,12 +2011,12 @@
   "detailDurationMinutes": "{minutes}m {seconds}s",
   "@detailDurationMinutes": {"placeholders":{"minutes":{"type":"int"},"seconds":{"type":"String"}}},
   "detailAudioExtractionSubmitted": "Audio extraction task submitted",
-  "detailSyncNfoTitle": "Sync NFO",
-  "detailSyncNfoMessage": "Sync this movie's information to the NFO file?",
-  "detailSyncNfoSuccess": "NFO synced successfully",
-  "detailRefreshNfoTitle": "Refresh from NFO",
-  "detailRefreshNfoMessage": "Refresh this movie's information from the NFO file?",
-  "detailRefreshNfoSuccess": "Movie information refreshed from NFO",
+  "detailSyncNfoTitle": "Write NFO",
+  "detailSyncNfoMessage": "Write this movie's information to the NFO file?",
+  "detailSyncNfoSuccess": "NFO written successfully",
+  "detailRefreshNfoTitle": "Read NFO",
+  "detailRefreshNfoMessage": "Read this movie's information from the NFO file?",
+  "detailRefreshNfoSuccess": "Movie information read from NFO",
   "detailEditMovie": "Edit movie",
   "detailFetchMetadata": "Fetch metadata",
   "detailFetchResources": "Fetch resources",
@@ -2163,14 +2163,14 @@
   ,"moviesUntitled": "Untitled"
   ,"moviesNoCode": "No code"
   ,"moviesPathUnavailable": "Path unavailable"
-  ,"moviesNfoSynced": "NFO synced"
+  ,"moviesNfoSynced": "NFO written"
   ,"moviesApplyFailed": "Apply failed: {error}"
   ,"@moviesApplyFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"moviesCompareNfoTitle": "Compare duplicate NFOs"
-  ,"moviesCompareNfoSubtitle": "Choose a sync source for each field"
+  ,"moviesCompareNfoSubtitle": "Choose the source for each field"
   ,"moviesCompareNfoNoChanges": "Titles, descriptions, plots, and ratings are identical; no selection is needed"
   ,"moviesApplying": "Applying…"
-  ,"moviesApplySync": "Apply sync"
+  ,"moviesApplySync": "Apply to selected movies"
   ,"moviesMovieWithId": "Movie {id}"
   ,"@moviesMovieWithId": {"placeholders":{"id":{"type":"int"}}}
   ,"moviesEmptyValue": "(Empty)"

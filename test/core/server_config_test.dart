@@ -317,7 +317,7 @@ void _main_0() {
               10,
               versionInfo: const ServerVersionInfo(
                 projectName: 'oh-my-media',
-                version: '2.1.0',
+                version: '2.1.120',
               ),
             ),
           ),
@@ -477,7 +477,7 @@ void _main_0() {
               18,
               versionInfo: const ServerVersionInfo(
                 projectName: 'OH-MY-MEDIA',
-                version: '2.1.0',
+                version: '2.1.120',
               ),
             ),
           ),
@@ -513,7 +513,7 @@ void _main_0() {
 
     final saved = container.read(serverConfigProvider)!.activeServer!;
     expect(saved.projectName, 'oh-my-media');
-    expect(saved.serverVersion, '2.1.0');
+    expect(saved.serverVersion, '2.1.120');
   });
 
   test('同一服务器禁止保存不同项目的线路元数据', () async {
@@ -535,7 +535,7 @@ void _main_0() {
       lines: [line],
       activeLineId: 'omm-line',
       projectName: 'oh-my-media',
-      serverVersion: '2.0.0',
+      serverVersion: '2.1.120',
     );
     await container
         .read(serverConfigProvider.notifier)
@@ -689,7 +689,7 @@ void _main_0() {
           10,
           versionInfo: ServerVersionInfo(
             projectName: 'oh-my-media',
-            version: '2.1.0',
+            version: '2.1.120',
           ),
         ),
       ),
@@ -1263,12 +1263,13 @@ void _main_3() {
   });
 
   test('最低版本满足要求', () {
-    expect(isSupportedServerVersion('2.0.0'), isTrue);
-    expect(isSupportedServerVersion('2.0.1'), isTrue);
+    expect(isSupportedServerVersion('2.1.120'), isTrue);
+    expect(isSupportedServerVersion('2.1.121'), isTrue);
     expect(isSupportedServerVersion('2.10.0'), isTrue);
   });
 
   test('低于最低版本或格式非法时拒绝', () {
+    expect(isSupportedServerVersion('2.1.119'), isFalse);
     expect(isSupportedServerVersion('1.5.99'), isFalse);
     expect(isSupportedServerVersion('1.9.0-beta'), isFalse);
     expect(isSupportedServerVersion('dev'), isFalse);
@@ -1277,11 +1278,11 @@ void _main_3() {
   test('项目名称和版本均正确时通过', () {
     final info = requireCompatibleServerVersion({
       'success': true,
-      'data': {'project_name': 'oh-my-media', 'version': '2.0.0'},
+      'data': {'project_name': 'oh-my-media', 'version': '2.1.120'},
     });
 
     expect(info.projectName, 'oh-my-media');
-    expect(info.version, '2.0.0');
+    expect(info.version, '2.1.120');
   });
 
   test('项目名称错误时拒绝', () {
@@ -1505,7 +1506,7 @@ void _main_4() {
         8,
         versionInfo: const ServerVersionInfo(
           projectName: 'oh-my-media',
-          version: '2.1.0',
+          version: '2.1.120',
         ),
       ),
     );
@@ -1516,7 +1517,7 @@ void _main_4() {
     );
 
     expect(selection.selected?.versionInfo?.project, ServerProject.ohMyMedia);
-    expect(selection.selected?.versionInfo?.version, '2.1.0');
+    expect(selection.selected?.versionInfo?.version, '2.1.120');
   });
 
   test('OpenList/AList 通过公开设置识别版本并支持 WebDAV 端点', () async {

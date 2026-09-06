@@ -5108,7 +5108,7 @@ class AppL10nZh extends AppL10n {
   String get taskNameFallback => '后台任务';
 
   @override
-  String get taskNameNfoSync => 'NFO 同步';
+  String get taskNameNfoSync => 'NFO 写入';
 
   @override
   String get taskNameResourceScan => '资源扫描';
@@ -5767,22 +5767,22 @@ class AppL10nZh extends AppL10n {
   String get detailAudioExtractionSubmitted => '音频提取任务已提交';
 
   @override
-  String get detailSyncNfoTitle => '同步到 NFO';
+  String get detailSyncNfoTitle => '写入 NFO';
 
   @override
   String get detailSyncNfoMessage => '把当前元数据写入磁盘 NFO 文件?';
 
   @override
-  String get detailSyncNfoSuccess => '已同步到 NFO';
+  String get detailSyncNfoSuccess => '已写入 NFO';
 
   @override
-  String get detailRefreshNfoTitle => '从 NFO 刷新';
+  String get detailRefreshNfoTitle => '读取 NFO';
 
   @override
-  String get detailRefreshNfoMessage => '从磁盘 NFO 重新加载,会覆盖当前元数据。';
+  String get detailRefreshNfoMessage => '从磁盘 NFO 读取影片信息,会覆盖当前元数据。';
 
   @override
-  String get detailRefreshNfoSuccess => '已从 NFO 重载';
+  String get detailRefreshNfoSuccess => '已读取 NFO';
 
   @override
   String get detailEditMovie => '编辑影片';
@@ -6203,7 +6203,7 @@ class AppL10nZh extends AppL10n {
   String get moviesPathUnavailable => '路径不可用';
 
   @override
-  String get moviesNfoSynced => 'NFO 已同步';
+  String get moviesNfoSynced => 'NFO 已写入';
 
   @override
   String moviesApplyFailed(String error) {
@@ -6214,7 +6214,7 @@ class AppL10nZh extends AppL10n {
   String get moviesCompareNfoTitle => '比较重复 NFO';
 
   @override
-  String get moviesCompareNfoSubtitle => '为每个字段选择同步来源';
+  String get moviesCompareNfoSubtitle => '为每个字段选择写入来源';
 
   @override
   String get moviesCompareNfoNoChanges => '影片标题、描述、概要、评分均一致，无需选择';
@@ -6223,7 +6223,7 @@ class AppL10nZh extends AppL10n {
   String get moviesApplying => '应用中…';
 
   @override
-  String get moviesApplySync => '应用同步';
+  String get moviesApplySync => '应用到已选影片';
 
   @override
   String moviesMovieWithId(int id) {

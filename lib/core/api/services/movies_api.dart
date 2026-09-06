@@ -47,7 +47,7 @@ abstract class MoviesApi {
   @POST('/movies/delete')
   Future<dynamic> deleteMovies(@Body() Map<String, dynamic> body);
 
-  // ===== NFO 同步/重载/状态 =====
+  // ===== NFO 写入/读取/状态 =====
 
   @POST('/movies/id/{id}/nfo/sync')
   Future<dynamic> syncNfo(@Path('id') int id);
@@ -114,7 +114,7 @@ abstract class MoviesApi {
   @POST('/movies/batch/duplicate-nfo/compare')
   Future<dynamic> compareDuplicateNfo(@Body() Map<String, dynamic> body);
 
-  /// 应用 NFO 同步选择 · body: scalar_selections + ...
+  /// 应用 NFO 写入选择 · body: scalar_selections + ...
   @POST('/movies/batch/duplicate-nfo/apply')
   Future<dynamic> applyDuplicateNfo(@Body() Map<String, dynamic> body);
 

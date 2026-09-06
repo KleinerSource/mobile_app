@@ -1776,7 +1776,7 @@
   "taskNameActorSync": "演员同步",
   "taskNameAudioExtract": "音频提取",
   "taskNameFallback": "后台任务",
-  "taskNameNfoSync": "NFO 同步",
+  "taskNameNfoSync": "NFO 写入",
   "taskNameResourceScan": "资源扫描",
   "taskNameScan": "扫库",
   "taskNameTranscribe": "字幕转译",
@@ -2011,12 +2011,12 @@
   "detailDurationMinutes": "{minutes}分 {seconds}秒",
   "@detailDurationMinutes": {"placeholders":{"minutes":{"type":"int"},"seconds":{"type":"String"}}},
   "detailAudioExtractionSubmitted": "音频提取任务已提交",
-  "detailSyncNfoTitle": "同步到 NFO",
+  "detailSyncNfoTitle": "写入 NFO",
   "detailSyncNfoMessage": "把当前元数据写入磁盘 NFO 文件?",
-  "detailSyncNfoSuccess": "已同步到 NFO",
-  "detailRefreshNfoTitle": "从 NFO 刷新",
-  "detailRefreshNfoMessage": "从磁盘 NFO 重新加载,会覆盖当前元数据。",
-  "detailRefreshNfoSuccess": "已从 NFO 重载",
+  "detailSyncNfoSuccess": "已写入 NFO",
+  "detailRefreshNfoTitle": "读取 NFO",
+  "detailRefreshNfoMessage": "从磁盘 NFO 读取影片信息,会覆盖当前元数据。",
+  "detailRefreshNfoSuccess": "已读取 NFO",
   "detailEditMovie": "编辑影片",
   "detailFetchMetadata": "获取元数据",
   "detailFetchResources": "获取资源",
@@ -2163,14 +2163,14 @@
   ,"moviesUntitled": "未命名"
   ,"moviesNoCode": "无番号"
   ,"moviesPathUnavailable": "路径不可用"
-  ,"moviesNfoSynced": "NFO 已同步"
+  ,"moviesNfoSynced": "NFO 已写入"
   ,"moviesApplyFailed": "应用失败：{error}"
   ,"@moviesApplyFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"moviesCompareNfoTitle": "比较重复 NFO"
-  ,"moviesCompareNfoSubtitle": "为每个字段选择同步来源"
+  ,"moviesCompareNfoSubtitle": "为每个字段选择写入来源"
   ,"moviesCompareNfoNoChanges": "影片标题、描述、概要、评分均一致，无需选择"
   ,"moviesApplying": "应用中…"
-  ,"moviesApplySync": "应用同步"
+  ,"moviesApplySync": "应用到已选影片"
   ,"moviesMovieWithId": "影片 {id}"
   ,"@moviesMovieWithId": {"placeholders":{"id":{"type":"int"}}}
   ,"moviesEmptyValue": "(空)"

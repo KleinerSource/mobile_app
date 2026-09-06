@@ -5198,7 +5198,7 @@ class AppL10nEn extends AppL10n {
   String get taskNameFallback => 'Background task';
 
   @override
-  String get taskNameNfoSync => 'NFO sync';
+  String get taskNameNfoSync => 'Write NFO';
 
   @override
   String get taskNameResourceScan => 'Resource scan';
@@ -5871,24 +5871,24 @@ class AppL10nEn extends AppL10n {
       'Audio extraction task submitted';
 
   @override
-  String get detailSyncNfoTitle => 'Sync NFO';
+  String get detailSyncNfoTitle => 'Write NFO';
 
   @override
   String get detailSyncNfoMessage =>
-      'Sync this movie\'s information to the NFO file?';
+      'Write this movie\'s information to the NFO file?';
 
   @override
-  String get detailSyncNfoSuccess => 'NFO synced successfully';
+  String get detailSyncNfoSuccess => 'NFO written successfully';
 
   @override
-  String get detailRefreshNfoTitle => 'Refresh from NFO';
+  String get detailRefreshNfoTitle => 'Read NFO';
 
   @override
   String get detailRefreshNfoMessage =>
-      'Refresh this movie\'s information from the NFO file?';
+      'Read this movie\'s information from the NFO file?';
 
   @override
-  String get detailRefreshNfoSuccess => 'Movie information refreshed from NFO';
+  String get detailRefreshNfoSuccess => 'Movie information read from NFO';
 
   @override
   String get detailEditMovie => 'Edit movie';
@@ -6316,7 +6316,7 @@ class AppL10nEn extends AppL10n {
   String get moviesPathUnavailable => 'Path unavailable';
 
   @override
-  String get moviesNfoSynced => 'NFO synced';
+  String get moviesNfoSynced => 'NFO written';
 
   @override
   String moviesApplyFailed(String error) {
@@ -6327,7 +6327,7 @@ class AppL10nEn extends AppL10n {
   String get moviesCompareNfoTitle => 'Compare duplicate NFOs';
 
   @override
-  String get moviesCompareNfoSubtitle => 'Choose a sync source for each field';
+  String get moviesCompareNfoSubtitle => 'Choose the source for each field';
 
   @override
   String get moviesCompareNfoNoChanges =>
@@ -6337,7 +6337,7 @@ class AppL10nEn extends AppL10n {
   String get moviesApplying => 'Applying…';
 
   @override
-  String get moviesApplySync => 'Apply sync';
+  String get moviesApplySync => 'Apply to selected movies';
 
   @override
   String moviesMovieWithId(int id) {
