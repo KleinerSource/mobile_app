@@ -107,6 +107,18 @@ void main() {
     );
   });
 
+  test('飞牛媒体库海报缺少图片标签时按媒体库 ID 回退', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.feiniu,
+      baseUrl: 'http://test/v',
+    );
+
+    expect(
+      urls.poster('library/1', maxWidth: 600),
+      'http://test/v/api/v1/sys/img/mediadb/library%2F1/poster.jpg?w=600',
+    );
+  });
+
   test('Stash 图片、预览和直链使用根地址并携带 ApiKey', () {
     final urls = MediaBrowserServerUrls(
       config: MediaBrowserConfig.stash,

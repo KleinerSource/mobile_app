@@ -225,8 +225,12 @@ class _FeiniuServerUrls extends MediaBrowserServerUrls {
   int _posterWidth(int width) => width == 440 ? 400 : width;
 
   @override
-  String poster(String itemId, {int maxWidth = 440, String? tag}) =>
-      _asset(tag, width: _posterWidth(maxWidth));
+  String poster(String itemId, {int maxWidth = 440, String? tag}) {
+    final imagePath = tag?.trim().isNotEmpty == true
+        ? tag
+        : '/mediadb/${Uri.encodeComponent(itemId)}/poster.jpg';
+    return _asset(imagePath, width: _posterWidth(maxWidth));
+  }
 
   @override
   String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
