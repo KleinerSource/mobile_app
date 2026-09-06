@@ -113,9 +113,24 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
             ),
           ),
         ),
-        data: (movie) => _DetailBody(movie: movie, urlBuilder: urlBuilder),
+        data: (movie) => RefreshIndicator(
+          onRefresh: _refreshMovie,
+          child: _DetailBody(movie: movie, urlBuilder: urlBuilder),
+        ),
       ),
     );
+  }
+
+  Future<void> _refreshMovie() async {
+    final movieId = widget.movieId;
+    refreshImageCache(ref);
+    ref.invalidate(movieWatchRecordProvider(movieId));
+    ref.invalidate(mediaInfoProvider(movieId));
+    ref.invalidate(extraFanartsProvider(movieId));
+    ref.invalidate(previewStatusProvider(movieId));
+    ref.invalidate(previewVideoUrlProvider(movieId));
+    // ignore: unused_result
+    await ref.refresh(movieDetailProvider(movieId).future);
   }
 }
 
@@ -212,6 +227,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
       heroArts: _heroArts,
       heroPosition: _heroPagePosition,
       hero: _HeroHeader(movie: movie, urlBuilder: urlBuilder),
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(

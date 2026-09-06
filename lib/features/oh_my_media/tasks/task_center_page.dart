@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,6 +22,7 @@ class TaskCenterPage extends ConsumerStatefulWidget {
 }
 
 class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
+  static const _loadMoreThreshold = 240.0;
   String _filter = 'all';
   final Set<String> _busy = <String>{};
 
@@ -48,37 +51,50 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
             ),
             body: RefreshIndicator(
               onRefresh: ref.read(taskCenterProvider.notifier).refresh,
-              child: ListView(
-                primary: true,
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-                children: [
-                  _buildSummary(colors, tasks, activeCount, meta),
-                  const SizedBox(height: 14),
-                  _buildFilterBar(colors),
-                  const SizedBox(height: 14),
-                  if (visible.isEmpty)
-                    _buildEmpty(colors)
-                  else
-                    _buildTaskTable(colors, visible),
-                  if (meta.hasMore)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: OutlinedButton(
-                        onPressed: meta.loading
-                            ? null
-                            : ref.read(taskCenterProvider.notifier).loadMore,
-                        child: Text(
-                          meta.loading ? l.taskLoadingMore : l.taskLoadMore,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onScrollNotification,
+                child: ListView(
+                  primary: true,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+                  children: [
+                    _buildSummary(colors, tasks, activeCount, meta),
+                    const SizedBox(height: 14),
+                    _buildFilterBar(colors),
+                    const SizedBox(height: 14),
+                    if (visible.isEmpty)
+                      _buildEmpty(colors)
+                    else
+                      _buildTaskTable(colors, visible),
+                    if (meta.loading && visible.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 18),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  bool _onScrollNotification(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (notification.depth == 0 &&
+        metrics.axis == Axis.vertical &&
+        metrics.extentAfter < _loadMoreThreshold) {
+      unawaited(ref.read(taskCenterProvider.notifier).loadMore());
+    }
+    return false;
   }
 
   bool _matchesFilter(TaskItem task) {

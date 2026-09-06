@@ -25,6 +25,7 @@ class MovieDetailScaffold extends StatelessWidget {
     required this.slivers,
     this.actions = const <Widget>[],
     this.heroMaxHeight = 320,
+    this.physics,
   });
 
   final Widget hero;
@@ -33,6 +34,7 @@ class MovieDetailScaffold extends StatelessWidget {
   final List<Widget> slivers;
   final List<Widget> actions;
   final double heroMaxHeight;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +48,7 @@ class MovieDetailScaffold extends StatelessWidget {
       children: [
         HeroBackdrop(arts: heroArts, position: heroPosition),
         CustomScrollView(
+          physics: physics,
           slivers: [
             SliverPersistentHeader(
               pinned: false,
