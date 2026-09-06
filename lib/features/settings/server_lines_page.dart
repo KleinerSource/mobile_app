@@ -432,19 +432,30 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
 
   Future<void> _editLine({ServerLine? existing}) async {
     if (_testingAll || _testingIds.isNotEmpty) return;
-    final draft = await showDialog<_ServerLineDraft>(
+    final result = await showDialog<_ServerLineSubmitResult>(
       context: context,
-      builder: (_) => _ServerLineEditorDialog(existing: existing),
+      builder: (_) => _ServerLineEditorDialog(
+        existing: existing,
+        onSubmit: (draft) => _submitLineDraft(draft, existing: existing),
+      ),
     );
-    if (draft == null || !mounted) return;
+    if (result == null || !mounted) return;
+    final successMessage = result.successMessage;
+    if (successMessage != null) _showMessage(successMessage);
+  }
 
+  Future<_ServerLineSubmitResult> _submitLineDraft(
+    _ServerLineDraft draft, {
+    ServerLine? existing,
+  }) async {
     final normalized = ServerConfig.normalize(draft.baseUrl);
     final duplicate = _lines.any(
       (item) => item.id != existing?.id && item.baseUrl == normalized,
     );
     if (duplicate) {
-      _showMessage(AppL10n.of(context).serverLineDuplicateUrl);
-      return;
+      return _ServerLineSubmitResult(
+        error: AppL10n.of(context).serverLineDuplicateUrl,
+      );
     }
     final line = ServerLine(
       id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
@@ -456,11 +467,18 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           ? existing?.lastTestedAt
           : null,
     );
-    final result = await _testAndShow(line);
-    if (!mounted || !result.success) return;
+    final probe = await _testAndShow(line, showFailure: false);
+    if (!mounted) return const _ServerLineSubmitResult();
+    if (!probe.success) {
+      return _ServerLineSubmitResult(
+        error: probe.message.isEmpty
+            ? AppL10n.of(context).serverLineProbeFailed
+            : probe.message,
+      );
+    }
 
     final testedLine = line.copyWith(
-      latencyMs: result.latencyMs,
+      latencyMs: probe.latencyMs,
       lastTestedAt: DateTime.now(),
     );
     final next = existing == null
@@ -470,24 +488,27 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
               .toList();
     final current = ref.read(serverConfigProvider);
     final server = current == null ? null : _serverFor(current);
-    if (server == null) return;
+    if (server == null) {
+      return _ServerLineSubmitResult(
+        error: AppL10n.of(context).serverLinesServerMissing,
+      );
+    }
     final editingActive =
         existing != null && server.activeLine?.id == existing.id;
     final activeUrl = editingActive
         ? testedLine.baseUrl
         : server.activeLine?.baseUrl ?? testedLine.baseUrl;
     try {
-      await _persist(next, activeUrl, validatedProbe: result);
-      if (mounted) {
-        final l = AppL10n.of(context);
-        _showMessage(
-          editingActive
-              ? l.serverLineUpdatedAndSwitched
-              : l.serverLineSaved(result.latencyMs),
-        );
-      }
+      await _persist(next, activeUrl, validatedProbe: probe);
+      if (!mounted) return const _ServerLineSubmitResult();
+      final l = AppL10n.of(context);
+      return _ServerLineSubmitResult(
+        successMessage: editingActive
+            ? l.serverLineUpdatedAndSwitched
+            : l.serverLineSaved(probe.latencyMs),
+      );
     } catch (error) {
-      if (mounted) _showMessage(toApiException(error).message);
+      return _ServerLineSubmitResult(error: toApiException(error).message);
     }
   }
 
@@ -737,10 +758,19 @@ class _ServerLineDraft {
   final String baseUrl;
 }
 
+class _ServerLineSubmitResult {
+  const _ServerLineSubmitResult({this.error, this.successMessage});
+
+  final String? error;
+  final String? successMessage;
+}
+
 class _ServerLineEditorDialog extends StatefulWidget {
-  const _ServerLineEditorDialog({this.existing});
+  const _ServerLineEditorDialog({required this.onSubmit, this.existing});
 
   final ServerLine? existing;
+  final Future<_ServerLineSubmitResult> Function(_ServerLineDraft draft)
+  onSubmit;
 
   @override
   State<_ServerLineEditorDialog> createState() =>
@@ -751,6 +781,8 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _baseUrl;
   final _formKey = GlobalKey<FormState>();
+  bool _busy = false;
+  String? _error;
 
   @override
   void initState() {
@@ -811,28 +843,72 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
                 return null;
               },
             ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _busy ? null : () => Navigator.pop(context),
           child: Text(l.cancel),
         ),
-        FilledButton(onPressed: _submit, child: Text(l.serverTestAndSave)),
+        FilledButton(
+          onPressed: _busy ? null : _submit,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_busy) ...[
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(_busy ? l.serverLineTesting : l.serverTestAndSave),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_busy) return;
     if (!_formKey.currentState!.validate()) return;
     final name = _name.text.trim();
-    Navigator.pop(
-      context,
-      _ServerLineDraft(
-        name: name.isEmpty ? AppL10n.of(context).serverLineDefaultName : name,
-        baseUrl: ServerConfig.normalize(_baseUrl.text),
-      ),
+    final draft = _ServerLineDraft(
+      name: name.isEmpty ? AppL10n.of(context).serverLineDefaultName : name,
+      baseUrl: ServerConfig.normalize(_baseUrl.text),
     );
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.onSubmit(draft);
+      if (!mounted) return;
+      if (result.error != null) {
+        setState(() => _error = result.error);
+      } else {
+        Navigator.pop(context, result);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = toApiException(error).message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
