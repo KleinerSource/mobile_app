@@ -18,6 +18,7 @@ import 'package:omm/features/media_browser/widgets/media_browser_next_up_section
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_libraries_section.dart';
+import 'package:omm/features/home/home_layout.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -91,6 +92,18 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     final resume = ref.watch(mediaBrowserResumeProvider);
     final nextUp = ref.watch(mediaBrowserNextUpProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    final project = ref.watch(mediaBrowserConfigProvider)?.project;
+    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final canEditLayout =
+        project == ServerProject.emby ||
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu;
+    final layoutServerId = serverId.trim().isEmpty
+        ? 'default-${project?.name ?? 'media-browser'}'
+        : serverId;
+    final layoutPreferences = canEditLayout
+        ? ref.watch(homeLayoutPreferencesProvider(layoutServerId))
+        : const HomeLayoutPreferences();
     final coreHomeDataLoading =
         _isHomeDataLoading(latest) ||
         _isHomeDataLoading(resume) ||
@@ -114,6 +127,68 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     });
 
     final heroMaxHeight = MediaQuery.sizeOf(context).height * 0.5;
+    final layoutModules = <HomeLayoutModule>[
+      HomeLayoutModule(
+        id: 'continue_watching',
+        title: AppL10n.of(context).homePickupTitle,
+        builder: (_) => resume.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) => items.isEmpty
+              ? const SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverToBoxAdapter(
+                  child: MediaBrowserContinueWatchingSection(items: items),
+                ),
+        ),
+      ),
+      HomeLayoutModule(
+        id: 'next_up',
+        title: AppL10n.of(context).mediaBrowserNextUp,
+        builder: (_) => nextUp.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) => items.isEmpty
+              ? const SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverToBoxAdapter(
+                  child: MediaBrowserNextUpSection(items: items),
+                ),
+        ),
+      ),
+      HomeLayoutModule(
+        id: 'latest_added',
+        title: AppL10n.of(context).mediaBrowserLatestAdded,
+        builder: (_) => SliverToBoxAdapter(
+          child: _MediaBrowserHomeSection(
+            title: AppL10n.of(context).mediaBrowserLatestAdded,
+            value: latest,
+            onRetry: () => ref.invalidate(mediaBrowserLatestProvider),
+          ),
+        ),
+      ),
+      HomeLayoutModule(
+        id: 'library_sections',
+        title: AppL10n.of(context).homeLibraries,
+        builder: (_) => const _MediaBrowserViewSections(),
+      ),
+      HomeLayoutModule(
+        id: 'library_stats',
+        title: AppL10n.of(context).homeLibraryStats,
+        builder: (_) => SliverToBoxAdapter(
+          child: _MediaBrowserLibraryStatsLoader(
+            enabled: !coreHomeDataLoading,
+            onRetry: () => ref.invalidate(mediaBrowserLibraryStatsProvider),
+          ),
+        ),
+      ),
+    ];
+    final normalizedLayout = reconcileHomeLayoutPreferences(
+      layoutModules,
+      layoutPreferences,
+    );
+    final orderedLayoutModules = orderedHomeLayoutModules(
+      layoutModules,
+      normalizedLayout,
+    );
     return HomePageScaffold(
       heroArts: _heroArts,
       heroPosition: _heroPagePosition,
@@ -159,42 +234,19 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
       ),
       onRefresh: _refreshHome,
       slivers: [
-        // -------- 继续观看 · 复用 OMM 宽幅卡片设计，空态静默 --------
-        resume.when(
-          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          data: (items) => items.isEmpty
-              ? const SliverToBoxAdapter(child: SizedBox.shrink())
-              : SliverToBoxAdapter(
-                  child: MediaBrowserContinueWatchingSection(items: items),
-                ),
-        ),
-        // -------- 接下来观看 · 与继续观看同款宽幅横滑卡片，空态静默 --------
-        nextUp.when(
-          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          data: (items) => items.isEmpty
-              ? const SliverToBoxAdapter(child: SizedBox.shrink())
-              : SliverToBoxAdapter(
-                  child: MediaBrowserNextUpSection(items: items),
-                ),
-        ),
-        SliverToBoxAdapter(
-          child: _MediaBrowserHomeSection(
-            title: AppL10n.of(context).mediaBrowserLatestAdded,
-            value: latest,
-            onRetry: () => ref.invalidate(mediaBrowserLatestProvider),
-          ),
-        ),
-        // -------- 每个媒体库的最近添加 + 媒体库入口卡片 --------
-        const _MediaBrowserViewSections(),
-        SliverToBoxAdapter(
-          child: _MediaBrowserLibraryStatsLoader(
-            enabled: !coreHomeDataLoading,
-            onRetry: () => ref.invalidate(mediaBrowserLibraryStatsProvider),
-          ),
-        ),
+        for (final module in orderedLayoutModules)
+          if (!normalizedLayout.hidden.contains(module.id))
+            module.builder(context),
       ],
+      layoutEditor: canEditLayout
+          ? HomeLayoutEditorConfig(
+              modules: orderedLayoutModules,
+              preferences: normalizedLayout,
+              onSave: (preferences) => ref
+                  .read(homeLayoutPreferencesProvider(layoutServerId).notifier)
+                  .update(preferences),
+            )
+          : null,
       heroMaxHeight: heroMaxHeight,
     );
   }

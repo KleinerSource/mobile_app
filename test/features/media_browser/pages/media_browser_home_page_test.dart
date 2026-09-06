@@ -11,6 +11,7 @@ import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_home_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _ServerConfigState extends ServerConfigNotifier {
   _ServerConfigState(this.config);
@@ -26,21 +27,23 @@ const _serverConfig = ServerConfig(
   activeServerId: 'server-1',
 );
 
-MediaBrowserServerUrls _serverUrls() => MediaBrowserServerUrls(
-  config: MediaBrowserConfig.jellyfin,
-  baseUrl: _serverConfig.baseUrl,
-);
+MediaBrowserServerUrls _serverUrls([
+  MediaBrowserConfig config = MediaBrowserConfig.jellyfin,
+]) => MediaBrowserServerUrls(config: config, baseUrl: _serverConfig.baseUrl);
 
 List<dynamic> _baseOverrides({
   required Future<List<MediaBrowserItem>> Function() latest,
   required Future<List<MediaBrowserItem>> Function() resume,
   required Future<List<MediaBrowserItem>> Function() nextUp,
   required Future<MediaBrowserLibraryStats> Function() stats,
+  MediaBrowserConfig config = MediaBrowserConfig.jellyfin,
 }) {
   return [
     serverConfigProvider.overrideWith(() => _ServerConfigState(_serverConfig)),
-    mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.jellyfin),
-    mediaBrowserServerUrlsProvider.overrideWith((ref) async => _serverUrls()),
+    mediaBrowserConfigProvider.overrideWithValue(config),
+    mediaBrowserServerUrlsProvider.overrideWith(
+      (ref) async => _serverUrls(config),
+    ),
     mediaBrowserViewsProvider.overrideWith(
       (ref) async => const <MediaBrowserItem>[],
     ),
@@ -55,9 +58,14 @@ Future<void> _pumpHome(
   WidgetTester tester, {
   required List<dynamic> overrides,
 }) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
-      overrides: List.from(overrides),
+      overrides: [
+        ...List.from(overrides),
+        sharedPrefsProvider.overrideWithValue(prefs),
+      ],
       child: const MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
@@ -70,6 +78,47 @@ Future<void> _pumpHome(
 }
 
 void main() {
+  testWidgets('Emby/Jellyfin 首页提供编辑布局入口', (tester) async {
+    await _pumpHome(
+      tester,
+      overrides: _baseOverrides(
+        latest: () => Future.value(const <MediaBrowserItem>[]),
+        resume: () => Future.value(const <MediaBrowserItem>[]),
+        nextUp: () => Future.value(const <MediaBrowserItem>[]),
+        stats: () => Future.value(
+          const MediaBrowserLibraryStats(
+            movieCount: 1,
+            seriesCount: 2,
+            episodeCount: 3,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('编辑布局'), findsOneWidget);
+  });
+
+  testWidgets('FNOS 首页提供编辑布局入口', (tester) async {
+    await _pumpHome(
+      tester,
+      overrides: _baseOverrides(
+        config: MediaBrowserConfig.feiniu,
+        latest: () => Future.value(const <MediaBrowserItem>[]),
+        resume: () => Future.value(const <MediaBrowserItem>[]),
+        nextUp: () => Future.value(const <MediaBrowserItem>[]),
+        stats: () => Future.value(
+          const MediaBrowserLibraryStats(
+            movieCount: 1,
+            seriesCount: 2,
+            episodeCount: 3,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('编辑布局'), findsOneWidget);
+  });
+
   testWidgets('核心首页数据完成前不启动统计，完成后统计卡片独立加载', (tester) async {
     final latest = Completer<List<MediaBrowserItem>>();
     final resume = Completer<List<MediaBrowserItem>>();

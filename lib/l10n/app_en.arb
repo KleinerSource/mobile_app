@@ -21,6 +21,9 @@
   "homeResume": "Resume",
   "homeMinutesLeft": "{n}m left",
   "@homeMinutesLeft": { "placeholders": { "n": { "type": "int" } } },
+  "homeEditLayout": "Edit layout",
+  "homeEditLayoutHint": "Drag to reorder modules and use switches to show or hide them",
+  "homeLibraryStats": "Library stats",
 
   "libraryTitle": "Library",
   "libraryCount": "{n} titles",

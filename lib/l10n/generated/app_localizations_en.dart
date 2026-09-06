@@ -59,6 +59,16 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get homeEditLayout => 'Edit layout';
+
+  @override
+  String get homeEditLayoutHint =>
+      'Drag to reorder modules and use switches to show or hide them';
+
+  @override
+  String get homeLibraryStats => 'Library stats';
+
+  @override
   String get libraryTitle => 'Library';
 
   @override

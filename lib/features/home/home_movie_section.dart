@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actor_detail_header.dart';
 import '../../shared/movie_card.dart';
 import 'hero_backdrop.dart';
+import 'home_layout.dart';
 import 'server_switcher.dart';
 
 /// 首页统一的问候和服务器切换行。
@@ -83,6 +86,7 @@ class HomePageScaffold extends StatelessWidget {
     required this.onRefresh,
     required this.slivers,
     this.heroMaxHeight,
+    this.layoutEditor,
   });
 
   final ValueListenable<List<HeroArt>> heroArts;
@@ -93,6 +97,7 @@ class HomePageScaffold extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final List<Widget> slivers;
   final double? heroMaxHeight;
+  final HomeLayoutEditorConfig? layoutEditor;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +127,19 @@ class HomePageScaffold extends StatelessWidget {
                 else
                   SliverToBoxAdapter(child: heroFallback),
                 ...slivers,
+                if (layoutEditor != null)
+                  SliverToBoxAdapter(
+                    child: HomeLayoutEditButton(
+                      onPressed: () {
+                        unawaited(
+                          showHomeLayoutEditor(
+                            context: context,
+                            config: layoutEditor!,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),

@@ -193,6 +193,24 @@ abstract class AppL10n {
   /// **'{n} 分钟剩余'**
   String homeMinutesLeft(int n);
 
+  /// No description provided for @homeEditLayout.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑布局'**
+  String get homeEditLayout;
+
+  /// No description provided for @homeEditLayoutHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动调整模块顺序，使用开关显示或隐藏模块'**
+  String get homeEditLayoutHint;
+
+  /// No description provided for @homeLibraryStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体统计'**
+  String get homeLibraryStats;
+
   /// No description provided for @libraryTitle.
   ///
   /// In zh, this message translates to:

@@ -164,6 +164,7 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
   String? _lastActiveServerId;
   bool? _lastIsFileServer;
   bool _contentRemovalBelongsToServerSwitch = false;
+  final _navigatorKey = GlobalKey<NavigatorState>();
   late final NavigatorObserver _routeObserver;
   final Set<Route<dynamic>> _observedContentRoutes = <Route<dynamic>>{};
   final Set<Route<dynamic>> _ignoredContentRoutes = <Route<dynamic>>{};
@@ -243,12 +244,18 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     ];
 
     return ServerNavigationScope(
-      child: Navigator(
-        observers: [_routeObserver],
-        pages: pages,
-        // 页面栈必须接收 Navigator 的真实返回；资源释放由 route observer
-        // 等待退出动画结束后执行，不能在 onDidRemovePage 的 pop 开始时执行。
-        onDidRemovePage: (_) {},
+      child: NavigatorPopHandler<void>(
+        onPopWithResult: (_) {
+          _navigatorKey.currentState?.maybePop();
+        },
+        child: Navigator(
+          key: _navigatorKey,
+          observers: [_routeObserver],
+          pages: pages,
+          // 页面栈必须接收 Navigator 的真实返回；资源释放由 route observer
+          // 等待退出动画结束后执行，不能在 onDidRemovePage 的 pop 开始时执行。
+          onDidRemovePage: (_) {},
+        ),
       ),
     );
   }

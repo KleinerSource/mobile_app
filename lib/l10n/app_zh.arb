@@ -21,6 +21,9 @@
   "homeResume": "继续播放",
   "homeMinutesLeft": "{n} 分钟剩余",
   "@homeMinutesLeft": { "placeholders": { "n": { "type": "int" } } },
+  "homeEditLayout": "编辑布局",
+  "homeEditLayoutHint": "拖动调整模块顺序，使用开关显示或隐藏模块",
+  "homeLibraryStats": "媒体统计",
 
   "libraryTitle": "影片库",
   "libraryCount": "{n} 部影片",

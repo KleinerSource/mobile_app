@@ -59,6 +59,15 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get homeEditLayout => '编辑布局';
+
+  @override
+  String get homeEditLayoutHint => '拖动调整模块顺序，使用开关显示或隐藏模块';
+
+  @override
+  String get homeLibraryStats => '媒体统计';
+
+  @override
   String get libraryTitle => '影片库';
 
   @override

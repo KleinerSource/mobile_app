@@ -42,81 +42,115 @@ class _UnlockedSecurityState extends SecurityController {
   Future<SecuritySettings> build() async => const SecuritySettings.empty();
 }
 
+ServerConfig _mainNavigationConfig() {
+  const mediaLine = ServerLine(
+    id: 'media-line',
+    name: '媒体线路',
+    baseUrl: 'https://media.example',
+  );
+  const fileLine = ServerLine(
+    id: 'file-line',
+    name: '文件线路',
+    baseUrl: 'smb://file.example/share',
+  );
+  final mediaServer = ServerProfile(
+    id: 'media-server',
+    name: '媒体服务器',
+    lines: const [mediaLine],
+    activeLineId: mediaLine.id,
+    projectName: 'db_online',
+  );
+  final fileServer = ServerProfile(
+    id: 'file-server',
+    name: '文件服务器',
+    lines: const [fileLine],
+    activeLineId: fileLine.id,
+    projectName: 'smb',
+  );
+  return ServerConfig(
+    baseUrl: mediaLine.baseUrl,
+    lines: const [mediaLine],
+    servers: [mediaServer, fileServer],
+    activeServerId: mediaServer.id,
+  );
+}
+
+Future<void> _pumpMainNavigationApp(
+  WidgetTester tester,
+  SharedPreferences prefs,
+  ServerConfig config,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
+        authControllerProvider.overrideWith(_AuthenticatedAuthState.new),
+        securityControllerProvider.overrideWith(_UnlockedSecurityState.new),
+        dbOnlineRecommendProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestUpdatedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestReleasedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        fileSourceDescriptorsProvider('file-server').overrideWith(
+          (ref) async => [
+            const SourceDescriptor(
+              id: SourceId('file-source'),
+              kind: SourceKind.smb,
+              name: '测试文件来源',
+              serverId: 'file-server',
+              endpoint: 'smb://file.example/share',
+            ),
+          ],
+        ),
+      ],
+      child: const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        home: OmmApp(),
+      ),
+    ),
+  );
+  await tester.pump(const Duration(seconds: 1));
+  await tester.pump();
+}
+
 void main() {
+  testWidgets('媒体内容页返回服务器选择器而不是直接退出应用', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await _pumpMainNavigationApp(tester, prefs, _mainNavigationConfig());
+
+    expect(find.byType(MediaManagerShell), findsOneWidget);
+
+    // `handlePopRoute` 模拟的是传统平台返回，不会触发
+    // `NavigatorPopHandler` 的 predictive-back 回调。直接驱动同一个嵌套
+    // Navigator，验证回调最终委托的真实页面栈行为。
+    await Navigator.of(
+      tester.element(find.byType(MediaManagerShell)),
+    ).maybePop();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+
+    expect(find.byType(MediaManagerShell), findsNothing);
+    expect(
+      find.byType(ServerSelectionPage, skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('媒体首页长按滑动选择文件服务器不会回到服务器选择器', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    const mediaLine = ServerLine(
-      id: 'media-line',
-      name: '媒体线路',
-      baseUrl: 'https://media.example',
-    );
-    const fileLine = ServerLine(
-      id: 'file-line',
-      name: '文件线路',
-      baseUrl: 'smb://file.example/share',
-    );
-    final mediaServer = ServerProfile(
-      id: 'media-server',
-      name: '媒体服务器',
-      lines: const [mediaLine],
-      activeLineId: mediaLine.id,
-      projectName: 'db_online',
-    );
-    final fileServer = ServerProfile(
-      id: 'file-server',
-      name: '文件服务器',
-      lines: const [fileLine],
-      activeLineId: fileLine.id,
-      projectName: 'smb',
-    );
-    final config = ServerConfig(
-      baseUrl: mediaLine.baseUrl,
-      lines: const [mediaLine],
-      servers: [mediaServer, fileServer],
-      activeServerId: mediaServer.id,
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sharedPrefsProvider.overrideWithValue(prefs),
-          serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
-          authControllerProvider.overrideWith(_AuthenticatedAuthState.new),
-          securityControllerProvider.overrideWith(_UnlockedSecurityState.new),
-          dbOnlineRecommendProvider.overrideWith(
-            (ref) async => const <DbOnlineMovie>[],
-          ),
-          dbOnlineLatestUpdatedProvider.overrideWith(
-            (ref) async => const <DbOnlineMovie>[],
-          ),
-          dbOnlineLatestReleasedProvider.overrideWith(
-            (ref) async => const <DbOnlineMovie>[],
-          ),
-          fileSourceDescriptorsProvider('file-server').overrideWith(
-            (ref) async => [
-              const SourceDescriptor(
-                id: SourceId('file-source'),
-                kind: SourceKind.smb,
-                name: '测试文件来源',
-                serverId: 'file-server',
-                endpoint: 'smb://file.example/share',
-              ),
-            ],
-          ),
-        ],
-        child: const MaterialApp(
-          locale: Locale('zh'),
-          localizationsDelegates: AppL10n.localizationsDelegates,
-          supportedLocales: AppL10n.supportedLocales,
-          home: OmmApp(),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
+    await _pumpMainNavigationApp(tester, prefs, _mainNavigationConfig());
 
     expect(find.byType(MediaManagerShell), findsOneWidget);
+
     final homeIcon = find.descendant(
       of: find.byType(FloatingTabBar<Object?>),
       matching: find.byIcon(Icons.home_rounded),

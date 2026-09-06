@@ -1096,7 +1096,7 @@ void main() {
     expect(tester.getTopLeft(selector).dx, greaterThanOrEqualTo(0));
   });
 
-  testWidgets('服务器选择器是顶层时继续返回不会回到服务器页面', (tester) async {
+  testWidgets('临时打开的服务器选择器返回原页面', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
@@ -1114,7 +1114,8 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.byType(ServerSelectionPage), findsOneWidget);
+    expect(find.byType(ServerSelectionPage), findsNothing);
+    expect(find.text('打开服务器选择器'), findsOneWidget);
   });
 
   testWidgets('应用内服务器页通过真实页面栈返回并在转场后释放运行态', (tester) async {

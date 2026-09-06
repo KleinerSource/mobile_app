@@ -203,7 +203,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final safeBottom = MediaQuery.paddingOf(context).bottom;
 
     return PopScope<void>(
-      canPop: false,
+      canPop: true,
       child: Scaffold(
         backgroundColor: colors.bg,
         body: GlowBackground(
