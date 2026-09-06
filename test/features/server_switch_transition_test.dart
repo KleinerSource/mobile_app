@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,6 +96,106 @@ void main() {
         showUserAvatar: true,
       ),
       isNull,
+    );
+  });
+
+  test('多线路切换立即进入 checking，首条成功线路返回后再继续鉴权', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final currentProbe = Completer<ServerLineProbeResult>();
+    final backupProbe = Completer<ServerLineProbeResult>();
+    final started = <String>[];
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) {
+              started.add(line.id);
+              return line.id == 'target-current'
+                  ? currentProbe.future
+                  : backupProbe.future;
+            },
+          ),
+        ),
+        authControllerProvider.overrideWith(() => _FakeAuthController([], [])),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const currentLine = ServerLine(
+      id: 'source-line',
+      name: '当前服务器线路',
+      baseUrl: 'https://source.example',
+    );
+    const targetCurrentLine = ServerLine(
+      id: 'target-current',
+      name: '目标主线路',
+      baseUrl: 'https://target.example',
+    );
+    const targetBackupLine = ServerLine(
+      id: 'target-backup',
+      name: '目标备用线路',
+      baseUrl: 'https://target-backup.example',
+    );
+    const source = ServerProfile(
+      id: 'source-server',
+      name: '当前服务器',
+      lines: [currentLine],
+      activeLineId: 'source-line',
+      projectName: 'db_online',
+    );
+    const target = ServerProfile(
+      id: 'target-server',
+      name: '目标服务器',
+      lines: [targetCurrentLine, targetBackupLine],
+      activeLineId: 'target-current',
+      projectName: 'db_online',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://source.example',
+            lines: [currentLine],
+            servers: [source, target],
+            activeServerId: 'source-server',
+          ),
+        );
+
+    final transition = container.read(serverSwitchTransitionProvider.notifier);
+    final switching = transition.switchTo(target.id);
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.checking,
+    );
+    expect(
+      started,
+      containsAll(<String>[targetCurrentLine.id, targetBackupLine.id]),
+    );
+
+    backupProbe.complete(
+      const ServerLineProbeResult.success(
+        targetBackupLine,
+        18,
+        versionInfo: ServerVersionInfo(
+          projectName: 'db_online',
+          version: '1.14.0',
+        ),
+      ),
+    );
+    await switching;
+
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.needsLogin,
+    );
+    expect(
+      container.read(serverConfigProvider)?.activeServer?.activeLine?.id,
+      targetBackupLine.id,
+    );
+    currentProbe.complete(
+      const ServerLineProbeResult.failure(targetCurrentLine, '连接超时'),
     );
   });
 

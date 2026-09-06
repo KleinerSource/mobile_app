@@ -1402,28 +1402,32 @@ void _main_4() {
     baseUrl: 'https://backup.example',
   );
 
-  test('当前线路在优先窗口内可用时不启动备用线路', () async {
-    var backupProbeCount = 0;
+  test('多线路立即并发探测，首条成功线路立即选中', () async {
+    final currentProbe = Completer<ServerLineProbeResult>();
+    final backupProbe = Completer<ServerLineProbeResult>();
+    final started = <String>[];
     final coordinator = ServerLineProbeCoordinator(
-      fallbackDelay: const Duration(seconds: 1),
-      probe: (line) async {
-        if (line.id == backup.id) backupProbeCount++;
-        return ServerLineProbeResult.success(line, 20);
+      probe: (line) {
+        started.add(line.id);
+        return line.id == current.id ? currentProbe.future : backupProbe.future;
       },
     );
 
-    final selection = await coordinator.selectPreferred(
+    final selectionFuture = coordinator.selectPreferred(
       current: current,
       alternatives: const [backup],
     );
 
-    expect(selection.selected?.line, current);
-    expect(backupProbeCount, 0);
+    expect(started, containsAll(<String>[current.id, backup.id]));
+    backupProbe.complete(const ServerLineProbeResult.success(backup, 20));
+    final selection = await selectionFuture;
+
+    expect(selection.selected?.line, backup);
+    currentProbe.complete(const ServerLineProbeResult.failure(current, '连接超时'));
   });
 
   test('当前线路失败后立即启用备用线路', () async {
     final coordinator = ServerLineProbeCoordinator(
-      fallbackDelay: const Duration(seconds: 1),
       probe: (line) async {
         if (line.id == current.id) {
           return ServerLineProbeResult.failure(line, '连接失败');

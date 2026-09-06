@@ -110,17 +110,6 @@ class _HomeServerSwitcherMenuState
             renderObject.size.height,
           )
         : null;
-    ServerProfile? target;
-    for (final server in widget.servers) {
-      if (server.id == serverId) {
-        target = server;
-        break;
-      }
-    }
-    if (target?.project == ServerProject.emby ||
-        target?.project == ServerProject.jellyfin) {
-      await _activeProfileFor(target!);
-    }
     await ref
         .read(serverSwitchTransitionProvider.notifier)
         .switchTo(serverId, avatarOrigin: avatarOrigin);

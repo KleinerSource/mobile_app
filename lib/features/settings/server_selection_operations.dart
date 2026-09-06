@@ -93,10 +93,6 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
             renderObject.size.height,
           )
         : null;
-    if (server.project == ServerProject.emby ||
-        server.project == ServerProject.jellyfin) {
-      await _profileFor(server);
-    }
     await ref
         .read(serverSwitchTransitionProvider.notifier)
         .switchTo(

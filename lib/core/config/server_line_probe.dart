@@ -80,10 +80,13 @@ class ServerLineSelection {
 class ServerLineProbeCoordinator {
   ServerLineProbeCoordinator({
     ServerLineProbe? probe,
-    this.fallbackDelay = const Duration(milliseconds: 250),
+    @Deprecated('线路探测已改为立即并发，此参数仅为兼容保留') this.fallbackDelay = Duration.zero,
   }) : _probe = probe ?? probeServerLine;
 
   final ServerLineProbe _probe;
+
+  /// 兼容旧调用方；线路切换不再等待优先窗口，所有线路会立即并发探测。
+  @Deprecated('线路探测已改为立即并发，此参数不再生效')
   final Duration fallbackDelay;
 
   /// 探测单条线路，供添加服务器等需要在保存前验证的流程复用统一逻辑。
@@ -133,67 +136,23 @@ class ServerLineProbeCoordinator {
     );
   }
 
-  /// 当前线路获得一个很短的优先窗口；未及时响应时立即并发探测备用线路。
+  /// 所有启用线路立即并发探测，首个成功结果就是本次切换线路。
+  ///
+  /// 失败时才等待全部探测结束，以便调用方展示每条线路的失败原因。
   Future<ServerLineSelection> selectPreferred({
     required ServerLine current,
     Iterable<ServerLine> alternatives = const [],
     String? expectedProjectName,
   }) async {
-    final fallbackLines = List<ServerLine>.of(alternatives);
-    final completed = Completer<ServerLineSelection>();
-    final results = <ServerLineProbeResult>[];
-    Timer? fallbackTimer;
-    var pending = 1;
-    var fallbacksStarted = false;
-
-    void finishIfUnavailable() {
-      if (!completed.isCompleted && fallbacksStarted && pending == 0) {
-        completed.complete(
-          ServerLineSelection(selected: null, results: List.of(results)),
-        );
-      }
+    final batch = probeAll([
+      current,
+      ...alternatives,
+    ], expectedProjectName: expectedProjectName);
+    final selected = await batch.firstAvailable;
+    if (selected != null) {
+      return ServerLineSelection(selected: selected, results: [selected]);
     }
-
-    void record(ServerLineProbeResult result) {
-      results.add(result);
-      pending--;
-      if (result.success && !completed.isCompleted) {
-        fallbackTimer?.cancel();
-        completed.complete(
-          ServerLineSelection(selected: result, results: List.of(results)),
-        );
-        return;
-      }
-      finishIfUnavailable();
-    }
-
-    void startFallbacks() {
-      if (fallbacksStarted || completed.isCompleted) return;
-      fallbacksStarted = true;
-      fallbackTimer?.cancel();
-      pending += fallbackLines.length;
-      for (final line in fallbackLines) {
-        unawaited(
-          _safeProbe(
-            line,
-            expectedProjectName: expectedProjectName,
-          ).then(record),
-        );
-      }
-      finishIfUnavailable();
-    }
-
-    fallbackTimer = Timer(fallbackDelay, startFallbacks);
-    unawaited(
-      _safeProbe(current, expectedProjectName: expectedProjectName).then((
-        result,
-      ) {
-        record(result);
-        if (!result.success) startFallbacks();
-      }),
-    );
-
-    return completed.future.whenComplete(() => fallbackTimer?.cancel());
+    return ServerLineSelection(selected: null, results: await batch.completed);
   }
 
   Future<ServerLineProbeResult> _safeProbe(
