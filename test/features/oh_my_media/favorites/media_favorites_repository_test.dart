@@ -106,11 +106,8 @@ class _StubFavoritesSource implements OmmMediaOperationsSource {
   }) => throw UnimplementedError();
 
   @override
-  Future<PreviewStatus> previewStatus(MediaRef movie, {String? taskId}) =>
+  Future<PreviewStatus> previewStatus(MediaRef movie) =>
       throw UnimplementedError();
-
-  @override
-  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
 
   @override
   Future<void> cancelPreviewTask(String taskId) async {}

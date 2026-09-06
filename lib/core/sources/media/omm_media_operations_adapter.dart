@@ -830,24 +830,13 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<PreviewStatus> previewStatus(MediaRef movie, {String? taskId}) async {
+  Future<PreviewStatus> previewStatus(MediaRef movie) async {
     final raw = await _call(
-      () =>
-          client.moviesExtended.getMoviePreviews(_ommId(movie), taskId: taskId),
+      () => client.moviesExtended.getMoviePreviews(_ommId(movie)),
     );
     return unwrapStd<PreviewStatus>(
       raw,
       (data) => PreviewStatus.fromJson(Map<String, dynamic>.from(data as Map)),
-    );
-  }
-
-  @override
-  Future<PreviewTask> previewTask(String taskId) async {
-    if (taskId.trim().isEmpty) throw const SourceException('预览任务 ID 不能为空');
-    final raw = await _call(() => client.moviesExtended.getPreviewTask(taskId));
-    return unwrapStd<PreviewTask>(
-      raw,
-      (data) => PreviewTask.fromJson(Map<String, dynamic>.from(data as Map)),
     );
   }
 

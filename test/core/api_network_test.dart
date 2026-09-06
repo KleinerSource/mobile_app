@@ -190,7 +190,7 @@ void _main_0() {
     expect(adapter.paths, <String>['/api/configs/avdb', '/api/configs/ffmpeg']);
   });
 
-  test('预览配置、生成、状态和任务接口使用实际路由', () async {
+  test('预览配置、生成、状态和取消接口使用实际路由', () async {
     final adapter = _RouteAdapter();
     final configs = ConfigsExtendedApi(_dio(adapter));
     final movies = MoviesExtendedApi(_dio(adapter));
@@ -198,8 +198,7 @@ void _main_0() {
     await configs.preview();
     await configs.savePreview({'segments': 12});
     await movies.generateMoviePreviews(7, overwrite: true);
-    await movies.getMoviePreviews(7, taskId: 'preview-1');
-    await movies.getPreviewTask('preview-1');
+    await movies.getMoviePreviews(7);
     await movies.cancelPreviewTask('preview-1');
 
     expect(adapter.paths, <String>[
@@ -207,10 +206,8 @@ void _main_0() {
       '/api/configs/preview',
       '/api/movies/id/7/previews/generate',
       '/api/movies/id/7/previews',
-      '/api/movies/preview-tasks/preview-1',
       '/api/movies/preview-tasks/preview-1/cancel',
     ]);
-    expect(adapter.queries[3], {'task_id': 'preview-1'});
     expect(adapter.requestBodies[0], {'segments': 12});
     // 移动端省略 targets，由后端使用 video + sprite 默认目标；只传覆盖标记。
     expect(adapter.requestBodies[1], {'overwrite': true});

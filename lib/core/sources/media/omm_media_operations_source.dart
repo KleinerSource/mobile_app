@@ -197,11 +197,8 @@ abstract interface class OmmMediaOperationsSource {
     bool overwrite = false,
   });
 
-  /// 查询影片的预览资产状态；传入任务 ID 时同时返回该任务快照。
-  Future<PreviewStatus> previewStatus(MediaRef movie, {String? taskId});
-
-  /// 查询预览任务详情。
-  Future<PreviewTask> previewTask(String taskId);
+  /// 查询影片的预览资产状态；任务进度通过统一 WebSocket 任务中心推送。
+  Future<PreviewStatus> previewStatus(MediaRef movie);
 
   /// 取消排队中或执行中的预览任务。
   Future<void> cancelPreviewTask(String taskId);

@@ -469,13 +469,8 @@ class _RecordingFavoritesSource implements OmmMediaOperationsSource {
   }) => throw UnimplementedError();
 
   @override
-  Future<PreviewStatus> previewStatus(
-    source_models.MediaRef movie, {
-    String? taskId,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+  Future<PreviewStatus> previewStatus(source_models.MediaRef movie) =>
+      throw UnimplementedError();
 
   @override
   Future<void> cancelPreviewTask(String taskId) async {}
@@ -555,13 +550,8 @@ class _DefaultTestMediaSource
   }) => throw UnimplementedError();
 
   @override
-  Future<PreviewStatus> previewStatus(
-    source_models.MediaRef movie, {
-    String? taskId,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<PreviewTask> previewTask(String taskId) => throw UnimplementedError();
+  Future<PreviewStatus> previewStatus(source_models.MediaRef movie) =>
+      throw UnimplementedError();
 
   @override
   Future<void> cancelPreviewTask(String taskId) async {}

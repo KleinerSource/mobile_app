@@ -306,11 +306,8 @@ class MediaRepository {
     bool overwrite = false,
   }) => _operations.generatePreview(_movieRef(id), overwrite: overwrite);
 
-  Future<PreviewStatus> previewStatus(int id, {String? taskId}) =>
-      _operations.previewStatus(_movieRef(id), taskId: taskId);
-
-  Future<PreviewTask> previewTask(String taskId) =>
-      _operations.previewTask(taskId);
+  Future<PreviewStatus> previewStatus(int id) =>
+      _operations.previewStatus(_movieRef(id));
 
   Future<void> cancelPreviewTask(String taskId) =>
       _operations.cancelPreviewTask(taskId);
