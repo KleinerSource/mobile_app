@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 
@@ -517,6 +518,10 @@ void main() {
               {
                 'Id': 'ms-1',
                 'SupportsDirectPlay': true,
+                'ETag': 'etag-1',
+                'DirectStreamUrl':
+                    '${config.pathPrefix}/Videos/item-1/stream'
+                    '?MediaSourceId=ms-1&${config.streamStaticQueryParam}=true',
                 'TranscodingUrl':
                     '${config.pathPrefix}/videos/item-1/master.m3u8',
                 'MediaStreams': [
@@ -546,6 +551,12 @@ void main() {
 
         expect(info.playSessionId, 'play-1');
         expect(info.mediaSources.single.supportsDirectPlay, isTrue);
+        expect(info.mediaSources.single.etag, 'etag-1');
+        expect(
+          info.mediaSources.single.directStreamUrl,
+          '${config.pathPrefix}/Videos/item-1/stream'
+          '?MediaSourceId=ms-1&${config.streamStaticQueryParam}=true',
+        );
         expect(
           info.mediaSources.single.transcodingUrl,
           '${config.pathPrefix}/videos/item-1/master.m3u8',
@@ -569,13 +580,22 @@ void main() {
           itemId: 'item 1',
           mediaSourceId: 'ms-1',
           token: 'token-1',
+          tag: 'etag-1',
         );
-        expect(
-          streamUrl,
-          'http://test${config.pathPrefix}/Videos/item%201/stream'
-          '?static=true&MediaSourceId=ms-1'
-          '&${config.tokenQueryParam}=token-1',
-        );
+        expect(Uri.parse(streamUrl).queryParameters, {
+          'MediaSourceId': 'ms-1',
+          config.streamStaticQueryParam: 'true',
+          'Tag': 'etag-1',
+          ...config.streamTokenQueryParameters('token-1'),
+        });
+        if (config.project == ServerProject.emby) {
+          expect(
+            streamUrl,
+            'http://test/emby/Videos/item%201/stream'
+            '?MediaSourceId=ms-1&Static=true&Tag=etag-1&api_key=token-1'
+            '&X-Emby-Token=token-1',
+          );
+        }
 
         final imageUrl = MediaBrowserApi.imageUrl(
           config: config,
@@ -638,12 +658,19 @@ void main() {
           mediaSourceId: 'ms-1',
           token: 'token-1',
         );
-        expect(
-          audioUrl,
-          'http://test${config.pathPrefix}/Audio/song%201/stream'
-          '?static=true&MediaSourceId=ms-1'
-          '&${config.tokenQueryParam}=token-1',
-        );
+        expect(Uri.parse(audioUrl).queryParameters, {
+          'MediaSourceId': 'ms-1',
+          config.streamStaticQueryParam: 'true',
+          ...config.streamTokenQueryParameters('token-1'),
+        });
+        if (config.project == ServerProject.emby) {
+          expect(
+            audioUrl,
+            'http://test/emby/Audio/song%201/stream'
+            '?MediaSourceId=ms-1&Static=true&api_key=token-1'
+            '&X-Emby-Token=token-1',
+          );
+        }
       });
 
       test('外挂字幕直链使用 Subtitles/{index}/Stream.vtt 并拼接 token', () {

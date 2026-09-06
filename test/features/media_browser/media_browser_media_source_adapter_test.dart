@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
@@ -430,116 +431,136 @@ void main() {
         );
       });
 
-      test('resolvePlayback 默认返回 static 直链并携带恢复位置', () async {
-        final httpAdapter = _RecordingAdapter((options) {
-          if (options.uri.path.endsWith('/PlaybackInfo')) {
+      test(
+        'resolvePlayback 默认使用 PlaybackInfo 的 DirectStreamUrl 或 Jellyfin 原生流并携带恢复位置',
+        () async {
+          final httpAdapter = _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'PlaySessionId': 'play-1',
+                'MediaSources': [
+                  {
+                    'Id': 'ms-1',
+                    'Container': 'mkv,webm',
+                    'SupportsDirectPlay': true,
+                    'DirectStreamUrl':
+                        '${config.pathPrefix}/Videos/item-1/stream'
+                        '?MediaSourceId=ms-1&${config.streamStaticQueryParam}=true',
+                    'MediaStreams': [
+                      {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
+                      {
+                        'Index': 1,
+                        'Type': 'Audio',
+                        'Codec': 'aac',
+                        'DisplayTitle': 'AAC',
+                        'Channels': 2,
+                        'IsDefault': true,
+                      },
+                      {'Index': 2, 'Type': 'Subtitle', 'Codec': 'ass'},
+                      {
+                        'Index': 3,
+                        'Type': 'Subtitle',
+                        'Codec': 'srt',
+                        'IsExternal': true,
+                        'Language': 'chi',
+                      },
+                      {
+                        'Index': 4,
+                        'Type': 'Subtitle',
+                        'Codec': 'pgssub',
+                        'IsExternal': true,
+                        'IsBitmap': true,
+                      },
+                    ],
+                  },
+                ],
+              };
+            }
             return {
-              'PlaySessionId': 'play-1',
-              'MediaSources': [
-                {
-                  'Id': 'ms-1',
-                  'Container': 'mkv,webm',
-                  'SupportsDirectPlay': true,
-                  'MediaStreams': [
-                    {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
-                    {
-                      'Index': 1,
-                      'Type': 'Audio',
-                      'Codec': 'aac',
-                      'DisplayTitle': 'AAC',
-                      'Channels': 2,
-                      'IsDefault': true,
-                    },
-                    {'Index': 2, 'Type': 'Subtitle', 'Codec': 'ass'},
-                    {
-                      'Index': 3,
-                      'Type': 'Subtitle',
-                      'Codec': 'srt',
-                      'IsExternal': true,
-                      'Language': 'chi',
-                    },
-                    {
-                      'Index': 4,
-                      'Type': 'Subtitle',
-                      'Codec': 'pgssub',
-                      'IsExternal': true,
-                      'IsBitmap': true,
-                    },
-                  ],
-                },
-              ],
+              'Id': 'item-1',
+              'Name': '电影一',
+              'Type': 'Movie',
+              'RunTimeTicks': 72000000000,
+              'UserData': {'PlaybackPositionTicks': 3600000000},
             };
+          });
+          final adapter = buildAdapter(httpAdapter);
+
+          final descriptor = await adapter.resolvePlayback(
+            MediaRef(sourceId: sourceId, value: 'item-1'),
+            const PlaybackRequest(),
+          );
+
+          expect(
+            descriptor.uri.toString(),
+            contains(
+              '${config.pathPrefix}/'
+              '${config.project == ServerProject.jellyfin ? 'videos' : 'Videos'}'
+              '/item-1/stream',
+            ),
+          );
+          expect(
+            descriptor.uri.toString(),
+            contains('${config.streamStaticQueryParam}=true'),
+          );
+          expect(descriptor.uri.toString(), contains('MediaSourceId=ms-1'));
+          for (final parameter
+              in config.streamTokenQueryParameters('token-1').entries) {
+            expect(
+              descriptor.uri.toString(),
+              contains('${parameter.key}=${parameter.value}'),
+            );
           }
-          return {
-            'Id': 'item-1',
-            'Name': '电影一',
-            'Type': 'Movie',
-            'RunTimeTicks': 72000000000,
-            'UserData': {'PlaybackPositionTicks': 3600000000},
-          };
-        });
-        final adapter = buildAdapter(httpAdapter);
-
-        final descriptor = await adapter.resolvePlayback(
-          MediaRef(sourceId: sourceId, value: 'item-1'),
-          const PlaybackRequest(),
-        );
-
-        expect(
-          descriptor.uri.toString(),
-          contains('${config.pathPrefix}/Videos/item-1/stream'),
-        );
-        expect(descriptor.uri.toString(), contains('static=true'));
-        expect(descriptor.uri.toString(), contains('MediaSourceId=ms-1'));
-        expect(
-          descriptor.uri.toString(),
-          contains('${config.tokenQueryParam}=token-1'),
-        );
-        expect(descriptor.isTranscode, isFalse);
-        // 直链没有扩展名，容器提示用于播放器内核选择（MKV → FFmpeg）。
-        expect(descriptor.mimeType, 'video/x-matroska');
-        expect(descriptor.startAt, 360);
-        expect(descriptor.audioTracks.single.label, 'AAC');
-        expect(descriptor.audioTracks.single.channels, 2);
-        expect(descriptor.audioTracks.single.isDefault, isTrue);
-        final subtitle = descriptor.subtitleTracks;
-        expect(subtitle.length, 3);
-        // 内嵌字幕：无直链地址，mpv 按容器轨道号选择。
-        expect(subtitle[0].id, '2');
-        expect(subtitle[0].source, 'embedded');
-        expect(subtitle[0].url, isNull);
-        // 外挂文本字幕：带 token 的 WebVTT 直链，播放页下载后本地加载。
-        expect(subtitle[1].id, '3');
-        expect(subtitle[1].source, 'external');
-        expect(
-          subtitle[1].url,
-          contains(
-            '${config.pathPrefix}/Videos/item-1/ms-1/Subtitles/3/Stream.vtt',
-          ),
-        );
-        expect(subtitle[1].url, contains('${config.tokenQueryParam}=token-1'));
-        // 外挂位图（PGS）客户端无法渲染，标记不可选且不提供地址。
-        expect(subtitle[2].id, '4');
-        expect(subtitle[2].playable, isFalse);
-        expect(subtitle[2].url, isNull);
-        expect(descriptor.payload, isA<MediaBrowserPlaybackInfo>());
-        // PlaybackInfo 携带设备能力声明，服务器才会返回 TranscodingUrl。
-        final playbackBody = (httpAdapter.bodies.last as Map)['DeviceProfile'];
-        expect(playbackBody, isA<Map>());
-        expect((playbackBody as Map)['DirectPlayProtocols'], ['Http']);
-        // 详情与播放决策各请求一次。
-        expect(
-          httpAdapter.requests,
-          contains('GET $base/Users/user-1/Items/item-1'),
-        );
-        expect(
-          httpAdapter.requests,
-          contains(
-            'POST $base/Items/item-1/PlaybackInfo'
-            '?UserId=user-1&AutoOpenLiveStream=true',
-          ),
-        );
-      });
+          expect(descriptor.isTranscode, isFalse);
+          // 直链没有扩展名，容器提示用于播放器内核选择（MKV → FFmpeg）。
+          expect(descriptor.mimeType, 'video/x-matroska');
+          expect(descriptor.startAt, 360);
+          expect(descriptor.audioTracks.single.label, 'AAC');
+          expect(descriptor.audioTracks.single.channels, 2);
+          expect(descriptor.audioTracks.single.isDefault, isTrue);
+          final subtitle = descriptor.subtitleTracks;
+          expect(subtitle.length, 3);
+          // 内嵌字幕：无直链地址，mpv 按容器轨道号选择。
+          expect(subtitle[0].id, '2');
+          expect(subtitle[0].source, 'embedded');
+          expect(subtitle[0].url, isNull);
+          // 外挂文本字幕：带 token 的 WebVTT 直链，播放页下载后本地加载。
+          expect(subtitle[1].id, '3');
+          expect(subtitle[1].source, 'external');
+          expect(
+            subtitle[1].url,
+            contains(
+              '${config.pathPrefix}/Videos/item-1/ms-1/Subtitles/3/Stream.vtt',
+            ),
+          );
+          expect(
+            subtitle[1].url,
+            contains('${config.tokenQueryParam}=token-1'),
+          );
+          // 外挂位图（PGS）客户端无法渲染，标记不可选且不提供地址。
+          expect(subtitle[2].id, '4');
+          expect(subtitle[2].playable, isFalse);
+          expect(subtitle[2].url, isNull);
+          expect(descriptor.payload, isA<MediaBrowserPlaybackInfo>());
+          // PlaybackInfo 携带设备能力声明，服务器才会返回 TranscodingUrl。
+          final playbackBody =
+              (httpAdapter.bodies.last as Map)['DeviceProfile'];
+          expect(playbackBody, isA<Map>());
+          expect((playbackBody as Map)['DirectPlayProtocols'], ['Http']);
+          // 详情与播放决策各请求一次。
+          expect(
+            httpAdapter.requests,
+            contains('GET $base/Users/user-1/Items/item-1'),
+          );
+          expect(
+            httpAdapter.requests,
+            contains(
+              'POST $base/Items/item-1/PlaybackInfo'
+              '?UserId=user-1&AutoOpenLiveStream=true',
+            ),
+          );
+        },
+      );
 
       test('resolvePlayback 看完的条目从头开始播放', () async {
         final adapter = buildAdapter(
@@ -700,7 +721,9 @@ void main() {
 
         expect(
           descriptor.uri.path,
-          '${config.pathPrefix}/Videos/part-cd2/stream',
+          '${config.pathPrefix}/'
+          '${config.project == ServerProject.jellyfin ? 'videos' : 'Videos'}'
+          '/part-cd2/stream',
         );
         expect(descriptor.uri.queryParameters['MediaSourceId'], 'source-cd2');
         expect(descriptor.mimeType, 'video/mp4');
@@ -722,7 +745,7 @@ void main() {
         );
       });
 
-      test('resolvePlayback 请求转码时使用绝对化的 TranscodingUrl', () async {
+      test('resolvePlayback 请求转码时使用 TranscodingUrl', () async {
         final adapter = buildAdapter(
           _RecordingAdapter((options) {
             if (options.uri.path.endsWith('/PlaybackInfo')) {
@@ -732,6 +755,9 @@ void main() {
                     'Id': 'ms-1',
                     'SupportsDirectPlay': true,
                     'SupportsTranscoding': true,
+                    'DirectStreamUrl':
+                        '${config.pathPrefix}/Videos/item-1/stream'
+                        '?MediaSourceId=ms-1&${config.streamStaticQueryParam}=true',
                     'TranscodingUrl':
                         '${config.pathPrefix}/videos/item-1/master.m3u8?VideoCodec=h264',
                   },
@@ -748,14 +774,15 @@ void main() {
         );
 
         expect(descriptor.isTranscode, isTrue);
-        expect(descriptor.mimeType, 'application/vnd.apple.mpegurl');
         expect(
           descriptor.uri.toString(),
           '$base/videos/item-1/master.m3u8?VideoCodec=h264',
         );
+        expect(descriptor.mimeType, 'application/vnd.apple.mpegurl');
       });
 
       test('resolvePlayback strm 外链直接播放并按扩展名给容器提示', () async {
+        if (config.project == ServerProject.jellyfin) return;
         final adapter = buildAdapter(
           _RecordingAdapter((options) {
             if (options.uri.path.endsWith('/PlaybackInfo')) {
@@ -765,7 +792,8 @@ void main() {
                     'Id': 'ms-1',
                     'Protocol': 'Http',
                     'Container': 'strm',
-                    'Path': 'http://cdn.example.com/movie/file.mkv',
+                    'Path': 'http://path.example.com/should-not-play.mkv',
+                    'DirectStreamUrl': 'http://cdn.example.com/movie/file.mkv',
                     'SupportsDirectPlay': true,
                   },
                 ],
@@ -821,12 +849,16 @@ void main() {
 
         expect(
           descriptor.uri.toString(),
-          contains('${config.pathPrefix}/Videos/item-1/stream'),
+          contains(
+            '${config.pathPrefix}/'
+            '${config.project == ServerProject.jellyfin ? 'videos' : 'Videos'}'
+            '/item-1/stream',
+          ),
         );
         expect(descriptor.mimeType, 'video/x-matroska');
       });
 
-      test('resolvePlayback strm 请求转码时仍优先 TranscodingUrl', () async {
+      test('resolvePlayback strm 请求转码时使用 TranscodingUrl', () async {
         final adapter = buildAdapter(
           _RecordingAdapter((options) {
             if (options.uri.path.endsWith('/PlaybackInfo')) {
@@ -857,7 +889,7 @@ void main() {
         expect(descriptor.uri.toString(), '$base/videos/item-1/master.m3u8');
       });
 
-      test('resolvePlayback strm 无 TranscodingUrl 时转码请求回退外链', () async {
+      test('resolvePlayback strm 无 TranscodingUrl 时不使用 Path', () async {
         final adapter = buildAdapter(
           _RecordingAdapter((options) {
             if (options.uri.path.endsWith('/PlaybackInfo')) {
@@ -885,11 +917,17 @@ void main() {
         expect(descriptor.isTranscode, isFalse);
         expect(
           descriptor.uri.toString(),
-          'http://cdn.example.com/movie/file.mkv',
+          contains(
+            '${config.pathPrefix}/'
+            '${config.project == ServerProject.jellyfin ? 'videos' : 'Videos'}'
+            '/item-1/stream',
+          ),
         );
+        expect(descriptor.uri.toString(), isNot(contains('cdn.example.com')));
       });
 
       test('resolvePlayback strm 外链指回本服务器时补 token', () async {
+        if (config.project == ServerProject.jellyfin) return;
         final adapter = buildAdapter(
           _RecordingAdapter((options) {
             if (options.uri.path.endsWith('/PlaybackInfo')) {
@@ -898,7 +936,8 @@ void main() {
                   {
                     'Id': 'ms-1',
                     'Protocol': 'Http',
-                    'Path': 'http://test:8096/media/file.mkv',
+                    'Path': 'http://path.example.com/should-not-play.mkv',
+                    'DirectStreamUrl': 'http://test:8096/media/file.mkv',
                     'SupportsDirectPlay': true,
                   },
                 ],
@@ -913,12 +952,57 @@ void main() {
           const PlaybackRequest(),
         );
 
-        expect(
-          descriptor.uri.toString(),
-          'http://test:8096/media/file.mkv'
-          '?${config.tokenQueryParam}=token-1',
-        );
+        expect(Uri.parse(descriptor.uri.toString()).queryParameters, {
+          ...config.streamTokenQueryParameters('token-1'),
+        });
+        if (config.project == ServerProject.emby) {
+          expect(
+            descriptor.uri.toString(),
+            'http://test:8096/media/file.mkv'
+            '?api_key=token-1&X-Emby-Token=token-1',
+          );
+        }
       });
+
+      test(
+        'Jellyfin 无 DirectStreamUrl 时按 MediaSourceId 和 ETag 构造原生流',
+        () async {
+          if (config.project != ServerProject.jellyfin) return;
+          final adapter = buildAdapter(
+            _RecordingAdapter((options) {
+              if (options.uri.path.endsWith('/PlaybackInfo')) {
+                return {
+                  'MediaSources': [
+                    {
+                      'Id': '40bea541a6474854752451b9f9ea0775',
+                      'ETag': '06c6b21deab1bfb1615d0e5edd22eb08',
+                      'Path': 'http://cdn.example.com/should-not-play.mkv',
+                      'Container': 'mkv',
+                      'SupportsDirectPlay': true,
+                    },
+                  ],
+                };
+              }
+              return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+            }),
+          );
+
+          final descriptor = await adapter.resolvePlayback(
+            MediaRef(sourceId: sourceId, value: 'item-1'),
+            const PlaybackRequest(),
+          );
+
+          expect(descriptor.uri.path, '/videos/item-1/stream');
+          expect(descriptor.uri.queryParameters, {
+            'MediaSourceId': '40bea541a6474854752451b9f9ea0775',
+            'Static': 'true',
+            'X-Emby-Token': 'token-1',
+            'Tag': '06c6b21deab1bfb1615d0e5edd22eb08',
+            'api_key': 'token-1',
+          });
+          expect(descriptor.uri.toString(), isNot(contains('cdn.example.com')));
+        },
+      );
 
       test('getMovie 拒绝其他来源的 MediaRef', () {
         final adapter = buildAdapter(_RecordingAdapter((_) => {}));

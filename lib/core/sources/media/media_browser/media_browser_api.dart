@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
@@ -13,7 +14,7 @@ const _mediaBrowserCardFields =
 /// token 参数名）。响应是裸 JSON 而非 OMM 的 {success, data} 信封，因此
 /// 这里直接解析 dio 返回的 Map，不经过 envelope 解包。鉴权由 dio 拦截器
 /// 按项目统一注入（X-Emby-Token / Authorization: MediaBrowser Token）；
-/// 播放器和图片内核无法带请求头，改用 config.tokenQueryParam 查询参数。
+/// 播放器和图片内核无法带请求头，改用配置中的 token 查询参数。
 class MediaBrowserApi {
   MediaBrowserApi(this._dio, this.config);
 
@@ -569,7 +570,7 @@ class MediaBrowserApi {
     );
   }
 
-  /// 直链播放地址。static=true 返回原始文件，seek 由播放器通过
+  /// 直链播放地址。项目对应的 static 参数为 true 时返回原始文件，seek 由播放器通过
   /// HTTP Range 完成；token 查询参数让无请求头能力的内核也能访问。
   static String streamUrl({
     required MediaBrowserConfig config,
@@ -577,13 +578,17 @@ class MediaBrowserApi {
     required String itemId,
     String? mediaSourceId,
     String? token,
+    String? tag,
   }) {
     return _buildStreamUrl(
       config: config,
       baseUrl: baseUrl,
-      path: '/Videos/${Uri.encodeComponent(itemId)}/stream',
+      path:
+          '${config.project == ServerProject.jellyfin ? '/videos' : '/Videos'}'
+          '/${Uri.encodeComponent(itemId)}/stream',
       mediaSourceId: mediaSourceId,
       token: token,
+      tag: tag,
     );
   }
 
@@ -610,13 +615,15 @@ class MediaBrowserApi {
     required String path,
     String? mediaSourceId,
     String? token,
+    String? tag,
   }) {
     final query = <String, String>{
-      'static': 'true',
       if (mediaSourceId?.trim().isNotEmpty == true)
         'MediaSourceId': mediaSourceId!.trim(),
+      config.streamStaticQueryParam: 'true',
+      if (tag?.trim().isNotEmpty == true) 'Tag': tag!.trim(),
       if (token?.trim().isNotEmpty == true)
-        config.tokenQueryParam: token!.trim(),
+        ...config.streamTokenQueryParameters(token!),
     };
     return _buildUrl(baseUrl, config.path(path), query);
   }

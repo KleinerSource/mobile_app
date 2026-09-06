@@ -125,7 +125,8 @@ void main() {
     expect(queue[2].title, '曲目t3');
     expect(
       queue[0].directUrl,
-      'http://test/emby/Audio/t1/stream?static=true&api_key=secret-token',
+      'http://test/emby/Audio/t1/stream'
+      '?Static=true&api_key=secret-token&X-Emby-Token=secret-token',
     );
     // mediaId 是条目 ID，safeMediaId 是不可逆摘要，通知栏不暴露 token。
     expect(queue[0].mediaId, 'mediabrowser:t1');

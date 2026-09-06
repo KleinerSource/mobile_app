@@ -27,7 +27,7 @@ import 'package:omm/shared/sheet_controls.dart';
 /// MediaBrowser 条目详情页（电影 / 单集等可播条目）。
 ///
 /// 结构沿用 OMM/DBO 详情页：hero + 标题 + 播放 + 简介 + 标签块；
-/// MediaBrowser 特有操作（收藏、已看标记、转码播放）放在标题下方操作行。
+/// MediaBrowser 特有操作（收藏、已看标记、串流播放）放在标题下方操作行。
 class MediaBrowserMovieDetailPage extends ConsumerWidget {
   const MediaBrowserMovieDetailPage({super.key, required this.itemId});
 

@@ -262,12 +262,16 @@ class MediaBrowserMediaSourceDto {
     this.supportsDirectPlay = false,
     this.supportsDirectStream = false,
     this.supportsTranscoding = false,
+    this.directStreamUrl,
+    this.etag,
     this.transcodingUrl,
     this.mediaStreams = const <MediaBrowserMediaStream>[],
   });
 
   final String id;
   final String? name;
+
+  /// 服务端文件路径，仅用于详情展示和格式识别，不作为播放地址。
   final String? path;
   final String? container;
   final String? protocol;
@@ -275,6 +279,12 @@ class MediaBrowserMediaSourceDto {
   final bool supportsDirectPlay;
   final bool supportsDirectStream;
   final bool supportsTranscoding;
+
+  /// 服务器为当前媒体源生成的原生流地址；播放时使用此地址。
+  final String? directStreamUrl;
+
+  /// Jellyfin 原生流地址需要的媒体源 ETag。
+  final String? etag;
 
   /// 服务器生成的 HLS 转码地址（相对路径，含全部转码参数）。
   final String? transcodingUrl;
@@ -296,6 +306,10 @@ class MediaBrowserMediaSourceDto {
       supportsDirectPlay: json['SupportsDirectPlay'] == true,
       supportsDirectStream: json['SupportsDirectStream'] == true,
       supportsTranscoding: json['SupportsTranscoding'] == true,
+      directStreamUrl: _stringOrNull(
+        json['DirectStreamUrl'] ?? json['directStreamUrl'],
+      ),
+      etag: _stringOrNull(json['ETag'] ?? json['etag']),
       transcodingUrl: _stringOrNull(json['TranscodingUrl']),
       mediaStreams: streams is List
           ? streams

@@ -24,8 +24,8 @@ final _mediaBrowserVideoLaunchGate = SingleFlightGate();
 
 /// 打开 Emby/Jellyfin 条目播放。
 ///
-/// 默认直连原始文件（static=true），[transcode] 为 true 时使用服务器
-/// PlaybackInfo 返回的 HLS 转码地址。开播上报 Sessions/Playing，退出时
+/// 默认从 PlaybackInfo 使用 DirectStreamUrl 播放；[transcode] 为 true 时使用
+/// PlaybackInfo 返回的 TranscodingUrl。开播上报 Sessions/Playing，退出时
 /// 通过播放页的进度回调上报 Stopped，让服务器记住「继续观看」位置。
 Future<void> openMediaBrowserPlayback(
   BuildContext context,

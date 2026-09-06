@@ -17,8 +17,8 @@ import 'playback_device_profile.dart';
 /// MediaBrowser（Emby/Jellyfin）adapter。
 ///
 /// 两家都是独立的外部媒体服务器：目录/详情/播放走通用能力，媒体库管理
-/// 与扫描由服务端完成，因此不实现这两类能力。直链播放优先（static=true
-/// 原始文件），需要转码时使用 PlaybackInfo 返回的 TranscodingUrl。
+/// 与扫描由服务端完成，因此不实现这两类能力。普通播放使用 PlaybackInfo
+/// 返回的 DirectStreamUrl，串流播放使用 PlaybackInfo 返回的 TranscodingUrl。
 /// 项目差异（路径前缀 / token 参数 / 显示名）全部来自 [config]。
 class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   MediaBrowserMediaSourceAdapter(
@@ -226,45 +226,52 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     if (mediaSource == null || mediaSource.id.isEmpty) {
       throw SourceException('${config.displayName} 条目没有可用的媒体源');
     }
+    final transcodingUrl = mediaSource.transcodingUrl?.trim();
     final wantTranscode =
         request.forceVideoTranscode ||
         (request.quality != 'auto' &&
             request.quality.trim().isNotEmpty &&
-            mediaSource.transcodingUrl?.trim().isNotEmpty == true);
-    final transcodingUrl = mediaSource.transcodingUrl?.trim();
+            transcodingUrl?.isNotEmpty == true);
     final isTranscode =
         wantTranscode && transcodingUrl != null && transcodingUrl.isNotEmpty;
-    // strm 条目的 Path 是外部直链（Protocol=Http），服务器 static 代理端点
-    // 无法转发远程内容，与官方客户端一致直接播放该外链。
-    final externalUri = isTranscode
-        ? null
-        : _externalHttpUri(mediaSource, base, token, config);
-    final Uri uri;
-    if (isTranscode) {
-      uri = Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl));
-    } else if (externalUri != null) {
-      uri = externalUri;
-    } else {
-      uri = Uri.parse(
-        MediaBrowserApi.streamUrl(
-          config: config,
-          baseUrl: base,
-          itemId: ref.value,
-          mediaSourceId: mediaSource.id,
-          token: token,
-        ),
-      );
-    }
+    // Jellyfin 不返回 DirectStreamUrl，按 PlaybackInfo 的媒体源 ID 与 ETag
+    // 构造原生流地址；Emby 普通播放使用 PlaybackInfo 返回的 DirectStreamUrl。
+    // 两种路径都不读取 Path 作为播放地址。
+    final directStreamUri = config.project == ServerProject.jellyfin
+        ? Uri.parse(
+            MediaBrowserApi.streamUrl(
+              config: config,
+              baseUrl: base,
+              itemId: ref.value,
+              mediaSourceId: mediaSource.id,
+              token: token,
+              tag: mediaSource.etag,
+            ),
+          )
+        : _directStreamUri(mediaSource, base, token, config);
+    final sourceUri = isTranscode ? null : directStreamUri;
+    final uri = isTranscode
+        ? Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl))
+        : sourceUri ??
+              Uri.parse(
+                MediaBrowserApi.streamUrl(
+                  config: config,
+                  baseUrl: base,
+                  itemId: ref.value,
+                  mediaSourceId: mediaSource.id,
+                  token: token,
+                ),
+              );
     return PlaybackDescriptor(
       uri: uri,
       // 直连 URL 没有扩展名，带上容器提示让播放器选择正确的内核
       // （如 MKV 路由到 FFmpeg），避免 AVPlayer 报格式不支持。
       mimeType: isTranscode
           ? 'application/vnd.apple.mpegurl'
-          : externalUri == null
+          : sourceUri == null
           ? playbackMimeTypeForContainer(mediaSource.container)
           : playbackMimeTypeForContainer(mediaSource.container) ??
-                playbackMimeTypeForContainer(_urlExtension(externalUri)),
+                playbackMimeTypeForContainer(_urlExtension(sourceUri)),
       startAt: _resumeSeconds(item).toDouble(),
       isTranscode: isTranscode,
       audioTracks: _tracks(mediaSource, 'Audio'),
@@ -653,19 +660,17 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     ];
   }
 
-  /// strm / 远程条目的 MediaSource.Path 是外部 http(s) 直链，直接返回它
-  /// 作为播放地址；本地文件的 Path 是文件系统路径，永远不满足条件。
-  /// 外链指回本服务器自身时补 token，避免 401；解析失败返回 null 落回
-  /// static 代理地址。
-  Uri? _externalHttpUri(
+  /// 解析 PlaybackInfo 返回的 DirectStreamUrl，并补充当前会话 token。
+  Uri? _directStreamUri(
     MediaBrowserMediaSourceDto source,
     String baseUrl,
     String? token,
     MediaBrowserConfig config,
   ) {
-    final path = source.path?.trim();
-    if (path == null || !_isHttpUrl(path)) return null;
-    var uri = Uri.tryParse(path) ?? Uri.tryParse(Uri.encodeFull(path));
+    final raw = source.directStreamUrl?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    final resolved = MediaBrowserApi.resolveUrl(baseUrl, raw);
+    var uri = Uri.tryParse(resolved) ?? Uri.tryParse(Uri.encodeFull(resolved));
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
     final serverHost = Uri.tryParse(baseUrl)?.host.toLowerCase();
     final sameHost =
@@ -676,16 +681,11 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       uri = uri.replace(
         queryParameters: {
           ...uri.queryParameters,
-          config.tokenQueryParam: token!.trim(),
+          ...config.streamTokenQueryParameters(token!),
         },
       );
     }
     return uri;
-  }
-
-  static bool _isHttpUrl(String value) {
-    final lower = value.toLowerCase();
-    return lower.startsWith('http://') || lower.startsWith('https://');
   }
 
   static bool _isActiveLibraryRefreshTask(Map<String, dynamic> task) {
