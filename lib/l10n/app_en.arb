@@ -1421,6 +1421,7 @@
   "listNameHint": "List name",
   "listRemoveConfirm": "Remove “{name}” from this list?",
   "@listRemoveConfirm": {"placeholders":{"name":{"type":"String"}}},
+  "listRemoveMissingConfirm": "Remove this unavailable movie entry from the list?",
   "listRemoveTitle": "Remove",
   "listRename": "Rename",
   "listRenameTitle": "Rename",

@@ -4096,6 +4096,9 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get listRemoveMissingConfirm => '确定从列表中移除这条失效影片记录吗？';
+
+  @override
   String get listRemoveTitle => '从列表移除';
 
   @override

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
@@ -280,19 +279,27 @@ class _ListMovieCell extends ConsumerWidget {
           borderRadius: BorderRadius.circular(10),
         ),
       ),
-      error: (_, __) => Container(
-        decoration: BoxDecoration(
-          color: c.surfaceAlt,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: c.danger.withValues(alpha: 0.3)),
-        ),
-        alignment: Alignment.center,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            AppL10n.of(context).loadFailed,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: c.muted, fontFamily: 'Inter', fontSize: 10),
+      error: (_, __) => InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onLongPress: () => _confirmRemove(context, ref, movieId: movieId),
+        child: Container(
+          decoration: BoxDecoration(
+            color: c.surfaceAlt,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: c.danger.withValues(alpha: 0.3)),
+          ),
+          alignment: Alignment.center,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              AppL10n.of(context).loadFailed,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.muted,
+                fontFamily: 'Inter',
+                fontSize: 10,
+              ),
+            ),
           ),
         ),
       ),
@@ -301,7 +308,12 @@ class _ListMovieCell extends ConsumerWidget {
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
         ),
-        onLongPress: () => _confirmRemove(context, ref, movie),
+        onLongPress: () => _confirmRemove(
+          context,
+          ref,
+          movieId: movie.id,
+          movieTitle: movie.title,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -350,14 +362,19 @@ class _ListMovieCell extends ConsumerWidget {
 
   Future<void> _confirmRemove(
     BuildContext context,
-    WidgetRef ref,
-    MovieDetail movie,
-  ) async {
+    WidgetRef ref, {
+    required int movieId,
+    String? movieTitle,
+  }) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(AppL10n.of(ctx).listRemoveTitle),
-        content: Text(AppL10n.of(ctx).listRemoveConfirm(movie.title)),
+        content: Text(
+          movieTitle == null
+              ? AppL10n.of(ctx).listRemoveMissingConfirm
+              : AppL10n.of(ctx).listRemoveConfirm(movieTitle),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -371,7 +388,7 @@ class _ListMovieCell extends ConsumerWidget {
       ),
     );
     if (confirm == true) {
-      await ref.read(listsProvider.notifier).removeMovie(listId, movie.id);
+      await ref.read(listsProvider.notifier).removeMovie(listId, movieId);
     }
   }
 }

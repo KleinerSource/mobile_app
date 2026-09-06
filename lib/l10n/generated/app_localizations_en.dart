@@ -4171,6 +4171,10 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get listRemoveMissingConfirm =>
+      'Remove this unavailable movie entry from the list?';
+
+  @override
   String get listRemoveTitle => 'Remove';
 
   @override

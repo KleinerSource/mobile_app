@@ -7680,6 +7680,12 @@ abstract class AppL10n {
   /// **'确定从列表中移除“{name}”吗？'**
   String listRemoveConfirm(String name);
 
+  /// No description provided for @listRemoveMissingConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定从列表中移除这条失效影片记录吗？'**
+  String get listRemoveMissingConfirm;
+
   /// No description provided for @listRemoveTitle.
   ///
   /// In zh, this message translates to:

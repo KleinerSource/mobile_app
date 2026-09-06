@@ -1421,6 +1421,7 @@
   "listNameHint": "列表名称",
   "listRemoveConfirm": "确定从列表中移除“{name}”吗？",
   "@listRemoveConfirm": {"placeholders":{"name":{"type":"String"}}},
+  "listRemoveMissingConfirm": "确定从列表中移除这条失效影片记录吗？",
   "listRemoveTitle": "从列表移除",
   "listRename": "重命名",
   "listRenameTitle": "重命名列表",
