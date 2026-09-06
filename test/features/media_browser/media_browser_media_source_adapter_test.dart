@@ -315,6 +315,9 @@ void main() {
               'parentId': 'lib-1',
               'recursive': true,
               'genreIds': '463',
+              'genres': 'Action',
+              'tags': '4K',
+              'years': '2024',
             },
           ),
         );
@@ -335,6 +338,9 @@ void main() {
         expect(httpAdapter.requests.single, contains('SortBy=DateCreated'));
         expect(httpAdapter.requests.single, contains('SortOrder=Descending'));
         expect(httpAdapter.requests.single, contains('GenreIds=463'));
+        expect(httpAdapter.requests.single, contains('Genres=Action'));
+        expect(httpAdapter.requests.single, contains('Tags=4K'));
+        expect(httpAdapter.requests.single, contains('Years=2024'));
       });
 
       test('getMovie 返回 MediaDetails 并保留 MediaBrowserItem payload', () async {

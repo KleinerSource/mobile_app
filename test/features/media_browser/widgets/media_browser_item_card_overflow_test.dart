@@ -262,6 +262,21 @@ void main() {
     expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
   });
 
+  testWidgets('Emby 影片卡片显示评分角标', (tester) async {
+    await tester.pumpWidget(
+      _grid([
+        MediaBrowserItemCard(
+          item: _mediaBrowserItem(),
+          urls: _urls(),
+          width: 132,
+        ),
+      ], 0.5),
+    );
+    await tester.pump();
+
+    expect(find.byType(RatingBadge), findsOneWidget);
+  });
+
   testWidgets('Emby/Jellyfin/FNOS 卡片不显示番号前缀', (tester) async {
     final item = MediaBrowserItem.fromJson(const {
       'Id': 'item-with-code-field',

@@ -3217,11 +3217,41 @@ abstract class AppL10n {
   /// **'收藏'**
   String get mediaBrowserFavoriteAction;
 
-  /// No description provided for @mediaBrowserFilterContentType.
+  /// No description provided for @mediaBrowserAdvancedFilter.
   ///
   /// In zh, this message translates to:
-  /// **'筛选内容类型'**
-  String get mediaBrowserFilterContentType;
+  /// **'高级筛选'**
+  String get mediaBrowserAdvancedFilter;
+
+  /// No description provided for @mediaBrowserFilterType.
+  ///
+  /// In zh, this message translates to:
+  /// **'类型'**
+  String get mediaBrowserFilterType;
+
+  /// No description provided for @mediaBrowserFilterGenresHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择类型'**
+  String get mediaBrowserFilterGenresHint;
+
+  /// No description provided for @mediaBrowserFilterTagsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择标签'**
+  String get mediaBrowserFilterTagsHint;
+
+  /// No description provided for @mediaBrowserFilterYear.
+  ///
+  /// In zh, this message translates to:
+  /// **'年份'**
+  String get mediaBrowserFilterYear;
+
+  /// No description provided for @mediaBrowserFilterYearHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择年份'**
+  String get mediaBrowserFilterYearHint;
 
   /// No description provided for @mediaBrowserItemCount.
   ///

@@ -6,7 +6,7 @@ import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 const _mediaBrowserCardFields =
-    'ItemCounts,ProductionYear,PremiereDate,EndDate,Status,Tags';
+    'ItemCounts,ProductionYear,PremiereDate,EndDate,Status,Tags,CommunityRating';
 
 /// MediaBrowser（Emby / Jellyfin）REST API 客户端。
 ///
@@ -264,6 +264,9 @@ class MediaBrowserApi {
     List<String>? fields,
     String? personIds,
     String? genreIds,
+    String? genres,
+    String? tags,
+    String? years,
   }) {
     final requestedFields = <String>{
       'ItemCounts',
@@ -272,6 +275,7 @@ class MediaBrowserApi {
       'EndDate',
       'Status',
       'Tags',
+      'CommunityRating',
     };
     if (fields != null) requestedFields.addAll(fields);
     return _itemPage(_p('/Users/${_segment(userId)}/Items'), <String, dynamic>{
@@ -290,6 +294,9 @@ class MediaBrowserApi {
       if (requestedFields.isNotEmpty) 'Fields': requestedFields.join(','),
       if (personIds?.trim().isNotEmpty == true) 'PersonIds': personIds!.trim(),
       if (genreIds?.trim().isNotEmpty == true) 'GenreIds': genreIds!.trim(),
+      if (genres?.trim().isNotEmpty == true) 'Genres': genres!.trim(),
+      if (tags?.trim().isNotEmpty == true) 'Tags': tags!.trim(),
+      if (years?.trim().isNotEmpty == true) 'Years': years!.trim(),
     });
   }
 
@@ -392,7 +399,11 @@ class MediaBrowserApi {
   Future<MediaBrowserItemPage> resumeItems(String userId, {int limit = 12}) {
     return _itemPage(
       _p('/Users/${_segment(userId)}/Items/Resume'),
-      <String, dynamic>{'MediaTypes': 'Video', 'Limit': limit},
+      <String, dynamic>{
+        'MediaTypes': 'Video',
+        'Limit': limit,
+        'Fields': _mediaBrowserCardFields,
+      },
     );
   }
 
@@ -406,6 +417,7 @@ class MediaBrowserApi {
       'UserId': userId,
       if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
       'Limit': limit,
+      'Fields': _mediaBrowserCardFields,
     });
   }
 

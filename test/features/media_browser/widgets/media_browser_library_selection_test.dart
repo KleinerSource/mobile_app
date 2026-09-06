@@ -52,11 +52,13 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
   final List<MediaBrowserItem> libraryViews;
   final Duration itemPageDelay;
   final itemPageCalls = <(String?, String?)>[];
+  final itemPageQueries = <media_models.MediaQuery>[];
   final markFavoriteCalls = <(String, bool)>[];
   final markPlayedCalls = <(String, bool)>[];
 
   @override
   Future<MediaBrowserItemPage> itemPage(media_models.MediaQuery query) async {
+    itemPageQueries.add(query);
     itemPageCalls.add((
       query.filters['parentId']?.toString(),
       query.filters['includeItemTypes']?.toString(),
@@ -89,6 +91,8 @@ MediaBrowserItem _item(String id, String name) {
     'Name': name,
     'Type': 'Movie',
     'ProductionYear': 2024,
+    'Genres': const ['Action'],
+    'Tags': const ['4K'],
     'RunTimeTicks': 54000000000,
     'UserData': const {'IsFavorite': false},
   });
@@ -243,5 +247,45 @@ void main() {
 
     expect(find.text('专辑甲'), findsWidgets);
     expect(repo.itemPageCalls, contains(('music-library', 'MusicAlbum')));
+  });
+
+  testWidgets('高级筛选提交类型、标签和年份', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '影片甲')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+    );
+    await _pumpLibrary(tester, repo);
+
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('高级筛选'), findsOneWidget);
+
+    final dropdowns = find.byType(DropdownButton<String>);
+    expect(dropdowns, findsNWidgets(3));
+    await tester.tap(dropdowns.at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Action').last);
+    await tester.pumpAndSettle();
+    await tester.tap(dropdowns.at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('4K').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(dropdowns.at(2));
+    await tester.tap(dropdowns.at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2024').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('确定'));
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    final query = repo.itemPageQueries.last;
+    expect(query.filters['genres'], 'Action');
+    expect(query.filters['tags'], '4K');
+    expect(query.filters['years'], '2024');
   });
 }

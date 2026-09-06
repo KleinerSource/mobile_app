@@ -1659,7 +1659,22 @@ class AppL10nZh extends AppL10n {
   String get mediaBrowserFavoriteAction => '收藏';
 
   @override
-  String get mediaBrowserFilterContentType => '筛选内容类型';
+  String get mediaBrowserAdvancedFilter => '高级筛选';
+
+  @override
+  String get mediaBrowserFilterType => '类型';
+
+  @override
+  String get mediaBrowserFilterGenresHint => '选择类型';
+
+  @override
+  String get mediaBrowserFilterTagsHint => '选择标签';
+
+  @override
+  String get mediaBrowserFilterYear => '年份';
+
+  @override
+  String get mediaBrowserFilterYearHint => '选择年份';
 
   @override
   String mediaBrowserItemCount(int count) {

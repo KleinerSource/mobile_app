@@ -80,7 +80,12 @@ void main() {
           }
           if (path.endsWith('/Latest')) {
             return [
-              {'Id': 'item-9', 'Name': '最新电影', 'Type': 'Movie'},
+              {
+                'Id': 'item-9',
+                'Name': '最新电影',
+                'Type': 'Movie',
+                'CommunityRating': 7.1,
+              },
             ];
           }
           if (path.endsWith('/Resume')) {
@@ -90,6 +95,7 @@ void main() {
                   'Id': 'item-2',
                   'Name': '进行中',
                   'Type': 'Movie',
+                  'CommunityRating': 7.2,
                   'UserData': {'PlaybackPositionTicks': 1200000000},
                 },
               ],
@@ -99,7 +105,12 @@ void main() {
           if (path == config.path('/Shows/NextUp')) {
             return {
               'Items': [
-                {'Id': 'ep-1', 'Name': '下一集', 'Type': 'Episode'},
+                {
+                  'Id': 'ep-1',
+                  'Name': '下一集',
+                  'Type': 'Episode',
+                  'CommunityRating': 7.3,
+                },
               ],
               'TotalRecordCount': 1,
             };
@@ -107,7 +118,12 @@ void main() {
           if (path == config.path('/Items/series-1/Similar')) {
             return {
               'Items': [
-                {'Id': 'series-2', 'Name': '相似剧集', 'Type': 'Series'},
+                {
+                  'Id': 'series-2',
+                  'Name': '相似剧集',
+                  'Type': 'Series',
+                  'CommunityRating': 7.4,
+                },
               ],
               'TotalRecordCount': 1,
             };
@@ -151,7 +167,12 @@ void main() {
           }
           return {
             'Items': [
-              {'Id': 'item-1', 'Name': '条目一', 'Type': 'Movie'},
+              {
+                'Id': 'item-1',
+                'Name': '条目一',
+                'Type': 'Movie',
+                'CommunityRating': 7.5,
+              },
             ],
             'TotalRecordCount': 101,
             'StartIndex': 24,
@@ -171,6 +192,9 @@ void main() {
           startIndex: 24,
           limit: 24,
           genreIds: '463',
+          genres: 'Action',
+          tags: '4K',
+          years: '2024',
         );
         final latest = await api.latestMedia('user-1', parentId: 'lib-1');
         final resume = await api.resumeItems('user-1', limit: 6);
@@ -183,12 +207,17 @@ void main() {
         expect(views.single.id, 'lib-1');
         expect(views.single.collectionType, 'movies');
         expect(page.items.single.id, 'item-1');
+        expect(page.items.single.communityRating, 7.5);
         expect(page.total, 101);
         expect(page.hasMore, isTrue);
         expect(latest.single.name, '最新电影');
+        expect(latest.single.communityRating, 7.1);
         expect(resume.items.single.userData.resumeSeconds, 120);
+        expect(resume.items.single.communityRating, 7.2);
         expect(nextUp.items.single.isEpisode, isTrue);
+        expect(nextUp.items.single.communityRating, 7.3);
         expect(similar.items.single.id, 'series-2');
+        expect(similar.items.single.communityRating, 7.4);
         expect(seasons.single.indexNumber, 1);
         expect(episodes.items.single.seriesId, 'series-1');
         expect(detail.overview, '剧情简介');
@@ -199,14 +228,21 @@ void main() {
               '?ParentId=lib-1&IncludeItemTypes=Movie%2CSeries&Recursive=true'
               '&SortBy=DateCreated&SortOrder=Descending&StartIndex=24&Limit=24'
               '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags'
-              '&GenreIds=463',
+              '%2CCommunityRating'
+              '&GenreIds=463&Genres=Action&Tags=4K&Years=2024',
           'GET $base/Users/user-1/Items/Latest'
               '?ParentId=lib-1&Limit=16&Fields=ItemCounts%2CProductionYear%2C'
-              'PremiereDate%2CEndDate%2CStatus%2CTags&EnableImages=true',
-          'GET $base/Users/user-1/Items/Resume?MediaTypes=Video&Limit=6',
-          'GET $base/Shows/NextUp?UserId=user-1&Limit=12',
+              'PremiereDate%2CEndDate%2CStatus%2CTags%2CCommunityRating'
+              '&EnableImages=true',
+          'GET $base/Users/user-1/Items/Resume?MediaTypes=Video&Limit=6'
+              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2C'
+              'Status%2CTags%2CCommunityRating',
+          'GET $base/Shows/NextUp?UserId=user-1&Limit=12&Fields=ItemCounts%2C'
+              'ProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags%2C'
+              'CommunityRating',
           'GET $base/Items/series-1/Similar?UserId=user-1&Limit=12'
-              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2CStatus%2CTags',
+              '&Fields=ItemCounts%2CProductionYear%2CPremiereDate%2CEndDate%2C'
+              'Status%2CTags%2CCommunityRating',
           'GET $base/Shows/series-1/Seasons?UserId=user-1',
           'GET $base/Shows/series-1/Episodes'
               '?UserId=user-1&SeasonId=season-1&Fields=Overview%2CMediaSources'

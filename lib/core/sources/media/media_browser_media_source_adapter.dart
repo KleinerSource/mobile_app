@@ -180,6 +180,9 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
               ? filters['isFavorite'] as bool
               : null,
           genreIds: filters['genreIds']?.toString(),
+          genres: filters['genres']?.toString(),
+          tags: filters['tags']?.toString(),
+          years: filters['years']?.toString(),
         );
         return MediaPage(
           items: await Future.wait(page.items.map(_summaryFromItem)),
@@ -358,6 +361,9 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
           : null,
       personIds: filters['personIds']?.toString(),
       genreIds: filters['genreIds']?.toString(),
+      genres: filters['genres']?.toString(),
+      tags: filters['tags']?.toString(),
+      years: filters['years']?.toString(),
     );
   });
 

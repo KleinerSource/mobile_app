@@ -1691,7 +1691,22 @@ class AppL10nEn extends AppL10n {
   String get mediaBrowserFavoriteAction => 'Favorite';
 
   @override
-  String get mediaBrowserFilterContentType => 'Filter content type';
+  String get mediaBrowserAdvancedFilter => 'Advanced filters';
+
+  @override
+  String get mediaBrowserFilterType => 'Type';
+
+  @override
+  String get mediaBrowserFilterGenresHint => 'Select a genre';
+
+  @override
+  String get mediaBrowserFilterTagsHint => 'Select a tag';
+
+  @override
+  String get mediaBrowserFilterYear => 'Year';
+
+  @override
+  String get mediaBrowserFilterYearHint => 'Select a year';
 
   @override
   String mediaBrowserItemCount(int count) {
