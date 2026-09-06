@@ -424,6 +424,7 @@ class CatalogMovieCard extends ConsumerWidget {
     this.width = 112,
     this.rating,
     this.canPlay = false,
+    this.showOnlinePlayBadge = false,
     this.hasSubtitle = false,
     this.played = false,
     this.progress = 0,
@@ -447,6 +448,7 @@ class CatalogMovieCard extends ConsumerWidget {
   final double width;
   final double? rating;
   final bool canPlay;
+  final bool showOnlinePlayBadge;
   final bool hasSubtitle;
 
   /// 已看完 · 海报左上角标。
@@ -488,7 +490,7 @@ class CatalogMovieCard extends ConsumerWidget {
     final badgesByCorner = <BadgeCorner, List<Widget>>{
       for (final corner in BadgeCorner.values) corner: <Widget>[],
     };
-    if (canPlay) {
+    if (canPlay && showOnlinePlayBadge) {
       badgesByCorner[BadgeCorner.topLeft]!.add(
         const OnlinePlayBadge(iconOnly: true),
       );

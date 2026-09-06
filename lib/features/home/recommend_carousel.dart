@@ -267,6 +267,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             year: item.productionYear,
             privacyId: item.id,
             canPlay: item.isPlayable,
+            showOnlinePlayBadge: false,
             onTap: (context) => mediaBrowserOnTap(context, item),
           ),
       ];
@@ -288,6 +289,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             year: _yearFromDate(movie.releaseDate),
             privacyId: _dbOnlinePrivacyId(movie),
             canPlay: movie.canPlay,
+            showOnlinePlayBadge: true,
             onTap: (context) => dbOnTap(context, movie),
           ),
       ];
@@ -378,6 +380,7 @@ class _CarouselItem {
     this.year,
     this.privacyId,
     this.canPlay = false,
+    this.showOnlinePlayBadge = false,
     this.imageHeaders,
   });
 
@@ -390,6 +393,7 @@ class _CarouselItem {
   final int? year;
   final Object? privacyId;
   final bool canPlay;
+  final bool showOnlinePlayBadge;
   final Map<String, String>? imageHeaders;
   final Future<void> Function(BuildContext context) onTap;
 }
@@ -523,7 +527,7 @@ class _HeroInfoCard extends StatelessWidget {
                       text: '★ ${movie.rating!.toStringAsFixed(1)}',
                       accent: const Color(0xFFFFD600),
                     ),
-                  if (movie.canPlay) ...[
+                  if (movie.canPlay && movie.showOnlinePlayBadge) ...[
                     const SizedBox(width: 8),
                     const OnlinePlayBadge(),
                   ],

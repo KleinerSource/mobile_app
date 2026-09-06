@@ -87,6 +87,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         width: width,
         rating: normalizeMediaRating(movie.score),
         canPlay: movie.canPlay,
+        showOnlinePlayBadge: true,
         hasSubtitle: movie.hasCnsub,
         privacyId: privacyId,
         showTitle: !codeOnly,
