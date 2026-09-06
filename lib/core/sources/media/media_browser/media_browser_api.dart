@@ -83,6 +83,28 @@ class MediaBrowserApi {
     return _items(response.data);
   }
 
+  /// 获取服务端的类型筛选项。
+  ///
+  /// Emby 使用 `/emby/Genres`，Jellyfin 使用 `/Genres`，路径前缀由
+  /// [MediaBrowserConfig.path] 统一补齐。该接口的响应通常是
+  /// `{ "Items": [{ "Name": "Action" }] }`。
+  Future<List<String>> genres() async {
+    final response = await _dio.get<Object>(_p('/Genres'));
+    final data = response.data;
+    final rawItems = data is Map ? (data['Items'] ?? data['items']) : data;
+    if (rawItems is! List) return const <String>[];
+
+    final values = <String>{};
+    for (final raw in rawItems) {
+      final value = raw is Map
+          ? (raw['Name'] ?? raw['name'])?.toString()
+          : raw?.toString();
+      final normalized = value?.trim() ?? '';
+      if (normalized.isNotEmpty) values.add(normalized);
+    }
+    return values.toList(growable: false);
+  }
+
   /// 管理端虚拟媒体库列表。
   Future<List<MediaBrowserLibrary>> virtualFolders() async {
     final response = await _dio.get<Object>(_p('/Library/VirtualFolders'));

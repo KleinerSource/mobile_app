@@ -13,3 +13,11 @@ abstract interface class MediaBrowserMediaSource
         MovieDetailSource,
         PlaybackSource,
         MediaBrowserMediaOperationsSource {}
+
+/// MediaBrowser 服务端提供的筛选元数据。
+///
+/// 目前只有 Emby/Jellyfin 的 `/Genres` 接口使用该能力；其他媒体源可以
+/// 不实现，页面会回退到已加载条目的类型字段。
+abstract interface class MediaBrowserGenresSource {
+  Future<List<String>> genres();
+}

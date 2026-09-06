@@ -92,6 +92,15 @@ class MediaBrowserMediaRepository {
 
   Future<List<MediaBrowserItem>> views() => _source.views();
 
+  /// 获取服务端类型筛选项；不支持该能力的媒体源返回空列表。
+  Future<List<String>> genres() {
+    final source = _source;
+    if (source is MediaBrowserGenresSource) {
+      return (source as MediaBrowserGenresSource).genres();
+    }
+    return Future.value(const <String>[]);
+  }
+
   Future<MediaBrowserLibraryStats> libraryStats() => _source.libraryStats();
 
   Future<List<MediaBrowserItem>> latestMedia({

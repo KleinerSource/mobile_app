@@ -251,6 +251,26 @@ void main() {
         ]);
       });
 
+      test('Genres 接口解析类型并使用项目路径前缀', () async {
+        final adapter = _MediaBrowserTestAdapter((options) {
+          expect(options.uri.path, config.path('/Genres'));
+          return {
+            'Items': [
+              {'Name': 'Action'},
+              {'Name': 'Drama'},
+              {'Name': 'Action'},
+            ],
+          };
+        }, config.authHeaderName);
+        final api = apiFor(config, adapter);
+
+        expect(await api.genres(), ['Action', 'Drama']);
+        expect(
+          adapter.requests.single,
+          'GET http://test${config.pathPrefix}/Genres',
+        );
+      });
+
       test('AdditionalParts 解析分集并按服务端顺序返回', () async {
         final adapter = _MediaBrowserTestAdapter((options) {
           expect(options.uri.queryParameters['UserId'], 'user-1');

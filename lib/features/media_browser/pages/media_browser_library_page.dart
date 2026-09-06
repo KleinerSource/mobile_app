@@ -514,6 +514,23 @@ class _MediaBrowserLibraryPageState
   }
 
   Future<void> _openAdvancedFilter(BuildContext context) async {
+    final localGenreOptions = _filterOptions(
+      _controller.itemList?.expand((item) => item.genres) ?? const [],
+      selected: _genreFilter,
+    );
+    var genreOptions = localGenreOptions;
+    try {
+      final remoteGenres = await ref
+          .read(mediaBrowserMediaRepositoryProvider)
+          .genres();
+      if (remoteGenres.isNotEmpty) {
+        genreOptions = _filterOptions(remoteGenres, selected: _genreFilter);
+      }
+    } catch (_) {
+      // 服务端类型接口不可用时，仍允许使用当前已加载条目的类型筛选。
+    }
+    if (!context.mounted) return;
+
     final result = await showGlassSheet<_MediaBrowserAdvancedFilter>(
       context: context,
       builder: (_) => _MediaBrowserAdvancedFilterSheet(
@@ -522,10 +539,7 @@ class _MediaBrowserLibraryPageState
           tags: _tagFilter,
           years: _yearFilter,
         ),
-        genreOptions: _filterOptions(
-          _controller.itemList?.expand((item) => item.genres) ?? const [],
-          selected: _genreFilter,
-        ),
+        genreOptions: genreOptions,
         tagOptions: _filterOptions(
           _controller.itemList?.expand((item) => item.tags) ?? const [],
           selected: _tagFilter,

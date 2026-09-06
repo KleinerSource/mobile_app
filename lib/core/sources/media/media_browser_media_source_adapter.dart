@@ -20,7 +20,8 @@ import 'playback_device_profile.dart';
 /// 与扫描由服务端完成，因此不实现这两类能力。普通播放使用 PlaybackInfo
 /// 返回的 DirectStreamUrl，串流播放使用 PlaybackInfo 返回的 TranscodingUrl。
 /// 项目差异（路径前缀 / token 参数 / 显示名）全部来自 [config]。
-class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
+class MediaBrowserMediaSourceAdapter
+    implements MediaBrowserMediaSource, MediaBrowserGenresSource {
   MediaBrowserMediaSourceAdapter(
     this.api, {
     required this.sessionRepository,
@@ -293,6 +294,9 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     final uid = await _requireUserId();
     return api.views(uid);
   });
+
+  @override
+  Future<List<String>> genres() => _call(api.genres);
 
   @override
   Future<MediaBrowserLibraryStats> libraryStats() => _call(() async {

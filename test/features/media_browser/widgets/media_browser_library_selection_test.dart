@@ -45,11 +45,13 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
   _RecordingRepo({
     required this.page,
     this.libraryViews = const [],
+    this.genreOptions = const [],
     this.itemPageDelay = Duration.zero,
   }) : super(_UnusedSource());
 
   MediaBrowserItemPage page;
   final List<MediaBrowserItem> libraryViews;
+  final List<String> genreOptions;
   final Duration itemPageDelay;
   final itemPageCalls = <(String?, String?)>[];
   final itemPageQueries = <media_models.MediaQuery>[];
@@ -71,6 +73,9 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
 
   @override
   Future<List<MediaBrowserItem>> views() async => libraryViews;
+
+  @override
+  Future<List<String>> genres() async => genreOptions;
 
   @override
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) async {
@@ -319,5 +324,26 @@ void main() {
     expect(query.filters['genres'], 'Action,Drama');
     expect(query.filters['tags'], '4K,HDR');
     expect(query.filters['years'], '2024,2023');
+  });
+
+  testWidgets('高级筛选类型优先使用服务端 Genres 列表', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '影片甲', genres: const [])],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      genreOptions: const ['Sci-Fi'],
+    );
+    await _pumpLibrary(tester, repo);
+
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('media-browser-filter-genre')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sci-Fi'), findsOneWidget);
+    expect(find.text('Action'), findsNothing);
   });
 }
