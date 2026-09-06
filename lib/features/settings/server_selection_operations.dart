@@ -126,47 +126,82 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
   }
 
   Future<_ServerStatus> _statusFor(ServerProfile server) {
-    final line = server.activeLine;
-    final key = [server.id, line?.id, line?.baseUrl, line?.enabled].join('|');
+    // 状态由整组线路共同决定；只缓存当前线路会在备用线路变更后继续复用
+    // 旧的失败结果，造成卡片红点与实际切换结果不一致。
+    final key = [
+      server.id,
+      server.projectName,
+      server.activeLineId,
+      for (final line in server.lines)
+        '${line.id}|${line.baseUrl}|${line.enabled}',
+    ].join('|');
     return _statusFutures.putIfAbsent(key, () => _detectStatus(server));
   }
 
   Future<_ServerStatus> _detectStatus(ServerProfile server) async {
-    final line = server.activeLine;
     final project = server.project;
-    if (line == null || !line.enabled || project == null) {
+    if (project == null) {
       return _ServerStatus.unavailable;
     }
 
-    final probe = await ref
-        .read(serverLineProbeCoordinatorProvider)
-        .probe(line, expectedProjectName: server.projectName);
-    if (probe.success) {
-      final version = probe.versionInfo?.version.trim();
-      if (version?.isNotEmpty == true) {
-        await ref
-            .read(serverConfigProvider.notifier)
-            .saveServerVersion(server.id, version!);
-      }
-      await ref
-          .read(serverConfigProvider.notifier)
-          .saveServerLineProbe(server.id, probe);
-    }
+    final candidates = server.lines
+        .where((line) => line.enabled && line.baseUrl.trim().isNotEmpty)
+        .toList();
+    if (candidates.isEmpty) return _ServerStatus.unavailable;
 
     // SMB/WebDAV 的连接由文件浏览页在挂载来源时完成验证；选择器这里只
-    // 反映线路是否被启用，避免在卡片列表中重复创建文件源连接。
-    // OpenList/AList 例外：版本接口是公开接口，需要在这里探测并保存。
+    // 反映是否存在启用线路，避免在卡片列表中重复创建文件源连接。
     if (project.isFileSource && project != ServerProject.openList) {
       return _ServerStatus.connected;
     }
 
-    if (!probe.success) {
-      return probe.requiresAuthentication
+    final activeLine = server.activeLine;
+    final current =
+        activeLine != null &&
+            activeLine.enabled &&
+            activeLine.baseUrl.trim().isNotEmpty
+        ? activeLine
+        : candidates.first;
+    // 所有线路立即并发探测；任意线路成功就立刻继续状态判断，不等待其它
+    // 慢线路超时。失败时才等待完整结果，以便保留“需要鉴权”的判断。
+    final selection = await ref
+        .read(serverLineProbeCoordinatorProvider)
+        .selectPreferred(
+          current: current,
+          alternatives: candidates.where((line) => line.id != current.id),
+          expectedProjectName: server.projectName,
+        );
+    final probe = selection.selected;
+    if (probe == null) {
+      return selection.results.any((result) => result.requiresAuthentication)
           ? _ServerStatus.authenticationRequired
           : _ServerStatus.unavailable;
     }
 
-    return _detectAuthentication(server, line, project);
+    // 线路探测结果已经足以更新状态；版本和延迟写回本地配置放到后台，
+    // 避免配置写队列或磁盘 IO 阻塞首条成功线路的状态响应。
+    unawaited(_persistProbeMetadata(server.id, probe));
+
+    return _detectAuthentication(server, probe.line, project);
+  }
+
+  Future<void> _persistProbeMetadata(
+    String serverId,
+    ServerLineProbeResult probe,
+  ) async {
+    try {
+      final version = probe.versionInfo?.version.trim();
+      if (version?.isNotEmpty == true) {
+        await ref
+            .read(serverConfigProvider.notifier)
+            .saveServerVersion(serverId, version!);
+      }
+      await ref
+          .read(serverConfigProvider.notifier)
+          .saveServerLineProbe(serverId, probe);
+    } catch (_) {
+      // 本地元数据写回失败不应影响已经完成的服务器状态判断。
+    }
   }
 
   Future<_ServerStatus> _detectAuthentication(

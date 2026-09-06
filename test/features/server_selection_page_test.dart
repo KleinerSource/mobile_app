@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
@@ -9,6 +10,7 @@ import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_config_repository.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
@@ -107,6 +109,85 @@ void main() {
     container.read(serverSelectionRequestedProvider.notifier).state = true;
     await tester.pumpAndSettle();
     expect(probeCount, 1);
+  });
+
+  testWidgets('连接页多线路并行探测，任一线路成功立即结束状态判断', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'openlist-one',
+          'name': 'OpenList 多线路',
+          'lines': [
+            {
+              'id': 'slow-line',
+              'name': '慢线路',
+              'base_url': 'https://slow.example',
+            },
+            {
+              'id': 'fast-line',
+              'name': '快线路',
+              'base_url': 'https://fast.example',
+            },
+          ],
+          'active_line_id': 'slow-line',
+          'project_name': 'openlist',
+        },
+      ]),
+      'server.active_server_id': 'openlist-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final slowProbe = Completer<ServerLineProbeResult>();
+    final startedLines = <String>[];
+    const slowLine = ServerLine(
+      id: 'slow-line',
+      name: '慢线路',
+      baseUrl: 'https://slow.example',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) {
+                startedLines.add(line.id);
+                if (line.id == 'slow-line') return slowProbe.future;
+                return Future.value(
+                  ServerLineProbeResult.success(
+                    line,
+                    8,
+                    versionInfo: const ServerVersionInfo(
+                      projectName: 'openlist',
+                      version: '',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    // 慢线路刻意保持未完成；这里不能使用 pumpAndSettle，否则会等待它。
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(startedLines, containsAll(<String>['slow-line', 'fast-line']));
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox) return false;
+        final decoration = widget.decoration;
+        return decoration is BoxDecoration &&
+            decoration.color == const Color(0xFF65D391);
+      }),
+      findsOneWidget,
+    );
+
+    slowProbe.complete(const ServerLineProbeResult.failure(slowLine, '连接超时'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('创建服务器保存后返回选择器且保留用户选择的类型', (tester) async {
