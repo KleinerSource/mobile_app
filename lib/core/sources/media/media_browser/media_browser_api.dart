@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 const _mediaBrowserCardFields =
     'ItemCounts,ProductionYear,PremiereDate,EndDate,Status,Tags';

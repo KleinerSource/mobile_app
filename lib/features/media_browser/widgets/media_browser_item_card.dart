@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';

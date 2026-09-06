@@ -3,7 +3,7 @@ import 'dart:ui' show FrameTiming;
 
 import 'package:flutter/material.dart';
 
-import '../../features/player/video/player_device_stats.dart';
+import 'package:omm/core/platform/player_device_stats.dart';
 
 /// 全局性能监视器，仅在 Debug 设置和性能监视器开关同时开启时挂载。
 class PerformanceMonitorOverlay extends StatefulWidget {

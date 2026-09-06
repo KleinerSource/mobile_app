@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -21,7 +22,7 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
-import 'package:omm/shared/selection_controller.dart';
+import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
@@ -45,6 +46,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   static const _pageSize = 100;
 
   final _searchController = TextEditingController();
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, ActorRow>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<ActorRow>(
@@ -60,8 +62,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   bool _hasLoaded = false;
   bool _lastPageComplete = false;
   int _requestSerial = 0;
-  late final SelectionController<int> _selection;
-  Completer<void>? _refreshCompleter;
+  late final PagedSelectionController<int> _selection;
 
   /// 当前左滑展开的行（演员 id 或 'member:演员id:成员id'），同一时刻只展开一个。
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
@@ -69,18 +70,18 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   @override
   void initState() {
     super.initState();
-    _selection = SelectionController<int>();
-    _selection.activeListenable.addListener(_onSelectionModeChanged);
+    _selection = PagedSelectionController<int>();
+    _selection.addModeListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   @override
   void dispose() {
-    _completeRefresh();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
     _searchDebounce.cancel();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
@@ -89,7 +90,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   bool get _selectionMode => _selection.isActive;
-  Set<int> get _selectedIds => _selection.selected;
+  Set<int> get _selectedIds => _selection.selectedIds.cast<int>();
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
@@ -101,22 +102,25 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
-    final query = <String, dynamic>{
-      'limit': _pageSize,
-      'offset': offset,
-      'sort_by': _sortBy,
-      'sort_order': _sortOrder,
-      // 折叠关联演员：列表只保留关联组的标准演员行，成员折叠为子行。
-      'collapse_associations': true,
-      if (_search != null) 'search': _search,
-    };
-
     try {
+      final query = <String, dynamic>{
+        'limit': _pageSize,
+        'offset': offset,
+        'sort_by': _sortBy,
+        'sort_order': _sortOrder,
+        // 折叠关联演员：列表只保留关联组的标准演员行，成员折叠为子行。
+        'collapse_associations': true,
+        if (_search != null) 'search': _search,
+      };
+
       final raw = await ref
           .read(ommMediaSourceProvider)
           ?.metadataOperations
           .listActors(query);
+      if (!pageRequest.isCurrent) return;
       if (raw == null) throw StateError('当前服务器不是 OMM');
       final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
       if (!mounted || requestSerial != _requestSerial) return;
@@ -136,15 +140,21 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         scrollController: _scrollController,
       );
       setState(() => _lastPageComplete = !hasMore);
-      _completeRefresh();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
-      _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
   void _reload({bool preserveScroll = false}) {
+    _requests.invalidate();
+    _resetPaging(preserveScroll: preserveScroll);
+  }
+
+  void _resetPaging({bool preserveScroll = false}) {
     _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     if (mounted) {
@@ -153,23 +163,17 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         _totalCount = 0;
       });
     }
-    _controller.refresh();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetch,
+    );
   }
 
   Future<void> _refresh({bool preserveScroll = false}) {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _reload(preserveScroll: preserveScroll);
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+    return _requests.refresh(() {
+      _resetPaging(preserveScroll: preserveScroll);
+    });
   }
 
   void _onSearchChanged(String value) {
@@ -194,19 +198,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     });
     _reload();
     AppHaptics.selection();
-  }
-
-  void _startSelectionSweep(int id, bool selected) {
-    _selection.enter();
-    _selection.setSelected(id, selected);
-  }
-
-  void _applySelectionSweep(int id, bool selected) {
-    _selection.setSelected(id, selected);
-  }
-
-  void _finishSelectionSweep() {
-    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
   }
 
   void _toggleSelect(int id) => _selection.toggle(id);
@@ -329,7 +320,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     return Scaffold(
       backgroundColor: c.bg,
       bottomNavigationBar: _selectionMode
-          ? ValueListenableBuilder<Set<int>>(
+          ? ValueListenableBuilder<Set<Object>>(
               valueListenable: _selection.selectedListenable,
               builder: (context, selected, _) => EntityBatchToolbar(
                 selectedCount: selected.length,
@@ -379,14 +370,10 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               body: RefreshIndicator(
                 color: c.accent,
                 onRefresh: _refresh,
-                child: DragSelectionScope<int>(
+                child: PagedSelectionScope<int>(
+                  selection: _selection,
                   scrollController: _scrollController,
-                  selectionLayout: DragSelectionLayout.list,
-                  isSelected: _selection.contains,
-                  onSelectionStart: _startSelectionSweep,
-                  onSelectionChanged: _applySelectionSweep,
-                  onSelectionEnd: _finishSelectionSweep,
-                  selectionMode: _selectionMode,
+                  layout: DragSelectionLayout.list,
                   child: CustomScrollView(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -528,12 +515,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                         _confirmDelete(context, actor),
                                   ),
                                 ],
-                                child: DragSelectionTarget<int>(
+                                child: DragSelectionTarget<Object>(
                                   key: ValueKey(row.id),
                                   id: row.id,
                                   child: ClipRRect(
                                     borderRadius: rowRadius,
-                                    child: ValueListenableBuilder<Set<int>>(
+                                    child: ValueListenableBuilder<Set<Object>>(
                                       valueListenable:
                                           _selection.selectedListenable,
                                       builder: (context, selected, _) =>

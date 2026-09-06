@@ -9,13 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
-import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_view_state.dart';
 import 'package:omm/features/home/home_providers.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
-import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -432,156 +430,8 @@ class _PrivacyOn extends PrivacyShieldNotifier {
   bool build() => true;
 }
 
-// ==================== Emby/Jellyfin 媒体库入口卡片隐私 ====================
-void _main_3() {
-  testWidgets('媒体库入口卡片适配隐私模式:遮罩库名且首点只揭示', (tester) async {
-    var opened = false;
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [privacyShieldProvider.overrideWith(() => _PrivacyOn())],
-        child: MaterialApp(
-          localizationsDelegates: AppL10n.localizationsDelegates,
-          supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
-          home: Scaffold(
-            body: HomeLibrariesSection(
-              entries: [
-                HomeLibraryCardEntry(
-                  id: 'lib-7',
-                  name: '私人媒体库',
-                  onTap: () => opened = true,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    // 库名遮罩成方块,卡片盖揭示图标
-    expect(find.text('▆▆▆▆▆'), findsOneWidget);
-    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
-
-    // 首次点击只揭开当前卡片,不进入媒体库
-    await tester.tap(find.byType(PrivacyAwareInkWell));
-    await tester.pump();
-    expect(find.text('▆▆▆▆▆'), findsNothing);
-    expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
-    expect(opened, isFalse);
-
-    // 揭开后再次点击进入媒体库
-    await tester.tap(find.byType(PrivacyAwareInkWell));
-    await tester.pump();
-    expect(opened, isTrue);
-  });
-}
-
-Future<void> _pumpHomeLibraryCard(
-  WidgetTester tester,
-  HomeLibraryCardEntry entry,
-) async {
-  SharedPreferences.setMockInitialValues({});
-  final prefs = await SharedPreferences.getInstance();
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-      child: MaterialApp(
-        localizationsDelegates: AppL10n.localizationsDelegates,
-        supportedLocales: AppL10n.supportedLocales,
-        locale: const Locale('zh'),
-        home: Scaffold(body: HomeLibrariesSection(entries: [entry])),
-      ),
-    ),
-  );
-  await tester.pump();
-}
-
-void _main_4() {
-  testWidgets('媒体库卡片长按显示刷新菜单并可点击外部关闭', (tester) async {
-    var refreshCount = 0;
-    await _pumpHomeLibraryCard(
-      tester,
-      HomeLibraryCardEntry(
-        id: 'library-refresh',
-        name: '可刷新媒体库',
-        onTap: () {},
-        onRefresh: () => refreshCount++,
-      ),
-    );
-
-    final card = find.byType(PrivacyAwareInkWell);
-    await tester.longPress(card);
-    await tester.pump();
-    expect(find.text('刷新'), findsOneWidget);
-
-    await tester.tapAt(const Offset(300, 300));
-    await tester.pump();
-    expect(find.text('刷新'), findsNothing);
-
-    await tester.longPress(card);
-    await tester.pump();
-    await tester.tap(find.text('刷新'));
-    await tester.pump();
-    expect(refreshCount, 1);
-  });
-
-  testWidgets('媒体库卡片刷新时显示确定或不确定圆形进度且禁止重复触发', (tester) async {
-    var refreshCount = 0;
-    final refreshing = HomeLibraryCardEntry(
-      id: 'library-progress',
-      name: '刷新中的媒体库',
-      onTap: () {},
-      onRefresh: () => refreshCount++,
-      isRefreshing: true,
-      refreshProgress: 0.42,
-    );
-    await _pumpHomeLibraryCard(tester, refreshing);
-
-    final determinate = tester.widget<CircularProgressIndicator>(
-      find.byType(CircularProgressIndicator),
-    );
-    expect(determinate.value, closeTo(0.42, 0.0001));
-    expect(find.text('42%'), findsOneWidget);
-
-    await tester.longPress(find.byType(PrivacyAwareInkWell));
-    await tester.pump();
-    expect(find.text('刷新'), findsOneWidget);
-    await tester.tap(find.text('刷新'));
-    await tester.pump();
-    expect(refreshCount, 0);
-
-    await _pumpHomeLibraryCard(
-      tester,
-      refreshing.copyWithForTest(refreshProgress: null),
-    );
-    final indeterminate = tester.widget<CircularProgressIndicator>(
-      find.byType(CircularProgressIndicator),
-    );
-    expect(indeterminate.value, isNull);
-    expect(find.text('42%'), findsNothing);
-  });
-}
-
-extension on HomeLibraryCardEntry {
-  HomeLibraryCardEntry copyWithForTest({double? refreshProgress}) {
-    return HomeLibraryCardEntry(
-      id: id,
-      name: name,
-      coverUrl: coverUrl,
-      onTap: onTap,
-      imageHeaders: imageHeaders,
-      category: category,
-      onRefresh: onRefresh,
-      isRefreshing: isRefreshing,
-      refreshProgress: refreshProgress,
-    );
-  }
-}
-
 void main() {
   group('home_providers', _main_0);
   group('home_movie_view_state', _main_1);
   group('home_hero', _main_2);
-  group('home_libraries_section', _main_3);
-  group('home_libraries_refresh', _main_4);
 }

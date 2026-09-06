@@ -1,7 +1,7 @@
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）Feature 的 Source 门面。
 ///

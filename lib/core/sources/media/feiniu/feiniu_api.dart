@@ -4,7 +4,7 @@ import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 
-import 'feiniu_models.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
 
 class FeiniuApi {
   FeiniuApi(this._dio);

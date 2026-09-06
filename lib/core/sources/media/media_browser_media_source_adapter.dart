@@ -1,8 +1,8 @@
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
-import 'package:omm/features/media_browser/api/media_browser_api.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';

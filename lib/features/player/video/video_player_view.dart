@@ -9,7 +9,7 @@ import '../common/player_session_controller.dart';
 import '../common/player_settings.dart';
 import 'player_debug_overlay.dart';
 import 'player_decode_status.dart';
-import 'player_device_stats.dart';
+import 'package:omm/core/platform/player_device_stats.dart';
 import 'player_exit_button.dart';
 import 'player_status_overlay.dart';
 import 'subtitle_rendering.dart';

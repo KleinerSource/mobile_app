@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import 'player_device_stats.dart';
+import 'package:omm/core/platform/player_device_stats.dart';
 
 /// 播放器顶部状态 OSD · 与控制栏分离, 不参与手势命中测试。
 class PlayerStatusOverlay extends StatefulWidget {

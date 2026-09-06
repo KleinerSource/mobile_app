@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 

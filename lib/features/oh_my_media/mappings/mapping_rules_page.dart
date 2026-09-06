@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,7 +17,7 @@ import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
-import 'package:omm/shared/selection_controller.dart';
+import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -45,6 +46,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   static const _pageSize = 50;
 
   final _searchCtrl = TextEditingController();
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MappingRule>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MappingRule>(
@@ -56,18 +58,17 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   int? _totalCount;
   int _requestSerial = 0;
   bool _lastPageComplete = false;
-  late final SelectionController<int> _selection;
-  Completer<void>? _refreshCompleter;
+  late final PagedSelectionController<int> _selection;
 
   /// 当前左滑展开的行（规则 id），同一时刻只展开一个。
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
 
   @override
   void dispose() {
-    _completeRefresh();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
     _debounce.cancel();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _searchCtrl.dispose();
@@ -78,14 +79,14 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   @override
   void initState() {
     super.initState();
-    _selection = SelectionController<int>();
-    _selection.activeListenable.addListener(_onSelectionModeChanged);
+    _selection = PagedSelectionController<int>();
+    _selection.addModeListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   bool get _selectionMode => _selection.isActive;
-  Set<int> get _selectedIds => _selection.selected;
+  Set<int> get _selectedIds => _selection.selectedIds.cast<int>();
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
@@ -120,6 +121,8 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
       final page = await ref
@@ -131,6 +134,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
             search: _search,
             status: _status,
           );
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
 
       setState(() => _totalCount = page.totalCount);
@@ -144,41 +148,34 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         scrollController: _scrollController,
       );
       setState(() => _lastPageComplete = !hasMore);
-      _completeRefresh();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
-      _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
   void _reload({bool preserveScroll = false}) {
+    _requests.invalidate();
+    _resetPaging(preserveScroll: preserveScroll);
+  }
+
+  void _resetPaging({bool preserveScroll = false}) {
     _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetch,
+    );
   }
 
-  Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _reload();
-    return completer.future;
-  }
-
-  void _startSelectionSweep(int id, bool selected) {
-    _selection.enter();
-    _selection.setSelected(id, selected);
-  }
-
-  void _applySelectionSweep(int id, bool selected) {
-    _selection.setSelected(id, selected);
-  }
-
-  void _finishSelectionSweep() {
-    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  Future<void> _refresh({bool preserveScroll = false}) {
+    return _requests.refresh(() {
+      _resetPaging(preserveScroll: preserveScroll);
+    });
   }
 
   void _toggleSelect(int id) => _selection.toggle(id);
@@ -237,12 +234,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     }
   }
 
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
@@ -251,7 +242,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     return Scaffold(
       backgroundColor: c.bg,
       bottomNavigationBar: _selectionMode
-          ? ValueListenableBuilder<Set<int>>(
+          ? ValueListenableBuilder<Set<Object>>(
               valueListenable: _selection.selectedListenable,
               builder: (context, selected, _) => EntityBatchToolbar(
                 selectedCount: selected.length,
@@ -302,14 +293,10 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               body: RefreshIndicator(
                 color: c.accent,
                 onRefresh: _refresh,
-                child: DragSelectionScope<int>(
+                child: PagedSelectionScope<int>(
+                  selection: _selection,
                   scrollController: _scrollController,
-                  selectionLayout: DragSelectionLayout.list,
-                  isSelected: _selection.contains,
-                  onSelectionStart: _startSelectionSweep,
-                  onSelectionChanged: _applySelectionSweep,
-                  onSelectionEnd: _finishSelectionSweep,
-                  selectionMode: _selectionMode,
+                  layout: DragSelectionLayout.list,
                   child: CustomScrollView(
                     controller: _scrollController,
                     primary: false,
@@ -456,7 +443,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                         onPressed: () => _confirmDelete(rule),
                                       ),
                                     ],
-                                    child: DragSelectionTarget<int>(
+                                    child: DragSelectionTarget<Object>(
                                       key: ValueKey(rule.id),
                                       id: rule.id,
                                       selectionIndex: index,
@@ -464,22 +451,24 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                           Alignment.centerLeft,
                                       child: ClipRRect(
                                         borderRadius: rowRadius,
-                                        child: ValueListenableBuilder<Set<int>>(
-                                          valueListenable:
-                                              _selection.selectedListenable,
-                                          builder: (context, selected, _) =>
-                                              _RuleTile(
-                                                rule: rule,
-                                                selectionMode: _selectionMode,
-                                                selected: selected.contains(
-                                                  rule.id,
-                                                ),
-                                                onSelectionTap: () =>
-                                                    _toggleSelect(rule.id),
-                                                onEdit: () =>
-                                                    _showEditor(rule: rule),
-                                              ),
-                                        ),
+                                        child:
+                                            ValueListenableBuilder<Set<Object>>(
+                                              valueListenable:
+                                                  _selection.selectedListenable,
+                                              builder: (context, selected, _) =>
+                                                  _RuleTile(
+                                                    rule: rule,
+                                                    selectionMode:
+                                                        _selectionMode,
+                                                    selected: selected.contains(
+                                                      rule.id,
+                                                    ),
+                                                    onSelectionTap: () =>
+                                                        _toggleSelect(rule.id),
+                                                    onEdit: () =>
+                                                        _showEditor(rule: rule),
+                                                  ),
+                                            ),
                                       ),
                                     ),
                                   );

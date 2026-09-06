@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -47,6 +48,7 @@ class PersonDetailPage extends ConsumerStatefulWidget {
 class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   static const _pageSize = 30;
 
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
@@ -79,6 +81,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   void dispose() {
     _heroArts.dispose();
     _heroPagePosition.dispose();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -114,6 +117,8 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
       final filter = MovieFilter(
@@ -124,6 +129,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
       final page = await ref
           .read(mediaRepositoryProvider)
           .list(filter, limit: _pageSize, offset: offset);
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
 
       setState(() => _totalCount = page.totalCount);
@@ -136,8 +142,11 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
         scrollController: _scrollController,
       );
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 
@@ -205,7 +214,12 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   void _reload({bool preserveScroll = false}) {
     _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetch,
+    );
   }
 
   Future<void> _openMovie(int movieId) async {
@@ -226,6 +240,8 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   Future<void> _refreshAfterMovie() async {
     final refreshed = await refreshPagedListInBackground<MovieListItem>(
       controller: _controller,
+      requests: _requests,
+      onApplied: (page) => _totalCount = page.totalCount,
       loadFirstPage: (limit) async {
         final page = await ref
             .read(mediaRepositoryProvider)
@@ -238,7 +254,6 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
               limit: limit,
               offset: 0,
             );
-        _totalCount = page.totalCount;
         return page;
       },
     );

@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -32,6 +33,7 @@ class ActorAssociationsPage extends ConsumerStatefulWidget {
 
 class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   static const _pageSize = 20;
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MappingRule>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MappingRule>(
@@ -56,6 +58,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   void dispose() {
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _searchCtl.dispose();
@@ -69,6 +72,8 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     try {
       final repo = ref.read(actorAssociationsRepositoryProvider);
       final r = await repo.list(
@@ -76,6 +81,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
         offset: offset,
         search: _search,
       );
+      if (!pageRequest.isCurrent) return;
       // 末页标记：连排列表只有最后一行需要底部圆角。
       final hasMore = applyPagedListPage(
         controller: _controller,
@@ -87,13 +93,21 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       );
       if (mounted) setState(() => _lastPageComplete = !hasMore);
     } catch (e) {
+      if (!pageRequest.isCurrent) return;
       _controller.error = toApiException(e).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 
   void _reload({bool preserveScroll = false}) {
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetch,
+    );
   }
 
   void _onSearchChanged(String v) {

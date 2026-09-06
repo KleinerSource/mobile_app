@@ -1,3 +1,5 @@
+import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,7 +11,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
@@ -87,6 +89,7 @@ class _MediaBrowserFavoritesPageState
         ),
       ];
 
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   MediaViewMode _viewMode = MediaViewMode.portrait;
@@ -132,6 +135,7 @@ class _MediaBrowserFavoritesPageState
   void dispose() {
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _selection.dispose();
@@ -148,6 +152,8 @@ class _MediaBrowserFavoritesPageState
   }
 
   Future<void> _fetchPage(int startIndex) async {
+    final pageRequest = _requests.begin(startIndex);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
       final result = await readMediaBrowserItemPage(
@@ -167,6 +173,7 @@ class _MediaBrowserFavoritesPageState
           ),
         ),
       );
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
 
       _totalCount = result.total;
@@ -184,9 +191,12 @@ class _MediaBrowserFavoritesPageState
       if (startIndex == 0) _completeRefresh();
       if (mounted) setState(() {});
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
       if (startIndex == 0) _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
@@ -197,7 +207,12 @@ class _MediaBrowserFavoritesPageState
     final completer = Completer<void>();
     _refreshCompleter = completer;
     _requestSerial++;
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
     return completer.future;
   }
 
@@ -217,7 +232,12 @@ class _MediaBrowserFavoritesPageState
     });
     _selection.exit();
     _requestSerial++;
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
   }
 
   Future<void> _openItem(MediaBrowserItem item) async {
@@ -232,6 +252,7 @@ class _MediaBrowserFavoritesPageState
     final sort = _sort;
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
+      requests: _requests,
       loadFirstPage: (limit) async {
         final result = await readMediaBrowserItemPage(
           ref,
@@ -620,7 +641,10 @@ class _MediaBrowserFavoritesPageState
                                                     ),
                                                   ),
                                               firstPageErrorIndicatorBuilder:
-                                                  (_) => _FavoritesError(
+                                                  (_) => ErrorView.list(
+                                                    retryLabel: AppL10n.of(
+                                                      context,
+                                                    ).mediaBrowserRetry,
                                                     message:
                                                         _controller.error
                                                             ?.toString() ??
@@ -710,7 +734,10 @@ class _MediaBrowserFavoritesPageState
                                                     ),
                                                   ),
                                               firstPageErrorIndicatorBuilder:
-                                                  (_) => _FavoritesError(
+                                                  (_) => ErrorView.list(
+                                                    retryLabel: AppL10n.of(
+                                                      context,
+                                                    ).mediaBrowserRetry,
                                                     message:
                                                         _controller.error
                                                             ?.toString() ??
@@ -809,7 +836,10 @@ class _MediaBrowserFavoritesPageState
                                                     ),
                                                   ),
                                               firstPageErrorIndicatorBuilder:
-                                                  (_) => _FavoritesError(
+                                                  (_) => ErrorView.list(
+                                                    retryLabel: AppL10n.of(
+                                                      context,
+                                                    ).mediaBrowserRetry,
                                                     message:
                                                         _controller.error
                                                             ?.toString() ??
@@ -1008,37 +1038,6 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ============ 首屏错误 ============
-class _FavoritesError extends StatelessWidget {
-  const _FavoritesError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 56, 22, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline_rounded, color: colors.muted, size: 38),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: colors.muted),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(AppL10n.of(context).mediaBrowserRetry),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ============ header 圆形按钮 ============
 class _HeaderIconButton extends StatelessWidget {

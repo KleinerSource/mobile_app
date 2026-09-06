@@ -8,9 +8,9 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_capabilities.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/stash_media_source_adapter.dart';
-import 'package:omm/features/media_browser/api/stash_api.dart';
-import 'package:omm/features/media_browser/api/stash_models.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/stash/stash_api.dart';
+import 'package:omm/core/sources/media/stash/stash_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 class _MemoryTokenStore implements AuthTokenStore {
   final values = <String, String>{};

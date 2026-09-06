@@ -11,8 +11,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
-  flutter_riverpod: ^3.4.2
-  dio: ^5.7.0
+  flutter_riverpod: ^3.4.3
+  dio: ^5.11.1
   dio_smart_retry: ^7.0.1
   retrofit: ^4.9.0
   freezed_annotation: ^3.0.0

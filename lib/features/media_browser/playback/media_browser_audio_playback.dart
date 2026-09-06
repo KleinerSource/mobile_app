@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_proxy.dart';
 import 'package:omm/features/media_browser/playback/media_browser_lyrics.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';

@@ -1,4 +1,4 @@
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/player/audio/lrc_parser.dart';
 
 /// 解析 /Audio/{id}/Lyrics 的原始响应为逐行歌词。

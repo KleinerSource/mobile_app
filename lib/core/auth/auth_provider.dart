@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';

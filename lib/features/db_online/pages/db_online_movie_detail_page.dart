@@ -6,7 +6,7 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';

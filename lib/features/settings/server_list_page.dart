@@ -1,3 +1,4 @@
+import 'package:omm/shared/server_presentation.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -376,7 +377,7 @@ class _ServerListCard extends StatelessWidget {
                       [
                         l.serverLineCount(server.lines.length),
                         if (server.project != null)
-                          _serverProjectLabel(l, server.project)
+                          serverProjectLabel(l, server.project)
                         else if (server.projectName?.isNotEmpty == true)
                           server.projectName!,
                         if (server.serverVersion?.isNotEmpty == true)
@@ -397,21 +398,6 @@ class _ServerListCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _serverProjectLabel(AppL10n l, ServerProject? project) {
-  return switch (project) {
-    ServerProject.ohMyMedia => 'Oh My Media',
-    ServerProject.dbOnline => 'DB Online',
-    ServerProject.emby => 'Emby',
-    ServerProject.jellyfin => 'Jellyfin',
-    ServerProject.feiniu => l.serverProjectFeiniu,
-    ServerProject.stash => 'Stash',
-    ServerProject.smb => 'SMB',
-    ServerProject.webDav => 'WebDAV',
-    ServerProject.openList => 'OpenList',
-    null => l.serverProjectDefault,
-  };
 }
 
 class _ActiveChip extends StatelessWidget {

@@ -18,7 +18,7 @@ import '../../core/sources/files/openlist_api.dart';
 import '../../core/sources/files/openlist_file_source.dart';
 import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
-import '../../features/media_browser/api/stash_api.dart';
+import 'package:omm/core/sources/media/stash/stash_api.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';

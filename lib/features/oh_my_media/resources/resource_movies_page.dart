@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -38,6 +39,7 @@ class ResourceMoviesPage extends ConsumerStatefulWidget {
 
 class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
   static const _pageSize = 30;
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
@@ -76,15 +78,19 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
 
   @override
   void dispose() {
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     try {
       final repo = ref.read(mediaRepositoryProvider);
       final page = await repo.list(_filter, limit: _pageSize, offset: offset);
+      if (!pageRequest.isCurrent) return;
       if (mounted) setState(() => _totalCount = page.totalCount);
       applyPagedListPage(
         controller: _controller,
@@ -95,7 +101,10 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
         scrollController: _scrollController,
       );
     } catch (e) {
+      if (!pageRequest.isCurrent) return;
       _controller.error = toApiException(e).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 
@@ -117,11 +126,12 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
   Future<void> _refreshAfterMovie() async {
     final refreshed = await refreshPagedListInBackground<MovieListItem>(
       controller: _controller,
+      requests: _requests,
+      onApplied: (page) => _totalCount = page.totalCount,
       loadFirstPage: (limit) async {
         final page = await ref
             .read(mediaRepositoryProvider)
             .list(_filter, limit: limit, offset: 0);
-        _totalCount = page.totalCount;
         return page;
       },
     );

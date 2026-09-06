@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 @immutable
 class FeiniuUser {

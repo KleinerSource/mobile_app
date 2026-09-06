@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/media_browser/api/media_browser_api.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 
 /// 记录 `METHOD uri` 的通用 fake adapter，响应由构造函数注入。
 class _MediaBrowserTestAdapter implements HttpClientAdapter {

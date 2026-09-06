@@ -6,7 +6,7 @@ import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/auth/server_credentials_repository.dart';
 
-import 'stash_models.dart';
+import 'package:omm/core/sources/media/stash/stash_models.dart';
 
 const _sceneFields = r'''
   id

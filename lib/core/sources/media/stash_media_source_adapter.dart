@@ -1,7 +1,7 @@
-import 'package:omm/features/media_browser/api/stash_api.dart';
-import 'package:omm/features/media_browser/api/stash_models.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/stash/stash_api.dart';
+import 'package:omm/core/sources/media/stash/stash_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';

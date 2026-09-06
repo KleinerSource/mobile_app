@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,7 +11,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
@@ -266,6 +267,7 @@ class _MediaBrowserSearchResultsState
   String get _requestIncludeItemTypes =>
       _isStash ? 'Movie' : 'Movie,Series,Episode,MusicAlbum,Audio';
 
+  final _requests = PagedRequestCoordinator();
   final _pagingController = PagingController<int, MediaBrowserItem>(
     firstPageKey: 0,
   );
@@ -291,6 +293,7 @@ class _MediaBrowserSearchResultsState
 
   @override
   void dispose() {
+    _requests.dispose();
     _pagingController.dispose();
     _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
@@ -313,6 +316,7 @@ class _MediaBrowserSearchResultsState
     final query = widget.query;
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _pagingController,
+      requests: _requests,
       loadFirstPage: (limit) async {
         final result = await readMediaBrowserItemPage(
           ref,
@@ -359,6 +363,8 @@ class _MediaBrowserSearchResultsState
   }
 
   Future<void> _fetchPage(int startIndex) async {
+    final pageRequest = _requests.begin(startIndex);
+    if (pageRequest == null) return;
     try {
       final result = await readMediaBrowserItemPage(
         ref,
@@ -377,6 +383,7 @@ class _MediaBrowserSearchResultsState
           ),
         ),
       );
+      if (!pageRequest.isCurrent) return;
       if (!mounted) return;
 
       final current = _pagingController.itemList ?? const <MediaBrowserItem>[];
@@ -393,8 +400,11 @@ class _MediaBrowserSearchResultsState
       }
       _scheduleAutoPreviewUpdate();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted) return;
       _pagingController.error = toApiException(error).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 

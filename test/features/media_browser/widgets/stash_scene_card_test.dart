@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_server_urls.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';

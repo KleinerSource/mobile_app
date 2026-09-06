@@ -8,7 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/platform/app_log_store.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）音频回环代理。
 ///

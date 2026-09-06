@@ -75,85 +75,15 @@ jobs:
       # Bootstrap：本地无 SDK，没法跑 flutter create；首跑由 CI 补齐 ios/
       - name: Bootstrap ios/ if missing
         timeout-minutes: 5
-        run: |
-          set -euo pipefail
-          if [ ! -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            echo "ios/Runner.xcodeproj not found, scaffolding via flutter create"
-            flutter create . \
-              --no-pub \
-              --platforms=ios \
-              --org com.ohmymedia \
-              --project-name omm \
-              --description "omm 移动端"
-            # iOS deployment target 16.0
-            sed -i '' "s/# platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
-            sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
-            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
-            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
-          else
-            echo "ios/Runner.xcodeproj exists, skipping bootstrap"
-          fi
-          # 无论工程是新生成还是已有，都确保 target 实际引用的本地化启动屏
-          # 使用仓库中的深色品牌版本，而不是 Flutter 默认白色模板。
-          mkdir -p ios/Runner/Base.lproj
-          cp ios/Runner/LaunchScreen.storyboard ios/Runner/Base.lproj/LaunchScreen.storyboard
-          test -f ios/Runner.xcodeproj/project.pbxproj
-          # 删除 flutter create 生成的 counter 模板测试，避免 analyze 失败
-          rm -f test/widget_test.dart
+        run: dart tool/prepare_native.dart bootstrap ios
 
       - name: pub get
         timeout-minutes: 5
         run: flutter pub get
 
-      # 项目在 pubspec.yaml 中显式关闭 Swift Package Manager，统一使用 CocoaPods。
-      # media_kit_libs_ios_video 仅 CocoaPods (无 SPM)，fallback Podfile 在 pub get 阶段
-      # 才生成，bootstrap 的 sed 对它无效，这里补修部署目标，再显式 pod install 兜底。
-      - name: 修正 fallback Podfile 部署目标
-        timeout-minutes: 2
-        run: |
-          set -euo pipefail
-          if [ -f ios/Podfile ]; then
-            sed -i '' "s/# platform :ios.*/platform :ios, '16.0'/" ios/Podfile || true
-            sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '16.0'/" ios/Podfile || true
-            if ! grep -q "platform :ios" ios/Podfile; then
-              printf "platform :ios, '16.0'\n%s\n" "$(cat ios/Podfile)" > ios/Podfile
-            fi
-            echo "---- ios/Podfile ----"; cat ios/Podfile
-          else
-            echo "No Podfile (all-SPM); skip"
-          fi
-
-      - name: 注入固定 KSPlayer CocoaPods 依赖
+      - name: 准备 ios 原生依赖配置
         timeout-minutes: 3
-        run: |
-          set -euo pipefail
-          if [ -f ios/Podfile ]; then
-            ruby -e '
-              path = "ios/Podfile"
-              text = File.read(path)
-              text = text.gsub(
-                /^[ \t]*use_frameworks!\s*$/,
-                "  use_frameworks! :linkage => :static"
-              )
-              marker = "target '\''Runner'\'' do"
-              abort "Runner target not found in ios/Podfile" unless text.include?(marker)
-              insertion = <<~PODS
-                #{marker}
-                  pod "KSPlayer", :git => ENV.fetch("KSPLAYER_REPOSITORY"), :commit => ENV.fetch("KSPLAYER_COMMIT")
-                  pod "DisplayCriteria", :git => ENV.fetch("DISPLAYCRITERIA_REPOSITORY"), :commit => ENV.fetch("DISPLAYCRITERIA_COMMIT")
-                  pod "FFmpegKit", :git => ENV.fetch("FFMPEGKIT_REPOSITORY"), :tag => ENV.fetch("FFMPEGKIT_VERSION")
-                  pod "Libass", :git => ENV.fetch("LIBASS_REPOSITORY"), :tag => ENV.fetch("LIBASS_VERSION")
-              PODS
-              text = text.sub(marker, insertion) unless text.include?("pod \"KSPlayer\"")
-              abort "use_frameworks! must use static linkage for KSPlayer" unless text.include?("use_frameworks! :linkage => :static")
-              File.write(path, text)
-            '
-            echo "---- ios/Podfile with pinned KSPlayer ----"
-            cat ios/Podfile
-          else
-            echo "No Podfile (all-SPM); KSPlayer requires the CocoaPods fallback"
-            exit 1
-          fi
+        run: dart tool/prepare_native.dart configure ios
 
       - name: pod install (CocoaPods fallback for media_kit)
         timeout-minutes: 12

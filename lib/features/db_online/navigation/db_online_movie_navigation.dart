@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 
 /// 打开 dbonline 影片详情。

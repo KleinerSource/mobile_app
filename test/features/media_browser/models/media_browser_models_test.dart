@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/media_browser/api/feiniu_models.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 void main() {
   test('MediaBrowserItem.fromJson 解析电影条目的核心字段', () {

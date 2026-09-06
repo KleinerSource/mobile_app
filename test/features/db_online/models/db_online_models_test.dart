@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 
 void main() {
   test('dbonline 详情模型解析实体、资源、媒体库和播放源', () {

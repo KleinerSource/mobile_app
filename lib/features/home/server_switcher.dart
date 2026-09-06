@@ -1,3 +1,4 @@
+import 'package:omm/shared/server_presentation.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -21,18 +22,11 @@ String? homeServerSwitcherAvatarUrl({
   required ServerProfile server,
   required ServerProfileData? profile,
   required bool showUserAvatar,
-}) {
-  if (server.project == ServerProject.ohMyMedia) return null;
-  final isMediaBrowser =
-      server.project == ServerProject.emby ||
-      server.project == ServerProject.jellyfin;
-  final userAvatarUrl = profile?.userAvatarUrl?.trim() ?? '';
-  if (showUserAvatar && isMediaBrowser && userAvatarUrl.isNotEmpty) {
-    return userAvatarUrl;
-  }
-  final serverAvatarUrl = profile?.avatarUrl?.trim() ?? '';
-  return serverAvatarUrl.isNotEmpty ? serverAvatarUrl : server.avatarUrl;
-}
+}) => resolveServerAvatarUrl(
+  server: server,
+  profile: profile,
+  showUserAvatar: showUserAvatar,
+);
 
 /// 首页右上角的服务器切换入口，只显示服务器头像，不暴露线路地址。
 class HomeServerSwitcher extends ConsumerWidget {

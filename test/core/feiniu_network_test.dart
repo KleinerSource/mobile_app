@@ -15,7 +15,7 @@ import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_repository.dart';
 import 'package:omm/core/config/server_config_provider.dart';
-import 'package:omm/features/media_browser/api/feiniu_api.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

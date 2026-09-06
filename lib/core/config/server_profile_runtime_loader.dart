@@ -4,8 +4,8 @@ import '../api/api_client.dart';
 import '../api/server_compatibility.dart';
 import '../auth/auth_session_provider.dart';
 import '../models/system.dart';
-import '../../features/media_browser/api/media_browser_api.dart';
-import '../../features/media_browser/api/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'server_config.dart';
 import 'server_config_provider.dart';
 

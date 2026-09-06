@@ -5,9 +5,61 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
+  for (final pagingFinishesFirst in [true, false]) {
+    test('后台刷新与翻页交错，翻页先完成=$pagingFinishesFirst', () async {
+      final controller = PagingController<int, int>(firstPageKey: 0)
+        ..appendPage([1, 2], 2);
+      final requests = PagedRequestCoordinator();
+      final oldRequest = requests.begin(2)!;
+      final response = Completer<PagedResult<int>>();
+      final background = refreshPagedListInBackground<int>(
+        controller: controller,
+        requests: requests,
+        loadFirstPage: (_) => response.future,
+      );
+      expect(oldRequest.isCurrent, isFalse);
+      final nextPage = requests.begin(2)!;
+      if (pagingFinishesFirst) {
+        controller.appendLastPage([3]);
+        nextPage.finish();
+      }
+      response.complete(
+        const PagedResult<int>(
+          items: [8, 9],
+          totalCount: 4,
+          limit: 2,
+          offset: 0,
+        ),
+      );
+      expect(await background, !pagingFinishesFirst);
+      expect(controller.itemList, pagingFinishesFirst ? [1, 2, 3] : [8, 9]);
+      expect(nextPage.isCurrent, isFalse);
+      requests.dispose();
+      controller.dispose();
+    });
+  }
+
+  test('后台刷新期间销毁分页控制器，晚到结果不写入', () async {
+    final controller = PagingController<int, int>(firstPageKey: 0)
+      ..appendLastPage([1]);
+    final requests = PagedRequestCoordinator();
+    final response = Completer<PagedResult<int>>();
+    final background = refreshPagedListInBackground<int>(
+      controller: controller,
+      requests: requests,
+      loadFirstPage: (_) => response.future,
+    );
+    requests.dispose();
+    controller.dispose();
+    response.complete(
+      const PagedResult<int>(items: [8], totalCount: 1, limit: 1, offset: 0),
+    );
+    expect(await background, isFalse);
+  });
   testWidgets('分页刷新恢复原滚动位置', (tester) async {
     final scrollController = ScrollController();
     final pagingController = PagingController<int, int>(firstPageKey: 0);

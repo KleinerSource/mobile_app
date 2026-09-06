@@ -30,7 +30,7 @@ import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import '../common/engine_playback_route.dart';
 import '../common/playback_engine.dart';
 import 'player_decode_status.dart';
-import 'player_device_stats.dart';
+import 'package:omm/core/platform/player_device_stats.dart';
 import 'player_error_disposition.dart';
 import 'player_error_view.dart';
 import '../common/player_overlay_indicators.dart';
@@ -44,6 +44,12 @@ import 'video_player_session_factory.dart';
 import 'video_player_view.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_settings.dart';
+
+part 'video_player_progress.dart';
+
+part 'video_player_transcode.dart';
+
+part 'video_player_device.dart';
 
 const _directPlaybackDecision = playback_models.PlaybackDecision(
   mode: 'direct_play',
@@ -255,6 +261,8 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
 
 class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     with WidgetsBindingObserver {
+  void _updateViewState(VoidCallback update) => setState(update);
+
   static const List<DeviceOrientation> _portraitOrientations = [
     DeviceOrientation.portraitUp,
   ];
@@ -397,164 +405,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     if (_orientationSensorUnlocked) _startOrientationSensor();
   }
 
-  Future<void> _applyEntryOrientation(PlayerSettings settings) async {
-    final orientations = switch (settings.entryOrientation) {
-      PlayerEntryOrientation.unchanged => null,
-      PlayerEntryOrientation.forceLandscape => [
-        _landscapeOrientation(settings.landscapeSide),
-      ],
-      PlayerEntryOrientation.forcePortrait => _portraitOrientations,
-    };
-    if (orientations == null) return;
-    await SystemChrome.setPreferredOrientations(orientations);
-  }
-
   DeviceOrientation _landscapeOrientation(PlayerLandscapeSide side) {
     return playerLandscapeOrientationForPlatform(side);
-  }
-
-  void _startOrientationSensor() {
-    if (_orientationSensorSubscription != null ||
-        kIsWeb ||
-        (defaultTargetPlatform != TargetPlatform.android &&
-            defaultTargetPlatform != TargetPlatform.iOS) ||
-        !_orientationSensorUnlocked ||
-        _isLeaving) {
-      return;
-    }
-    _orientationSensorCandidate = null;
-    _orientationSensorCandidateSamples = 0;
-    _orientationSensorSubscription =
-        accelerometerEventStream(
-          samplingPeriod: const Duration(milliseconds: 100),
-        ).listen(
-          _onOrientationSensorEvent,
-          onError: (_) {
-            _orientationSensorSubscription = null;
-          },
-        );
-  }
-
-  void _stopOrientationSensor() {
-    _orientationSensorRequestGeneration++;
-    final subscription = _orientationSensorSubscription;
-    _orientationSensorSubscription = null;
-    _orientationSensorCandidate = null;
-    _orientationSensorCandidateSamples = 0;
-    _orientationSensorApplied = null;
-    _pendingOrientationSensorTarget = null;
-    _orientationSensorLastAppliedAt = null;
-    if (subscription != null) unawaited(subscription.cancel());
-  }
-
-  void _onOrientationSensorEvent(AccelerometerEvent event) {
-    if (_isLeaving || !mounted || !_orientationSensorUnlocked) {
-      _orientationSensorCandidate = null;
-      _orientationSensorCandidateSamples = 0;
-      return;
-    }
-    final target = playerOrientationFromAccelerometer(event.x, event.y);
-    if (target == null) {
-      _orientationSensorCandidate = null;
-      _orientationSensorCandidateSamples = 0;
-      return;
-    }
-    if (_orientationSensorCandidate != target) {
-      _orientationSensorCandidate = target;
-      _orientationSensorCandidateSamples = 1;
-      return;
-    }
-    _orientationSensorCandidateSamples++;
-    if (_orientationSensorCandidateSamples < _orientationSensorSampleCount) {
-      return;
-    }
-    _orientationSensorCandidate = null;
-    _orientationSensorCandidateSamples = 0;
-    if (_orientationSensorApplied == target) return;
-    final now = DateTime.now();
-    final lastAppliedAt = _orientationSensorLastAppliedAt;
-    if (lastAppliedAt != null &&
-        now.difference(lastAppliedAt) < _orientationSensorCooldown) {
-      return;
-    }
-    _orientationSensorLastAppliedAt = now;
-    _pendingOrientationSensorTarget = target;
-    _orientationSensorRequestGeneration++;
-    if (_orientationSensorRequestInFlight) return;
-    _orientationSensorRequestInFlight = true;
-    unawaited(_drainOrientationSensorRequests());
-  }
-
-  Future<void> _drainOrientationSensorRequests() async {
-    while (!_isLeaving) {
-      final target = _pendingOrientationSensorTarget;
-      _pendingOrientationSensorTarget = null;
-      if (target == null) break;
-      final requestGeneration = _orientationSensorRequestGeneration;
-      try {
-        await SystemChrome.setPreferredOrientations([target]);
-        if (!mounted || _isLeaving || !_orientationSensorUnlocked) {
-          _pendingOrientationSensorTarget = null;
-          break;
-        }
-        if (requestGeneration != _orientationSensorRequestGeneration) {
-          continue;
-        }
-        _orientationSensorApplied = target;
-        setState(() {
-          _isLandscape =
-              target == DeviceOrientation.landscapeLeft ||
-              target == DeviceOrientation.landscapeRight;
-        });
-      } catch (_) {}
-    }
-    _orientationSensorRequestInFlight = false;
-  }
-
-  Future<void> _initLevels() async {
-    // 只读一次当前亮度作为手势增量基线，不保存、不恢复：
-    // 退出播放器或 app 时亮度保持最后状态，任何阶段都不回写其他值。
-    await _queueBrightnessOperation(() async {
-      final currentBrightness = await ScreenBrightnessChannel.read();
-      if (currentBrightness != null && !_isLeaving) {
-        _brightness = currentBrightness;
-      }
-      _brightnessReady = true;
-    });
-    try {
-      _volume = await FlutterVolumeController.getVolume() ?? 0.5;
-    } catch (_) {}
-  }
-
-  Future<void> _queueBrightnessOperation(Future<void> Function() operation) {
-    final next = _brightnessOperations.then<void>((_) async {
-      try {
-        await operation();
-      } catch (_) {}
-    });
-    _brightnessOperations = next;
-    return next;
-  }
-
-  void _startDeviceStatsPolling() {
-    unawaited(_refreshDeviceStats());
-    _deviceStatsTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => unawaited(_refreshDeviceStats()),
-    );
-  }
-
-  Future<void> _refreshDeviceStats() async {
-    if (_isLeaving) return;
-    final settings = ref.read(playerSettingsProvider);
-    if (!settings.showNetworkSpeed &&
-        !settings.showCpuUsage &&
-        !settings.showBattery) {
-      return;
-    }
-    final stats = await _deviceStatsReader.read();
-    if (!mounted || _isLeaving) return;
-    setState(() => _deviceStats = stats);
   }
 
   @override
@@ -636,79 +488,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     unawaited(_disposePlayer());
     unawaited(_disposeQueueResources());
     super.dispose();
-  }
-
-  Future<void> _reportProgress() {
-    if (_isDirectPlayback) return _reportFileProgress();
-    final movieId = widget.movieId;
-    if (movieId == null) return Future<void>.value();
-    final next = _progressReportChain.then<void>((_) async {
-      final position = _host.position.inSeconds;
-      final duration = _host.duration.inSeconds;
-      final positionSec = position > 0 ? position : _lastPositionSec;
-      final durationSec = duration > 0 ? duration : _lastDurationSec;
-      _lastPositionSec = positionSec;
-      _lastDurationSec = durationSec;
-      if (durationSec <= 0 || positionSec <= 0) return;
-
-      try {
-        await ref
-            .read(mediaRepositoryProvider)
-            .upsertWatchRecord(
-              movieId,
-              positionSec: positionSec,
-              durationSec: durationSec,
-              completed: positionSec >= (durationSec * 0.95),
-            );
-      } catch (_) {
-        // 播放器退出时网络可能已经断开，不能影响退出流程。
-      }
-    });
-    _progressReportChain = next;
-    return next;
-  }
-
-  Future<void> _reportFileProgress() {
-    final fileName = _activeDirectPlaybackFileName?.trim();
-    final serverReporter = _activeDirectProgressReporter;
-    if ((fileName == null || fileName.isEmpty) && serverReporter == null) {
-      return Future<void>.value();
-    }
-    final next = _progressReportChain.then<void>((_) async {
-      final positionSec = _host.position.inSeconds > 0
-          ? _host.position.inSeconds
-          : _lastPositionSec;
-      final durationSec = _host.duration.inSeconds > 0
-          ? _host.duration.inSeconds
-          : _lastDurationSec;
-      _lastPositionSec = positionSec;
-      _lastDurationSec = durationSec;
-      if (fileName != null && fileName.isNotEmpty) {
-        final settings = ref.read(playerSettingsProvider);
-        if (settings.resumeFromLastPosition && durationSec > 0) {
-          await _filePlaybackProgress.savePosition(
-            fileName: fileName,
-            positionSec: positionSec,
-            durationSec: durationSec,
-          );
-        }
-      }
-      if (serverReporter != null && positionSec > 0 && durationSec > 0) {
-        // 服务器侧进度（如 Emby 的 Stopped 报告）不受本地续播偏好影响；
-        // 与 OMM 观看记录相同，播放超过 95% 视为看完。
-        try {
-          await serverReporter(
-            positionSec,
-            durationSec,
-            positionSec >= (durationSec * 0.95),
-          );
-        } catch (_) {
-          // 播放器退出时网络可能已经断开，不能影响退出流程。
-        }
-      }
-    });
-    _progressReportChain = next;
-    return next;
   }
 
   Future<void> _load({
@@ -1283,57 +1062,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     if (!wasPlaying && mounted && !_isLeaving) await _host.pause();
   }
 
-  void _bindProgress() {
-    _unbindProgress();
-    _completionHandled = false;
-    _lastPositionSec = _host.position.inSeconds;
-    _lastDurationSec = _host.duration.inSeconds;
-    _posSub = _host.positionStream.listen((position) {
-      _lastPositionSec = position.inSeconds;
-    });
-    _durSub = _host.durationStream.listen((duration) {
-      _lastDurationSec = duration.inSeconds;
-    });
-    _completedSub = _host.completedStream.listen((completed) {
-      if (!_isLeaving && completed && !_completionHandled) {
-        _completionHandled = true;
-        unawaited(_handlePlaybackCompleted());
-      }
-    });
-    _errorSub = _host.errorStream.listen(_onPlayerError);
-    _progressReportTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (!_isLeaving) unawaited(_reportProgress());
-    });
-  }
-
-  Future<void> _handlePlaybackCompleted() async {
-    final duration = _host.duration.inSeconds;
-    if (duration > 0) _lastDurationSec = duration;
-    if (_lastDurationSec > 0) _lastPositionSec = _lastDurationSec;
-    await _reportProgress();
-    await _stopTranscodeSession();
-    if (!mounted ||
-        _isLeaving ||
-        !widget.autoAdvanceQueue ||
-        widget.queueIndex >= widget.queue.length - 1) {
-      return;
-    }
-    await _switchMedia(widget.queueIndex + 1);
-  }
-
-  void _unbindProgress() {
-    _posSub?.cancel();
-    _durSub?.cancel();
-    _completedSub?.cancel();
-    _errorSub?.cancel();
-    _posSub = null;
-    _durSub = null;
-    _completedSub = null;
-    _errorSub = null;
-    _progressReportTimer?.cancel();
-    _progressReportTimer = null;
-  }
-
   void _onPlayerError(String message) {
     if (!mounted || _isLeaving || _playbackErrorReported) {
       return;
@@ -1717,183 +1445,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     } catch (_) {
       if (mounted) _showError(l.playerErrorExportFailed);
     }
-  }
-
-  Future<void> _stopTranscodeSession({bool waitForServer = true}) async {
-    final shouldStopServerSession = _transcodeSessionActive;
-    _transcodeSessionActive = false;
-    // SSE 是长连接，cancel() 的 Future 可能要等到底层 HTTP stream 完整收尾。
-    // 先让旧回调失效并异步取消，不能让它阻塞后续的清晰度切换队列。
-    _cancelTranscodeMonitoring();
-    final movieId = widget.movieId;
-    final source = ref.read(ommMediaSourceProvider);
-    final stopFuture =
-        shouldStopServerSession && movieId != null && source != null
-        ? source.stopTranscode(_ommRef(movieId))
-        : null;
-    if (!shouldStopServerSession) return;
-    if (stopFuture == null) return;
-    if (!waitForServer) {
-      // 服务器会话停止属于网络清理，不应阻塞本地播放器退出。
-      unawaited(stopFuture.catchError((_) {}));
-      return;
-    }
-    try {
-      // 后端 StopByMovie 会等待 FFmpeg 退出，但网络异常不能把 _loadQueue
-      // 永久锁住。正常会话在此窗口内都会完成；超时后继续打开新源。
-      await stopFuture.timeout(const Duration(seconds: 8));
-    } catch (_) {}
-  }
-
-  void _cancelTranscodeMonitoring() {
-    _transcodeMonitoringGeneration++;
-    final eventsSub = _eventsSub;
-    _eventsSub = null;
-    _transcodePollTimer?.cancel();
-    _transcodePollTimer = null;
-    if (eventsSub != null) {
-      unawaited(eventsSub.cancel().catchError((_) {}));
-    }
-  }
-
-  void _startTranscodeMonitoring(
-    String quality,
-    playback_models.PlaybackDecision decision,
-  ) {
-    final movieId = widget.movieId;
-    if (movieId == null) return;
-    _cancelTranscodeMonitoring();
-    _transcodePollTimer?.cancel();
-    final monitoringGeneration = _transcodeMonitoringGeneration;
-    final source = ref.read(ommMediaSourceProvider);
-    if (source == null) return;
-    final streamUri = Uri.tryParse(decision.streamUrl);
-    final streamQuery = streamUri?.queryParameters ?? const <String, String>{};
-    final sessionQuality = streamQuery['quality']?.trim().isNotEmpty == true
-        ? streamQuery['quality']!.trim()
-        : quality;
-    final mode = streamQuery['mode'];
-    final audioStreamIndex = int.tryParse(
-      streamQuery['audio_stream_index'] ?? '',
-    );
-    final subtitleTrackId = streamQuery['subtitle_track_id'];
-    _eventsSub = source
-        .transcodeEvents(
-          _ommRef(movieId),
-          quality: sessionQuality,
-          mode: mode,
-          audioStreamIndex: audioStreamIndex,
-          subtitleTrackId: subtitleTrackId,
-        )
-        .listen(
-          (status) {
-            if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
-              _applyTranscodeStatus(status);
-            }
-          },
-          onError: (_) {
-            if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
-              _startTranscodePolling(
-                sessionQuality,
-                monitoringGeneration: monitoringGeneration,
-                mode: mode,
-                audioStreamIndex: audioStreamIndex,
-                subtitleTrackId: subtitleTrackId,
-              );
-            }
-          },
-          onDone: () {
-            if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
-              _startTranscodePolling(
-                sessionQuality,
-                monitoringGeneration: monitoringGeneration,
-                mode: mode,
-                audioStreamIndex: audioStreamIndex,
-                subtitleTrackId: subtitleTrackId,
-              );
-            }
-          },
-        );
-    _transcodePollTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) => _pollTranscodeStatus(
-        sessionQuality,
-        monitoringGeneration: monitoringGeneration,
-        mode: mode,
-        audioStreamIndex: audioStreamIndex,
-        subtitleTrackId: subtitleTrackId,
-      ),
-    );
-  }
-
-  void _startTranscodePolling(
-    String quality, {
-    required int monitoringGeneration,
-    String? mode,
-    int? audioStreamIndex,
-    String? subtitleTrackId,
-  }) {
-    if (!_isCurrentTranscodeMonitoring(monitoringGeneration)) return;
-    if (_transcodePollTimer != null) return;
-    _transcodePollTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _pollTranscodeStatus(
-        quality,
-        monitoringGeneration: monitoringGeneration,
-        mode: mode,
-        audioStreamIndex: audioStreamIndex,
-        subtitleTrackId: subtitleTrackId,
-      ),
-    );
-  }
-
-  Future<void> _pollTranscodeStatus(
-    String quality, {
-    required int monitoringGeneration,
-    String? mode,
-    int? audioStreamIndex,
-    String? subtitleTrackId,
-  }) async {
-    if (!_isCurrentTranscodeMonitoring(monitoringGeneration) ||
-        !_transcodeSessionActive) {
-      return;
-    }
-    final movieId = widget.movieId;
-    if (movieId == null) return;
-    try {
-      final source = ref.read(ommMediaSourceProvider);
-      if (source == null) return;
-      final status = await source.transcodeStatus(
-        _ommRef(movieId),
-        quality: quality,
-        mode: mode,
-        audioStreamIndex: audioStreamIndex,
-        subtitleTrackId: subtitleTrackId,
-      );
-      if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
-        _applyTranscodeStatus(status);
-      }
-    } catch (_) {}
-  }
-
-  bool _isCurrentTranscodeMonitoring(int generation) {
-    return mounted &&
-        !_isLeaving &&
-        generation == _transcodeMonitoringGeneration;
-  }
-
-  void _applyTranscodeStatus(playback_models.TranscodeStatus status) {
-    if (!mounted || _isLeaving) return;
-    // 查询不到会话时后端返回 quality 为空的 inactive 状态。此时保留播放
-    // 决策或上一帧给出的真实服务端状态，不能把 HLS 误显示成本地硬解。
-    if (!status.active && status.quality.trim().isEmpty) return;
-    setState(() {
-      _serverDecodeStatus = PlayerDecodeStatus.server(
-        engine: status.hwAccel,
-        hardwareDecodeOk: status.hwDecodeOk,
-        isFallback: status.hasHardwareFallback,
-      );
-    });
   }
 
   List<PlayerDecodeStatus> get _decodeStatuses => PlayerDecodeStatus.primary(

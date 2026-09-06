@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -16,7 +17,7 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
-import 'package:omm/shared/selection_controller.dart';
+import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -72,6 +73,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   static const _pageSize = 20;
 
   final _searchController = TextEditingController();
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, AudioAsset>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<AudioAsset>(
@@ -85,31 +87,30 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   bool _lastPageComplete = false;
   int _requestSerial = 0;
   int _totalCount = 0;
-  late final SelectionController<int> _selection;
+  late final PagedSelectionController<int> _selection;
   final Set<int> _busyAssetIds = <int>{};
   final Set<String> _busyTaskIds = <String>{};
 
   /// 当前左滑展开的行（资产 id 或 'task:$id'），同一时刻只展开一个。
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
-  Completer<void>? _refreshCompleter;
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _selection = SelectionController<int>();
-    _selection.activeListenable.addListener(_onSelectionModeChanged);
+    _selection = PagedSelectionController<int>();
+    _selection.addModeListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   @override
   void dispose() {
-    _completeRefresh();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
     _taskReloadDebounce?.cancel();
     _debounce.cancel();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
@@ -118,7 +119,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   bool get _selectionMode => _selection.isActive;
-  Set<int> get _selectedIds => _selection.selected;
+  Set<int> get _selectedIds => _selection.selectedIds.cast<int>();
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
@@ -130,13 +131,16 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   Future<void> _fetch(int offset) async {
-    // 刷新已有列表时保留旧数据，避免列表组件触发额外的后续分页请求。
-    if (_refreshing && offset != 0) return;
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
+      // 刷新已有列表时保留旧数据，避免列表组件触发额外的后续分页请求。
+      if (_refreshing && offset != 0) return;
       final page = await ref
           .read(audioRepositoryProvider)
           .listAssets(limit: _pageSize, offset: offset, search: _search);
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
 
       _refreshing = false;
@@ -154,12 +158,13 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       );
       setState(() => _lastPageComplete = !hasMore);
       _pruneSelection(page.items);
-      _completeRefresh();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
       _refreshing = false;
-      _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
@@ -181,6 +186,11 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   void _reload({bool preserveScroll = false}) {
+    _requests.invalidate();
+    _resetPaging(preserveScroll: preserveScroll);
+  }
+
+  void _resetPaging({bool preserveScroll = false}) {
     final loadedItems = _controller.itemList;
     final requestSerial = ++_requestSerial;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
@@ -193,7 +203,11 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     }
 
     if (loadedItems == null) {
-      _controller.refresh();
+      refreshPagedController(
+        controller: _controller,
+        requests: _requests,
+        loadPage: _fetch,
+      );
       return;
     }
 
@@ -203,6 +217,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   Future<void> _refreshLoadedItems(int requestSerial, int loadedCount) async {
+    final pageRequest = _requests.begin(0);
+    if (pageRequest == null) return;
+    final currentItems = _controller.itemList;
     try {
       final page = await ref
           .read(audioRepositoryProvider)
@@ -211,7 +228,15 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
             offset: 0,
             search: _search,
           );
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!pageRequest.isCurrent ||
+          !mounted ||
+          requestSerial != _requestSerial) {
+        return;
+      }
+      if (!identical(currentItems, _controller.itemList)) {
+        _refreshing = false;
+        return;
+      }
 
       final nextOffset = page.items.length;
       _refreshing = false;
@@ -228,29 +253,25 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       );
       _scrollRestorer.restoreAfterPage(_scrollController);
       _pruneSelection(page.items);
-      _completeRefresh();
+      // 新快照提交后，不允许旧偏移的翻页再追加。
+      _requests.invalidate();
     } catch (_) {
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!pageRequest.isCurrent ||
+          !mounted ||
+          requestSerial != _requestSerial) {
+        return;
+      }
       // 刷新失败时保留旧列表和当前交互状态，下一次刷新或分页请求可以重试。
       _refreshing = false;
-      _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
-  Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _reload();
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+  Future<void> _refresh({bool preserveScroll = false}) {
+    return _requests.refresh(() {
+      _resetPaging(preserveScroll: preserveScroll);
+    });
   }
 
   void _onSearchChanged(String value) {
@@ -372,13 +393,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
   void _startSelectionSweep(int id, bool selected) {
     if (selected && !_isSelectableId(id)) return;
-    _selection.enter();
-    _selection.setSelected(id, selected);
+    _selection.startSweep(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
     if (selected && !_isSelectableId(id)) return;
-    _selection.setSelected(id, selected);
+    _selection.applySweep(id, selected);
   }
 
   void _finishSelectionSweep() {
@@ -971,7 +991,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                             borderRadius: rowRadius,
                                             child:
                                                 ValueListenableBuilder<
-                                                  Set<int>
+                                                  Set<Object>
                                                 >(
                                                   valueListenable: _selection
                                                       .selectedListenable,
@@ -1033,7 +1053,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: ValueListenableBuilder<Set<int>>(
+                    child: ValueListenableBuilder<Set<Object>>(
                       valueListenable: _selection.selectedListenable,
                       builder: (context, selected, _) => EntityBatchToolbar(
                         selectedCount: selected.length,

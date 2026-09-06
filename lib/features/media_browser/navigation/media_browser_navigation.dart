@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/pages/media_browser_album_detail_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_movie_detail_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_series_detail_page.dart';

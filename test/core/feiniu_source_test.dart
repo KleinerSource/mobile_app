@@ -9,8 +9,8 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/feiniu_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
-import 'package:omm/features/media_browser/api/feiniu_api.dart';
-import 'package:omm/features/media_browser/api/feiniu_models.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
 
 void main() {
   test('飞牛适配器分页并生成带鉴权头的播放描述', () async {

@@ -1,3 +1,5 @@
+import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,7 +12,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
@@ -92,6 +94,7 @@ class _MediaBrowserLibraryPageState
         (value: 'CommunityRating', label: (l) => l.mediaBrowserSortRating),
       ];
 
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final PagedSelectionController<MediaBrowserItem> _selection;
@@ -156,6 +159,7 @@ class _MediaBrowserLibraryPageState
   void dispose() {
     _completeRefresh();
     _autoPreviewDebounce?.cancel();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
@@ -174,11 +178,13 @@ class _MediaBrowserLibraryPageState
   }
 
   Future<void> _fetchPage(int startIndex) async {
-    if (startIndex == _controller.firstPageKey) {
-      _pageRequestTriggeredByRefresh = true;
-    }
+    final pageRequest = _requests.begin(startIndex);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
+      if (startIndex == _controller.firstPageKey) {
+        _pageRequestTriggeredByRefresh = true;
+      }
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
@@ -199,6 +205,7 @@ class _MediaBrowserLibraryPageState
           ),
         ),
       );
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
 
       final current = _controller.itemList ?? const <MediaBrowserItem>[];
@@ -216,9 +223,12 @@ class _MediaBrowserLibraryPageState
       _scheduleAutoPreviewUpdate();
       if (startIndex == 0) _completeRefresh();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
       if (startIndex == 0) _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
@@ -235,7 +245,12 @@ class _MediaBrowserLibraryPageState
 
   void _refreshController() {
     _pageRequestTriggeredByRefresh = false;
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
     if (!_pageRequestTriggeredByRefresh) {
       unawaited(_fetchPage(_controller.firstPageKey));
     }
@@ -373,6 +388,7 @@ class _MediaBrowserLibraryPageState
     final sortOrder = _sortOrder;
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
+      requests: _requests,
       loadFirstPage: (limit) async {
         final result = await readMediaBrowserItemPage(
           ref,
@@ -758,7 +774,10 @@ class _MediaBrowserLibraryPageState
                                                 ),
                                               ),
                                           firstPageErrorIndicatorBuilder: (_) =>
-                                              _LibraryListError(
+                                              ErrorView.list(
+                                                retryLabel: AppL10n.of(
+                                                  context,
+                                                ).mediaBrowserRetry,
                                                 message:
                                                     _controller.error
                                                         ?.toString() ??
@@ -828,7 +847,10 @@ class _MediaBrowserLibraryPageState
                                       ),
                                       error: (error, _) => SliverFillRemaining(
                                         hasScrollBody: false,
-                                        child: _LibraryListError(
+                                        child: ErrorView.list(
+                                          retryLabel: AppL10n.of(
+                                            context,
+                                          ).mediaBrowserRetry,
                                           message: toApiException(
                                             error,
                                           ).message,
@@ -950,38 +972,6 @@ class _ViewChip extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _LibraryListError extends StatelessWidget {
-  const _LibraryListError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 56, 22, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline_rounded, color: colors.muted, size: 38),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: colors.muted),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(AppL10n.of(context).mediaBrowserRetry),
-          ),
-        ],
       ),
     );
   }

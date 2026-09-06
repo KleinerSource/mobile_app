@@ -1,6 +1,6 @@
-import 'package:omm/features/db_online/api/db_online_api.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/features/db_online/models/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_api.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';

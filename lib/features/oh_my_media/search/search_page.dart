@@ -1,3 +1,5 @@
+import 'package:omm/shared/preview/auto_preview_controller.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -260,13 +262,21 @@ class _SearchResults extends ConsumerStatefulWidget {
 class _SearchResultsState extends ConsumerState<_SearchResults> {
   static const _pageSize = 60;
 
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
-  int? _autoPreviewId;
-  Timer? _autoPreviewDebounce;
+  late final _autoPreview = AutoPreviewController<int>(
+    candidate: _nextAutoPreviewId,
+  )..addListener(_onAutoPreviewChanged);
+  int? get _autoPreviewId => _autoPreview.value;
+
+  void _onAutoPreviewChanged() {
+    if (mounted) setState(() {});
+  }
+
   final _previewViewportKey = GlobalKey();
   final _previewItemKeys = <int, GlobalKey>{};
   final _previewCoordinator = PreviewCoordinator();
@@ -291,7 +301,8 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
 
   @override
   void dispose() {
-    _autoPreviewDebounce?.cancel();
+    _autoPreview.dispose();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.removeListener(_scheduleAutoPreviewUpdate);
     _scrollController.dispose();
@@ -299,18 +310,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     super.dispose();
   }
 
-  void _scheduleAutoPreviewUpdate() {
-    _autoPreviewDebounce?.cancel();
-    _autoPreviewDebounce = Timer(const Duration(milliseconds: 180), () {
-      _autoPreviewDebounce = null;
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final next = _nextAutoPreviewId();
-        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
-      });
-    });
-  }
+  void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   int? _nextAutoPreviewId() {
     if (widget.viewMode != MediaViewMode.landscape) return null;
@@ -358,6 +358,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   Future<void> _refreshAfterMovie() async {
     await refreshPagedListInBackground<MovieListItem>(
       controller: _controller,
+      requests: _requests,
       loadFirstPage: (limit) => ref
           .read(mediaRepositoryProvider)
           .list(
@@ -374,6 +375,8 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     try {
       final page = await ref
           .read(mediaRepositoryProvider)
@@ -387,6 +390,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
             limit: _pageSize,
             offset: offset,
           );
+      if (!pageRequest.isCurrent) return;
       if (!mounted) return;
 
       applyPagedListPage(
@@ -399,8 +403,11 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
       );
       _scheduleAutoPreviewUpdate();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted) return;
       _controller.error = toApiException(error).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 

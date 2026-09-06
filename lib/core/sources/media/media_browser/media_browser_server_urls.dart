@@ -1,9 +1,9 @@
 import 'package:omm/core/api/server_compatibility.dart';
 
-import '../models/media_browser_models.dart';
-import 'feiniu_api.dart';
-import 'media_browser_api.dart';
-import 'media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 
 /// 媒体服务器 URL 构造器（Emby/Jellyfin 与 fnos 共用接口）。
 ///

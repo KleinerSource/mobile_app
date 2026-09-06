@@ -79,74 +79,15 @@ jobs:
       # 仓库只保留 Android 必要的源码文件，CI checkout 后补齐 Gradle 工程。
       - name: Bootstrap android/ if Gradle project is missing
         timeout-minutes: 5
-        run: |
-          set -euo pipefail
-          if [ ! -f android/settings.gradle.kts ] && [ ! -f android/settings.gradle ]; then
-            echo "Android Gradle project is incomplete, scaffolding via flutter create"
-            flutter create . \
-              --no-pub \
-              --platforms=android \
-              --org com.ohmymedia \
-              --project-name omm \
-              --description "omm 移动端"
-          else
-            echo "Android Gradle project exists, skipping bootstrap"
-          fi
-
-          for gradle_file in android/app/build.gradle.kts android/app/build.gradle; do
-            if [ -f "${gradle_file}" ]; then
-              sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' "${gradle_file}" || true
-              sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 35/' "${gradle_file}" || true
-              sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' "${gradle_file}" || true
-            fi
-          done
-
-          test -f android/settings.gradle.kts || test -f android/settings.gradle
-          test -f android/app/build.gradle.kts || test -f android/app/build.gradle
-          rm -f test/widget_test.dart
+        run: dart tool/prepare_native.dart bootstrap android
 
       - name: pub get
         timeout-minutes: 5
         run: flutter pub get
 
-      - name: 修复 Gradle Wrapper 下载源
-        timeout-minutes: 2
-        run: |
-          set -euo pipefail
-          wrapper_properties="android/gradle/wrapper/gradle-wrapper.properties"
-          test -f "${wrapper_properties}"
-          # services.gradle.org 会重定向到发布资源,部分 runner 的 Java truststore
-          # 无法验证该入口证书;官方 downloads 域名提供相同版本的直连下载。
-          sed -i 's/services\.gradle\.org/downloads.gradle.org/g' "${wrapper_properties}"
-          grep '^distributionUrl=' "${wrapper_properties}"
-
-      - name: 修正 Android 音量插件 compileSdk
-        timeout-minutes: 2
-        run: |
-          set -euo pipefail
-          volume_controller_root_uri=""
-          if command -v node >/dev/null 2>&1 && [ -f .dart_tool/package_config.json ]; then
-            volume_controller_root_uri="$(node -e "const fs=require('fs'); const config=JSON.parse(fs.readFileSync('.dart_tool/package_config.json','utf8')); const pkg=config.packages.find(({name}) => name === 'flutter_volume_controller'); process.stdout.write(pkg?.rootUri ?? '');")"
-          fi
-          volume_controller_root="${volume_controller_root_uri#file://}"
-          volume_controller_gradle=""
-          if [ -n "${volume_controller_root}" ] && [ -d "${volume_controller_root}/android" ]; then
-            volume_controller_gradle="$(find "${volume_controller_root}/android" -name 'build.gradle*' -type f -print -quit 2>/dev/null || true)"
-          fi
-          if [ -z "${volume_controller_gradle}" ]; then
-            pub_cache_root="${PUB_CACHE:-/home/runner/.pub-cache}"
-            volume_controller_gradle="$(find "${pub_cache_root}" -path '*/flutter_volume_controller-*/android/build.gradle*' -type f -print -quit 2>/dev/null || true)"
-          fi
-          if [ -z "${volume_controller_gradle}" ]; then
-            echo "无法定位 flutter_volume_controller 的 Android Gradle 配置"
-            exit 1
-          fi
-          sed -i -E \
-            -e 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/g' \
-            -e 's/compileSdk[[:space:]]*=[[:space:]]*[0-9]+/compileSdk = 36/g' \
-            -e 's/compileSdk[[:space:]]+[0-9]+/compileSdk 36/g' \
-            "${volume_controller_gradle}"
-          grep -nE 'compileSdk(Version)?' "${volume_controller_gradle}"
+      - name: 准备 android 原生依赖配置
+        timeout-minutes: 3
+        run: dart tool/prepare_native.dart configure android
 
       # Release APK 必须始终使用同一份证书，否则在线更新会被 Android
       # 安装器拒绝。请在仓库 Secrets 中配置以下四项：

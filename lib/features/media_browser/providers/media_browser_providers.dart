@@ -9,14 +9,14 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_server_urls.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 
 // URL 构造器随 API 层维护（emby/jellyfin 与 feiniu 两套实现），
 // 消费方仍可从本文件统一 import。
-export 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
+export 'package:omm/core/sources/media/media_browser/media_browser_server_urls.dart';
 
 /// 当前激活服务器的 MediaBrowser 配置；非 Emby/Jellyfin 服务器时为 null。
 ///

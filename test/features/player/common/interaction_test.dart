@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:omm/core/models/watch_record.dart';
-import 'package:omm/features/player/video/player_device_stats.dart';
+import 'package:omm/core/platform/player_device_stats.dart';
 import 'package:omm/features/player/common/player_gesture_layer.dart';
 import 'package:omm/features/player/video/player_resume.dart';
 import 'package:omm/features/player/video/player_status_overlay.dart';

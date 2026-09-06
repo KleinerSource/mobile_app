@@ -1,3 +1,4 @@
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,8 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/features/db_online/models/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
@@ -289,6 +290,7 @@ class _DbOnlineSearchResultsState
     extends ConsumerState<_DbOnlineSearchResults> {
   static const _pageSize = 24;
 
+  final _requests = PagedRequestCoordinator();
   final _pagingController = PagingController<int, DbOnlineMovie>(
     firstPageKey: 1,
   );
@@ -302,12 +304,15 @@ class _DbOnlineSearchResultsState
 
   @override
   void dispose() {
+    _requests.dispose();
     _pagingController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _fetchPage(int page) async {
+    final pageRequest = _requests.begin(page);
+    if (pageRequest == null) return;
     try {
       final result = await ref.read(
         dbOnlineSearchPageProvider(
@@ -319,6 +324,7 @@ class _DbOnlineSearchResultsState
           ),
         ).future,
       );
+      if (!pageRequest.isCurrent) return;
       if (!mounted) return;
 
       final current = _pagingController.itemList ?? const <DbOnlineMovie>[];
@@ -334,8 +340,11 @@ class _DbOnlineSearchResultsState
         _pagingController.appendPage(items, page + 1);
       }
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted) return;
       _pagingController.error = toApiException(error).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 

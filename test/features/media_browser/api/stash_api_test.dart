@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/auth/server_credentials_repository.dart';
 import 'package:omm/core/api/api_exception.dart';
-import 'package:omm/features/media_browser/api/stash_api.dart';
+import 'package:omm/core/sources/media/stash/stash_api.dart';
 
 class _MemoryTokenStore implements AuthTokenStore {
   final values = <String, String>{};

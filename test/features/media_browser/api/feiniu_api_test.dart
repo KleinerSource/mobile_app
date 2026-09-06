@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/media_browser/api/feiniu_api.dart';
-import 'package:omm/features/media_browser/api/feiniu_models.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
 
 void main() {
   test('飞牛 API 解析响应信封和分页数据', () async {

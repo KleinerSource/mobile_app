@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 import 'media_models.dart';
 

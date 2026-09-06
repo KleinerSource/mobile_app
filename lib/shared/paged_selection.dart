@@ -76,8 +76,10 @@ class PagedSelectionController<I> {
 
   void selectAll(Iterable<I> items) => _selection.selectAll(items.map(idOf));
 
-  void retainWhere(bool Function(Object id) test) =>
-      _selection.retainWhere(test);
+  void retainWhere(
+    bool Function(Object id) test, {
+    bool deactivateWhenEmpty = false,
+  }) => _selection.retainWhere(test, deactivateWhenEmpty: deactivateWhenEmpty);
 
   void dispose() => _selection.dispose();
 }

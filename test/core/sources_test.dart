@@ -17,8 +17,8 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/sources/files/file_playback_progress.dart';
 import 'package:omm/core/sources/sources.dart';
-import 'package:omm/features/db_online/api/db_online_api.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_api.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/config/server_config_provider.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/features/db_online/models/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';

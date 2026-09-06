@@ -5,7 +5,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/platform/performance_monitor_overlay.dart';
 import 'package:omm/features/player/common/player_settings.dart';
-import 'package:omm/features/player/video/player_device_stats.dart';
+import 'package:omm/core/platform/player_device_stats.dart';
 import 'package:omm/features/settings/app_update_settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:package_info_plus/package_info_plus.dart';

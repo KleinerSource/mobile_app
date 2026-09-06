@@ -15,7 +15,7 @@ import 'stash_media_source_adapter.dart';
 import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_media_source_adapter.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 
 /// Provides the media sources for the currently selected server.
 ///

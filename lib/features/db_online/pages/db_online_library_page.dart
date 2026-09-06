@@ -1,3 +1,6 @@
+import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,7 +10,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_config.dart';
-import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
@@ -50,6 +53,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
         (value: 'release', label: (l) => l.dbOnlineLatestReleased),
       ];
 
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
@@ -71,12 +75,15 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   @override
   void dispose() {
     _completeRefresh();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _fetchPage(int page) async {
+    final pageRequest = _requests.begin(page);
+    if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
       final result = await ref.read(
@@ -91,6 +98,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           ),
         ).future,
       );
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
 
       final current = _controller.itemList ?? const <DbOnlineMovie>[];
@@ -107,9 +115,12 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
       }
       if (page == 1) _completeRefresh();
     } catch (error) {
+      if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
       if (page == 1) _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
@@ -126,7 +137,12 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     final completer = Completer<void>();
     _refreshCompleter = completer;
     _requestSerial++;
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
     return completer.future;
   }
 
@@ -163,7 +179,12 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
       _orderBy = nextOrderBy;
     });
     _requestSerial++;
-    _controller.refresh();
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
   }
 
   Future<void> _openCategoryMenu(BuildContext context) async {
@@ -286,7 +307,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
         padding: EdgeInsets.symmetric(vertical: 18),
         child: Center(child: CircularProgressIndicator()),
       ),
-      firstPageErrorIndicatorBuilder: (_) => _LibraryListError(
+      firstPageErrorIndicatorBuilder: (_) => ErrorView.list(
+        retryLabel: AppL10n.of(context).dbOnlineRetry,
         message:
             _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
         onRetry: _controller.retryLastFailedRequest,
@@ -403,38 +425,6 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _LibraryListError extends StatelessWidget {
-  const _LibraryListError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 56, 22, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline_rounded, color: colors.muted, size: 38),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: colors.muted),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(AppL10n.of(context).dbOnlineRetry),
-          ),
-        ],
       ),
     );
   }

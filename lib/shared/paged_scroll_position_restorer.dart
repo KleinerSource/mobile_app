@@ -1,7 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../core/models/paged_result.dart';
+import 'paged_request_coordinator.dart';
+
+/// 4.x 在首屏仍加载时 refresh 可能不通知列表重新请求；帧末补发该请求。
+/// 正常列表监听也在帧末请求，同页请求由 requests 去重。
+void refreshPagedController<T>({
+  required PagingController<int, T> controller,
+  required PagedRequestCoordinator requests,
+  required Future<void> Function(int) loadPage,
+}) {
+  if (requests.isDisposed) return;
+  controller.refresh();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (requests.isDisposed) return;
+    if (controller.value.status == PagingStatus.loadingFirstPage) {
+      unawaited(loadPage(controller.firstPageKey));
+    }
+  });
+  WidgetsBinding.instance.ensureVisualUpdate();
+}
 
 /// 分页列表刷新后恢复刷新前的纵向滚动位置。
 ///
@@ -81,12 +102,20 @@ typedef PagedListPageLoader<T> = Future<PagedResult<T>> Function(int limit);
 Future<bool> refreshPagedListInBackground<T>({
   required PagingController<int, T> controller,
   required PagedListPageLoader<T> loadFirstPage,
+  PagedRequestCoordinator? requests,
+  void Function(PagedResult<T> page)? onApplied,
 }) async {
   final currentItems = controller.itemList;
   if (currentItems == null || currentItems.isEmpty) return false;
 
+  requests?.invalidate();
+  final request = requests?.begin(#backgroundRefresh);
+  if (requests != null && request == null) return false;
+
   try {
     final page = await loadFirstPage(currentItems.length);
+
+    if (request != null && !request.isCurrent) return false;
 
     // 用户可能在请求期间主动刷新或切换筛选条件，避免旧结果覆盖新列表。
     if (!identical(controller.itemList, currentItems)) return false;
@@ -94,9 +123,14 @@ Future<bool> refreshPagedListInBackground<T>({
     controller.itemList = page.items;
     controller.nextPageKey = page.hasMore ? page.items.length : null;
     controller.error = null;
+    onApplied?.call(page);
+    // 已提交的新快照也使同代次、使用旧偏移量启动的翻页失效。
+    requests?.invalidate();
     return true;
   } catch (_) {
     // 静默刷新失败时保留已有内容，由下一次主动刷新或重试处理。
     return false;
+  } finally {
+    request?.finish();
   }
 }

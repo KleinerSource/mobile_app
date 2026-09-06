@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/db_online/api/db_online_api.dart';
+import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 
 void main() {
   test('dbonline 首页接口使用固定参数并解析 data.movies', () async {

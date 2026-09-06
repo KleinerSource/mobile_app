@@ -1,5 +1,5 @@
-import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/features/db_online/models/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/sources/media/dbo_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart' as source_models;
 

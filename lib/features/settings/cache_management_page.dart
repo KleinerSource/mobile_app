@@ -9,12 +9,6 @@ import '../cache/disk_cache.dart';
 import '../cache/music_cache.dart';
 import 'settings_common.dart';
 
-String _cacheCategoryLabel(CacheCategory category, AppL10n l) =>
-    switch (category) {
-      CacheCategory.image => l.cacheCategoryImage,
-      CacheCategory.other => l.cacheCategoryOther,
-    };
-
 class CacheManagementPage extends ConsumerWidget {
   const CacheManagementPage({super.key});
 
@@ -194,7 +188,7 @@ class _CacheTile extends StatelessWidget {
       error: (_, __) => l.commonReadFailed,
     );
     return SettingsTile(
-      title: _cacheCategoryLabel(category, l),
+      title: category.label(l),
       subtitle: size,
       leadingIcon: switch (category) {
         CacheCategory.image => Icons.image_outlined,
@@ -210,7 +204,7 @@ class _CacheTile extends StatelessWidget {
 
   Future<void> _clear(BuildContext context) async {
     final l = AppL10n.of(context);
-    final categoryLabel = _cacheCategoryLabel(category, l);
+    final categoryLabel = category.label(l);
     final confirmed = await _confirmCacheClear(
       context,
       title: l.settingsCacheClearCategoryTitle(categoryLabel),

@@ -1,5 +1,5 @@
-import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/features/db_online/models/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 
 /// DBO 保留给 Feature 的在线目录扩展能力。
 ///

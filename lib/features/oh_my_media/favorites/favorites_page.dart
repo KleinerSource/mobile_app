@@ -1,3 +1,5 @@
+import 'package:omm/shared/preview/auto_preview_controller.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -79,6 +81,7 @@ class FavoritesPage extends ConsumerStatefulWidget {
 
 class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   static const _pageSize = 30;
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
@@ -91,8 +94,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   bool _newResourcesOnly = false;
   bool _resourceScanStarting = false;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
-  int? _autoPreviewId;
-  Timer? _autoPreviewDebounce;
+  late final _autoPreview = AutoPreviewController<int>(
+    candidate: _nextAutoPreviewId,
+  )..addListener(_onAutoPreviewChanged);
+  int? get _autoPreviewId => _autoPreview.value;
+
+  void _onAutoPreviewChanged() {
+    if (mounted) setState(() {});
+  }
+
   final _previewViewportKey = GlobalKey();
   final _previewItemKeys = <int, GlobalKey>{};
   final _previewCoordinator = PreviewCoordinator();
@@ -132,9 +142,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   @override
   void dispose() {
-    _autoPreviewDebounce?.cancel();
+    _autoPreview.dispose();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _selection.dispose();
@@ -153,18 +164,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     _scheduleAutoPreviewUpdate();
   }
 
-  void _scheduleAutoPreviewUpdate() {
-    _autoPreviewDebounce?.cancel();
-    _autoPreviewDebounce = Timer(const Duration(milliseconds: 180), () {
-      _autoPreviewDebounce = null;
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final next = _nextAutoPreviewId();
-        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
-      });
-    });
-  }
+  void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   int? _nextAutoPreviewId() {
     if (_viewMode != MediaViewMode.landscape || _selecting) return null;
@@ -184,6 +184,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     try {
       final repo = ref.read(favoritesRepositoryProvider);
       final result = await repo.list(
@@ -195,6 +197,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         limit: _pageSize,
         offset: offset,
       );
+      if (!pageRequest.isCurrent) return;
       final page = result.page;
       _totalCount = page.totalCount;
       applyPagedListPage(
@@ -208,20 +211,32 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (mounted) setState(() {});
       _scheduleAutoPreviewUpdate();
     } catch (e) {
+      if (!pageRequest.isCurrent) return;
       _controller.error = toApiException(e).message;
+    } finally {
+      pageRequest.finish();
     }
   }
 
-  Future<void> _refresh() async {
-    refreshImageCache(ref);
-    _reload();
-    // 等首页就绪
-    await Future.delayed(const Duration(milliseconds: 600));
+  Future<void> _refresh() {
+    return _requests.refresh(() {
+      refreshImageCache(ref);
+      _resetPaging();
+    });
   }
 
   void _reload({bool preserveScroll = false}) {
+    _requests.invalidate();
+    _resetPaging(preserveScroll: preserveScroll);
+  }
+
+  void _resetPaging({bool preserveScroll = false}) {
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetch,
+    );
   }
 
   Future<void> _openMovie(MovieListItem movie) async {
@@ -269,6 +284,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Future<void> _refreshAfterMovie() async {
     final refreshed = await refreshPagedListInBackground<MovieListItem>(
       controller: _controller,
+      requests: _requests,
+      onApplied: (page) => _totalCount = page.totalCount,
       loadFirstPage: (limit) async {
         final result = await ref
             .read(favoritesRepositoryProvider)
@@ -281,7 +298,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               limit: limit,
               offset: 0,
             );
-        _totalCount = result.page.totalCount;
         return result.page;
       },
     );

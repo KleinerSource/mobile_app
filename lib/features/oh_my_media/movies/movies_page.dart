@@ -1,3 +1,5 @@
+import 'package:omm/shared/preview/auto_preview_controller.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -62,6 +64,7 @@ class MoviesPage extends ConsumerStatefulWidget {
 
 class _MoviesPageState extends ConsumerState<MoviesPage> {
   static const _pageSize = 50;
+  final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
@@ -70,15 +73,21 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   late MovieFilter _currentFilter;
   MediaViewMode _viewMode = MediaViewMode.portrait;
   int _totalCount = 0;
-  int? _autoPreviewId;
-  Timer? _autoPreviewDebounce;
+  late final _autoPreview = AutoPreviewController<int>(
+    candidate: _nextAutoPreviewId,
+  )..addListener(_onAutoPreviewChanged);
+  int? get _autoPreviewId => _autoPreview.value;
+
+  void _onAutoPreviewChanged() {
+    if (mounted) setState(() {});
+  }
+
   final _previewViewportKey = GlobalKey();
   final _previewItemKeys = <int, GlobalKey>{};
   final _previewCoordinator = PreviewCoordinator();
 
   late final SelectionController<int> _selection;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
-  Completer<void>? _refreshCompleter;
   bool _resourceScanStarting = false;
 
   @override
@@ -115,11 +124,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   @override
   void dispose() {
-    _completeRefresh();
-    _autoPreviewDebounce?.cancel();
+    _autoPreview.dispose();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _previewCoordinator.dispose();
     _openSwipe.dispose();
+    _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _selection.dispose();
@@ -140,18 +149,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _scheduleAutoPreviewUpdate();
   }
 
-  void _scheduleAutoPreviewUpdate() {
-    _autoPreviewDebounce?.cancel();
-    _autoPreviewDebounce = Timer(const Duration(milliseconds: 180), () {
-      _autoPreviewDebounce = null;
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final next = _nextAutoPreviewId();
-        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
-      });
-    });
-  }
+  void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   int? _nextAutoPreviewId() {
     if (_viewMode != MediaViewMode.landscape || _selectionMode) return null;
@@ -181,6 +179,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    final pageRequest = _requests.begin(offset);
+    if (pageRequest == null) return;
     try {
       final maxItems = widget.maxItems;
       if (maxItems != null && offset >= maxItems) {
@@ -196,6 +196,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         limit: requestLimit,
         offset: offset,
       );
+      if (!pageRequest.isCurrent) return;
       final items = maxItems == null
           ? page.items
           : page.items.take(maxItems - offset).toList();
@@ -210,30 +211,21 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         restorer: _scrollRestorer,
         scrollController: _scrollController,
       );
-      if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});
       _scheduleAutoPreviewUpdate();
     } catch (e) {
+      if (!pageRequest.isCurrent) return;
       _controller.error = toApiException(e).message;
-      if (offset == 0) _completeRefresh();
+    } finally {
+      pageRequest.finish();
     }
   }
 
   Future<void> _refreshMovies() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    refreshImageCache(ref);
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _reload();
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+    return _requests.refresh(() {
+      refreshImageCache(ref);
+      _resetPaging();
+    });
   }
 
   void _applyFilter(MovieFilter newFilter) {
@@ -244,8 +236,17 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }
 
   void _reload({bool preserveScroll = false}) {
+    _requests.invalidate();
+    _resetPaging(preserveScroll: preserveScroll);
+  }
+
+  void _resetPaging({bool preserveScroll = false}) {
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
+    refreshPagedController(
+      controller: _controller,
+      requests: _requests,
+      loadPage: _fetch,
+    );
   }
 
   void _handleMovieTap(MovieListItem item) {
@@ -299,6 +300,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Future<void> _refreshAfterMovie() async {
     final refreshed = await refreshPagedListInBackground<MovieListItem>(
       controller: _controller,
+      requests: _requests,
+      onApplied: (page) => _totalCount = page.totalCount,
       loadFirstPage: (limit) async {
         final maxItems = widget.maxItems;
         final requestLimit = maxItems == null
@@ -310,14 +313,14 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         final items = maxItems == null
             ? page.items
             : page.items.take(maxItems).toList();
-        _totalCount = maxItems == null
+        final totalCount = maxItems == null
             ? page.totalCount
             : page.totalCount.clamp(0, maxItems).toInt();
         return maxItems == null
             ? page
             : PagedResult<MovieListItem>(
                 items: items,
-                totalCount: _totalCount,
+                totalCount: totalCount,
                 limit: requestLimit,
                 offset: 0,
               );

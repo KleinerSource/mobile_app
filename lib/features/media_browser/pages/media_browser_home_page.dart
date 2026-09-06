@@ -7,7 +7,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';

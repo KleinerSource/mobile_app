@@ -41,51 +41,75 @@ android {
         minSdkVersion 16
     }
 
-    dependencies {
-        implementation fileTree(dir: "$buildDir/output", include: "*.jar")
+}
+
+// Flutter passes target-platform for both device and emulator builds.
+// Direct Gradle builds without it retain all supported architectures.
+def targetAbis = [
+    'android-arm64': 'arm64-v8a',
+    'android-arm': 'armeabi-v7a',
+    'android-x64': 'x86_64',
+    'android-x86': 'x86'
+]
+def platforms = (project.findProperty('target-platform') ?: targetAbis.keySet().join(',')).split(',')
+def requestedAbis = platforms.collect { platform ->
+    def abi = targetAbis[platform.trim()]
+    if (abi == null) throw new GradleException("Unsupported target-platform: ${platform}")
+    abi
+}.toSet()
+
+tasks.register('downloadDependencies') {
+    inputs.property('abis', requestedAbis.sort().join(','))
+    outputs.dir(file("$buildDir/output"))
+    doLast {
+        def outputDir = file("$buildDir/output")
+        if (outputDir.exists()) {
+            outputDir.deleteDir()
+        }
+        outputDir.mkdirs()
+
+        // full flavor keeps all FFmpeg decoders, including hdmv_pgs_subtitle.
+        def filesToDownload = [
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-arm64-v8a.jar", "md5": "86f2c8faeb66af1878b3a16f67831cb3", "destination": file("$buildDir/v1.1.11/full-arm64-v8a.jar")],
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-armeabi-v7a.jar", "md5": "93542d40e44f3afad3aa773674e8eaa5", "destination": file("$buildDir/v1.1.11/full-armeabi-v7a.jar")],
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-x86_64.jar", "md5": "44b7efdbaf3626d6b24afaf5d497a369", "destination": file("$buildDir/v1.1.11/full-x86_64.jar")],
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-x86.jar", "md5": "e69a9bbd7fb587deb33dd10fecc2fecc", "destination": file("$buildDir/v1.1.11/full-x86.jar")]
+        ]
+
+        filesToDownload.findAll { fileInfo ->
+            requestedAbis.any { abi -> fileInfo.url.endsWith("/full-${abi}.jar") }
+        }.each { fileInfo ->
+            def destFile = fileInfo.destination
+            if (destFile.exists()) {
+                def calculatedMD5 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destFile.toPath())).encodeHex().toString()
+                if (calculatedMD5 != fileInfo.md5) {
+                    destFile.delete()
+                }
+            }
+
+            if (!destFile.exists()) {
+                destFile.parentFile.mkdirs()
+                destFile.withOutputStream { os ->
+                    new URL(fileInfo.url).openStream().withCloseable { stream -> os << stream }
+                }
+                def calculatedMD5 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destFile.toPath())).encodeHex().toString()
+                if (calculatedMD5 != fileInfo.md5) {
+                    throw new GradleException("MD5 verification failed for ${destFile}")
+                }
+            }
+
+            copy {
+                from destFile
+                into outputDir
+            }
+        }
     }
 }
 
-task downloadDependencies(type: Exec) {
-    def outputDir = file("$buildDir/output")
-    if (outputDir.exists()) {
-        outputDir.deleteDir()
-    }
-    outputDir.mkdirs()
+tasks.named('preBuild').configure { dependsOn(tasks.named('downloadDependencies')) }
 
-    // full flavor keeps all FFmpeg decoders, including hdmv_pgs_subtitle.
-    def filesToDownload = [
-        ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-arm64-v8a.jar", "md5": "86f2c8faeb66af1878b3a16f67831cb3", "destination": file("$buildDir/v1.1.11/full-arm64-v8a.jar")],
-        ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-armeabi-v7a.jar", "md5": "93542d40e44f3afad3aa773674e8eaa5", "destination": file("$buildDir/v1.1.11/full-armeabi-v7a.jar")],
-        ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-x86_64.jar", "md5": "44b7efdbaf3626d6b24afaf5d497a369", "destination": file("$buildDir/v1.1.11/full-x86_64.jar")],
-        ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.11/full-x86.jar", "md5": "e69a9bbd7fb587deb33dd10fecc2fecc", "destination": file("$buildDir/v1.1.11/full-x86.jar")]
-    ]
-
-    filesToDownload.each { fileInfo ->
-        def destFile = fileInfo.destination
-        if (destFile.exists()) {
-            def calculatedMD5 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destFile.toPath())).encodeHex().toString()
-            if (calculatedMD5 != fileInfo.md5) {
-                destFile.delete()
-            }
-        }
-
-        if (!destFile.exists()) {
-            destFile.parentFile.mkdirs()
-            destFile.withOutputStream { os ->
-                os << new URL(fileInfo.url).openStream()
-            }
-            def calculatedMD5 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destFile.toPath())).encodeHex().toString()
-            if (calculatedMD5 != fileInfo.md5) {
-                throw new GradleException("MD5 verification failed for ${destFile}")
-            }
-        }
-
-        copy {
-            from destFile
-            into outputDir
-        }
-    }
+dependencies {
+    // 让依赖转换任务也知道 jar 的生产者，避免并行构建时先读取空目录。
+    implementation files(fileTree(dir: "$buildDir/output", include: "*.jar"))
+        .builtBy(tasks.named('downloadDependencies'))
 }
-
-assemble.dependsOn(downloadDependencies)

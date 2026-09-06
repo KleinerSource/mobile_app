@@ -1,8 +1,8 @@
 import 'package:omm/core/auth/auth_session_repository.dart';
-import 'package:omm/features/media_browser/api/feiniu_api.dart';
-import 'package:omm/features/media_browser/api/feiniu_models.dart';
-import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
+import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
