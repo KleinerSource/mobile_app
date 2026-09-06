@@ -265,6 +265,66 @@ void main() {
     expect(find.text('删除').hitTestable(), findsOneWidget);
   });
 
+  testWidgets('多按钮行使用固定阈值展开操作区', (tester) async {
+    final group = SwipeActionGroup(null);
+    addTearDown(group.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        SwipeActionCell(
+          group: group,
+          cellKey: 1,
+          enabled: true,
+          revealThreshold: 72,
+          actions: [
+            _action(() {}),
+            _action(() {}),
+            _action(() {}),
+            _action(() {}),
+          ],
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('多按钮行'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.timedDrag(
+      find.text('多按钮行'),
+      const Offset(-80, 0),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+
+    expect(group.value, 1);
+  });
+
+  testWidgets('从卡片空白区域也能发起左滑', (tester) async {
+    final group = SwipeActionGroup(null);
+    addTearDown(group.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        SwipeActionCell(
+          group: group,
+          cellKey: 1,
+          enabled: true,
+          actions: [_action(() {})],
+          child: const SizedBox(width: double.infinity, height: 60),
+        ),
+      ),
+    );
+
+    await tester.timedDrag(
+      find.byType(SwipeActionCell),
+      const Offset(-60, 0),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+
+    expect(group.value, 1);
+  });
+
   testWidgets('未过提交点滑回不提交（回滑撤销）', (tester) async {
     var fired = 0;
     final group = SwipeActionGroup(null);

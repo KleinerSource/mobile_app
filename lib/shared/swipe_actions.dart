@@ -38,6 +38,7 @@ class SwipeActionCell extends StatefulWidget {
     required this.child,
     this.actionBorderRadius = BorderRadius.zero,
     this.allowsFullSwipe = true,
+    this.revealThreshold,
   });
 
   final SwipeActionGroup group;
@@ -51,6 +52,9 @@ class SwipeActionCell extends StatefulWidget {
 
   /// 是否允许继续左滑至整行并执行 [actions.first]。
   final bool allowsFullSwipe;
+
+  /// 松手时吸附到操作区所需的最小左滑距离；省略时为操作区宽度的一半。
+  final double? revealThreshold;
 
   @override
   State<SwipeActionCell> createState() => _SwipeActionCellState();
@@ -102,6 +106,12 @@ class _SwipeActionCellState extends State<SwipeActionCell>
         : _fullSwipeThreshold;
   }
 
+  double get _revealThreshold {
+    final threshold = widget.revealThreshold;
+    if (threshold == null) return _actionExtent / 2;
+    return threshold.clamp(0.0, _actionExtent).toDouble();
+  }
+
   bool get _reduceMotion =>
       MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
@@ -131,6 +141,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
         oldWidget.cellKey != widget.cellKey ||
         _actionsChanged(oldWidget.actions, widget.actions) ||
         oldWidget.allowsFullSwipe != widget.allowsFullSwipe ||
+        oldWidget.revealThreshold != widget.revealThreshold ||
         !widget.enabled ||
         widget.actions.isEmpty;
     if (mustClose) {
@@ -278,23 +289,14 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     final projected =
         _offset.value +
         openingVelocity / 1000 * _decelerationRate / (1 - _decelerationRate);
-    final targets = <double>[0, _actionExtent];
     final hasFullSwipeIntent =
         _preparedFullSwipe || _offset.value >= _minimumProjectedFullSwipeOffset;
-    if (_hasFullSwipe && hasFullSwipeIntent) targets.add(_rowWidth);
 
-    var target = targets.first;
-    if (_preparedFullSwipe && projected >= _fullSwipeThreshold) {
+    var target = projected >= _revealThreshold ? _actionExtent : 0.0;
+    if (_hasFullSwipe &&
+        hasFullSwipeIntent &&
+        projected >= _fullSwipeThreshold) {
       target = _rowWidth;
-    } else {
-      var distance = (projected - target).abs();
-      for (final candidate in targets.skip(1)) {
-        final candidateDistance = (projected - candidate).abs();
-        if (candidateDistance < distance) {
-          target = candidate;
-          distance = candidateDistance;
-        }
-      }
     }
     _preparedFullSwipe = false;
 
@@ -390,6 +392,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     return Semantics(
       customSemanticsActions: semanticsActions,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         dragStartBehavior: DragStartBehavior.down,
         onHorizontalDragStart: _canSwipe ? _handleDragStart : null,
         onHorizontalDragUpdate: _canSwipe ? _handleDragUpdate : null,

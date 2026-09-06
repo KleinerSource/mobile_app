@@ -121,6 +121,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                             SwipeActionCell(
                               group: _openSwipe,
                               cellKey: _lines[i].id,
+                              // 多按钮操作区较宽，使用固定阈值让短一些的
+                              // 左滑也能稳定展开菜单。
+                              revealThreshold: 72,
                               enabled:
                                   !_testingAll &&
                                   !_testingIds.contains(_lines[i].id),
