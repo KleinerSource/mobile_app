@@ -757,9 +757,22 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
 
   String _sortColumn(String? value) {
     final normalized = value?.trim().toLowerCase() ?? '';
-    return normalized.contains('date') || normalized.contains('create')
-        ? 'create_time'
-        : 'sort_title';
+    return switch (normalized) {
+      'datecreated' ||
+      'createdat' ||
+      'createtime' ||
+      'create_time' => 'create_time',
+      'premieredate' ||
+      'releasedate' ||
+      'airdate' ||
+      'productionyear' => 'release_date',
+      'sortname' || 'title' || 'sort_title' => 'sort_title',
+      'communityrating' ||
+      'rating' ||
+      'voteaverage' ||
+      'vote_average' => 'vote_average',
+      _ => 'create_time',
+    };
   }
 
   List<String>? _typeTags(String? includeItemTypes) {

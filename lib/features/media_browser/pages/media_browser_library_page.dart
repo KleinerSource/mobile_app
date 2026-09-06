@@ -94,6 +94,13 @@ class _MediaBrowserLibraryPageState
         (value: 'ProductionYear', label: (l) => l.mediaBrowserSortYear),
         (value: 'CommunityRating', label: (l) => l.mediaBrowserSortRating),
       ];
+  static final _feiniuSortOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: 'DateCreated', label: (l) => l.mediaBrowserSortRecent),
+        (value: 'PremiereDate', label: (l) => l.sortByReleaseDate),
+        (value: 'SortName', label: (l) => l.sortByTitle),
+        (value: 'CommunityRating', label: (l) => l.sortByRating),
+      ];
 
   final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
@@ -136,6 +143,12 @@ class _MediaBrowserLibraryPageState
 
   bool get _isStash =>
       ref.read(mediaBrowserConfigProvider)?.project == ServerProject.stash;
+
+  bool get _isFeiniu =>
+      ref.read(mediaBrowserConfigProvider)?.project == ServerProject.feiniu;
+
+  List<({String value, String Function(AppL10n l) label})>
+  get _availableSortOptions => _isFeiniu ? _feiniuSortOptions : _sortOptions;
 
   String get _requestIncludeItemTypes => _isStash ? 'Movie' : _includeItemTypes;
 
@@ -489,7 +502,7 @@ class _MediaBrowserLibraryPageState
                   },
                 ),
               ),
-              for (final option in _sortOptions)
+              for (final option in _availableSortOptions)
                 ListTile(
                   dense: true,
                   title: Text(option.label(l)),
@@ -601,8 +614,9 @@ class _MediaBrowserLibraryPageState
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final isStash =
-        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
+    final project = ref.watch(mediaBrowserConfigProvider)?.project;
+    final isStash = project == ServerProject.stash;
+    final isFeiniu = project == ServerProject.feiniu;
     final views = ref.watch(mediaBrowserViewsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     views.maybeWhen(data: _syncCollectionType, orElse: () {});
@@ -696,7 +710,7 @@ class _MediaBrowserLibraryPageState
                               onTap: () => _openSortMenu(context),
                             ),
                             const SizedBox(width: 8),
-                            if (!isStash)
+                            if (!isStash && !isFeiniu)
                               _LibraryFilterButton(
                                 active:
                                     _genreFilter.isNotEmpty ||

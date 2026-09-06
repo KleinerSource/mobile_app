@@ -113,6 +113,7 @@ Future<void> _pumpLibrary(
   WidgetTester tester,
   _RecordingRepo repo, {
   String? initialViewId,
+  MediaBrowserConfig config = MediaBrowserConfig.emby,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -125,10 +126,10 @@ Future<void> _pumpLibrary(
     ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
-        mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+        mediaBrowserConfigProvider.overrideWithValue(config),
         mediaBrowserServerUrlsProvider.overrideWith(
           (ref) async => MediaBrowserServerUrls(
-            config: MediaBrowserConfig.emby,
+            config: config,
             baseUrl: 'http://mb.test',
             token: 't',
           ),
@@ -345,5 +346,19 @@ void main() {
 
     expect(find.text('Sci-Fi'), findsOneWidget);
     expect(find.text('Action'), findsNothing);
+  });
+
+  testWidgets('fnos 不显示高级筛选入口', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '影片甲')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+    );
+    await _pumpLibrary(tester, repo, config: MediaBrowserConfig.feiniu);
+
+    expect(find.byIcon(Icons.tune_rounded), findsNothing);
   });
 }

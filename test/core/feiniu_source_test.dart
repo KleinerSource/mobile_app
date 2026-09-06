@@ -48,6 +48,42 @@ void main() {
     expect(descriptor.mimeType, 'video/x-matroska');
   });
 
+  test('飞牛媒体库排序映射到对应接口字段', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuSortAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    for (final sortBy in [
+      'DateCreated',
+      'PremiereDate',
+      'SortName',
+      'CommunityRating',
+    ]) {
+      await source.itemPage(
+        MediaQuery(sortBy: sortBy, orderBy: 'desc', limit: 1),
+      );
+    }
+
+    expect(adapter.sortColumns, [
+      'create_time',
+      'release_date',
+      'sort_title',
+      'vote_average',
+    ]);
+    expect(adapter.sortTypes, ['DESC', 'DESC', 'DESC', 'DESC']);
+  });
+
   test('飞牛适配器搜索使用原生搜索接口并保留结果分页', () async {
     final sessions = AuthSessionRepository(store: _MemoryTokenStore())
       ..setActiveServerId('feiniu');
@@ -384,6 +420,37 @@ class _FeiniuSearchAdapter implements HttpClientAdapter {
         : null;
     return ResponseBody.fromString(
       jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _FeiniuSortAdapter implements HttpClientAdapter {
+  final sortColumns = <String>[];
+  final sortTypes = <String>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (options.uri.path == '/v/api/v1/item/list' && options.data is Map) {
+      final body = Map<String, dynamic>.from(options.data as Map);
+      sortColumns.add(body['sort_column'] as String);
+      sortTypes.add(body['sort_type'] as String);
+    }
+    return ResponseBody.fromString(
+      jsonEncode({
+        'code': 0,
+        'data': {'list': <Object?>[], 'total': 0},
+      }),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],
