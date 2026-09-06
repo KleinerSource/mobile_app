@@ -3,6 +3,8 @@
 //   - test/features/oh_my_media/tasks/task_center_provider_test.dart
 //   - test/features/oh_my_media/tasks/task_center_page_test.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -277,8 +279,22 @@ void _main_1() {
     );
     addTearDown(container.dispose);
 
+    final historyLoaded = Completer<void>();
+    var historyLoadingSeen = false;
+    final metaSubscription = container.listen<TaskCenterMeta>(
+      taskCenterMetaProvider,
+      (_, next) {
+        if (next.loading) {
+          historyLoadingSeen = true;
+        } else if (historyLoadingSeen && !historyLoaded.isCompleted) {
+          historyLoaded.complete();
+        }
+      },
+      fireImmediately: true,
+    );
+    addTearDown(metaSubscription.close);
     final notifier = container.read(taskCenterProvider.notifier);
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await historyLoaded.future;
 
     notifier.restore(
       TaskItem.fromHistory(const {
