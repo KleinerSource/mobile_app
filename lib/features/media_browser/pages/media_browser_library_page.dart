@@ -18,6 +18,7 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
+import 'package:omm/features/oh_my_media/movie_detail/entity_picker_sheet.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/preview/preview_player.dart';
@@ -102,9 +103,9 @@ class _MediaBrowserLibraryPageState
   String? _parentId;
   String? _collectionType;
   String _includeItemTypes = 'Movie,Series';
-  String _genreFilter = '';
-  String _tagFilter = '';
-  String _yearFilter = '';
+  List<String> _genreFilter = const [];
+  List<String> _tagFilter = const [];
+  List<String> _yearFilter = const [];
   String _sortBy = 'DateCreated';
   String _sortOrder = 'Descending';
   MediaViewMode _viewMode = MediaViewMode.portrait;
@@ -200,9 +201,9 @@ class _MediaBrowserLibraryPageState
               if (_isPersonMode) 'personIds': widget.personId,
               if (_isGenreMode) 'genreIds': widget.genreId,
               if (_isTagMode) 'tagIds': widget.tagId,
-              if (_genreFilter.trim().isNotEmpty) 'genres': _genreFilter.trim(),
-              if (_tagFilter.trim().isNotEmpty) 'tags': _tagFilter.trim(),
-              if (_yearFilter.trim().isNotEmpty) 'years': _yearFilter.trim(),
+              if (_genreFilter.isNotEmpty) 'genres': _genreFilter.join(','),
+              if (_tagFilter.isNotEmpty) 'tags': _tagFilter.join(','),
+              if (_yearFilter.isNotEmpty) 'years': _yearFilter.join(','),
             },
           ),
         ),
@@ -266,9 +267,9 @@ class _MediaBrowserLibraryPageState
 
   void _reloadWith({
     String? parentId,
-    String? genres,
-    String? tags,
-    String? years,
+    List<String>? genres,
+    List<String>? tags,
+    List<String>? years,
     String? sortBy,
     String? sortOrder,
   }) {
@@ -279,16 +280,22 @@ class _MediaBrowserLibraryPageState
     final nextTypes = _collectionTypeOf(_parentId) == nextCollectionType
         ? _includeItemTypes
         : nextTypeOptions.first.value;
-    final nextTags = tags ?? (parentChanged ? '' : _tagFilter);
-    final nextGenres = genres ?? (parentChanged ? '' : _genreFilter);
-    final nextYears = years ?? (parentChanged ? '' : _yearFilter);
+    final nextTags = _normalizeFilterValues(
+      tags ?? (parentChanged ? const [] : _tagFilter),
+    );
+    final nextGenres = _normalizeFilterValues(
+      genres ?? (parentChanged ? const [] : _genreFilter),
+    );
+    final nextYears = _normalizeFilterValues(
+      years ?? (parentChanged ? const [] : _yearFilter),
+    );
     final nextSortBy = sortBy ?? _sortBy;
     final nextSortOrder = sortOrder ?? _sortOrder;
     if (nextParent == _parentId &&
         nextTypes == _includeItemTypes &&
-        nextGenres == _genreFilter &&
-        nextTags == _tagFilter &&
-        nextYears == _yearFilter &&
+        _sameFilterValues(nextGenres, _genreFilter) &&
+        _sameFilterValues(nextTags, _tagFilter) &&
+        _sameFilterValues(nextYears, _yearFilter) &&
         nextSortBy == _sortBy &&
         nextSortOrder == _sortOrder) {
       return;
@@ -420,9 +427,9 @@ class _MediaBrowserLibraryPageState
                 if (_isPersonMode) 'personIds': widget.personId,
                 if (_isGenreMode) 'genreIds': widget.genreId,
                 if (_isTagMode) 'tagIds': widget.tagId,
-                if (genreFilter.trim().isNotEmpty) 'genres': genreFilter.trim(),
-                if (tagFilter.trim().isNotEmpty) 'tags': tagFilter.trim(),
-                if (yearFilter.trim().isNotEmpty) 'years': yearFilter.trim(),
+                if (genreFilter.isNotEmpty) 'genres': genreFilter.join(','),
+                if (tagFilter.isNotEmpty) 'tags': tagFilter.join(','),
+                if (yearFilter.isNotEmpty) 'years': yearFilter.join(','),
               },
             ),
           ),
@@ -532,28 +539,49 @@ class _MediaBrowserLibraryPageState
 
   List<String> _filterOptions(
     Iterable<String> values, {
-    required String selected,
+    required Iterable<String> selected,
   }) {
     final options = <String>{
       for (final value in values)
         if (value.trim().isNotEmpty) value.trim(),
     };
-    final selectedValue = selected.trim();
-    if (selectedValue.isNotEmpty) options.add(selectedValue);
+    for (final value in selected) {
+      final normalized = value.trim();
+      if (normalized.isNotEmpty) options.add(normalized);
+    }
     final sorted = options.toList()..sort((a, b) => a.compareTo(b));
     return sorted;
   }
 
-  List<String> _yearOptions({required String selected}) {
+  List<String> _yearOptions({required Iterable<String> selected}) {
     final options = <int>{
       for (final item in _controller.itemList ?? const <MediaBrowserItem>[])
         if (item.productionYear != null && item.productionYear! > 0)
           item.productionYear!,
     };
-    final selectedValue = int.tryParse(selected.trim());
-    if (selectedValue != null && selectedValue > 0) options.add(selectedValue);
+    for (final value in selected) {
+      final selectedValue = int.tryParse(value.trim());
+      if (selectedValue != null && selectedValue > 0) {
+        options.add(selectedValue);
+      }
+    }
     final sorted = options.toList()..sort((a, b) => b.compareTo(a));
     return [for (final year in sorted) '$year'];
+  }
+
+  List<String> _normalizeFilterValues(Iterable<String> values) {
+    return <String>{
+      for (final value in values)
+        if (value.trim().isNotEmpty) value.trim(),
+    }.toList(growable: false);
+  }
+
+  bool _sameFilterValues(List<String> first, List<String> second) {
+    if (first.length != second.length) return false;
+    for (var i = 0; i < first.length; i++) {
+      if (first[i] != second[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -657,9 +685,9 @@ class _MediaBrowserLibraryPageState
                             if (!isStash)
                               _LibraryFilterButton(
                                 active:
-                                    _genreFilter.trim().isNotEmpty ||
-                                    _tagFilter.trim().isNotEmpty ||
-                                    _yearFilter.trim().isNotEmpty,
+                                    _genreFilter.isNotEmpty ||
+                                    _tagFilter.isNotEmpty ||
+                                    _yearFilter.isNotEmpty,
                                 onTap: () => _openAdvancedFilter(context),
                               ),
                             if (!isStash) ...[
@@ -1013,9 +1041,9 @@ class _MediaBrowserAdvancedFilter {
     required this.years,
   });
 
-  final String genres;
-  final String tags;
-  final String years;
+  final List<String> genres;
+  final List<String> tags;
+  final List<String> years;
 }
 
 class _MediaBrowserAdvancedFilterSheet extends StatefulWidget {
@@ -1038,38 +1066,48 @@ class _MediaBrowserAdvancedFilterSheet extends StatefulWidget {
 
 class _MediaBrowserAdvancedFilterSheetState
     extends State<_MediaBrowserAdvancedFilterSheet> {
-  String? _selectedGenre;
-  String? _selectedTag;
-  String? _selectedYear;
+  late List<String> _selectedGenres;
+  late List<String> _selectedTags;
+  late List<String> _selectedYears;
 
   @override
   void initState() {
     super.initState();
-    _selectedGenre = _nullableValue(widget.initial.genres);
-    _selectedTag = _nullableValue(widget.initial.tags);
-    _selectedYear = _nullableValue(widget.initial.years);
-  }
-
-  static String? _nullableValue(String value) {
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
+    _selectedGenres = [...widget.initial.genres];
+    _selectedTags = [...widget.initial.tags];
+    _selectedYears = [...widget.initial.years];
   }
 
   void _reset() {
     setState(() {
-      _selectedGenre = null;
-      _selectedTag = null;
-      _selectedYear = null;
+      _selectedGenres = [];
+      _selectedTags = [];
+      _selectedYears = [];
     });
   }
 
   void _submit() {
     Navigator.of(context).pop(
       _MediaBrowserAdvancedFilter(
-        genres: _selectedGenre ?? '',
-        tags: _selectedTag ?? '',
-        years: _selectedYear ?? '',
+        genres: [..._selectedGenres],
+        tags: [..._selectedTags],
+        years: [..._selectedYears],
       ),
+    );
+  }
+
+  Future<List<String>?> _pickFilterValues({
+    required String title,
+    required IconData icon,
+    required List<String> items,
+    required List<String> selected,
+  }) {
+    return EntityPickerSheet.pickMultiOptions(
+      context: context,
+      title: title,
+      icon: icon,
+      options: items,
+      selected: selected,
     );
   }
 
@@ -1095,28 +1133,57 @@ class _MediaBrowserAdvancedFilterSheetState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _MediaBrowserDropdownField(
-                    value: _selectedGenre,
+                    key: const ValueKey('media-browser-filter-genre'),
+                    values: _selectedGenres,
                     hint: l.mediaBrowserFilterGenresHint,
                     icon: Icons.category_outlined,
-                    items: widget.genreOptions,
-                    onChanged: (value) =>
-                        setState(() => _selectedGenre = value),
+                    onTap: () async {
+                      final values = await _pickFilterValues(
+                        title: l.mediaBrowserFilterType,
+                        icon: Icons.category_outlined,
+                        items: widget.genreOptions,
+                        selected: _selectedGenres,
+                      );
+                      if (mounted && values != null) {
+                        setState(() => _selectedGenres = values);
+                      }
+                    },
                   ),
                   const SizedBox(height: 10),
                   _MediaBrowserDropdownField(
-                    value: _selectedTag,
+                    key: const ValueKey('media-browser-filter-tag'),
+                    values: _selectedTags,
                     hint: l.mediaBrowserFilterTagsHint,
                     icon: Icons.label_outline_rounded,
-                    items: widget.tagOptions,
-                    onChanged: (value) => setState(() => _selectedTag = value),
+                    onTap: () async {
+                      final values = await _pickFilterValues(
+                        title: l.movieEditorTag,
+                        icon: Icons.label_outline_rounded,
+                        items: widget.tagOptions,
+                        selected: _selectedTags,
+                      );
+                      if (mounted && values != null) {
+                        setState(() => _selectedTags = values);
+                      }
+                    },
                   ),
                   const SizedBox(height: 10),
                   _MediaBrowserDropdownField(
-                    value: _selectedYear,
+                    key: const ValueKey('media-browser-filter-year'),
+                    values: _selectedYears,
                     hint: l.mediaBrowserFilterYearHint,
                     icon: Icons.calendar_today_outlined,
-                    items: widget.yearOptions,
-                    onChanged: (value) => setState(() => _selectedYear = value),
+                    onTap: () async {
+                      final values = await _pickFilterValues(
+                        title: l.mediaBrowserFilterYear,
+                        icon: Icons.calendar_today_outlined,
+                        items: widget.yearOptions,
+                        selected: _selectedYears,
+                      );
+                      if (mounted && values != null) {
+                        setState(() => _selectedYears = values);
+                      }
+                    },
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
@@ -1139,43 +1206,75 @@ class _MediaBrowserAdvancedFilterSheetState
 
 class _MediaBrowserDropdownField extends StatelessWidget {
   const _MediaBrowserDropdownField({
-    required this.value,
+    super.key,
+    required this.values,
     required this.hint,
     required this.icon,
-    required this.items,
-    required this.onChanged,
+    required this.onTap,
   });
 
-  final String? value;
+  final List<String> values;
   final String hint;
   final IconData icon;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    return InputDecorator(
-      decoration: sheetInputDecoration(
-        context,
-        isDense: true,
-        prefixIcon: Icon(icon),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          hint: Text(hint, style: TextStyle(color: colors.muted)),
-          items: [
-            for (final item in items)
-              DropdownMenuItem<String>(
-                value: item,
-                child: Text(item, overflow: TextOverflow.ellipsis),
-              ),
-          ],
-          onChanged: onChanged,
+    final hasValue = values.isNotEmpty;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        isEmpty: !hasValue,
+        decoration: sheetInputDecoration(
+          context,
+          isDense: true,
+          prefixIcon: Icon(icon),
+          suffixIcon: const Icon(Icons.expand_more_rounded),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
         ),
+        child: hasValue
+            ? Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final value in values.take(3))
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.accent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          color: colors.accent,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  if (values.length > 3)
+                    Text(
+                      '+${values.length - 3}',
+                      style: TextStyle(
+                        color: colors.muted,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              )
+            : Text(hint, style: TextStyle(color: colors.muted)),
       ),
     );
   }

@@ -85,14 +85,20 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
   }
 }
 
-MediaBrowserItem _item(String id, String name) {
+MediaBrowserItem _item(
+  String id,
+  String name, {
+  int year = 2024,
+  List<String> genres = const ['Action'],
+  List<String> tags = const ['4K'],
+}) {
   return MediaBrowserItem.fromJson({
     'Id': id,
     'Name': name,
     'Type': 'Movie',
-    'ProductionYear': 2024,
-    'Genres': const ['Action'],
-    'Tags': const ['4K'],
+    'ProductionYear': year,
+    'Genres': genres,
+    'Tags': tags,
     'RunTimeTicks': 54000000000,
     'UserData': const {'IsFavorite': false},
   });
@@ -252,8 +258,22 @@ void main() {
   testWidgets('高级筛选提交类型、标签和年份', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(
-        items: [_item('a', '影片甲')],
-        total: 1,
+        items: [
+          _item(
+            'a',
+            '影片甲',
+            genres: const ['Action', 'Drama'],
+            tags: const ['4K', 'HDR'],
+          ),
+          _item(
+            'b',
+            '影片乙',
+            year: 2023,
+            genres: const ['Action', 'Drama'],
+            tags: const ['4K', 'HDR'],
+          ),
+        ],
+        total: 2,
         startIndex: 0,
         limit: 24,
       ),
@@ -264,28 +284,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('高级筛选'), findsOneWidget);
 
-    final dropdowns = find.byType(DropdownButton<String>);
-    expect(dropdowns, findsNWidgets(3));
-    await tester.tap(dropdowns.at(0));
+    await tester.tap(find.byKey(const ValueKey('media-browser-filter-genre')));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Act');
     await tester.tap(find.text('Action').last);
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.pump();
+    await tester.tap(find.text('Drama').last);
+    await tester.tap(find.text('完成').last);
     await tester.pumpAndSettle();
-    await tester.tap(dropdowns.at(1));
+    await tester.tap(find.byKey(const ValueKey('media-browser-filter-tag')));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '4');
     await tester.tap(find.text('4K').last);
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.pump();
+    await tester.tap(find.text('HDR').last);
+    await tester.tap(find.text('完成').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(dropdowns.at(2));
-    await tester.tap(dropdowns.at(2));
+    await tester.tap(find.byKey(const ValueKey('media-browser-filter-year')));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '24');
     await tester.tap(find.text('2024').last);
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.pump();
+    await tester.tap(find.text('2023').last);
+    await tester.tap(find.text('完成').last);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('确定'));
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     final query = repo.itemPageQueries.last;
-    expect(query.filters['genres'], 'Action');
-    expect(query.filters['tags'], '4K');
-    expect(query.filters['years'], '2024');
+    expect(query.filters['genres'], 'Action,Drama');
+    expect(query.filters['tags'], '4K,HDR');
+    expect(query.filters['years'], '2024,2023');
   });
 }

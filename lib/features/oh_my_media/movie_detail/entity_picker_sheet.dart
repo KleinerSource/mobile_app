@@ -89,6 +89,29 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     );
   }
 
+  /// 弹出基于本地字符串选项的多选器。
+  ///
+  /// 复用 OMM 高级筛选的搜索、复选项、已选数量、完成和清空交互，
+  /// 供不依赖 OMM 资源 ID 的筛选器使用。
+  static Future<List<String>?> pickMultiOptions({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required List<String> options,
+    required List<String> selected,
+  }) {
+    return showGlassSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _EntityOptionPickerSheet(
+        title: title,
+        icon: icon,
+        options: options,
+        selected: selected,
+      ),
+    );
+  }
+
   /// 弹出单选 (series 专用) · 返回选中 ID 和名称 (取消则 null)
   static Future<EntityPickerSelection?> pickSingle({
     required BuildContext context,
@@ -890,6 +913,142 @@ class _PickerTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EntityOptionPickerSheet extends StatefulWidget {
+  const _EntityOptionPickerSheet({
+    required this.title,
+    required this.icon,
+    required this.options,
+    required this.selected,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<String> options;
+  final List<String> selected;
+
+  @override
+  State<_EntityOptionPickerSheet> createState() =>
+      _EntityOptionPickerSheetState();
+}
+
+class _EntityOptionPickerSheetState extends State<_EntityOptionPickerSheet> {
+  final _searchController = TextEditingController();
+  late final Set<String> _selected = widget.selected.toSet();
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final search = _searchController.text.trim();
+    if (search == _search) return;
+    setState(() => _search = search);
+  }
+
+  void _toggle(String option) {
+    setState(() {
+      if (!_selected.add(option)) _selected.remove(option);
+    });
+  }
+
+  void _submit() {
+    Navigator.of(
+      context,
+    ).pop(widget.options.where(_selected.contains).toList(growable: false));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+    final visibleOptions = widget.options
+        .where((option) => matchesPinyinSearch(option, _search))
+        .toList(growable: false);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: widget.icon,
+          title: widget.title,
+          subtitle: l.entityPickerSelected(_selected.length),
+          trailing: TextButton(onPressed: _submit, child: Text(l.done)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+          child: TextField(
+            controller: _searchController,
+            textAlignVertical: TextAlignVertical.center,
+            decoration: sheetInputDecoration(
+              context,
+              hintText: l.entityPickerSearchName,
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
+            ),
+          ),
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: visibleOptions.isEmpty
+              ? Center(
+                  child: Text(
+                    l.entityPickerNoResourceMatch,
+                    style: AppText.meta(context),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 4,
+                  ),
+                  itemCount: visibleOptions.length,
+                  itemBuilder: (context, index) {
+                    final option = visibleOptions[index];
+                    return _PickerTile(
+                      id: index,
+                      label: option,
+                      sub: null,
+                      hue: AppHues.all[index % AppHues.all.length],
+                      selected: _selected.contains(option),
+                      multiCheckbox: true,
+                      onTap: () => _toggle(option),
+                    );
+                  },
+                ),
+        ),
+        if (_selected.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
+            child: TextButton(
+              onPressed: () => setState(_selected.clear),
+              child: Text(
+                l.commonClear,
+                style: TextStyle(
+                  color: c.danger,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
