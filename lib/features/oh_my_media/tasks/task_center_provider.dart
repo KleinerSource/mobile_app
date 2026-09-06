@@ -161,12 +161,12 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
         // 历史请求与 WebSocket 并行；保留请求开始前的活跃任务，避免
         // 响应返回时把实时任务短暂清空。后续历史项会按 recordId 合并。
         for (final task in activeTasks) {
-          _upsert(task);
+          _upsert(task, updateMeta: false);
         }
       }
       for (final rawItem in items.whereType<Map>()) {
         final task = TaskItem.fromHistory(Map<String, dynamic>.from(rawItem));
-        if (task.id.isNotEmpty) _upsert(task);
+        if (task.id.isNotEmpty) _upsert(task, updateMeta: false);
       }
       final total = _asInt(data is Map ? data['total'] : null);
       final stats = <String, int>{};
@@ -293,8 +293,13 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   Future<void> remove(TaskItem task) async {
     if (!task.isTerminal || task.recordId.isEmpty) return;
     await ref.read(requiredApiClientProvider).tasks.delete(task.recordId);
-    final next = state.where((item) => item.key != task.key).toList();
-    if (next.length != state.length) state = next;
+    final index = state.indexWhere((item) => item.key == task.key);
+    if (index >= 0) {
+      final removed = state[index];
+      final next = [...state]..removeAt(index);
+      state = next;
+      _syncMetaForTaskChange(removed, null);
+    }
   }
 
   void restore(TaskItem task) => _upsert(task);
@@ -349,7 +354,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     }
   }
 
-  void _upsert(TaskItem incoming) {
+  void _upsert(TaskItem incoming, {bool updateMeta = true}) {
     var index = incoming.recordId.isNotEmpty
         ? state.indexWhere((item) => item.recordId == incoming.recordId)
         : state.indexWhere((item) => item.key == incoming.key);
@@ -380,8 +385,11 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     }
 
     final next = [...state];
+    TaskItem? previousTask;
+    late final TaskItem currentTask;
     if (index >= 0) {
       final previous = next[index];
+      previousTask = previous;
       final merged = previous.merge(incoming);
       // 占位扫描任务拿到真实 id 后 key 会变化，沿用原序号避免卡片跳动。
       if (merged.key != previous.key) {
@@ -391,14 +399,19 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
         }
       }
       next[index] = merged;
+      currentTask = merged;
     } else {
       next.insert(0, incoming);
+      currentTask = incoming;
     }
     _sortTasks(next);
     if (next.length > 200) {
       next.removeRange(200, next.length);
     }
     state = next;
+    if (updateMeta) {
+      _syncMetaForTaskChange(previousTask, currentTask);
+    }
   }
 
   /// 活跃任务置顶；同一状态按服务端任务时间倒序，时间缺失时按首次
@@ -419,9 +432,53 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     final index = state.indexWhere((item) => item.key == key);
     if (index < 0) return;
     final next = [...state];
-    next[index] = update(next[index]);
+    final previous = next[index];
+    next[index] = update(previous);
     _sortTasks(next);
     state = next;
+    _syncMetaForTaskChange(previous, next[index]);
+  }
+
+  void _syncMetaForTaskChange(TaskItem? previous, TaskItem? current) {
+    final previousStatus = _taskStatKey(previous);
+    final currentStatus = _taskStatKey(current);
+    final totalDelta = previous == null && current != null
+        ? 1
+        : previous != null && current == null
+        ? -1
+        : 0;
+    if (totalDelta == 0 && previousStatus == currentStatus) return;
+
+    final currentMeta = ref.read(taskCenterMetaProvider);
+    final stats = currentMeta.stats.isEmpty
+        ? _statsFromTasks()
+        : Map<String, int>.from(currentMeta.stats);
+    if (currentMeta.stats.isNotEmpty) {
+      if (previousStatus != null) {
+        final value = (stats[previousStatus] ?? 0) - 1;
+        stats[previousStatus] = value < 0 ? 0 : value;
+      }
+      if (currentStatus != null) {
+        stats[currentStatus] = (stats[currentStatus] ?? 0) + 1;
+      }
+    }
+
+    final total = currentMeta.total + totalDelta;
+    ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
+      total: total < 0 ? 0 : total,
+      hasMore: _historyOffset < (total < 0 ? 0 : total),
+      loading: currentMeta.loading,
+      stats: stats,
+    );
+  }
+
+  Map<String, int> _statsFromTasks() {
+    final stats = <String, int>{};
+    for (final task in state) {
+      final key = _taskStatKey(task);
+      if (key != null) stats[key] = (stats[key] ?? 0) + 1;
+    }
+    return stats;
   }
 
   void _onDisconnect() {
@@ -461,6 +518,15 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
 bool _isScanTask(TaskItem task) {
   return task.name.contains('扫描') && task.name != '资源扫描';
+}
+
+String? _taskStatKey(TaskItem? task) {
+  if (task == null) return null;
+  if (task.isActive) return 'running';
+  if (task.isCompleted) return 'completed';
+  if (task.isFailed) return 'failed';
+  if (task.isCanceled) return 'canceled';
+  return null;
 }
 
 int _asInt(Object? value) {

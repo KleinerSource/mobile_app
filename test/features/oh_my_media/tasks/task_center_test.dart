@@ -6,6 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/modal_transcription_config.dart';
@@ -241,6 +244,80 @@ void _main_1() {
       'task-new',
       'task-old',
     ]);
+  });
+
+  test('新增、状态更新和删除任务会同步顶部统计', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    String? deletedRecordId;
+    final dio = Dio(BaseOptions(baseUrl: 'http://test'))
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (options.method == 'DELETE') {
+              deletedRecordId = options.path.split('/').last;
+            }
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                data: const {
+                  'success': true,
+                  'data': {'items': [], 'total': 0, 'stats': {}},
+                },
+              ),
+            );
+          },
+        ),
+      );
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(taskCenterProvider.notifier);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    notifier.restore(
+      TaskItem.fromHistory(const {
+        'record_id': 'record-completed',
+        'task_id': 'task-1',
+        'task_name': '字幕转译',
+        'status': 'running',
+      }),
+    );
+    var meta = container.read(taskCenterMetaProvider);
+    expect(meta.total, 1);
+    expect(meta.stats['running'], 1);
+
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'task-1',
+      'taskName': '字幕转译',
+      'status': 'completed',
+      'isRunning': false,
+    });
+    meta = container.read(taskCenterMetaProvider);
+    expect(meta.total, 1);
+    expect(meta.stats['running'], 0);
+    expect(meta.stats['completed'], 1);
+
+    notifier.restore(
+      TaskItem.fromHistory(const {
+        'record_id': 'record-failed',
+        'task_id': 'task-2',
+        'task_name': '字幕转译',
+        'status': 'failed',
+      }),
+    );
+    await notifier.remove(container.read(taskCenterProvider).last);
+    meta = container.read(taskCenterMetaProvider);
+    expect(deletedRecordId, 'record-failed');
+    expect(meta.total, 1);
+    expect(meta.stats['failed'], 0);
+    expect(meta.stats['completed'], 1);
   });
 
   test('进度广播交错到达时任务保持稳定顺序', () async {
