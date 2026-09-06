@@ -60,6 +60,18 @@ void _main_0() {
     expect(task.canCancel, isTrue);
   });
 
+  test('资源扫描任务默认支持取消', () {
+    final task = TaskItem.fromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'resource-scan-1',
+      'taskName': '资源扫描',
+      'status': 'running',
+      'isRunning': true,
+    });
+
+    expect(task.canCancel, isTrue);
+  });
+
   test('任务时间兼容 snake_case，并且历史缺失时间不伪造为当前时间', () {
     final running = TaskItem.fromSchedulerMessage(const {
       'type': 'scheduler_status',

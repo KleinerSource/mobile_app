@@ -123,6 +123,13 @@ class MoviesExtendedApi {
     return unwrapStd<Object?>(response.data, (data) => data);
   }
 
+  Future<void> cancelResourceScan(String taskId) async {
+    final response = await _dio.post<dynamic>(
+      '/movies/batch/dbonline/resources/scan/$taskId/cancel',
+    );
+    unwrapStd<void>(response.data, (_) {});
+  }
+
   Future<Object?> generateMoviePreviews(
     int movieId, {
     bool overwrite = false,

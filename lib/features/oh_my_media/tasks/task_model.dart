@@ -351,8 +351,7 @@ class TaskItem {
   bool get canCancel =>
       isActive &&
       (serverCanCancel ??
-          (name != '资源扫描' &&
-              name != '重复番号合并' &&
+          (name != '重复番号合并' &&
               (name == '音频提取' ||
                   name == '字幕转译' ||
                   name == '预览生成' ||

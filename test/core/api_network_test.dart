@@ -253,6 +253,19 @@ void _main_0() {
     });
   });
 
+  test('影片资源扫描任务使用资源扫描取消接口', () async {
+    final adapter = _RouteAdapter();
+
+    await MoviesExtendedApi(
+      _dio(adapter),
+    ).cancelResourceScan('resource-scan-1');
+
+    expect(
+      adapter.paths.single,
+      '/api/movies/batch/dbonline/resources/scan/resource-scan-1/cancel',
+    );
+  });
+
   test('影片预览图获取使用详情页数据源接口', () async {
     final adapter = _RouteAdapter();
     await MoviesExtendedApi(_dio(adapter)).downloadDbonlineExtrafanart(7);

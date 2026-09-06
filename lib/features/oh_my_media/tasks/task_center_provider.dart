@@ -234,6 +234,9 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       case '预览图下载':
         await client.moviesExtended.cancelExtraFanart(task.id);
         break;
+      case '资源扫描':
+        await client.moviesExtended.cancelResourceScan(task.id);
+        break;
       default:
         if (task.name.contains('扫描') && task.libraryIds.isNotEmpty) {
           raw = await client.libraries.cancelScan(
