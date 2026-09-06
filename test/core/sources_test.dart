@@ -204,6 +204,25 @@ void _main_0() {
     },
   );
 
+  test('OMM 影片列表把明确的无结果业务错误归一为空页', () async {
+    for (final message in ['没有找到符合条件的影片', 'No matching titles']) {
+      final dio = Dio(BaseOptions(baseUrl: 'http://test/api'))
+        ..httpClientAdapter = _JsonAdapter((path) {
+          if (path == '/api/movies') {
+            return {'success': false, 'message': message};
+          }
+          return {'success': true, 'data': <String, Object?>{}};
+        });
+      final source = OmmMediaSourceAdapter(ApiClient(dio));
+
+      final page = await source.listMovies(const MediaQuery(limit: 24));
+
+      expect(page.items, isEmpty);
+      expect(page.total, 0);
+      expect(page.hasMore, isFalse);
+    }
+  });
+
   test(
     'adapter maps API failures to SourceException and keeps status',
     () async {

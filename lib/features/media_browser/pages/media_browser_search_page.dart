@@ -21,6 +21,7 @@ import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
+import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
@@ -226,7 +227,7 @@ class _MediaBrowserSearchEmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    return Center(
+    return CenteredEmptyState(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -535,15 +536,8 @@ class _MediaBrowserSearchResultsState
                                   onRetry:
                                       _pagingController.retryLastFailedRequest,
                                 ),
-                            noItemsFoundIndicatorBuilder: (_) => Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  AppL10n.of(context).searchNoResult,
-                                  style: AppText.meta(context),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
+                            noItemsFoundIndicatorBuilder: (_) => EmptyView(
+                              message: AppL10n.of(context).searchNoResult,
                             ),
                             noMoreItemsIndicatorBuilder: (_) =>
                                 const NoMoreContent(),

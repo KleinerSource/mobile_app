@@ -11,6 +11,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
@@ -226,7 +227,7 @@ class _EmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return Center(
+    return CenteredEmptyState(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -451,17 +452,8 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                     newPageErrorIndicatorBuilder: (_) => PaginationRetry(
                       onRetry: _controller.retryLastFailedRequest,
                     ),
-                    noItemsFoundIndicatorBuilder: (_) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          AppL10n.of(context).searchNoResult,
-                          style: AppText.body(
-                            context,
-                          ).copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
+                    noItemsFoundIndicatorBuilder: (_) =>
+                        EmptyView(message: AppL10n.of(context).searchNoResult),
                     noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 )
@@ -505,17 +497,8 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                     newPageErrorIndicatorBuilder: (_) => PaginationRetry(
                       onRetry: _controller.retryLastFailedRequest,
                     ),
-                    noItemsFoundIndicatorBuilder: (_) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          AppL10n.of(context).searchNoResult,
-                          style: AppText.body(
-                            context,
-                          ).copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
+                    noItemsFoundIndicatorBuilder: (_) =>
+                        EmptyView(message: AppL10n.of(context).searchNoResult),
                     noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 ),

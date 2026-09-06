@@ -13,6 +13,7 @@ import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -258,14 +259,6 @@ class _ListEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 80),
-      child: Center(
-        child: Text(
-          AppL10n.of(context).dbOnlineNoData,
-          style: AppText.meta(context),
-        ),
-      ),
-    );
+    return EmptyView(message: AppL10n.of(context).dbOnlineNoData);
   }
 }

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../api/api_client.dart';
 import '../../api/envelope.dart';
 import '../../models/movie.dart';
+import '../../models/paged_result.dart';
 import '../../models/playback.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
@@ -85,10 +86,21 @@ class OmmMediaSourceAdapter
       if (query.sortBy != null) 'sort_by': query.sortBy,
       if (query.orderBy != null) 'sort_order': query.orderBy,
     };
-    final page = await _call(() async {
-      final raw = await client.movies.getMovies(params);
-      return unwrapMovieList<MovieListItem>(raw, MovieListItem.fromJson);
-    });
+    late final PagedResult<MovieListItem> page;
+    try {
+      page = await _call(() async {
+        final raw = await client.movies.getMovies(params);
+        return unwrapMovieList<MovieListItem>(raw, MovieListItem.fromJson);
+      });
+    } on SourceException catch (error) {
+      if (offset != 0 || !_isNoResultMessage(error.message)) rethrow;
+      page = PagedResult<MovieListItem>(
+        items: const [],
+        totalCount: 0,
+        limit: query.limit,
+        offset: 0,
+      );
+    }
     return MediaPage(
       items: page.items.map(_summaryFromMovie).toList(growable: false),
       page: query.limit <= 0 ? 1 : (offset ~/ query.limit) + 1,
@@ -672,6 +684,11 @@ class OmmMediaSourceAdapter
       throw mapSourceError(error, fallback: 'OMM 请求失败');
     }
   }
+}
+
+bool _isNoResultMessage(String message) {
+  final normalized = message.trim().toLowerCase();
+  return normalized == '没有找到符合条件的影片' || normalized == 'no matching titles';
 }
 
 SourceException _mapSubtitleError(Object error) {

@@ -12,6 +12,7 @@ import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
@@ -253,7 +254,7 @@ class _DbOnlineSearchEmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
-    return Center(
+    return CenteredEmptyState(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -386,15 +387,8 @@ class _DbOnlineSearchResultsState
       ),
       newPageErrorIndicatorBuilder: (_) =>
           PaginationRetry(onRetry: _pagingController.retryLastFailedRequest),
-      noItemsFoundIndicatorBuilder: (_) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            AppL10n.of(context).searchNoResult,
-            style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ),
+      noItemsFoundIndicatorBuilder: (_) =>
+          EmptyView(message: AppL10n.of(context).searchNoResult),
       noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
     );
 
@@ -442,7 +436,7 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
       ),
       data: (value) {
         if (value.actors.isEmpty) {
-          return const _DbOnlineSearchNoResults();
+          return EmptyView(message: AppL10n.of(context).searchNoResult);
         }
         return CustomScrollView(
           primary: false,
@@ -572,7 +566,7 @@ class _DbOnlineSeriesSearchResultsState
                 onRetry: _pagingController.retryLastFailedRequest,
               ),
               noItemsFoundIndicatorBuilder: (_) =>
-                  const _DbOnlineSearchNoResults(),
+                  EmptyView(message: AppL10n.of(context).searchNoResult),
               noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
             ),
           ),
@@ -640,23 +634,6 @@ class _DbOnlineSearchEntityCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DbOnlineSearchNoResults extends StatelessWidget {
-  const _DbOnlineSearchNoResults();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          AppL10n.of(context).searchNoResult,
-          style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
         ),
       ),
     );
