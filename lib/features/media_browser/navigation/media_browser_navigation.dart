@@ -11,7 +11,16 @@ import 'package:omm/features/media_browser/pages/media_browser_series_detail_pag
 import 'package:omm/features/media_browser/playback/media_browser_audio_playback.dart';
 import 'package:omm/shared/single_flight_gate.dart';
 
-final _mediaBrowserItemOpenGate = SingleFlightGate();
+// 导航锁按当前路由隔离：媒体库打开合集后，合集页仍处于一次未完成的
+// Navigator.push 中，但合集页内的影片仍需要能够继续打开详情。
+final _mediaBrowserItemOpenFallbackGate = SingleFlightGate();
+final _mediaBrowserItemOpenGates = Expando<SingleFlightGate>();
+
+SingleFlightGate _mediaBrowserItemOpenGateFor(BuildContext context) {
+  final route = ModalRoute.of(context);
+  if (route == null) return _mediaBrowserItemOpenFallbackGate;
+  return _mediaBrowserItemOpenGates[route] ??= SingleFlightGate();
+}
 
 /// 打开 Emby/Jellyfin 条目详情。
 ///
@@ -30,7 +39,7 @@ Future<void> openMediaBrowserItem(
     await openMediaBrowserAudioItem(context, ref, item: item);
     return;
   }
-  await _mediaBrowserItemOpenGate.run(() async {
+  await _mediaBrowserItemOpenGateFor(context).run(() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => item.isSeries

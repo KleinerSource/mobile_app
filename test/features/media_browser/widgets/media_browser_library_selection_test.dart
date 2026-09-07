@@ -93,6 +93,7 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
 MediaBrowserItem _item(
   String id,
   String name, {
+  String type = 'Movie',
   int year = 2024,
   List<String> genres = const ['Action'],
   List<String> tags = const ['4K'],
@@ -100,7 +101,7 @@ MediaBrowserItem _item(
   return MediaBrowserItem.fromJson({
     'Id': id,
     'Name': name,
-    'Type': 'Movie',
+    'Type': type,
     'ProductionYear': year,
     'Genres': genres,
     'Tags': tags,
@@ -241,7 +242,28 @@ void main() {
     );
     await _pumpLibrary(tester, repo, initialViewId: 'library-1');
     expect(find.text('影片甲'), findsWidgets);
-    expect(repo.itemPageCalls, contains(('library-1', 'Movie,Series')));
+    expect(repo.itemPageCalls, contains(('library-1', 'Movie,Series,BoxSet')));
+  });
+
+  testWidgets('视频媒体库的全部列表包含 Jellyfin 合集', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('collection-1', '示例合集', type: 'BoxSet')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      libraryViews: [_libraryView('library-1')],
+    );
+    await _pumpLibrary(
+      tester,
+      repo,
+      initialViewId: 'library-1',
+      config: MediaBrowserConfig.jellyfin,
+    );
+
+    expect(find.text('示例合集'), findsWidgets);
+    expect(repo.itemPageCalls, contains(('library-1', 'Movie,Series,BoxSet')));
   });
 
   testWidgets('从音乐媒体库进入后仍能加载首屏条目', (tester) async {

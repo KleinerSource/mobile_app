@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,7 @@ import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/features/media_browser/pages/media_browser_collection_detail_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_movie_detail_page.dart';
+import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
@@ -64,6 +67,19 @@ class _RecordingNavigatorObserver extends NavigatorObserver {
   }
 }
 
+class _OpenCollectionButton extends ConsumerWidget {
+  const _OpenCollectionButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ElevatedButton(
+      onPressed: () =>
+          unawaited(openMediaBrowserItem(context, ref, _collection())),
+      child: const Text('打开合集'),
+    );
+  }
+}
+
 MediaBrowserItem _collection() => MediaBrowserItem.fromJson(const {
   'Id': 'collection-1',
   'Name': '示例合集',
@@ -96,6 +112,7 @@ Future<_RecordingMediaBrowserRepository> _pumpCollectionPage(
   required List<MediaBrowserItem> items,
   Locale locale = const Locale('zh'),
   _RecordingNavigatorObserver? observer,
+  bool openFromLibrary = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -132,9 +149,11 @@ Future<_RecordingMediaBrowserRepository> _pumpCollectionPage(
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
         locale: locale,
-        home: const MediaBrowserCollectionDetailPage(
-          collectionId: 'collection-1',
-        ),
+        home: openFromLibrary
+            ? const _OpenCollectionButton()
+            : const MediaBrowserCollectionDetailPage(
+                collectionId: 'collection-1',
+              ),
       ),
     ),
   );
@@ -190,6 +209,32 @@ void main() {
       await tester.pumpAndSettle();
     });
   }
+
+  testWidgets('从媒体库进入合集后仍可打开合集影片详情', (tester) async {
+    final observer = _RecordingNavigatorObserver();
+    await _pumpCollectionPage(
+      tester,
+      config: MediaBrowserConfig.jellyfin,
+      items: [_movie()],
+      observer: observer,
+      openFromLibrary: true,
+    );
+
+    await tester.tap(find.text('打开合集'));
+    await tester.pumpAndSettle();
+    expect(find.text('示例合集'), findsWidgets);
+
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -360),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('合集电影'));
+    await tester.pumpAndSettle();
+
+    expect(observer.pushedRoutes, hasLength(3));
+    expect(find.byType(MediaBrowserMovieDetailPage), findsOneWidget);
+  });
 
   testWidgets('合集没有影片时显示中英文空状态', (tester) async {
     await _pumpCollectionPage(
