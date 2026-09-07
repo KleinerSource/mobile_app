@@ -124,7 +124,7 @@ class _PlaybackProgressSliderState extends State<PlaybackProgressSlider> {
   void _beginDrag(double value) {
     _dragMoved = false;
     _lastHapticBucket = (value / _hapticStepMs).floor();
-    if (widget.hapticProgressBar) PlayerHaptics.selection();
+    if (widget.hapticProgressBar) PlayerHaptics.light();
     setState(() => _dragValue = value);
   }
 
@@ -135,7 +135,7 @@ class _PlaybackProgressSliderState extends State<PlaybackProgressSlider> {
       _lastHapticBucket = bucket;
     } else if (widget.hapticProgressBar && bucket != _lastHapticBucket) {
       _lastHapticBucket = bucket;
-      PlayerHaptics.selection();
+      PlayerHaptics.light();
     }
     setState(() => _dragValue = value);
   }

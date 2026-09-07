@@ -553,7 +553,7 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
     _lastSliderHapticBucket = (value / _sliderHapticStepMs).floor();
     _sliderDragMoved = false;
     // 按下确认一次；松手不震，拖动由跨档刻度反馈。
-    if (widget.hapticProgressBar) PlayerHaptics.selection();
+    if (widget.hapticProgressBar) PlayerHaptics.light();
     setState(() {
       _dragValue = value;
     });
@@ -570,7 +570,7 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
       _sliderDragMoved = true;
     } else if (widget.hapticProgressBar && bucket != _lastSliderHapticBucket) {
       _lastSliderHapticBucket = bucket;
-      PlayerHaptics.selection();
+      PlayerHaptics.light();
     }
     final position = Duration(milliseconds: value.round());
     setState(() {
