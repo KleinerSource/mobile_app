@@ -446,10 +446,11 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       options.appendHeader(mediaHeaders)
     }
 
+    let avHeaderFieldsKey = "AVURLAssetHTTPHeaderFieldsKey"
     var avHeaders =
-      options.avOptions[AVURLAssetHTTPHeaderFieldsKey] as? [String: String] ?? [:]
+      options.avOptions[avHeaderFieldsKey] as? [String: String] ?? [:]
     avHeaders["User-Agent"] = effectiveUserAgent
-    options.avOptions[AVURLAssetHTTPHeaderFieldsKey] = avHeaders
+    options.avOptions[avHeaderFieldsKey] = avHeaders
   }
 
   /// 将播放器设置中的预加载字节档位映射为 KSPlayer 支持的时间缓冲。
