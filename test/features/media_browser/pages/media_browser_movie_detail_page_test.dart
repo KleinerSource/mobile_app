@@ -15,6 +15,7 @@ import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/movie_detail_scaffold.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _ServerConfigState extends ServerConfigNotifier {
@@ -435,6 +436,8 @@ void main() {
       'Id': 'movie-1',
       'Name': '电影详情',
       'Type': 'Movie',
+      'ImageTags': {'Primary': 'poster-tag'},
+      'BackdropImageTags': ['backdrop-tag'],
       'TagItems': [
         {'Name': 'HD', 'Id': 29421},
         {'Name': '中文字幕', 'Id': 753},
@@ -481,6 +484,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final hero = tester.widget<MovieDetailHero>(find.byType(MovieDetailHero));
+    expect(hero.imageUrl, contains('/Images/Backdrop'));
+    expect(hero.imageUrl, contains('tag=backdrop-tag'));
     expect(find.text('标签'), findsOneWidget);
     expect(find.text('HD'), findsOneWidget);
     expect(find.text('中文字幕'), findsOneWidget);

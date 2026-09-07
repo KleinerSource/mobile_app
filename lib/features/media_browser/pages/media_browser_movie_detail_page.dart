@@ -258,9 +258,7 @@ class _MediaBrowserDetailBodyState
     final item = widget.item;
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     _syncHeroArt(urls.value);
-    final posterUrl = item.primaryImageTag == null
-        ? null
-        : urls.value?.poster(item.id, tag: item.primaryImageTag);
+    final heroUrl = urls.value?.heroImage(item);
     final runtimeMinutes = item.runtimeMinutes;
     final videoParts = item.videoParts;
     final selectedVideoPart = _selectedVideoPart;
@@ -295,7 +293,7 @@ class _MediaBrowserDetailBodyState
       heroArts: _heroArts,
       heroPosition: _heroPosition,
       hero: MovieDetailHero(
-        imageUrl: posterUrl,
+        imageUrl: heroUrl,
         title: item.name,
         year: item.productionYear,
         imageAlignment: isStash ? Alignment.center : const Alignment(0, -0.6),
