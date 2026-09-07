@@ -132,7 +132,7 @@ void _main_1() {
       ..._minimalDecisionJson(),
       'strm_user_agent': 'omm/ios player/1.0',
     });
-    expect(resolved.strmHeaders, {'User-Agent': 'omm/ios player/1.0'});
+    expect(resolved.strmHeaders, isEmpty);
   });
 
   test('播放决策解析模式、音轨和字幕轨', () {
@@ -343,10 +343,7 @@ void _main_3() {
       'https://github.com/example/app/releases',
     );
 
-    expect(
-      repository.canonicalUrl,
-      'https://github.com/example/app',
-    );
+    expect(repository.canonicalUrl, 'https://github.com/example/app');
     expect(
       repository.releasesApiUrl,
       'https://api.github.com/repos/example/app/releases?per_page=100',

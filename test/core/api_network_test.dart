@@ -304,18 +304,14 @@ void _main_0() {
     );
   });
 
-  test('辅助解析传递播放器 UA，不使用 API 客户端 UA', () async {
+  test('辅助解析只传递统一 OMM UA，不使用 API 客户端或播放器 UA', () async {
     final adapter = _RouteAdapter();
     final dio = _dio(adapter);
     dio.options.headers['User-Agent'] = 'api-client';
-    await PlaybackApi(dio).decision(
-      7,
-      PlaybackClientCaps.mediaKit(
-        qualityPreset: 'original',
-        userAgent: 'omm/android player/1.0',
-      ),
-    );
-    expect(adapter.requestBodies.single['ua'], 'omm/android player/1.0');
+    await PlaybackApi(
+      dio,
+    ).decision(7, PlaybackClientCaps.mediaKit(qualityPreset: 'original'));
+    expect(adapter.requestBodies.single['ua'], 'omm/0.92.10');
     expect(adapter.requestBodies.single['resolve_private_strm'], isTrue);
   });
 

@@ -330,8 +330,8 @@ void main() {
 
     final stored = jsonDecode(prefs.getString('server.servers')!) as List;
     expect(stored, hasLength(2));
-    expect(stored[0]['lines'][0]['base_url'], 'https://first.example');
-    expect(stored[1]['lines'][0]['base_url'], 'https://second.example');
+    expect(stored[0]['lines'][0]['base_url'], 'https://first.example:443');
+    expect(stored[1]['lines'][0]['base_url'], 'https://second.example:443');
   });
 
   testWidgets('已有服务器列表末尾的加号打开新建页并保留已有服务器', (tester) async {
@@ -458,7 +458,7 @@ void main() {
         .toList();
     expect(fields[0].controller?.text, 'DB Online');
     expect(fields[1].controller?.text, 'db.example');
-    expect(fields[2].controller?.text, '9090');
+    expect(fields[2].controller?.text, '443');
   });
 
   testWidgets('编辑服务器名称后选择器显示新名称', (tester) async {

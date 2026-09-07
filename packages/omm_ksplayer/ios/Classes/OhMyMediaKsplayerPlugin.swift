@@ -399,9 +399,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     // HLS 与 AVPlayer 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其
     // MKV）需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
     options.isSecondOpen = isHls || !useFfmpegPlayer
-    if let headers = parameters.headers, !headers.isEmpty {
-      options.appendHeader(headers)
-    }
+    configureRequestHeaders(options, headers: parameters.headers)
     if useFfmpegPlayer, startSeconds > 0 {
       // KSMEPlayer 的 startPlayTime 快路径会在首帧显示后留下停住的音视频时钟；
       // 恢复早期已验证的 ready 后 seek 路径，由 KSPlayerLayer 统一启动播放。
@@ -414,6 +412,44 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     layer.set(url: parameters.url, options: options)
     layer.prepareToPlay()
     layerIsStopped = false
+  }
+
+  /// KSOptions 默认会把 `KSPlayer` 写入 FFmpeg 的 `user_agent` 选项。
+  ///
+  /// User-Agent 不能同时放进 FFmpeg 的 `user_agent` 和原始 `headers` 字符串，
+  /// 否则 KSMEPlayer 会把两个值都发出去。AVPlayer 则需要通过
+  /// `AVURLAssetHTTPHeaderFieldsKey` 接收同一个值，因此这里分别配置两个内核
+  /// 的入口，确保每次请求最终只有一个 User-Agent。
+  private func configureRequestHeaders(
+    _ options: KSOptions,
+    headers: [String: String]?
+  ) {
+    var mediaHeaders = [String: String]()
+    var appUserAgent: String?
+    for (key, value) in headers ?? [:] {
+      if key.caseInsensitiveCompare("User-Agent") == .orderedSame {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let suffix = trimmedValue.dropFirst(4)
+        if appUserAgent == nil,
+           trimmedValue.hasPrefix("omm/"),
+           suffix == "unknown" || suffix.first?.isNumber == true {
+          appUserAgent = trimmedValue
+        }
+      } else {
+        mediaHeaders[key] = value
+      }
+    }
+
+    let effectiveUserAgent = appUserAgent ?? "omm/unknown"
+    options.userAgent = effectiveUserAgent
+    if !mediaHeaders.isEmpty {
+      options.appendHeader(mediaHeaders)
+    }
+
+    var avHeaders =
+      options.avOptions[AVURLAssetHTTPHeaderFieldsKey] as? [String: String] ?? [:]
+    avHeaders["User-Agent"] = effectiveUserAgent
+    options.avOptions[AVURLAssetHTTPHeaderFieldsKey] = avHeaders
   }
 
   /// 将播放器设置中的预加载字节档位映射为 KSPlayer 支持的时间缓冲。

@@ -98,7 +98,7 @@ void main() {
       'User-Agent': 'omm/0.92.10',
     });
     expect(jsonDecode(items[1]['headers'] as String), {
-      'user-agent': 'custom-audio-player/1.0',
+      'User-Agent': 'omm/0.92.10',
       'Authorization': 'Bearer second',
     });
 

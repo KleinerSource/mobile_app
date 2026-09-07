@@ -79,9 +79,9 @@ void main() {
       try {
         await session.open(decision.directUrl, headers: decision.strmHeaders);
         expect(engine.lastOpenRequest?.url, decision.directUrl);
-        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/android'});
+        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/0.92.10'});
         await session.seek(const Duration(seconds: 42));
-        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/android'});
+        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/0.92.10'});
         await session.stop();
         await session.configure(hardwareAcceleration: false);
         await session.open(
@@ -91,7 +91,7 @@ void main() {
         );
         expect(engine.openCount, 2);
         expect(engine.lastOpenRequest?.url, decision.directUrl);
-        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/android'});
+        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/0.92.10'});
         expect(engine.lastOpenRequest?.startAt, const Duration(seconds: 42));
       } finally {
         await session.dispose();

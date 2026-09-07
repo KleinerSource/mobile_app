@@ -32,27 +32,20 @@ Future<String> _loadAppUserAgent() async {
   }
 }
 
-/// 为媒体请求头补齐默认 User-Agent。
+/// 为媒体请求头强制设置唯一的 OMM User-Agent。
 ///
-/// 直链或服务端返回的非空 User-Agent 具有更高优先级；其他鉴权头原样
-/// 保留。匹配 User-Agent 时忽略大小写，避免重复添加不同大小写的键。
+/// 媒体源可能携带平台、播放器或服务端下发的其他 UA；媒体请求统一忽略
+/// 这些值，只使用 [appUserAgent]。其他鉴权头原样保留，且大小写不同的
+/// User-Agent 键也会被清理，避免底层播放器再次发出多个 UA。
 Future<Map<String, String>> mergeMediaRequestHeaders(
   Map<String, String>? headers,
 ) async {
-  final merged = Map<String, String>.from(headers ?? const <String, String>{});
-  String? userAgentKey;
-  for (final entry in merged.entries) {
-    if (entry.key.toLowerCase() != 'user-agent') continue;
-    userAgentKey ??= entry.key;
-    if (entry.value.trim().isNotEmpty) return merged;
+  final merged = <String, String>{};
+  for (final entry in (headers ?? const <String, String>{}).entries) {
+    if (entry.key.toLowerCase() == 'user-agent') continue;
+    merged[entry.key] = entry.value;
   }
-
-  final userAgent = await appUserAgent();
-  if (userAgentKey == null) {
-    merged['User-Agent'] = userAgent;
-  } else {
-    merged[userAgentKey] = userAgent;
-  }
+  merged['User-Agent'] = await appUserAgent();
   return merged;
 }
 

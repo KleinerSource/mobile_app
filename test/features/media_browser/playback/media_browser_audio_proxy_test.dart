@@ -136,7 +136,7 @@ void main() {
     }
   });
 
-  test('显式音频 UA 透传，且不被默认 UA 覆盖', () async {
+  test('显式音频 UA 被统一替换且其他鉴权头保留', () async {
     final adapter = _RemoteAdapter((_) => Uint8List.fromList(_mp3Bytes));
     final proxy = await MediaBrowserAudioProxy.start(
       downloader: Dio()..httpClientAdapter = adapter,
@@ -156,8 +156,8 @@ void main() {
         options: Options(responseType: ResponseType.bytes),
       );
       expect(adapter.requestHeaders.single, {
-        'user-agent': 'custom-audio/1.0',
         'Authorization': 'Bearer token',
+        'User-Agent': 'omm/unknown',
         'Accept-Encoding': 'identity',
       });
     } finally {

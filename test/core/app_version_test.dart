@@ -51,7 +51,7 @@ void main() {
     });
   });
 
-  test('显式 UA 优先且大小写变体不会重复添加', () async {
+  test('所有显式 UA 都被统一替换且大小写变体不会重复添加', () async {
     _setPackageInfo(version: '0.92.10');
 
     expect(
@@ -59,11 +59,11 @@ void main() {
         'user-agent': 'custom-player/1.0',
         'Cookie': 'sid=session',
       }),
-      {'user-agent': 'custom-player/1.0', 'Cookie': 'sid=session'},
+      {'Cookie': 'sid=session', 'User-Agent': 'omm/0.92.10'},
     );
     expect(
       await mergeMediaRequestHeaders({'USER-AGENT': 'custom-player/2.0'}),
-      {'USER-AGENT': 'custom-player/2.0'},
+      {'User-Agent': 'omm/0.92.10'},
     );
   });
 

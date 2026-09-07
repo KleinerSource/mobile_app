@@ -42,7 +42,6 @@ class PlaybackClientCaps {
     this.maxHeight = 0,
     this.qualityPreset = 'auto',
     this.forceVideoTranscode = false,
-    this.userAgent,
     this.audioStreamIndex,
     this.subtitleTrackId,
   });
@@ -54,7 +53,6 @@ class PlaybackClientCaps {
   final int maxHeight;
   final String qualityPreset;
   final bool forceVideoTranscode;
-  final String? userAgent;
   final int? audioStreamIndex;
   final String? subtitleTrackId;
 
@@ -65,7 +63,6 @@ class PlaybackClientCaps {
   /// 具体画质限制仍通过 [qualityPreset] 交给后端决定。
   factory PlaybackClientCaps.mediaKit({
     required String qualityPreset,
-    String? userAgent,
     int? audioStreamIndex,
     String? subtitleTrackId,
     bool forceVideoTranscode = false,
@@ -84,7 +81,6 @@ class PlaybackClientCaps {
       audioCodecs: _mobileAudioCodecs,
       qualityPreset: qualityPreset,
       forceVideoTranscode: forceVideoTranscode,
-      userAgent: userAgent,
       audioStreamIndex: audioStreamIndex,
       subtitleTrackId: subtitleTrackId,
     );
@@ -93,7 +89,6 @@ class PlaybackClientCaps {
   /// KSPlayer 同时包含 AVPlayer 和 FFmpeg 内核，使用宽格式能力声明。
   factory PlaybackClientCaps.ksPlayer({
     required String qualityPreset,
-    String? userAgent,
     int? audioStreamIndex,
     String? subtitleTrackId,
     bool forceVideoTranscode = false,
@@ -112,7 +107,6 @@ class PlaybackClientCaps {
       audioCodecs: _mobileAudioCodecs,
       qualityPreset: qualityPreset,
       forceVideoTranscode: forceVideoTranscode,
-      userAgent: userAgent,
       audioStreamIndex: audioStreamIndex,
       subtitleTrackId: subtitleTrackId,
     );
@@ -120,11 +114,9 @@ class PlaybackClientCaps {
 
   factory PlaybackClientCaps.mobile({
     required String qualityPreset,
-    String? userAgent,
     bool forceVideoTranscode = false,
   }) => PlaybackClientCaps.mediaKit(
     qualityPreset: qualityPreset,
-    userAgent: userAgent,
     forceVideoTranscode: forceVideoTranscode,
   );
 
@@ -177,7 +169,6 @@ class PlaybackClientCaps {
     'max_height': maxHeight,
     'quality_preset': qualityPreset,
     if (forceVideoTranscode) 'force_video_transcode': true,
-    if (userAgent != null && userAgent!.isNotEmpty) 'ua': userAgent,
     if (audioStreamIndex != null) 'audio_stream_index': audioStreamIndex,
     if (subtitleTrackId != null && subtitleTrackId!.isNotEmpty)
       'subtitle_track_id': subtitleTrackId,
@@ -355,8 +346,9 @@ class PlaybackDecision {
 
   bool get isTranscode => mode == 'transcode';
 
-  Map<String, String> get strmHeaders =>
-      strmUserAgent.isEmpty ? const {} : {'User-Agent': strmUserAgent};
+  /// STRM 的 UA 仅作为直链路由信号保留，不允许把服务端下发的 UA
+  /// 直接送入媒体播放器；会话边界会统一注入 `omm/<版本>`。
+  Map<String, String> get strmHeaders => const {};
   bool get isDirect =>
       mode == 'direct_play' || mode == 'remux' || mode == 'direct_stream';
 

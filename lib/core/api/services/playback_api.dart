@@ -16,13 +16,12 @@ class PlaybackApi {
     int movieId,
     PlaybackClientCaps caps,
   ) async {
-    final userAgent = caps.userAgent?.trim();
     final response = await _dio.post<dynamic>(
       '/movies/id/$movieId/playback-decision',
       data: {
         ...caps.toJson(),
         'resolve_private_strm': true,
-        'ua': userAgent?.isNotEmpty == true ? userAgent : await appUserAgent(),
+        'ua': await appUserAgent(),
       },
     );
     return unwrapStd<PlaybackDecision>(
