@@ -28,6 +28,17 @@ String? homeServerSwitcherAvatarUrl({
   showUserAvatar: showUserAvatar,
 );
 
+/// 首页所有服务器切换入口共用的调度方法。
+///
+/// 右上角和底部导航只负责提供入口位置；切换、鉴权和转场统一由控制器处理。
+Future<void> switchHomeServer(
+  WidgetRef ref,
+  String serverId, {
+  Rect? avatarOrigin,
+}) => ref
+    .read(serverSwitchTransitionProvider.notifier)
+    .switchTo(serverId, avatarOrigin: avatarOrigin);
+
 /// 首页右上角的服务器切换入口，只显示服务器头像，不暴露线路地址。
 class HomeServerSwitcher extends ConsumerWidget {
   const HomeServerSwitcher({super.key});
@@ -110,9 +121,7 @@ class _HomeServerSwitcherMenuState
             renderObject.size.height,
           )
         : null;
-    await ref
-        .read(serverSwitchTransitionProvider.notifier)
-        .switchTo(serverId, avatarOrigin: avatarOrigin);
+    await switchHomeServer(ref, serverId, avatarOrigin: avatarOrigin);
   }
 
   @override
