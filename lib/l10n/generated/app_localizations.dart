@@ -3661,6 +3661,18 @@ abstract class AppL10n {
   /// **'歌曲'**
   String get mediaBrowserTypeSongs;
 
+  /// No description provided for @mediaBrowserTypeSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列'**
+  String get mediaBrowserTypeSeries;
+
+  /// No description provided for @mediaBrowserTypeCollections.
+  ///
+  /// In zh, this message translates to:
+  /// **'合集'**
+  String get mediaBrowserTypeCollections;
+
   /// No description provided for @mediaBrowserTypeTvShows.
   ///
   /// In zh, this message translates to:

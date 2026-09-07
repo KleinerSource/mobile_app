@@ -245,6 +245,65 @@ void main() {
     expect(repo.itemPageCalls, contains(('library-1', 'Movie')));
   });
 
+  testWidgets('从电视剧媒体库进入后默认显示系列', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('series-1', '剧集甲', type: 'Series')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      libraryViews: [_libraryView('tv-library', collectionType: 'tvshows')],
+    );
+    await _pumpLibrary(tester, repo, initialViewId: 'tv-library');
+
+    expect(repo.itemPageCalls, contains(('tv-library', 'Series')));
+    expect(
+      find.byKey(const ValueKey('media-browser-type-series')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('选择媒体库后可以切回全部媒体库', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '影片甲')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      libraryViews: [_libraryView('library-1'), _libraryView('library-2')],
+    );
+    await _pumpLibrary(tester, repo, initialViewId: 'library-1');
+
+    expect(repo.itemPageCalls, contains(('library-1', 'Movie')));
+    await tester.tap(find.byKey(const ValueKey('media-browser-all-libraries')));
+    await tester.pumpAndSettle();
+
+    expect(repo.itemPageCalls, contains((null, 'Movie')));
+  });
+
+  testWidgets('系列和合集可以通过独立分类加载', (tester) async {
+    final repo = _RecordingRepo(
+      page: MediaBrowserItemPage(
+        items: [_item('a', '影片甲')],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      ),
+      libraryViews: [_libraryView('library-1')],
+    );
+    await _pumpLibrary(tester, repo, initialViewId: 'library-1');
+
+    await tester.tap(find.byKey(const ValueKey('media-browser-type-series')));
+    await tester.pumpAndSettle();
+    expect(repo.itemPageCalls, contains(('library-1', 'Series')));
+
+    await tester.tap(find.byKey(const ValueKey('media-browser-type-boxset')));
+    await tester.pumpAndSettle();
+    expect(repo.itemPageCalls, contains(('library-1', 'BoxSet')));
+  });
+
   testWidgets('Jellyfin 视频媒体库只请求影片，不包含合集和剧集', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(

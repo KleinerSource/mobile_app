@@ -79,6 +79,8 @@ class _MediaBrowserLibraryPageState
   static final _videoTypeOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: 'Movie', label: (l) => l.mediaBrowserTypeMovies),
+        (value: 'Series', label: (l) => l.mediaBrowserTypeSeries),
+        (value: 'BoxSet', label: (l) => l.mediaBrowserTypeCollections),
       ];
   static final _musicTypeOptions =
       <({String value, String Function(AppL10n l) label})>[
@@ -130,6 +132,14 @@ class _MediaBrowserLibraryPageState
 
   static bool _isMusicCollectionType(String? collectionType) =>
       (collectionType ?? '').trim().toLowerCase() == 'music';
+
+  static String _defaultTypeFor(String? collectionType) =>
+      switch (collectionType?.trim().toLowerCase() ?? '') {
+        'tvshows' => 'Series',
+        'boxsets' => 'BoxSet',
+        'music' => 'MusicAlbum',
+        _ => 'Movie',
+      };
 
   bool get _isMusicGrid => _isMusicCollectionType(_collectionType);
 
@@ -278,19 +288,22 @@ class _MediaBrowserLibraryPageState
 
   void _reloadWith({
     String? parentId,
+    bool clearParent = false,
+    String? includeItemTypes,
     List<String>? genres,
     List<String>? tags,
     List<String>? years,
     String? sortBy,
     String? sortOrder,
   }) {
-    final nextParent = parentId ?? _parentId;
+    final nextParent = clearParent ? null : parentId ?? _parentId;
     final parentChanged = nextParent != _parentId;
     final nextCollectionType = _collectionTypeOf(nextParent);
-    final nextTypeOptions = _typeOptionsFor(nextCollectionType);
-    final nextTypes = _collectionTypeOf(_parentId) == nextCollectionType
-        ? _includeItemTypes
-        : nextTypeOptions.first.value;
+    final nextTypes =
+        includeItemTypes ??
+        (_collectionTypeOf(_parentId) == nextCollectionType
+            ? _includeItemTypes
+            : _defaultTypeFor(nextCollectionType));
     final nextTags = _normalizeFilterValues(
       tags ?? (parentChanged ? const [] : _tagFilter),
     );
@@ -388,13 +401,16 @@ class _MediaBrowserLibraryPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || next != _collectionTypeOf(_parentId)) return;
       final options = _typeOptionsFor(next);
-      final typesChanged = !options.any(
-        (option) => option.value == _includeItemTypes,
-      );
+      final useCollectionDefault = _collectionType == null && _parentId != null;
+      final typesChanged =
+          !options.any((option) => option.value == _includeItemTypes) ||
+          (useCollectionDefault &&
+              _includeItemTypes == 'Movie' &&
+              _defaultTypeFor(next) != _includeItemTypes);
       setState(() {
         _collectionType = next;
         if (typesChanged) {
-          _includeItemTypes = options.first.value;
+          _includeItemTypes = _defaultTypeFor(next);
         }
       });
       if (!typesChanged) return;
@@ -729,29 +745,91 @@ class _MediaBrowserLibraryPageState
                       ),
                       views.maybeWhen(
                         data: (list) =>
-                            _isPersonMode || _isTagMode || list.length <= 1
+                            _isPersonMode ||
+                                _isTagMode ||
+                                isStash ||
+                                isFeiniu ||
+                                list.isEmpty
                             ? const SizedBox.shrink()
                             : SizedBox(
-                                height: 38,
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: list.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(width: 8),
-                                  itemBuilder: (context, index) {
-                                    final view = list[index];
-                                    final selected = view.id == _parentId;
-                                    return _ViewChip(
-                                      privacyId: view.id,
-                                      label: view.name,
-                                      selected: selected,
-                                      onTap: () =>
-                                          _reloadWith(parentId: view.id),
-                                    );
-                                  },
+                                height: 84,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      height: 38,
+                                      child: ListView.separated(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 22,
+                                        ),
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: list.length + 1,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(width: 8),
+                                        itemBuilder: (context, index) {
+                                          if (index == 0) {
+                                            return _ViewChip(
+                                              key: const ValueKey(
+                                                'media-browser-all-libraries',
+                                              ),
+                                              privacyId: null,
+                                              label: AppL10n.of(
+                                                context,
+                                              ).filterAll,
+                                              selected: _parentId == null,
+                                              onTap: () => _reloadWith(
+                                                clearParent: true,
+                                              ),
+                                            );
+                                          }
+                                          final view = list[index - 1];
+                                          final selected = view.id == _parentId;
+                                          return _ViewChip(
+                                            privacyId: view.id,
+                                            label: view.name,
+                                            selected: selected,
+                                            onTap: () =>
+                                                _reloadWith(parentId: view.id),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      height: 38,
+                                      child: ListView.separated(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 22,
+                                        ),
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: _typeOptionsFor(
+                                          _collectionTypeOf(_parentId),
+                                        ).length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(width: 8),
+                                        itemBuilder: (context, index) {
+                                          final option = _typeOptionsFor(
+                                            _collectionTypeOf(_parentId),
+                                          )[index];
+                                          return _ViewChip(
+                                            key: ValueKey(
+                                              'media-browser-type-${option.value.toLowerCase()}',
+                                            ),
+                                            privacyId: null,
+                                            label: option.label(
+                                              AppL10n.of(context),
+                                            ),
+                                            selected:
+                                                option.value ==
+                                                _includeItemTypes,
+                                            onTap: () => _reloadWith(
+                                              includeItemTypes: option.value,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                         orElse: () => const SizedBox.shrink(),
@@ -1012,6 +1090,7 @@ class _MediaBrowserLibraryPageState
 
 class _ViewChip extends StatelessWidget {
   const _ViewChip({
+    super.key,
     required this.privacyId,
     required this.label,
     required this.selected,
@@ -1019,7 +1098,7 @@ class _ViewChip extends StatelessWidget {
   });
 
   /// 库 id · 隐私模式下库名按 PrivacyScope.library 域遮罩/揭开
-  final String privacyId;
+  final String? privacyId;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -1043,18 +1122,29 @@ class _ViewChip extends StatelessWidget {
                 : colors.cardBorder,
           ),
         ),
-        child: PrivacyText(
-          movieId: privacyId,
-          scope: PrivacyScope.library,
-          text: label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? colors.accent : colors.muted,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        child: privacyId == null
+            ? Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? colors.accent : colors.muted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : PrivacyText(
+                movieId: privacyId!,
+                scope: PrivacyScope.library,
+                text: label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? colors.accent : colors.muted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
     );
   }

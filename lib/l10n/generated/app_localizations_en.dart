@@ -1935,6 +1935,12 @@ class AppL10nEn extends AppL10n {
   String get mediaBrowserTypeSongs => 'Songs';
 
   @override
+  String get mediaBrowserTypeSeries => 'Series';
+
+  @override
+  String get mediaBrowserTypeCollections => 'Collections';
+
+  @override
   String get mediaBrowserTypeTvShows => 'TV shows';
 
   @override

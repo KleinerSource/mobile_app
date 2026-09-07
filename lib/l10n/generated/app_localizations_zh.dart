@@ -1901,6 +1901,12 @@ class AppL10nZh extends AppL10n {
   String get mediaBrowserTypeSongs => '歌曲';
 
   @override
+  String get mediaBrowserTypeSeries => '系列';
+
+  @override
+  String get mediaBrowserTypeCollections => '合集';
+
+  @override
   String get mediaBrowserTypeTvShows => '电视剧';
 
   @override
