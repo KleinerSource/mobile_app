@@ -9,7 +9,7 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = serverDisplayName(server, profile);
+    final name = _displayNameFor(server, profile);
     return Column(
       key: const ValueKey('server-switch-checking'),
       children: [
@@ -41,7 +41,7 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = serverDisplayName(server, profile);
+    final name = _displayNameFor(server, profile);
     final error =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
@@ -164,7 +164,7 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = serverDisplayName(server, profile);
+    final name = _displayNameFor(server, profile);
     final error =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
@@ -186,6 +186,16 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
             context,
           ).copyWith(color: colors.muted, fontSize: 15),
         ),
+        const SizedBox(height: 24),
+        _input(
+          context,
+          controller: _apiKeyController,
+          label: l.serverSetupStashApiKeyLabel,
+          obscureText: true,
+          icon: Icons.key_outlined,
+          enabled: !_loginBusy,
+          onSubmitted: (_) => _submitApiKey(),
+        ),
         if (error != null && error.isNotEmpty) ...[
           const SizedBox(height: 12),
           Align(alignment: Alignment.centerLeft, child: ShakeErrorText(error)),
@@ -194,9 +204,17 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: _loginBusy ? null : () => _openServerSettings(server.id),
-            icon: const Icon(Icons.settings_outlined),
-            label: Text(l.homeSwitchOpenServerSettings),
+            onPressed: _loginBusy ? null : _submitApiKey,
+            icon: _loginBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.verified_user_outlined),
+            label: Text(
+              _loginBusy ? l.homeSwitchVerifying : l.homeSwitchVerifyAndSwitch,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -230,7 +248,7 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
   ) {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
-    final name = serverDisplayName(server, profile);
+    final name = _displayNameFor(server, profile);
     final message = _resolveStateMessage(l, transition);
     return Column(
       key: const ValueKey('server-switch-error'),
@@ -343,6 +361,25 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
     }
   }
 
+  Future<void> _submitApiKey() async {
+    final apiKey = _apiKeyController.text.trim();
+    if (apiKey.isEmpty) {
+      _updateViewState(
+        () => _localError = AppL10n.of(context).serverSetupStashApiKeyRequired,
+      );
+      return;
+    }
+    _updateViewState(() {
+      _loginBusy = true;
+      _localError = null;
+    });
+    try {
+      await ref.read(serverSwitchTransitionProvider.notifier).setApiKey(apiKey);
+    } finally {
+      if (mounted) _updateViewState(() => _loginBusy = false);
+    }
+  }
+
   void _backToPassword() {
     _updateViewState(() {
       _totpRequired = false;
@@ -368,16 +405,6 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
       _totpController.clear();
     });
     await ref.read(serverSwitchTransitionProvider.notifier).cancel();
-  }
-
-  Future<void> _openServerSettings(String serverId) async {
-    if (_loginBusy) return;
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => ServerSetupPage(serverId: serverId)),
-    );
-    if (!mounted || changed != true) return;
-    _localError = null;
-    await ref.read(serverSwitchTransitionProvider.notifier).retry();
   }
 
   Widget _input(

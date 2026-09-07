@@ -18,7 +18,6 @@ import '../../core/sources/files/openlist_api.dart';
 import '../../core/sources/files/openlist_file_source.dart';
 import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
-import 'package:omm/core/sources/media/stash/stash_api.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
@@ -105,7 +104,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
 
   Future<void> _loadStoredStashApiKey(String serverId) async {
     try {
-      final key = await ref.read(stashApiKeyRepositoryProvider).read(serverId);
+      final key = await ref
+          .read(serverCredentialsRepositoryProvider)
+          .readApiKey(serverId);
       if (mounted && key != null) {
         setState(() => _hasStoredStashApiKey = true);
       }
@@ -195,11 +196,21 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         project == ServerProject.feiniu;
     final passwordAuth =
         project == ServerProject.ohMyMedia || project == ServerProject.dbOnline;
-    final username = _userController.text.trim();
-    final password = _passwordController.text;
+    final inputUsername = _userController.text.trim();
+    final inputPassword = _passwordController.text;
+    final storedCredentials = editingServer == null
+        ? null
+        : await ref
+              .read(serverCredentialsRepositoryProvider)
+              .read(editingServer.id);
+    final username = inputUsername.isNotEmpty
+        ? inputUsername
+        : storedCredentials?.username ?? '';
+    final password = inputPassword.isNotEmpty
+        ? inputPassword
+        : storedCredentials?.password ?? '';
     final totpSecretRaw = passwordAuth ? _totpSecretController.text.trim() : '';
-    final wantsLogin =
-        password.isNotEmpty || (needsUsername && username.isNotEmpty);
+    final wantsLogin = inputPassword.isNotEmpty || inputUsername.isNotEmpty;
     if (wantsLogin && needsUsername && username.isEmpty) {
       _showError(l.serverSetupLoginUsernameRequired);
       return;
@@ -302,9 +313,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final inputKey = _stashApiKeyController.text.trim();
     final serverId =
         editingServer?.id ?? 'server-${DateTime.now().microsecondsSinceEpoch}';
+    final credentialsRepository = ref.read(serverCredentialsRepositoryProvider);
     final storedKey = editingServer == null || _clearStashApiKey
         ? null
-        : await ref.read(stashApiKeyRepositoryProvider).read(serverId);
+        : await credentialsRepository.readApiKey(serverId);
     final key = inputKey.isNotEmpty ? inputKey : storedKey;
     if (key == null && !(_clearStashApiKey && editingServer != null)) {
       _showError(l.serverSetupStashApiKeyRequired);
@@ -335,9 +347,6 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           probe.message.isEmpty ? l.serverLineProbeFailed : probe.message,
         );
       }
-      if (key != null) {
-        await StashApi.forEndpoint(normalized, apiKey: key).validateApiKey();
-      }
       final server = editingServer == null
           ? ServerProfile(
               id: serverId,
@@ -353,14 +362,16 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
               projectName: ServerProject.stash.projectName,
               serverVersion: null,
             );
+      if (key != null) {
+        await ref
+            .read(authControllerProvider.notifier)
+            .loginForServer(server: server, password: '', apiKey: key);
+      }
       await ref
           .read(serverConfigProvider.notifier)
           .saveServer(server, validatedProbe: probe);
-      final credentials = ref.read(stashApiKeyRepositoryProvider);
-      if (inputKey.isNotEmpty) {
-        await credentials.save(server.id, inputKey);
-      } else if (_clearStashApiKey) {
-        await credentials.delete(server.id);
+      if (inputKey.isEmpty && _clearStashApiKey) {
+        await credentialsRepository.deleteApiKey(server.id);
       }
       AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);

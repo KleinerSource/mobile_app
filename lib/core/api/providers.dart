@@ -13,8 +13,8 @@ final apiClientProvider = Provider<ApiClient?>((ref) {
     cfg,
     sessionRepository: ref.read(authSessionRepositoryProvider),
     stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
-    onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
-    onStashApiKeyInvalid: () => ref.read(authExpiryProvider.notifier).state++,
+    onSessionExpired: () => markAuthExpired(ref, cfg.activeServerId),
+    onStashApiKeyInvalid: () => markAuthExpired(ref, cfg.activeServerId),
   );
 });
 

@@ -760,22 +760,13 @@ class _ServerAvatarCard extends StatelessWidget {
         final profile = snapshot.data;
         // OMM 使用用户配置名称；Emby、Jellyfin、飞牛可按设置显示服务端身份。
         // 线路名称不参与卡片标题。
-        final supportsRemoteName =
-            server.project == ServerProject.emby ||
-            server.project == ServerProject.jellyfin ||
-            server.project == ServerProject.feiniu;
-        final isMediaBrowserIdentity =
-            server.project == ServerProject.emby ||
-            server.project == ServerProject.jellyfin ||
-            server.project == ServerProject.feiniu;
         final supportsUserAvatar =
             server.project == ServerProject.emby ||
             server.project == ServerProject.jellyfin;
-        final displayName = serverDisplayName(
+        final displayName = serverSelectionDisplayName(
           server,
           profile,
-          useRemoteName:
-              supportsRemoteName && (!isMediaBrowserIdentity || showUsername),
+          showUsername: showUsername,
         );
         final configuredAvatarUrl = server.project == ServerProject.ohMyMedia
             ? null

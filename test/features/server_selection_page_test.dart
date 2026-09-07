@@ -1409,6 +1409,7 @@ class _LoginAuthController extends AuthController {
     String? username,
     required String password,
     String? totpCode,
+    String? apiKey,
   }) async {
     loginCalls.add(password);
     return true;

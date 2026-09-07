@@ -10,6 +10,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
+import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_profile_runtime_loader.dart';
@@ -24,7 +25,6 @@ import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/settings/server_selection_display_settings.dart';
-import 'package:omm/features/settings/server_setup_page.dart';
 import 'home_providers.dart';
 
 part 'server_switch_controller.dart';
@@ -48,6 +48,7 @@ class _ServerSwitchTransitionOverlayState
 
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _apiKeyController = TextEditingController();
   final _totpController = TextEditingController();
   final _authScrollController = ScrollController();
   late final AnimationController _entryController;
@@ -61,6 +62,7 @@ class _ServerSwitchTransitionOverlayState
   bool _totpRequired = false;
   String? _localError;
   bool _authScrollResetScheduled = false;
+  bool _transitionWasActive = false;
 
   static const _avatarFlightDuration = Duration(milliseconds: 460);
   static const _avatarHandoffDuration = Duration(milliseconds: 240);
@@ -90,6 +92,7 @@ class _ServerSwitchTransitionOverlayState
     _finishController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _apiKeyController.dispose();
     _totpController.dispose();
     _authScrollController.dispose();
     super.dispose();
@@ -98,12 +101,25 @@ class _ServerSwitchTransitionOverlayState
   @override
   Widget build(BuildContext context) {
     final transition = ref.watch(serverSwitchTransitionProvider);
-    if (!transition.isActive) return const SizedBox.shrink();
+    if (!transition.isActive) {
+      _transitionWasActive = false;
+      return const SizedBox.shrink();
+    }
+    if (!_transitionWasActive) {
+      _transitionWasActive = true;
+      _usernameController.clear();
+      _passwordController.clear();
+      _apiKeyController.clear();
+      _totpController.clear();
+      _localError = null;
+      _totpRequired = false;
+    }
 
     final colors = appColors(context);
     // 从选择器重新进入服务器时，旧服务器运行态可能已经释放；目标信息
     // 仍应从本地持久化配置读取，不能在这段过渡期把页面渲染成“配置无效”。
     final config = ref.watch(serverSelectionConfigProvider);
+    ref.watch(serverSelectionShowUsernameProvider);
     final target = _targetServer(config, transition.targetServerId);
     if (target == null) {
       final l = AppL10n.of(context);
@@ -175,6 +191,7 @@ class _ServerSwitchTransitionOverlayState
     if (targetServerId == null || _entryServerId == targetServerId) return;
 
     _entryServerId = targetServerId;
+    _apiKeyController.clear();
     _entryOrigin = transition.avatarOrigin;
     _entryController.stop();
     _handoffController.stop();
@@ -582,7 +599,7 @@ class _ServerSwitchTransitionOverlayState
     required double opacity,
   }) {
     final profile = _cachedProfileFor(server);
-    final name = serverDisplayName(server, profile);
+    final name = _displayNameFor(server, profile);
     final rect = Rect.lerp(origin, destination, progress)!;
     return Positioned.fromRect(
       rect: rect,
@@ -614,7 +631,7 @@ class _ServerSwitchTransitionOverlayState
     bool busy = false,
   }) {
     final profile = _cachedProfileFor(server);
-    final name = serverDisplayName(server, profile);
+    final name = _displayNameFor(server, profile);
     return ServerAvatar(
       displayName: name,
       avatarUrl: serverSwitchTransitionAvatarUrl(
@@ -702,6 +719,13 @@ class _ServerSwitchTransitionOverlayState
     }
     return null;
   }
+
+  String _displayNameFor(ServerProfile server, ServerProfileData? profile) =>
+      serverSelectionDisplayName(
+        server,
+        profile,
+        showUsername: ref.read(serverSelectionShowUsernameProvider),
+      );
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
     if (server.project == ServerProject.ohMyMedia) return null;

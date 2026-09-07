@@ -16,6 +16,7 @@ import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/auth/server_credentials_repository.dart';
 import 'package:omm/core/auth/totp_code.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -173,6 +174,42 @@ class _AuthAdapter implements HttpClientAdapter {
 
 // ==================== 原 test/core/auth_session_repository_test.dart ====================
 void _main_1() {
+  test('统一服务器凭据按服务器 ID 隔离并迁移旧 Stash API Key', () async {
+    final store = _MemoryTokenStore();
+    final repository = ServerCredentialsRepository(store: store);
+
+    await repository.save(
+      'server-a',
+      const ServerCredentials(
+        username: 'alice',
+        password: 'password-a',
+        apiKey: 'api-a',
+      ),
+    );
+    await repository.save(
+      'server-b',
+      const ServerCredentials(
+        username: 'bob',
+        password: 'password-b',
+        apiKey: 'api-b',
+      ),
+    );
+
+    expect((await repository.read('server-a'))?.username, 'alice');
+    expect((await repository.read('server-a'))?.password, 'password-a');
+    expect((await repository.read('server-a'))?.apiKey, 'api-a');
+    expect((await repository.read('server-b'))?.username, 'bob');
+    expect(await repository.read('missing'), isNull);
+
+    store.values['omm.stash.server.bGVnYWN5.api_key'] = 'legacy-api';
+    expect(await repository.readApiKey('legacy'), 'legacy-api');
+    expect(store.values['omm.stash.server.bGVnYWN5.api_key'], isNull);
+
+    await repository.delete('server-a');
+    expect(await repository.read('server-a'), isNull);
+    expect((await repository.read('server-b'))?.apiKey, 'api-b');
+  });
+
   test('会话只在保存时写入 token，clear 会清理所有字段', () async {
     final store = _MemoryTokenStore();
     final repository = AuthSessionRepository(store: store);
@@ -430,7 +467,8 @@ void _main_2() {
     final httpServer = await _startOmmServer(recorder);
     addTearDown(() => httpServer.close(force: true));
     final sessions = AuthSessionRepository(store: _MemoryTokenStore());
-    final container = await _authContainer(sessions);
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions, credentials: credentials);
     addTearDown(container.dispose);
 
     final server = _ommProfile(httpServer);
@@ -457,7 +495,8 @@ void _main_2() {
     final stored = await sessions.forServer(server.id).load();
     expect(stored?.accessToken, 'access-token');
     expect(stored?.refreshToken, 'refresh-token');
-    // 密钥持久化由设置页在保存成功后决定，loginForServer 不代劳。
+    expect((await credentials.read(server.id))?.password, 'pw');
+    // TOTP 密钥仍由设置页在服务器保存成功后决定，loginForServer 不代劳。
     expect(await sessions.forServer(server.id).readTotpSecret(), isNull);
   });
 
@@ -466,7 +505,8 @@ void _main_2() {
     final httpServer = await _startOmmServer(recorder, authEnabled: false);
     addTearDown(() => httpServer.close(force: true));
     final sessions = AuthSessionRepository(store: _MemoryTokenStore());
-    final container = await _authContainer(sessions);
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions, credentials: credentials);
     addTearDown(container.dispose);
 
     final server = _ommProfile(httpServer);
@@ -512,7 +552,8 @@ void _main_2() {
       expect(body, isNotNull);
     });
     final sessions = AuthSessionRepository(store: _MemoryTokenStore());
-    final container = await _authContainer(sessions);
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions, credentials: credentials);
     addTearDown(container.dispose);
 
     final line = ServerLine(
@@ -535,6 +576,154 @@ void _main_2() {
     final stored = await sessions.forServer(server.id).load();
     expect(stored?.accessToken, 'tok-1');
     expect(stored?.userId, 'u-1');
+    final savedCredentials = await credentials.read(server.id);
+    expect(savedCredentials?.username, 'alice');
+    expect(savedCredentials?.password, 'pw');
+  });
+
+  test('Emby Session 失效后使用已保存用户名密码自动恢复', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => httpServer.close(force: true));
+    httpServer.listen((request) async {
+      final body = await _capture(recorder, request);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'AccessToken': 'restored-token',
+          'User': {'Id': 'restored-user', 'Name': 'alice'},
+        }),
+      );
+      await request.response.close();
+      expect(body?['Username'], 'alice');
+      expect(body?['Pw'], 'saved-password');
+    });
+    final line = ServerLine(
+      id: 'emby-line',
+      name: '主线路',
+      baseUrl: 'http://${httpServer.address.address}:${httpServer.port}',
+    );
+    final server = ServerProfile(
+      id: 'emby-server',
+      name: 'Emby',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'emby',
+    );
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    await credentials.save(
+      server.id,
+      const ServerCredentials(username: 'alice', password: 'saved-password'),
+    );
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      credentials: credentials,
+      serverSelectionReady: true,
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      authControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.needsLogin,
+    );
+    _emitAuthExpiry(container, server.id);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.authenticated,
+    );
+    expect(
+      (await sessions.forServer(server.id).load())?.userId,
+      'restored-user',
+    );
+  });
+
+  test('飞牛 Session 失效后使用已保存用户名密码自动恢复', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => httpServer.close(force: true));
+    httpServer.listen((request) async {
+      await _capture(recorder, request);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path.endsWith('/login')) {
+        request.response.headers.add('set-cookie', 'sid=restored-session');
+      }
+      request.response.write(
+        jsonEncode({
+          'code': 0,
+          'data': request.uri.path.endsWith('/login')
+              ? {'token': 'restored-token'}
+              : {'id': 'restored-user', 'name': 'alice'},
+        }),
+      );
+      await request.response.close();
+    });
+    final line = ServerLine(
+      id: 'feiniu-line',
+      name: '主线路',
+      baseUrl: 'http://${httpServer.address.address}:${httpServer.port}',
+    );
+    final server = ServerProfile(
+      id: 'feiniu-server',
+      name: '飞牛影视',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'feiniu',
+    );
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    await credentials.save(
+      server.id,
+      const ServerCredentials(username: 'alice', password: 'saved-password'),
+    );
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      credentials: credentials,
+      serverSelectionReady: true,
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      authControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.needsLogin,
+    );
+    _emitAuthExpiry(container, server.id);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.authenticated,
+    );
+    final restored = await sessions.forServer(server.id).load();
+    expect(restored?.accessToken, 'restored-token');
+    expect(restored?.userId, 'restored-user');
+    expect(restored?.cookie, 'sid=restored-session');
   });
 
   test('login 对已存 TOTP 密钥的服务器自动附加验证码', () async {
@@ -542,6 +731,7 @@ void _main_2() {
     final httpServer = await _startOmmServer(recorder);
     addTearDown(() => httpServer.close(force: true));
     final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
 
     final line = ServerLine(
       id: 'omm-line',
@@ -565,6 +755,7 @@ void _main_2() {
       sessions,
       config: config,
       client: client,
+      credentials: credentials,
     );
     addTearDown(container.dispose);
     await sessions
@@ -593,6 +784,226 @@ void _main_2() {
       container.read(authControllerProvider).value?.phase,
       AuthPhase.authenticated,
     );
+    expect((await credentials.read(server.id))?.password, 'pw');
+  });
+
+  test('密码登录失败时不保存长期凭据', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder, loginSucceeds: false);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final server = _ommProfile(httpServer);
+    final line = server.activeLine!;
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final client = ApiClient.fromConfig(config, sessionRepository: sessions);
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      client: client,
+      credentials: credentials,
+    );
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(authControllerProvider.notifier).login(password: 'wrong'),
+      throwsA(isA<ApiException>()),
+    );
+    expect(await credentials.read(server.id), isNull);
+  });
+
+  test('Session 失效后使用已保存密码自动恢复且不改写长期凭据', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final server = _ommProfile(httpServer);
+    final line = server.activeLine!;
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    await credentials.save(
+      server.id,
+      const ServerCredentials(username: 'ignored', password: 'saved-password'),
+    );
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      credentials: credentials,
+      serverSelectionReady: true,
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      authControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.needsLogin,
+    );
+    _emitAuthExpiry(container, server.id);
+
+    final restored = await container.read(authControllerProvider.future);
+    expect(restored.phase, AuthPhase.authenticated);
+    final login = recorder.log
+        .where((entry) => entry.path.endsWith('/auth/login'))
+        .single;
+    expect(login.body?['password'], 'saved-password');
+    expect((await credentials.read(server.id))?.password, 'saved-password');
+  });
+
+  test('DB Online Session 失效后使用已保存密码自动恢复并校验令牌', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final server = _ommProfile(
+      httpServer,
+    ).copyWith(id: 'dbo-server', name: 'DB Online', projectName: 'db_online');
+    final line = server.activeLine!;
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    await credentials.save(
+      server.id,
+      const ServerCredentials(password: 'saved-password'),
+    );
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      credentials: credentials,
+      serverSelectionReady: true,
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      authControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    await container.read(authControllerProvider.future);
+    _emitAuthExpiry(container, server.id);
+
+    expect(
+      (await container.read(authControllerProvider.future)).phase,
+      AuthPhase.authenticated,
+    );
+    expect(
+      recorder.log.map((entry) => entry.path),
+      contains('/api/auth/verify'),
+    );
+  });
+
+  test('Session 失效后自动恢复失败会要求重新输入且保留旧凭据', () async {
+    final recorder = _RequestRecorder();
+    final httpServer = await _startOmmServer(recorder, loginSucceeds: false);
+    addTearDown(() => httpServer.close(force: true));
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final server = _ommProfile(httpServer);
+    final line = server.activeLine!;
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    await credentials.save(
+      server.id,
+      const ServerCredentials(username: 'alice', password: 'old-password'),
+    );
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      credentials: credentials,
+      serverSelectionReady: true,
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      authControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    await container.read(authControllerProvider.future);
+    _emitAuthExpiry(container, server.id);
+
+    final failed = await container.read(authControllerProvider.future);
+    expect(failed.phase, AuthPhase.needsLogin);
+    expect(failed.requiresCredentialInput, isTrue);
+    expect((await credentials.read(server.id))?.password, 'old-password');
+  });
+
+  test('Stash API Key 登录成功保存到统一服务器凭据', () async {
+    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => httpServer.close(force: true));
+    httpServer.listen((request) async {
+      await utf8.decoder.bind(request).join();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'data': {
+            'findScenes': {'count': 0, 'scenes': []},
+          },
+        }),
+      );
+      await request.response.close();
+    });
+
+    final line = ServerLine(
+      id: 'stash-line',
+      name: 'Stash',
+      baseUrl: 'http://${httpServer.address.address}:${httpServer.port}',
+    );
+    final server = ServerProfile(
+      id: 'stash-server',
+      name: 'Stash',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'stash',
+    );
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final credentials = ServerCredentialsRepository(store: _MemoryTokenStore());
+    final client = ApiClient.fromConfig(config, sessionRepository: sessions);
+    final container = await _authContainer(
+      sessions,
+      config: config,
+      client: client,
+      credentials: credentials,
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      await container
+          .read(authControllerProvider.notifier)
+          .setStashApiKey('stash-api'),
+      isTrue,
+    );
+    expect(await credentials.readApiKey(server.id), 'stash-api');
   });
 }
 
@@ -629,12 +1040,15 @@ Future<Map<String, dynamic>?> _capture(
 Future<HttpServer> _startOmmServer(
   _RequestRecorder recorder, {
   bool authEnabled = true,
+  bool loginSucceeds = true,
 }) async {
   final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   httpServer.listen((request) async {
     await _capture(recorder, request);
     request.response.headers.contentType = ContentType.json;
-    if (request.uri.path.endsWith('/auth/login') && authEnabled) {
+    if (request.uri.path.endsWith('/auth/login') &&
+        authEnabled &&
+        loginSucceeds) {
       request.response.write(
         jsonEncode({
           'success': true,
@@ -644,6 +1058,11 @@ Future<HttpServer> _startOmmServer(
             'expires_in': 3600,
           },
         }),
+      );
+    } else if (request.uri.path.endsWith('/auth/login') && authEnabled) {
+      request.response.statusCode = HttpStatus.unauthorized;
+      request.response.write(
+        jsonEncode({'success': false, 'message': '用户名或密码错误'}),
       );
     } else if (request.uri.path.endsWith('/auth/status')) {
       request.response.write(
@@ -660,6 +1079,13 @@ Future<HttpServer> _startOmmServer(
             'totp_configured': false,
             'webauthn_configured': false,
           },
+        }),
+      );
+    } else if (request.uri.path.endsWith('/auth/verify')) {
+      request.response.write(
+        jsonEncode({
+          'success': true,
+          'data': {'valid': true},
         }),
       );
     } else {
@@ -701,6 +1127,8 @@ Future<ProviderContainer> _authContainer(
   AuthSessionRepository sessions, {
   ServerConfig? config,
   ApiClient? client,
+  ServerCredentialsRepository? credentials,
+  bool? serverSelectionReady,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -708,6 +1136,13 @@ Future<ProviderContainer> _authContainer(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
       authSessionRepositoryProvider.overrideWithValue(sessions),
+      serverCredentialsRepositoryProvider.overrideWithValue(
+        credentials ?? ServerCredentialsRepository(store: _MemoryTokenStore()),
+      ),
+      if (serverSelectionReady != null)
+        serverSelectionReadyProvider.overrideWith(
+          (ref) => serverSelectionReady,
+        ),
       if (config != null)
         serverConfigProvider.overrideWith(
           () => _FixedServerConfigNotifier(config),
@@ -715,6 +1150,15 @@ Future<ProviderContainer> _authContainer(
       if (client != null) requiredApiClientProvider.overrideWithValue(client),
     ],
   );
+}
+
+void _emitAuthExpiry(ProviderContainer container, String serverId) {
+  const id = 1;
+  container.read(authExpiryEventProvider.notifier).state = AuthExpiryEvent(
+    id: id,
+    serverId: serverId,
+  );
+  container.read(authExpiryProvider.notifier).state = id;
 }
 
 void main() {

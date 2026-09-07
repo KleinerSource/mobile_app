@@ -60,7 +60,9 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
   final stashKey = config.project == ServerProject.stash
       ? activeServerId == null
             ? null
-            : await ref.read(stashApiKeyRepositoryProvider).read(activeServerId)
+            : await ref
+                  .read(serverCredentialsRepositoryProvider)
+                  .readApiKey(activeServerId)
       : null;
   return MediaBrowserServerUrls(
     config: config,

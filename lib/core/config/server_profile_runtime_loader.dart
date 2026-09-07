@@ -27,6 +27,24 @@ String serverDisplayName(
   return remoteName.isNotEmpty ? remoteName : server.name;
 }
 
+/// 连接页统一的服务器名称：按设置决定是否显示 Emby/Jellyfin/FNOS 用户名。
+String serverSelectionDisplayName(
+  ServerProfile server,
+  ServerProfileData? profile, {
+  required bool showUsername,
+}) {
+  final project = server.project;
+  final supportsRemoteName =
+      project == ServerProject.emby ||
+      project == ServerProject.jellyfin ||
+      project == ServerProject.feiniu;
+  return serverDisplayName(
+    server,
+    profile,
+    useRemoteName: supportsRemoteName && showUsername,
+  );
+}
+
 /// 加载 Emby/Jellyfin 当前用户资料并写入进程内缓存。
 ///
 /// 用户头像 URL 可能包含访问令牌，只通过运行时资料传递，不写入磁盘。

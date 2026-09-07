@@ -9,6 +9,7 @@ import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/auth/server_credentials_repository.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
@@ -243,6 +244,7 @@ void main() {
       tester,
       prefs,
       sessions: sessions,
+      credentials: ServerCredentialsRepository(store: store),
       controller: controller,
     );
 
@@ -276,6 +278,7 @@ void main() {
       tester,
       prefs,
       sessions: sessions,
+      credentials: ServerCredentialsRepository(store: store),
       controller: controller,
     );
 
@@ -482,6 +485,7 @@ Future<void> _pumpSetupWithAuth(
   WidgetTester tester,
   SharedPreferences prefs, {
   required AuthSessionRepository sessions,
+  required ServerCredentialsRepository credentials,
   required _RecordingAuthController controller,
 }) async {
   await _enlargeSurface(tester);
@@ -490,6 +494,7 @@ Future<void> _pumpSetupWithAuth(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         authSessionRepositoryProvider.overrideWithValue(sessions),
+        serverCredentialsRepositoryProvider.overrideWithValue(credentials),
         authControllerProvider.overrideWith(() => controller),
         serverLineProbeCoordinatorProvider.overrideWithValue(
           ServerLineProbeCoordinator(

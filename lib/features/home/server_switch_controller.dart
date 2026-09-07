@@ -171,7 +171,50 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   static const _authCheckTimeout = Duration(seconds: 12);
 
   @override
-  ServerSwitchState build() => const ServerSwitchState.idle();
+  ServerSwitchState build() {
+    // 只监听失效事件，不直接监听 AuthController；后者会在服务器选择页
+    // 提前启动鉴权和线路探测，导致选择页重复探测。事件发生后再读取鉴权结果。
+    ref.listen<AuthExpiryEvent?>(authExpiryEventProvider, (_, event) {
+      if (event == null || state.isActive) return;
+      unawaited(_showRecoveryPromptAfterExpiry(event));
+    });
+    return const ServerSwitchState.idle();
+  }
+
+  Future<void> _showRecoveryPromptAfterExpiry(AuthExpiryEvent event) async {
+    await Future<void>.value();
+    final config = ref.read(serverConfigProvider);
+    if (config?.activeServerId != event.serverId || state.isActive) return;
+    try {
+      final auth = await ref.read(authControllerProvider.future);
+      if (auth.requiresCredentialInput && !state.isActive) {
+        _showRecoveryPrompt(auth);
+      }
+    } catch (_) {
+      // 鉴权状态本身不可用时由切换/根路由处理，不在这里重复弹窗。
+    }
+  }
+
+  void _showRecoveryPrompt(AuthState auth) {
+    final config = ref.read(serverConfigProvider);
+    final targetServerId = config?.activeServerId;
+    final project = config?.activeServer?.project;
+    if (targetServerId == null || project == null || project.isFileSource) {
+      return;
+    }
+    ++_operation;
+    if (project == ServerProject.stash || auth.phase == AuthPhase.needsApiKey) {
+      state = ServerSwitchState.needsApiKey(
+        targetServerId: targetServerId,
+        message: auth.message,
+      );
+    } else {
+      state = ServerSwitchState.needsLogin(
+        targetServerId: targetServerId,
+        message: auth.message,
+      );
+    }
+  }
 
   Future<void> login({
     String? username,
@@ -212,6 +255,50 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       if (!_isCurrent(operation)) return;
       final exception = toApiException(error);
       state = ServerSwitchState.needsLogin(
+        targetServerId: targetServerId,
+        previousServerId: previousServerId,
+        message: exception.message,
+        avatarOrigin: current.avatarOrigin,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
+      );
+    }
+  }
+
+  Future<void> setApiKey(String apiKey) async {
+    final current = state;
+    final targetServerId = current.targetServerId;
+    if (!current.isActive || targetServerId == null) return;
+
+    final previousServerId = current.previousServerId;
+    final returnToSelectionOnCancel = current.returnToSelectionOnCancel;
+    final operation = ++_operation;
+    state = ServerSwitchState.needsApiKey(
+      targetServerId: targetServerId,
+      previousServerId: previousServerId,
+      avatarOrigin: current.avatarOrigin,
+      returnToSelectionOnCancel: returnToSelectionOnCancel,
+    );
+    try {
+      final authenticated = await ref
+          .read(authControllerProvider.notifier)
+          .setStashApiKey(apiKey);
+      if (!_isCurrent(operation)) return;
+      if (authenticated) {
+        await _completeAuthenticatedSwitch(operation);
+        return;
+      }
+      final auth = ref.read(authControllerProvider).value;
+      state = ServerSwitchState.needsApiKey(
+        targetServerId: targetServerId,
+        previousServerId: previousServerId,
+        message: auth?.message,
+        avatarOrigin: current.avatarOrigin,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
+      );
+    } catch (error) {
+      if (!_isCurrent(operation)) return;
+      final exception = toApiException(error);
+      state = ServerSwitchState.needsApiKey(
         targetServerId: targetServerId,
         previousServerId: previousServerId,
         message: exception.message,

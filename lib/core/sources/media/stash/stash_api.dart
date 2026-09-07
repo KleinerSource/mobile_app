@@ -51,7 +51,14 @@ class StashApi {
   final FutureOr<void> Function()? onApiKeyInvalid;
 
   Future<void> validateApiKey([String? override]) async {
-    await findScenes(page: 1, perPage: 1, apiKeyOverride: override);
+    // 启动校验失败会直接进入重新输入 Key 的状态，不再触发鉴权失效
+    // 回调重新启动 bootstrap，避免校验失败与状态重建相互循环。
+    await findScenes(
+      page: 1,
+      perPage: 1,
+      apiKeyOverride: override,
+      notifyApiKeyInvalid: false,
+    );
   }
 
   /// 供播放器和图片 URL 层读取同一份安全凭据；不会暴露到配置模型。
@@ -66,6 +73,7 @@ class StashApi {
     List<String> tagIds = const <String>[],
     List<String> performerIds = const <String>[],
     String? apiKeyOverride,
+    bool notifyApiKeyInvalid = true,
   }) async {
     final normalizedPage = page < 1 ? 1 : page;
     final normalizedPerPage = perPage.clamp(1, 100);
@@ -107,6 +115,7 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
         if (sceneFilterValues.isNotEmpty) 'scene_filter': sceneFilterValues,
       },
       apiKeyOverride: apiKeyOverride,
+      notifyApiKeyInvalid: notifyApiKeyInvalid,
     );
     final result = data['findScenes'];
     if (result is! Map) throw ApiException('Stash Scene 列表响应格式异常');
@@ -197,6 +206,7 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
     String query, {
     Map<String, Object?> variables = const <String, Object?>{},
     String? apiKeyOverride,
+    bool notifyApiKeyInvalid = true,
   }) async {
     final key = await _readApiKey(apiKeyOverride);
     final headers = <String, String>{};
@@ -217,7 +227,9 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
       );
     } on DioException catch (error) {
       final status = error.response?.statusCode;
-      if (status == 401 || status == 403) await _invalidateApiKey();
+      if (notifyApiKeyInvalid && (status == 401 || status == 403)) {
+        await _invalidateApiKey();
+      }
       throw ApiException(
         status == 401 || status == 403
             ? 'Stash API Key 无效或已失效'
@@ -240,7 +252,8 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
         status: response.statusCode,
         data: errors,
       );
-      if (response.statusCode == 401 || response.statusCode == 403) {
+      if (notifyApiKeyInvalid &&
+          (response.statusCode == 401 || response.statusCode == 403)) {
         await _invalidateApiKey();
       }
       throw exception;

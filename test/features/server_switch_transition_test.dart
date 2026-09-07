@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
@@ -97,6 +98,52 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('自动恢复失败标记会打开当前服务器的登录阶段', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    const line = ServerLine(
+      id: 'server-line',
+      name: '主线路',
+      baseUrl: 'https://server.example',
+    );
+    final server = ServerProfile(
+      id: 'server-1',
+      name: '服务器一',
+      lines: const [line],
+      activeLineId: line.id,
+      projectName: 'oh-my-media',
+    );
+    final config = ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: const [line],
+      servers: [server],
+      activeServerId: server.id,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverConfigProvider.overrideWith(
+          () => _SwitchTestServerConfigNotifier(config),
+        ),
+        serverSelectionReadyProvider.overrideWith((ref) => true),
+        authControllerProvider.overrideWith(
+          () => _RecoveryRequiredAuthController(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(serverSwitchTransitionProvider);
+    await container.read(authControllerProvider.future);
+    container.read(authExpiryEventProvider.notifier).state =
+        const AuthExpiryEvent(id: 1, serverId: 'server-1');
+    await Future<void>.delayed(Duration.zero);
+
+    final transition = container.read(serverSwitchTransitionProvider);
+    expect(transition.phase, ServerSwitchPhase.needsLogin);
+    expect(transition.targetServerId, server.id);
   });
 
   test('多线路切换立即进入 checking，首条成功线路返回后再继续鉴权', () async {
@@ -627,10 +674,28 @@ class _FakeAuthController extends AuthController {
     String? username,
     required String password,
     String? totpCode,
+    String? apiKey,
   }) async {
     loginCalls.add((password: password, totpCode: totpCode));
     return true;
   }
+}
+
+class _RecoveryRequiredAuthController extends AuthController {
+  @override
+  Future<AuthState> build() async => const AuthState(
+    phase: AuthPhase.needsLogin,
+    requiresCredentialInput: true,
+  );
+}
+
+class _SwitchTestServerConfigNotifier extends ServerConfigNotifier {
+  _SwitchTestServerConfigNotifier(this.config);
+
+  final ServerConfig config;
+
+  @override
+  ServerConfig build() => config;
 }
 
 class _RestoringAuthController extends AuthController {

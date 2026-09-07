@@ -62,7 +62,7 @@ class MediaBrowserApi {
   /// /Users/{Id}，为空时抛 ArgumentError。
   Future<MediaBrowserUser> validateSession(String? persistedUserId) async {
     if (config.supportsCurrentUser) {
-      return _userFrom(_p('/Users/Me'));
+      return _userFrom(_p('/Users/Me'), skipSessionExpiry: true);
     }
     final normalized = persistedUserId?.trim() ?? '';
     if (normalized.isEmpty) {
@@ -72,7 +72,10 @@ class MediaBrowserApi {
         '用户 ID 不能为空',
       );
     }
-    return _userFrom(_p('/Users/${Uri.encodeComponent(normalized)}'));
+    return _userFrom(
+      _p('/Users/${Uri.encodeComponent(normalized)}'),
+      skipSessionExpiry: true,
+    );
   }
 
   /// 当前用户可见的媒体库（Views）。
@@ -769,10 +772,19 @@ class MediaBrowserApi {
     return '$normalizedBase${rawUrl.trim().startsWith('/') ? '' : '/'}${rawUrl.trim()}';
   }
 
-  Future<MediaBrowserUser> _userFrom(String path) async {
+  Future<MediaBrowserUser> _userFrom(
+    String path, {
+    bool skipSessionExpiry = false,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       path,
-      options: Options(extra: const {'skipRefresh': true, 'skipRetry': true}),
+      options: Options(
+        extra: {
+          'skipRefresh': true,
+          'skipRetry': true,
+          if (skipSessionExpiry) 'skipSessionExpiry': true,
+        },
+      ),
     );
     final data = response.data;
     if (data == null) {

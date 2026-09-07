@@ -210,6 +210,8 @@ Dio buildDio(
 
         if (status == 401 &&
             sessionRepository != null &&
+            options.extra['skipAuth'] != true &&
+            options.extra['skipSessionExpiry'] != true &&
             !_isAuthPath(options.path)) {
           await sessionRepository.clear();
           onSessionExpired?.call();

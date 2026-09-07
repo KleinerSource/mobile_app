@@ -155,11 +155,20 @@ enum AuthPhase {
 
 @immutable
 class AuthState {
-  const AuthState({required this.phase, this.status, this.message});
+  const AuthState({
+    required this.phase,
+    this.status,
+    this.message,
+    this.requiresCredentialInput = false,
+  });
 
   final AuthPhase phase;
   final AuthStatus? status;
   final String? message;
+
+  /// 会话失效后的自动凭据恢复已经失败，需要 UI 提示用户重新输入。
+  /// 首次启动没有会话、主动退出登录等普通登录状态不会设置此标记。
+  final bool requiresCredentialInput;
 
   bool get isAuthenticated => phase == AuthPhase.authenticated;
 }

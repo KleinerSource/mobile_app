@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/config/server_profile_runtime_loader.dart';
 import 'package:omm/core/models/system.dart';
 import 'package:omm/features/home/server_switcher.dart';
 import 'package:omm/features/settings/app_settings_page.dart';
@@ -130,6 +131,30 @@ void main() {
         showUserAvatar: true,
       ),
       isNull,
+    );
+  });
+
+  test('连接页切换动画与服务器选择页共用用户名显示开关', () {
+    const line = ServerLine(
+      id: 'jellyfin-line',
+      name: '主线路',
+      baseUrl: 'https://jellyfin.example',
+    );
+    const server = ServerProfile(
+      id: 'jellyfin',
+      name: '家庭影音',
+      lines: [line],
+      projectName: 'jellyfin',
+    );
+    const profile = ServerProfileData(name: 'Alice');
+
+    expect(
+      serverSelectionDisplayName(server, profile, showUsername: true),
+      'Alice',
+    );
+    expect(
+      serverSelectionDisplayName(server, profile, showUsername: false),
+      '家庭影音',
     );
   });
 

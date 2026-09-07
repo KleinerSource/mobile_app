@@ -46,8 +46,13 @@ class FeiniuApi {
     return token;
   }
 
-  Future<FeiniuUser> userInfo() async {
-    final response = await _dio.get<dynamic>('/user/info');
+  Future<FeiniuUser> userInfo({bool skipSessionExpiry = false}) async {
+    final response = await _dio.get<dynamic>(
+      '/user/info',
+      options: Options(
+        extra: {if (skipSessionExpiry) 'skipSessionExpiry': true},
+      ),
+    );
     return _unwrap(response.data, (data) => FeiniuUser.fromJson(_map(data)));
   }
 

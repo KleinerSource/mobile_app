@@ -1105,13 +1105,16 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
               .maybeWhen(data: (status) => status, orElse: () => null)
         : null;
     final previewVideoReady = previewStatus?.assets['video']?.ready == true;
-    final previewTaskActive = isOmm &&
-        (ref.watch(taskCenterProvider).any(
-              (task) =>
-                  task.movieId == movie.id &&
-                  (task.name == l.taskNamePreview || task.name == '预览生成') &&
-                  task.isActive,
-            ) ||
+    final previewTaskActive =
+        isOmm &&
+        (ref
+                .watch(taskCenterProvider)
+                .any(
+                  (task) =>
+                      task.movieId == movie.id &&
+                      (task.name == l.taskNamePreview || task.name == '预览生成') &&
+                      task.isActive,
+                ) ||
             previewStatus?.task?.isActive == true);
     return GlassMenuAnchor<String>(
       width: 244,

@@ -68,7 +68,7 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
-      await ref.read(stashApiKeyRepositoryProvider).delete(server.id);
+      await ref.read(serverCredentialsRepositoryProvider).delete(server.id);
       AppHaptics.medium();
     } catch (error) {
       if (mounted) {
@@ -237,8 +237,8 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
     try {
       if (project == ServerProject.stash) {
         final key = await ref
-            .read(stashApiKeyRepositoryProvider)
-            .read(server.id);
+            .read(serverCredentialsRepositoryProvider)
+            .readApiKey(server.id);
         if (key == null) return _ServerStatus.authenticationRequired;
         await client.stash.validateApiKey(key);
         return _ServerStatus.connected;

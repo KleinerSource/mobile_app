@@ -327,10 +327,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
             _normalizeServerUrl(line.baseUrl, project) == probeUrl) {
           updated = true;
           lines.add(
-            line.copyWith(
-              latencyMs: probe.latencyMs,
-              lastTestedAt: testedAt,
-            ),
+            line.copyWith(latencyMs: probe.latencyMs, lastTestedAt: testedAt),
           );
         } else {
           lines.add(line);

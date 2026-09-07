@@ -11,6 +11,7 @@ import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
+import 'package:omm/core/auth/server_credentials_repository.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_repository.dart';
@@ -176,6 +177,7 @@ void main() {
 
     final store = _MemoryTokenStore();
     final sessions = AuthSessionRepository(store: store);
+    final credentials = ServerCredentialsRepository(store: store);
     final baseUrl = 'http://${httpServer.address.address}:${httpServer.port}';
     final line = ServerLine(id: 'feiniu-line', name: '主线路', baseUrl: baseUrl);
     final server = ServerProfile(
@@ -197,6 +199,7 @@ void main() {
         serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
         serverSelectionReadyProvider.overrideWith((ref) => true),
         authSessionRepositoryProvider.overrideWithValue(sessions),
+        serverCredentialsRepositoryProvider.overrideWithValue(credentials),
         requiredApiClientProvider.overrideWithValue(client),
       ],
     );
@@ -214,6 +217,8 @@ void main() {
     expect(stored?.accessToken, 'token-1');
     expect(stored?.userId, 'user-1');
     expect(stored?.cookie, isNull);
+    expect((await credentials.read(server.id))?.username, 'alice');
+    expect((await credentials.read(server.id))?.password, 'password');
 
     final restored = await container
         .read(authControllerProvider.notifier)

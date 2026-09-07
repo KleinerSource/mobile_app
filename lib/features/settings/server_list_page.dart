@@ -289,7 +289,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
-      await ref.read(stashApiKeyRepositoryProvider).delete(server.id);
+      await ref.read(serverCredentialsRepositoryProvider).delete(server.id);
       final fileSource = _findFileSourceConfig(server.id);
       if (fileSource != null) {
         await ref

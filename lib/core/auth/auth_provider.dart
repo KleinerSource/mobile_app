@@ -32,6 +32,13 @@ final _authLineProbeCacheProvider = Provider<_AuthLineProbeCache>(
   (ref) => _AuthLineProbeCache(),
 );
 
+class _CredentialRecoveryResult {
+  const _CredentialRecoveryResult({required this.success, this.message});
+
+  final bool success;
+  final String? message;
+}
+
 class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
@@ -114,35 +121,53 @@ class AuthController extends AsyncNotifier<AuthState> {
       selectedConfig,
       sessionRepository: ref.read(authSessionRepositoryProvider),
       stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
-      onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
-      onStashApiKeyInvalid: () => ref.read(authExpiryProvider.notifier).state++,
+      onSessionExpired: () =>
+          markAuthExpired(ref, selectedConfig.activeServerId),
+      onStashApiKeyInvalid: () =>
+          markAuthExpired(ref, selectedConfig.activeServerId),
     );
     return _bootstrap(client);
   }
 
-  Future<AuthState> _bootstrap(ApiClient client) async {
+  Future<AuthState> _bootstrap(
+    ApiClient client, {
+    bool allowCredentialRecovery = false,
+  }) async {
     final project = client.config?.activeServer?.project;
     final isDbOnline = project == ServerProject.dbOnline;
+    final recoveryRequested =
+        allowCredentialRecovery || _claimCredentialRecovery(client);
     if (project == ServerProject.stash) {
-      return _bootstrapStash(client);
+      return _bootstrapStash(client, recoveryRequested: recoveryRequested);
     }
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
     if (project == ServerProject.feiniu) {
-      return _bootstrapFeiniu(client);
+      return _bootstrapFeiniu(client, recoveryRequested: recoveryRequested);
     }
     if (mediaBrowserConfig != null) {
-      return _bootstrapMediaBrowser(client, mediaBrowserConfig);
+      return _bootstrapMediaBrowser(
+        client,
+        mediaBrowserConfig,
+        recoveryRequested: recoveryRequested,
+      );
     }
     AuthStatus status;
     try {
       status = await client.auth.status();
     } catch (error) {
       final exception = toApiException(error);
+      final sessionRepository = _sessionRepositoryForClient(client);
+      final hadSession =
+          (await sessionRepository.load())?.hasAccessToken == true;
       if (isDbOnline && exception.status == 401) {
-        await ref.read(authSessionRepositoryProvider).clear();
-        return AuthState(
-          phase: AuthPhase.needsLogin,
-          message: exception.message,
+        await sessionRepository.clear();
+        return _restoreOrPrompt(
+          client,
+          recoveryRequested: recoveryRequested || hadSession,
+          fallback: AuthState(
+            phase: AuthPhase.needsLogin,
+            message: exception.message,
+          ),
         );
       }
       if (!isDbOnline && exception.status == 401 && await _refresh(client)) {
@@ -150,6 +175,16 @@ class AuthController extends AsyncNotifier<AuthState> {
           status = await client.auth.status();
         } catch (retryError) {
           final retryException = toApiException(retryError);
+          if (retryException.status == 401) {
+            return _restoreOrPrompt(
+              client,
+              recoveryRequested: recoveryRequested || hadSession,
+              fallback: AuthState(
+                phase: AuthPhase.needsLogin,
+                message: retryException.message,
+              ),
+            );
+          }
           return AuthState(
             phase: retryException.status == 401 || retryException.status == 404
                 ? AuthPhase.incompatible
@@ -158,6 +193,17 @@ class AuthController extends AsyncNotifier<AuthState> {
           );
         }
       } else {
+        if (exception.status == 401) {
+          await sessionRepository.clear();
+          return _restoreOrPrompt(
+            client,
+            recoveryRequested: recoveryRequested || hadSession,
+            fallback: AuthState(
+              phase: AuthPhase.needsLogin,
+              message: exception.message,
+            ),
+          );
+        }
         return AuthState(
           phase: exception.status == 401 || exception.status == 404
               ? AuthPhase.incompatible
@@ -176,9 +222,14 @@ class AuthController extends AsyncNotifier<AuthState> {
       return AuthState(phase: AuthPhase.authenticated, status: status);
     }
     if (isDbOnline) {
-      final session = await ref.read(authSessionRepositoryProvider).load();
+      final sessionRepository = _sessionRepositoryForClient(client);
+      final session = await sessionRepository.load();
       if (session == null || !session.hasAccessToken) {
-        return AuthState(phase: AuthPhase.needsLogin, status: status);
+        return _restoreOrPrompt(
+          client,
+          recoveryRequested: recoveryRequested,
+          fallback: AuthState(phase: AuthPhase.needsLogin, status: status),
+        );
       }
       try {
         final valid = await client.auth.verify();
@@ -195,21 +246,31 @@ class AuthController extends AsyncNotifier<AuthState> {
           );
         }
       }
-      await ref.read(authSessionRepositoryProvider).clear();
-      return AuthState(phase: AuthPhase.needsLogin, status: status);
+      await sessionRepository.clear();
+      return _restoreOrPrompt(
+        client,
+        recoveryRequested: recoveryRequested || session.hasAccessToken,
+        fallback: AuthState(phase: AuthPhase.needsLogin, status: status),
+      );
     }
     if (status.authenticated) {
-      final session = await ref.read(authSessionRepositoryProvider).load();
+      final sessionRepository = _sessionRepositoryForClient(client);
+      final session = await sessionRepository.load();
       if (session?.isUsable == true) {
         return AuthState(phase: AuthPhase.authenticated, status: status);
       }
       // Oh My Media 会话必须同时具备 access/refresh 两个令牌；旧版或
       // 异常迁移留下的 token-only 会话不能绕过登录页。
-      await ref.read(authSessionRepositoryProvider).clear();
-      return AuthState(phase: AuthPhase.needsLogin, status: status);
+      await sessionRepository.clear();
+      return _restoreOrPrompt(
+        client,
+        recoveryRequested: recoveryRequested || session != null,
+        fallback: AuthState(phase: AuthPhase.needsLogin, status: status),
+      );
     }
 
-    final session = await ref.read(authSessionRepositoryProvider).load();
+    final sessionRepository = _sessionRepositoryForClient(client);
+    final session = await sessionRepository.load();
     if (session != null && await _refresh(client)) {
       try {
         final refreshed = await client.auth.status();
@@ -224,7 +285,11 @@ class AuthController extends AsyncNotifier<AuthState> {
       }
     }
 
-    return AuthState(phase: AuthPhase.needsLogin, status: status);
+    return _restoreOrPrompt(
+      client,
+      recoveryRequested: recoveryRequested,
+      fallback: AuthState(phase: AuthPhase.needsLogin, status: status),
+    );
   }
 
   /// 在服务器切换后直接检查当前配置对应的服务器。
@@ -261,10 +326,10 @@ class AuthController extends AsyncNotifier<AuthState> {
       config,
       sessionRepository: ref.read(authSessionRepositoryProvider),
       stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
-      onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
-      onStashApiKeyInvalid: () => ref.read(authExpiryProvider.notifier).state++,
+      onSessionExpired: () => markAuthExpired(ref, config.activeServerId),
+      onStashApiKeyInvalid: () => markAuthExpired(ref, config.activeServerId),
     );
-    final result = await _bootstrap(client);
+    final result = await _bootstrap(client, allowCredentialRecovery: true);
     state = AsyncData(result);
     return result;
   }
@@ -273,6 +338,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? username,
     required String password,
     String? totpCode,
+    String? apiKey,
   }) async {
     final client = ref.read(requiredApiClientProvider);
     // 登录期间服务器列表仍可能在后台加载其他服务器资料；固定本次
@@ -282,6 +348,9 @@ class AuthController extends AsyncNotifier<AuthState> {
         client.config?.activeServer?.project == ServerProject.dbOnline;
     final mediaBrowserConfig =
         MediaBrowserConfig.byProject[client.config?.activeServer?.project];
+    if (client.config?.activeServer?.project == ServerProject.stash) {
+      return setStashApiKey(apiKey ?? '');
+    }
     if (client.config?.activeServer?.project == ServerProject.feiniu) {
       return _loginFeiniu(
         client,
@@ -314,6 +383,11 @@ class AuthController extends AsyncNotifier<AuthState> {
         isDbOnline: isDbOnline,
         password: password,
         totpCode: code.isEmpty ? null : code,
+      );
+      await _saveServerCredentials(
+        client.config?.activeServerId,
+        username: username,
+        password: password,
       );
       final status = await client.auth.status();
       state = AsyncData(
@@ -353,8 +427,9 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// 500，只能用登录时持久化的 userId 查 /Users/{uid}。
   Future<AuthState> _bootstrapMediaBrowser(
     ApiClient client,
-    MediaBrowserConfig config,
-  ) async {
+    MediaBrowserConfig config, {
+    required bool recoveryRequested,
+  }) async {
     final sessionRepository = _sessionRepositoryForClient(client);
     final session = await sessionRepository.load();
     final userId = session?.userId?.trim() ?? '';
@@ -363,7 +438,11 @@ class AuthController extends AsyncNotifier<AuthState> {
         (!config.supportsCurrentUser && userId.isEmpty)) {
       // Emby 没有用户 ID 就无法拼出任何用户端点，只能重新登录。
       await sessionRepository.clear();
-      return const AuthState(phase: AuthPhase.needsLogin);
+      return _restoreOrPrompt(
+        client,
+        recoveryRequested: recoveryRequested || session != null,
+        fallback: const AuthState(phase: AuthPhase.needsLogin),
+      );
     }
     try {
       final user = await client
@@ -387,7 +466,17 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (exception.status == 401 ||
           (!config.supportsCurrentUser && exception.status == 404)) {
         await sessionRepository.clear();
-        return const AuthState(phase: AuthPhase.needsLogin);
+        return _restoreOrPrompt(
+          client,
+          recoveryRequested:
+              recoveryRequested ||
+              session.hasAccessToken ||
+              _claimCredentialRecovery(client),
+          fallback: AuthState(
+            phase: AuthPhase.needsLogin,
+            message: exception.message,
+          ),
+        );
       }
       return AuthState(
         phase: AuthPhase.unavailable,
@@ -396,22 +485,31 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  Future<AuthState> _bootstrapStash(ApiClient client) async {
+  Future<AuthState> _bootstrapStash(
+    ApiClient client, {
+    required bool recoveryRequested,
+  }) async {
     final config = client.config;
     final serverId = config?.activeServerId?.trim() ?? '';
-    final repository = ref.read(stashApiKeyRepositoryProvider);
-    final key = serverId.isEmpty ? null : await repository.read(serverId);
-    if (key == null) return const AuthState(phase: AuthPhase.needsApiKey);
+    final repository = ref.read(serverCredentialsRepositoryProvider);
+    final key = serverId.isEmpty ? null : await repository.readApiKey(serverId);
+    if (key == null) {
+      return AuthState(
+        phase: AuthPhase.needsApiKey,
+        requiresCredentialInput: recoveryRequested,
+      );
+    }
     try {
       await client.stash.validateApiKey(key);
       return const AuthState(phase: AuthPhase.authenticated);
     } catch (error) {
       final exception = toApiException(error);
       if (exception.status == 401 || exception.status == 403) {
-        if (serverId.isNotEmpty) await repository.delete(serverId);
+        if (serverId.isNotEmpty) await repository.deleteApiKey(serverId);
         return AuthState(
           phase: AuthPhase.needsApiKey,
           message: exception.message,
+          requiresCredentialInput: true,
         );
       }
       return AuthState(
@@ -439,7 +537,9 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (serverId == null || serverId.trim().isEmpty) {
         throw ApiException('当前 Stash 服务器缺少服务器 ID');
       }
-      await ref.read(stashApiKeyRepositoryProvider).save(serverId, key);
+      await ref
+          .read(serverCredentialsRepositoryProvider)
+          .saveApiKey(serverId, key);
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
     } catch (error) {
@@ -451,17 +551,24 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  Future<AuthState> _bootstrapFeiniu(ApiClient client) async {
+  Future<AuthState> _bootstrapFeiniu(
+    ApiClient client, {
+    required bool recoveryRequested,
+  }) async {
     final sessionRepository = _sessionRepositoryForClient(client);
     final session = await sessionRepository.load();
     // Cookie 只用于部分图片/媒体资源，飞牛 API 的登录态由 token 验证；
     // 某些版本或网络环境不会在登录响应中暴露 Set-Cookie，不能因此要求重登。
     if (session == null || !session.hasAccessToken) {
       await sessionRepository.clear();
-      return const AuthState(phase: AuthPhase.needsLogin);
+      return _restoreOrPrompt(
+        client,
+        recoveryRequested: recoveryRequested,
+        fallback: const AuthState(phase: AuthPhase.needsLogin),
+      );
     }
     try {
-      final user = await client.feiniu.userInfo();
+      final user = await client.feiniu.userInfo(skipSessionExpiry: true);
       if (user.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
       if (session.userId != user.id) {
         await sessionRepository.save(
@@ -479,7 +586,17 @@ class AuthController extends AsyncNotifier<AuthState> {
       final exception = toApiException(error);
       if (exception.status == 401 || exception.status == 403) {
         await sessionRepository.clear();
-        return const AuthState(phase: AuthPhase.needsLogin);
+        return _restoreOrPrompt(
+          client,
+          recoveryRequested:
+              recoveryRequested ||
+              session.hasAccessToken ||
+              _claimCredentialRecovery(client),
+          fallback: AuthState(
+            phase: AuthPhase.needsLogin,
+            message: exception.message,
+          ),
+        );
       }
       return AuthState(
         phase: AuthPhase.unavailable,
@@ -501,6 +618,126 @@ class AuthController extends AsyncNotifier<AuthState> {
           config?.activeServerId,
           allowLegacyMigration: allowLegacyMigration,
         );
+  }
+
+  Future<void> _saveServerCredentials(
+    String? serverId, {
+    String? username,
+    String? password,
+    String? apiKey,
+  }) async {
+    final normalizedServerId = serverId?.trim() ?? '';
+    if (normalizedServerId.isEmpty) return;
+    final normalizedUsername = username?.trim();
+    final normalizedApiKey = apiKey?.trim();
+    await ref
+        .read(serverCredentialsRepositoryProvider)
+        .update(
+          normalizedServerId,
+          username: normalizedUsername?.isEmpty == true
+              ? null
+              : normalizedUsername,
+          password: password?.isEmpty == true ? null : password,
+          apiKey: normalizedApiKey?.isEmpty == true ? null : normalizedApiKey,
+        );
+  }
+
+  bool _claimCredentialRecovery(ApiClient client) {
+    final serverId = client.config?.activeServerId?.trim();
+    final event = ref.read(authExpiryEventProvider);
+    if (serverId == null || serverId.isEmpty || event == null) return false;
+    if (event.serverId != serverId) return false;
+    return ref.read(authExpiryTrackerProvider).claim(event);
+  }
+
+  Future<AuthState> _restoreOrPrompt(
+    ApiClient client, {
+    required bool recoveryRequested,
+    required AuthState fallback,
+  }) async {
+    if (!recoveryRequested) return fallback;
+    final result = await _restoreCredentials(client);
+    if (result.success) {
+      return AuthState(phase: AuthPhase.authenticated, status: fallback.status);
+    }
+    return AuthState(
+      phase: fallback.phase,
+      status: fallback.status,
+      message: result.message ?? fallback.message,
+      requiresCredentialInput: true,
+    );
+  }
+
+  Future<_CredentialRecoveryResult> _restoreCredentials(
+    ApiClient client,
+  ) async {
+    final serverId = client.config?.activeServerId?.trim() ?? '';
+    if (serverId.isEmpty) {
+      return const _CredentialRecoveryResult(success: false);
+    }
+
+    try {
+      final credentials = await ref
+          .read(serverCredentialsRepositoryProvider)
+          .read(serverId);
+      if (credentials == null) {
+        return const _CredentialRecoveryResult(success: false);
+      }
+
+      final project = client.config?.activeServer?.project;
+      final sessionRepository = _sessionRepositoryForClient(client);
+      if (project == ServerProject.ohMyMedia ||
+          project == ServerProject.dbOnline) {
+        if (credentials.password.trim().isEmpty) {
+          return const _CredentialRecoveryResult(success: false);
+        }
+        await _completePasswordLogin(
+          client,
+          sessionRepository: sessionRepository,
+          isDbOnline: project == ServerProject.dbOnline,
+          password: credentials.password,
+          totpCode: await _autoTotpCode(sessionRepository),
+        );
+        return const _CredentialRecoveryResult(success: true);
+      }
+
+      if (project == ServerProject.feiniu) {
+        if (credentials.username.trim().isEmpty ||
+            credentials.password.trim().isEmpty) {
+          return const _CredentialRecoveryResult(success: false);
+        }
+        await _completeFeiniuLogin(
+          client,
+          sessionRepository: sessionRepository,
+          username: credentials.username,
+          password: credentials.password,
+        );
+        return const _CredentialRecoveryResult(success: true);
+      }
+
+      final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+      if (mediaBrowserConfig != null) {
+        if (credentials.username.trim().isEmpty ||
+            credentials.password.trim().isEmpty) {
+          return const _CredentialRecoveryResult(success: false);
+        }
+        await _completeMediaBrowserLogin(
+          client,
+          sessionRepository: sessionRepository,
+          config: mediaBrowserConfig,
+          username: credentials.username,
+          password: credentials.password,
+        );
+        return const _CredentialRecoveryResult(success: true);
+      }
+    } catch (error) {
+      await _sessionRepositoryForClient(client).clear();
+      return _CredentialRecoveryResult(
+        success: false,
+        message: toApiException(error).message,
+      );
+    }
+    return const _CredentialRecoveryResult(success: false);
   }
 
   Future<bool> _loginFeiniu(
@@ -525,6 +762,11 @@ class AuthController extends AsyncNotifier<AuthState> {
       await _completeFeiniuLogin(
         client,
         sessionRepository: sessionRepository,
+        username: user,
+        password: password,
+      );
+      await _saveServerCredentials(
+        client.config?.activeServerId,
         username: user,
         password: password,
       );
@@ -571,6 +813,11 @@ class AuthController extends AsyncNotifier<AuthState> {
         username: user,
         password: password,
       );
+      await _saveServerCredentials(
+        client.config?.activeServerId,
+        username: user,
+        password: password,
+      );
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
     } catch (error) {
@@ -597,6 +844,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? username,
     required String password,
     String? totpSecret,
+    String? apiKey,
   }) async {
     final project = server.project;
     if (project == null) throw ApiException('服务器类型无效');
@@ -623,13 +871,24 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
 
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
-    if (project == ServerProject.stash) return;
+    if (project == ServerProject.stash) {
+      final key = apiKey?.trim() ?? '';
+      if (key.isEmpty) throw ApiException('请输入 Stash API Key');
+      await client.stash.validateApiKey(key);
+      await _saveServerCredentials(server.id, apiKey: key);
+      return;
+    }
     if (project == ServerProject.feiniu) {
       final user = username?.trim() ?? '';
       if (user.isEmpty) throw ApiException('请输入用户名');
       await _completeFeiniuLogin(
         client,
         sessionRepository: sessionRepository,
+        username: user,
+        password: password,
+      );
+      await _saveServerCredentials(
+        server.id,
         username: user,
         password: password,
       );
@@ -645,12 +904,24 @@ class AuthController extends AsyncNotifier<AuthState> {
         username: user,
         password: password,
       );
+      await _saveServerCredentials(
+        server.id,
+        username: user,
+        password: password,
+      );
       return;
     }
 
     // OMM/DBO：鉴权未启用或尚未配置密码的服务器无需登录。
     final status = await client.auth.status();
-    if (!status.enabled || !status.configured) return;
+    if (!status.enabled || !status.configured) {
+      await _saveServerCredentials(
+        server.id,
+        username: username,
+        password: password,
+      );
+      return;
+    }
     final effectiveSecret =
         normalizedSecret ?? await sessionRepository.readTotpSecret();
     await _completePasswordLogin(
@@ -661,6 +932,11 @@ class AuthController extends AsyncNotifier<AuthState> {
       totpCode: effectiveSecret == null
           ? null
           : tryGenerateTotpCode(effectiveSecret),
+    );
+    await _saveServerCredentials(
+      server.id,
+      username: username,
+      password: password,
     );
   }
 
@@ -713,7 +989,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         cookie: cookie,
       ),
     );
-    final profile = await client.feiniu.userInfo();
+    final profile = await client.feiniu.userInfo(skipSessionExpiry: true);
     if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
     await sessionRepository.save(
       AuthSession(
@@ -782,18 +1058,19 @@ class AuthController extends AsyncNotifier<AuthState> {
     if (client.config?.activeServer?.project == ServerProject.dbOnline) {
       return false;
     }
-    final current = await ref.read(authSessionRepositoryProvider).current();
+    final repository = _sessionRepositoryForClient(client);
+    final current = await repository.current();
     if (current == null || !current.canRefresh) return false;
     try {
       final session = await client.auth.refresh(current.refreshToken);
       if (!session.isUsable) {
-        await ref.read(authSessionRepositoryProvider).clear();
+        await repository.clear();
         return false;
       }
-      await ref.read(authSessionRepositoryProvider).save(session);
+      await repository.save(session);
       return true;
     } catch (_) {
-      await ref.read(authSessionRepositoryProvider).clear();
+      await repository.clear();
       return false;
     }
   }
