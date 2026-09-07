@@ -1411,8 +1411,8 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
           duration: const Duration(seconds: 1),
         ),
       );
-      // 返回上一页
-      nav.popUntil((r) => r.isFirst);
+      // 仅返回影片详情的上一页，不能一直弹到服务器选择页。
+      nav.pop();
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text(l.deleteFailed(toApiException(e).message))),
