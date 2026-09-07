@@ -2326,6 +2326,8 @@
   ,"personNoMovies": "No movies for this actor"
   ,"personSyncAssociations": "Sync actor associations"
   ,"mediaBrowserSimilar": "More like this"
+  ,"mediaBrowserCollectionItems": "Collection items"
+  ,"mediaBrowserNoCollectionItems": "No items in this collection"
   ,"posterCropEnableHint": "Enable cropping with a quick action above"
   ,"posterCropGestureHint": "Drag horizontally or tap to position the crop"
   ,"playerLandscapeCameraLeft": "Camera on the left"

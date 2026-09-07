@@ -582,6 +582,11 @@ class MediaBrowserItem {
   bool get isEpisode => type == 'Episode';
   bool get isMusicAlbum => type == 'MusicAlbum';
   bool get isAudio => type == 'Audio';
+
+  /// Emby/Jellyfin 的合集条目类型为 `BoxSet`。
+  ///
+  /// `CollectionFolder` 是媒体库入口，不应被当作合集详情处理。
+  bool get isCollection => type.trim().toLowerCase() == 'boxset';
   bool get isPlayable => isMovie || isEpisode;
 
   /// 当前条目及服务器返回的额外分集，顺序与服务器保持一致。

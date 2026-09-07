@@ -6787,6 +6787,12 @@ class AppL10nEn extends AppL10n {
   String get mediaBrowserSimilar => 'More like this';
 
   @override
+  String get mediaBrowserCollectionItems => 'Collection items';
+
+  @override
+  String get mediaBrowserNoCollectionItems => 'No items in this collection';
+
+  @override
   String get posterCropEnableHint =>
       'Enable cropping with a quick action above';
 

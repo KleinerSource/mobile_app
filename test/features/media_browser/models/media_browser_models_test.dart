@@ -3,6 +3,24 @@ import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 void main() {
+  test('BoxSet 识别为合集，但 CollectionFolder 仍是媒体库入口', () {
+    final collection = MediaBrowserItem.fromJson(const {
+      'Id': 'collection-1',
+      'Name': '示例合集',
+      'Type': 'BoxSet',
+    });
+    final library = MediaBrowserItem.fromJson(const {
+      'Id': 'library-1',
+      'Name': '电影库',
+      'Type': 'CollectionFolder',
+      'CollectionType': 'movies',
+    });
+
+    expect(collection.isCollection, isTrue);
+    expect(library.isCollection, isFalse);
+    expect(library.collectionType, 'movies');
+  });
+
   test('MediaBrowserItem.fromJson 解析电影条目的核心字段', () {
     final item = MediaBrowserItem.fromJson(const {
       'Id': 'item-1',

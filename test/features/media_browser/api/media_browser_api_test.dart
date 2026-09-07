@@ -251,6 +251,56 @@ void main() {
         ]);
       });
 
+      test('合集影片查询使用 ParentId、类型过滤、非递归和分页排序', () async {
+        final adapter = _MediaBrowserTestAdapter((options) {
+          expect(
+            options.uri.queryParameters,
+            containsPair('ParentId', 'collection-1'),
+          );
+          expect(
+            options.uri.queryParameters,
+            containsPair('IncludeItemTypes', 'Movie,Series'),
+          );
+          expect(
+            options.uri.queryParameters,
+            containsPair('Recursive', 'false'),
+          );
+          expect(
+            options.uri.queryParameters,
+            containsPair('SortBy', 'SortName'),
+          );
+          expect(
+            options.uri.queryParameters,
+            containsPair('SortOrder', 'Ascending'),
+          );
+          expect(options.uri.queryParameters, containsPair('StartIndex', '48'));
+          expect(options.uri.queryParameters, containsPair('Limit', '24'));
+          return {
+            'Items': [
+              {'Id': 'movie-1', 'Name': '合集电影', 'Type': 'Movie'},
+              {'Id': 'series-1', 'Name': '合集剧集', 'Type': 'Series'},
+            ],
+            'TotalRecordCount': 50,
+            'StartIndex': 48,
+          };
+        }, config.authHeaderName);
+        final api = apiFor(config, adapter);
+
+        final page = await api.items(
+          'user-1',
+          parentId: 'collection-1',
+          includeItemTypes: 'Movie,Series',
+          recursive: false,
+          sortBy: 'SortName',
+          sortOrder: 'Ascending',
+          startIndex: 48,
+          limit: 24,
+        );
+
+        expect(page.items.map((item) => item.id), ['movie-1', 'series-1']);
+        expect(page.hasMore, isFalse);
+      });
+
       test('Genres 接口解析类型并使用项目路径前缀', () async {
         final adapter = _MediaBrowserTestAdapter((options) {
           expect(options.uri.path, config.path('/Genres'));

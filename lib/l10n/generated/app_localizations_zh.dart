@@ -6667,6 +6667,12 @@ class AppL10nZh extends AppL10n {
   String get mediaBrowserSimilar => '更多类似';
 
   @override
+  String get mediaBrowserCollectionItems => '合集影片';
+
+  @override
+  String get mediaBrowserNoCollectionItems => '此合集暂无影片';
+
+  @override
   String get posterCropEnableHint => '勾选上方快捷操作启用裁剪';
 
   @override

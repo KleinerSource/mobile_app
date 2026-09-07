@@ -26,6 +26,7 @@ class MovieDetailScaffold extends StatelessWidget {
     this.actions = const <Widget>[],
     this.heroMaxHeight = 320,
     this.physics,
+    this.onRefresh,
   });
 
   final Widget hero;
@@ -35,6 +36,7 @@ class MovieDetailScaffold extends StatelessWidget {
   final List<Widget> actions;
   final double heroMaxHeight;
   final ScrollPhysics? physics;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -43,27 +45,32 @@ class MovieDetailScaffold extends StatelessWidget {
     final minHeight = maxHeight * 0.62;
     final statusBarTop = MediaQuery.paddingOf(context).top;
 
+    final scrollView = CustomScrollView(
+      physics: onRefresh == null
+          ? physics
+          : physics ?? const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPersistentHeader(
+          pinned: false,
+          delegate: CollapsibleHeroDelegate(
+            minHeight: minHeight,
+            maxHeight: maxHeight,
+            child: KeyedSubtree(
+              key: const ValueKey('detail-hero'),
+              child: hero,
+            ),
+          ),
+        ),
+        ...slivers,
+      ],
+    );
     return Stack(
       fit: StackFit.expand,
       children: [
         HeroBackdrop(arts: heroArts, position: heroPosition),
-        CustomScrollView(
-          physics: physics,
-          slivers: [
-            SliverPersistentHeader(
-              pinned: false,
-              delegate: CollapsibleHeroDelegate(
-                minHeight: minHeight,
-                maxHeight: maxHeight,
-                child: KeyedSubtree(
-                  key: const ValueKey('detail-hero'),
-                  child: hero,
-                ),
-              ),
-            ),
-            ...slivers,
-          ],
-        ),
+        onRefresh == null
+            ? scrollView
+            : RefreshIndicator(onRefresh: onRefresh!, child: scrollView),
         Positioned(
           top: 0,
           left: 0,

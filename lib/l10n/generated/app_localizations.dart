@@ -12234,6 +12234,18 @@ abstract class AppL10n {
   /// **'更多类似'**
   String get mediaBrowserSimilar;
 
+  /// No description provided for @mediaBrowserCollectionItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'合集影片'**
+  String get mediaBrowserCollectionItems;
+
+  /// No description provided for @mediaBrowserNoCollectionItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'此合集暂无影片'**
+  String get mediaBrowserNoCollectionItems;
+
   /// No description provided for @posterCropEnableHint.
   ///
   /// In zh, this message translates to:

@@ -2326,6 +2326,8 @@
   ,"personNoMovies": "没有该演员的影片"
   ,"personSyncAssociations": "同步演员关联"
   ,"mediaBrowserSimilar": "更多类似"
+  ,"mediaBrowserCollectionItems": "合集影片"
+  ,"mediaBrowserNoCollectionItems": "此合集暂无影片"
   ,"posterCropEnableHint": "勾选上方快捷操作启用裁剪"
   ,"posterCropGestureHint": "左右拖动或点击定位裁剪范围"
   ,"playerLandscapeCameraLeft": "摄像头在左侧"
