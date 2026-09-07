@@ -690,7 +690,7 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
             track,
             label: _subtitleLabel(track),
             selected: identical(widget.selectedSubtitle, track),
-            enabled: track.canLoad,
+            enabled: track.canSelect,
             icon: track.isExternal ? Icons.file_open_outlined : null,
           ),
       ],

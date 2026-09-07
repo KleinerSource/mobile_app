@@ -78,9 +78,7 @@ class _MediaBrowserLibraryPageState
   static const _viewModeKey = 'media_browser.library.view_mode.v1';
   static final _videoTypeOptions =
       <({String value, String Function(AppL10n l) label})>[
-        (value: 'Movie,Series,BoxSet', label: (l) => l.filterAll),
         (value: 'Movie', label: (l) => l.mediaBrowserTypeMovies),
-        (value: 'Series', label: (l) => l.mediaBrowserTypeTvShows),
       ];
   static final _musicTypeOptions =
       <({String value, String Function(AppL10n l) label})>[
@@ -109,7 +107,7 @@ class _MediaBrowserLibraryPageState
   Completer<void>? _refreshCompleter;
   String? _parentId;
   String? _collectionType;
-  String _includeItemTypes = 'Movie,Series,BoxSet';
+  String _includeItemTypes = 'Movie';
   List<String> _genreFilter = const [];
   List<String> _tagFilter = const [];
   List<String> _yearFilter = const [];

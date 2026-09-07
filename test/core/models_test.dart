@@ -237,6 +237,23 @@ void _main_1() {
     expect(track.canLoad, isTrue);
   });
 
+  test('后端标记不可转换的 PGS 内嵌字幕仍可选择', () {
+    const track = SubtitleTrack(
+      index: 4,
+      source: 'embedded',
+      language: 'eng',
+      title: 'English PGS',
+      codec: 'hdmv_pgs_subtitle',
+      url: '',
+      isDefault: false,
+      renderMode: 'burn_in',
+      playable: false,
+    );
+
+    expect(track.canLoad, isFalse);
+    expect(track.canSelect, isTrue);
+  });
+
   test('普通文本字幕不启用 PGS 原生渲染', () {
     const track = SubtitleTrack(
       index: 3,

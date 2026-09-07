@@ -283,6 +283,17 @@ class SubtitleTrack {
 
   bool get canLoad => playable && (isEmbedded || url.trim().isNotEmpty);
 
+  /// 是否可以在播放页字幕菜单中选择。
+  ///
+  /// `playable` 表示能否转换为 WebVTT；内嵌位图字幕虽然不能作为文本轨
+  /// 加载，但可以由播放器直接渲染，或交给后端烧录到 HLS 流中。
+  bool get canSelect {
+    if (canLoad) return true;
+    if (!isEmbedded) return false;
+    final mode = renderMode.trim().toLowerCase();
+    return isPgs || mode == 'burn_in' || mode == 'burn-in' || mode == 'burnin';
+  }
+
   factory SubtitleTrack.fromJson(Map<String, dynamic> json) => SubtitleTrack(
     id: _asString(json['id']),
     index: _asInt(json['index']),

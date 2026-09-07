@@ -242,13 +242,13 @@ void main() {
     );
     await _pumpLibrary(tester, repo, initialViewId: 'library-1');
     expect(find.text('影片甲'), findsWidgets);
-    expect(repo.itemPageCalls, contains(('library-1', 'Movie,Series,BoxSet')));
+    expect(repo.itemPageCalls, contains(('library-1', 'Movie')));
   });
 
-  testWidgets('视频媒体库的全部列表包含 Jellyfin 合集', (tester) async {
+  testWidgets('Jellyfin 视频媒体库只请求影片，不包含合集和剧集', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(
-        items: [_item('collection-1', '示例合集', type: 'BoxSet')],
+        items: [_item('movie-1', '示例影片')],
         total: 1,
         startIndex: 0,
         limit: 24,
@@ -262,8 +262,16 @@ void main() {
       config: MediaBrowserConfig.jellyfin,
     );
 
-    expect(find.text('示例合集'), findsWidgets);
-    expect(repo.itemPageCalls, contains(('library-1', 'Movie,Series,BoxSet')));
+    expect(find.text('示例影片'), findsWidgets);
+    expect(repo.itemPageCalls, contains(('library-1', 'Movie')));
+    expect(
+      repo.itemPageCalls,
+      isNot(contains(('library-1', 'Movie,Series'))),
+    );
+    expect(
+      repo.itemPageCalls,
+      isNot(contains(('library-1', 'Movie,Series,BoxSet'))),
+    );
   });
 
   testWidgets('从音乐媒体库进入后仍能加载首屏条目', (tester) async {
