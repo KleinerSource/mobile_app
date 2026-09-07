@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -12,6 +13,7 @@ import 'package:omm/features/media_browser/playback/media_browser_audio_playback
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/features/player/common/player_queue.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// 只实现播放会话用到的 Source 方法，其余通过 noSuchMethod 拒绝。
 class _FakeMediaBrowserSource implements MediaBrowserMediaSource {
@@ -56,6 +58,7 @@ class _BytesAdapter implements HttpClientAdapter {
 
   final List<int> bytes;
   final requests = <String>[];
+  final requestHeaders = <Map<String, dynamic>>[];
 
   @override
   void close({bool force = false}) {}
@@ -67,6 +70,7 @@ class _BytesAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.method} ${options.uri}');
+    requestHeaders.add(Map<String, dynamic>.from(options.headers));
     return ResponseBody(
       Stream<Uint8List>.value(Uint8List.fromList(bytes)),
       200,
@@ -102,6 +106,16 @@ MediaBrowserServerUrls _urls() => MediaBrowserServerUrls(
 );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  PackageInfo.setMockInitialValues(
+    appName: 'Oh My Media',
+    packageName: 'com.ohmymedia.omm',
+    version: '0.92.10',
+    buildNumber: '745',
+    buildSignature: '',
+  );
+  resetAppVersionCache();
+
   test('队列构建：曲号标题、音频直链、mediaId 不含 token', () {
     final source = _FakeMediaBrowserSource();
     final session = MediaBrowserAudioQueueSession(
@@ -190,6 +204,7 @@ void main() {
     expect(second.artworkPath, first.artworkPath);
     expect(adapter.requests.single, contains('Items/album-1/Images/Primary'));
     expect(adapter.requests.single, contains('api_key=secret-token'));
+    expect(adapter.requestHeaders.single['User-Agent'], 'omm/0.92.10');
     final file = File(first.artworkPath!);
     expect(await file.exists(), isTrue);
 

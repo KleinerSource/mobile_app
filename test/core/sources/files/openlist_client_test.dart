@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/files/openlist_api.dart';
 import 'package:omm/core/sources/sources.dart';
 
@@ -35,6 +36,8 @@ void main() {
         expect(fixture.loginBodies.single['username'], 'alice');
         expect(fixture.fsListRequests, isEmpty);
         expect(fixture.propfindPaths, isNotEmpty);
+        expect(fixture.userAgents, isNotEmpty);
+        expect(fixture.userAgents, everyElement(await appUserAgent()));
       } finally {
         await source.dispose();
         await fixture.close();
@@ -245,6 +248,7 @@ class _OpenListFixture {
   final listAuthHeaders = <String?>[];
   final propfindPaths = <String>[];
   final ranges = <String>[];
+  final userAgents = <String?>[];
 
   final fileBytes = List<int>.generate(64, (index) => index);
 
@@ -277,6 +281,7 @@ class _OpenListFixture {
   Future<void> _handle(HttpRequest request) async {
     final path = request.uri.path;
     final response = request.response;
+    userAgents.add(request.headers.value(HttpHeaders.userAgentHeader));
     try {
       if (request.method == 'POST' && path == '/api/auth/login') {
         final body = await _readJsonBody(request);

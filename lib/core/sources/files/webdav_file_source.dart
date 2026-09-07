@@ -8,6 +8,7 @@ import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import '../common/source_lifecycle.dart';
+import '../../platform/app_version.dart';
 import 'file_capabilities.dart';
 import 'file_entry.dart';
 import 'file_operation.dart';
@@ -67,6 +68,7 @@ class WebDavFileSource
       user: options.user,
       password: options.password,
     );
+    client.setHeaders(<String, String>{'User-Agent': await appUserAgent()});
     client.setConnectTimeout(options.timeoutMilliseconds);
     client.setSendTimeout(options.timeoutMilliseconds);
     client.setReceiveTimeout(options.timeoutMilliseconds);

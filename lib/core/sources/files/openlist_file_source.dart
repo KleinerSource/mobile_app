@@ -1,6 +1,7 @@
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
 import '../../platform/app_log_store.dart';
+import '../../platform/app_version.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
@@ -42,6 +43,7 @@ class OpenListFileSource extends WebDavFileSource {
       user: options.user,
       password: options.password,
     );
+    client.setHeaders(<String, String>{'User-Agent': await appUserAgent()});
     client.setConnectTimeout(options.timeoutMilliseconds);
     client.setSendTimeout(options.timeoutMilliseconds);
     client.setReceiveTimeout(options.timeoutMilliseconds);

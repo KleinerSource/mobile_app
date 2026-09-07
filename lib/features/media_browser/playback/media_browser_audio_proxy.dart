@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/platform/app_log_store.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）音频回环代理。
@@ -212,6 +213,7 @@ class MediaBrowserAudioProxy {
     var teeExpected = 0;
     Completer<File>? teeClaim;
     try {
+      final mediaHeaders = await mergeMediaRequestHeaders(track.headers);
       final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
       final remote = await _downloader.get<ResponseBody>(
         track.remoteUrl,
@@ -220,7 +222,7 @@ class MediaBrowserAudioProxy {
           responseType: ResponseType.stream,
           headers: {
             if (rangeHeader != null) HttpHeaders.rangeHeader: rangeHeader,
-            ...?track.headers,
+            ...mediaHeaders,
             'Accept-Encoding': 'identity',
           },
         ),
@@ -375,11 +377,14 @@ class MediaBrowserAudioProxy {
     final file = await _cacheFileFor(track);
     try {
       appLog('[MbAudioProxy] 开始下载: ${track.track.name}');
+      final mediaHeaders = await mergeMediaRequestHeaders(track.headers);
       await _downloader.download(
         track.remoteUrl,
         file.path,
         cancelToken: cancelToken,
-        options: Options(headers: {'Accept-Encoding': 'identity'}),
+        options: Options(
+          headers: {...mediaHeaders, 'Accept-Encoding': 'identity'},
+        ),
       );
       if (await file.length() == 0) {
         throw StateError('音频下载结果为空');

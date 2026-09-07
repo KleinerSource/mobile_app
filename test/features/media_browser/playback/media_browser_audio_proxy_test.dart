@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_proxy.dart';
 
@@ -12,6 +13,7 @@ class _RemoteAdapter implements HttpClientAdapter {
 
   final Uint8List Function(String uri) bytesOf;
   final requests = <String>[];
+  final requestHeaders = <Map<String, dynamic>>[];
 
   @override
   void close({bool force = false}) {}
@@ -23,6 +25,7 @@ class _RemoteAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.method} ${options.uri}');
+    requestHeaders.add(Map<String, dynamic>.from(options.headers));
     final bytes = bytesOf(options.uri.toString());
     return ResponseBody(
       Stream<Uint8List>.value(bytes),
@@ -121,11 +124,42 @@ void main() {
         '${_mp3Bytes.length}',
       );
       expect(response.data, _mp3Bytes);
+      expect(adapter.requestHeaders.single['User-Agent'], await appUserAgent());
       // ID3 头被嗅探为 audio/mpeg。
       expect(
         response.headers.value(HttpHeaders.contentTypeHeader),
         contains('audio/mpeg'),
       );
+    } finally {
+      await proxy.close();
+      client.close();
+    }
+  });
+
+  test('显式音频 UA 透传，且不被默认 UA 覆盖', () async {
+    final adapter = _RemoteAdapter((_) => Uint8List.fromList(_mp3Bytes));
+    final proxy = await MediaBrowserAudioProxy.start(
+      downloader: Dio()..httpClientAdapter = adapter,
+    );
+    final client = Dio();
+    try {
+      final url = proxy.register(
+        _track('t1'),
+        'http://remote/t1/stream',
+        headers: {
+          'user-agent': 'custom-audio/1.0',
+          'Authorization': 'Bearer token',
+        },
+      );
+      await client.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      expect(adapter.requestHeaders.single, {
+        'user-agent': 'custom-audio/1.0',
+        'Authorization': 'Bearer token',
+        'Accept-Encoding': 'identity',
+      });
     } finally {
       await proxy.close();
       client.close();

@@ -19,6 +19,7 @@ import '../../../core/config/server_config_provider.dart';
 import '../../../core/models/playback.dart' as playback_models;
 import '../../../core/models/watch_record.dart';
 import '../../../core/platform/app_log_store.dart';
+import '../../../core/platform/app_version.dart';
 import '../../../core/platform/screen_brightness_channel.dart';
 import '../../../core/sources/common/source_exception.dart';
 import '../../../core/sources/common/source_id.dart';
@@ -1246,12 +1247,10 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   Future<String> _fetchDirectSubtitle(String url) async {
+    final mediaHeaders = await mergeMediaRequestHeaders(widget.directHeaders);
     final response = await Dio().get<List<int>>(
       url,
-      options: Options(
-        responseType: ResponseType.bytes,
-        headers: widget.directHeaders,
-      ),
+      options: Options(responseType: ResponseType.bytes, headers: mediaHeaders),
     );
     return utf8.decode(response.data ?? const <int>[], allowMalformed: true);
   }

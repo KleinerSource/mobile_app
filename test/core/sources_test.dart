@@ -15,6 +15,7 @@ import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/files/file_playback_progress.dart';
 import 'package:omm/core/sources/sources.dart';
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
@@ -818,6 +819,8 @@ void _main_1() {
       expect(access.size, bytes.length);
       expect(access.mimeType, 'video/mp4');
       expect(access.headers['Authorization'], 'Basic YWxpY2U6c2VjcmV0');
+      expect(fixture.userAgents, isNotEmpty);
+      expect(fixture.userAgents, everyElement(await appUserAgent()));
     } finally {
       await source.dispose();
       await fixture.close();
@@ -910,6 +913,7 @@ class _WebDavFixture {
   final List<int> bytes;
   final bool ignoreRange;
   final ranges = <String>[];
+  final userAgents = <String?>[];
   var fullGets = 0;
 
   Uri get baseUri => Uri(
@@ -931,6 +935,7 @@ class _WebDavFixture {
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
+    userAgents.add(request.headers.value(HttpHeaders.userAgentHeader));
     if (request.method == 'OPTIONS') {
       response.statusCode = HttpStatus.ok;
       await response.close();

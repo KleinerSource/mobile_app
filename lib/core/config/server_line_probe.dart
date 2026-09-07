@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../api/api_exception.dart';
 import '../api/dio_factory.dart';
 import '../api/server_compatibility.dart';
+import '../platform/app_version.dart';
 import 'server_config.dart';
 
 typedef ServerLineProbe =
@@ -327,6 +328,7 @@ Future<ServerVersionInfo?> _probeStash(ServerLine line) async {
       '/graphql',
       data: const {'query': 'query StashProbe { __typename }'},
       options: Options(
+        headers: {'User-Agent': await appUserAgent()},
         validateStatus: (status) =>
             status != null &&
             ((status >= 200 && status < 300) || status == 401 || status == 403),

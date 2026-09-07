@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../../platform/app_version.dart';
+
 /// OpenList（AList v3 兼容）连接参数。
 ///
 /// 文件管理完全走 WebDAV：[uri] 是含内置 `/dav` 前缀的端点（如
@@ -58,7 +60,20 @@ class OpenListClient {
           receiveTimeout: Duration(milliseconds: options.timeoutMilliseconds),
           validateStatus: (status) => status != null && status < 500,
         ),
-      );
+      ) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final headers = <String, String>{
+            for (final entry in options.headers.entries)
+              entry.key: entry.value.toString(),
+          };
+          options.headers = await mergeMediaRequestHeaders(headers);
+          handler.next(options);
+        },
+      ),
+    );
+  }
 
   final OpenListConnectionOptions _options;
   final Uri _baseUri;
