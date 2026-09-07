@@ -245,25 +245,6 @@ void main() {
     expect(repo.itemPageCalls, contains(('library-1', 'Movie')));
   });
 
-  testWidgets('从电视剧媒体库进入后默认显示系列', (tester) async {
-    final repo = _RecordingRepo(
-      page: MediaBrowserItemPage(
-        items: [_item('series-1', '剧集甲', type: 'Series')],
-        total: 1,
-        startIndex: 0,
-        limit: 24,
-      ),
-      libraryViews: [_libraryView('tv-library', collectionType: 'tvshows')],
-    );
-    await _pumpLibrary(tester, repo, initialViewId: 'tv-library');
-
-    expect(repo.itemPageCalls, contains(('tv-library', 'Series')));
-    expect(
-      find.byKey(const ValueKey('media-browser-type-series')),
-      findsOneWidget,
-    );
-  });
-
   testWidgets('选择媒体库后可以切回全部媒体库', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(
@@ -283,7 +264,7 @@ void main() {
     expect(repo.itemPageCalls, contains((null, 'Movie')));
   });
 
-  testWidgets('系列和合集可以通过独立分类加载', (tester) async {
+  testWidgets('合集作为独立入口并可返回全部电影', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(
         items: [_item('a', '影片甲')],
@@ -295,13 +276,21 @@ void main() {
     );
     await _pumpLibrary(tester, repo, initialViewId: 'library-1');
 
-    await tester.tap(find.byKey(const ValueKey('media-browser-type-series')));
+    expect(
+      find.byKey(const ValueKey('media-browser-type-series')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('media-browser-type-boxset')),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const ValueKey('media-browser-collections')));
     await tester.pumpAndSettle();
-    expect(repo.itemPageCalls, contains(('library-1', 'Series')));
+    expect(repo.itemPageCalls, contains((null, 'BoxSet')));
 
-    await tester.tap(find.byKey(const ValueKey('media-browser-type-boxset')));
+    await tester.tap(find.byKey(const ValueKey('media-browser-all-libraries')));
     await tester.pumpAndSettle();
-    expect(repo.itemPageCalls, contains(('library-1', 'BoxSet')));
+    expect(repo.itemPageCalls, contains((null, 'Movie')));
   });
 
   testWidgets('Jellyfin 视频媒体库只请求影片，不包含合集和剧集', (tester) async {
@@ -323,10 +312,7 @@ void main() {
 
     expect(find.text('示例影片'), findsWidgets);
     expect(repo.itemPageCalls, contains(('library-1', 'Movie')));
-    expect(
-      repo.itemPageCalls,
-      isNot(contains(('library-1', 'Movie,Series'))),
-    );
+    expect(repo.itemPageCalls, isNot(contains(('library-1', 'Movie,Series'))));
     expect(
       repo.itemPageCalls,
       isNot(contains(('library-1', 'Movie,Series,BoxSet'))),
