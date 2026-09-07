@@ -85,6 +85,10 @@ class _MediaBrowserLibraryPageState
         (value: 'MusicAlbum', label: (l) => l.mediaBrowserTypeAlbums),
         (value: 'Audio', label: (l) => l.mediaBrowserTypeSongs),
       ];
+  static final _collectionTypeOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: 'BoxSet', label: (l) => l.mediaBrowserTypeCollections),
+      ];
   static final _sortOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: 'DateCreated', label: (l) => l.mediaBrowserSortRecent),
@@ -126,10 +130,17 @@ class _MediaBrowserLibraryPageState
   _typeOptionsFor(String? collectionType) =>
       _isMusicCollectionType(collectionType)
       ? _musicTypeOptions
+      : _isBoxSetCollectionType(collectionType)
+      ? _collectionTypeOptions
       : _videoTypeOptions;
 
   static bool _isMusicCollectionType(String? collectionType) =>
       (collectionType ?? '').trim().toLowerCase() == 'music';
+
+  static bool _isBoxSetCollectionType(String? collectionType) {
+    final normalized = collectionType?.trim().toLowerCase() ?? '';
+    return normalized == 'boxsets' || normalized == 'boxset';
+  }
 
   bool get _isMusicGrid => _isMusicCollectionType(_collectionType);
 
@@ -378,7 +389,12 @@ class _MediaBrowserLibraryPageState
     if (parentId == null) return null;
     final views = ref.read(mediaBrowserViewsProvider).value;
     for (final view in views ?? const <MediaBrowserItem>[]) {
-      if (view.id == parentId) return view.collectionType;
+      if (view.id != parentId) continue;
+      if (view.collectionType?.trim().isNotEmpty == true) {
+        return view.collectionType;
+      }
+      if (view.isCollection) return 'boxsets';
+      return null;
     }
     return null;
   }
@@ -746,7 +762,7 @@ class _MediaBrowserLibraryPageState
                                     horizontal: 22,
                                   ),
                                   scrollDirection: Axis.horizontal,
-                                  itemCount: list.length + 2,
+                                  itemCount: list.length + 1,
                                   separatorBuilder: (_, __) =>
                                       const SizedBox(width: 8),
                                   itemBuilder: (context, index) {
@@ -757,38 +773,19 @@ class _MediaBrowserLibraryPageState
                                         ),
                                         privacyId: null,
                                         label: AppL10n.of(context).filterAll,
-                                        selected:
-                                            _parentId == null &&
-                                            _includeItemTypes != 'BoxSet',
+                                        selected: _parentId == null,
                                         onTap: () => _reloadWith(
                                           clearParent: true,
                                           includeItemTypes: 'Movie',
                                         ),
                                       );
                                     }
-                                    if (index == list.length + 1) {
-                                      return _ViewChip(
-                                        key: const ValueKey(
-                                          'media-browser-collections',
-                                        ),
-                                        privacyId: null,
-                                        label: AppL10n.of(
-                                          context,
-                                        ).mediaBrowserTypeCollections,
-                                        selected:
-                                            _parentId == null &&
-                                            _includeItemTypes == 'BoxSet',
-                                        onTap: () => _reloadWith(
-                                          clearParent: true,
-                                          includeItemTypes: 'BoxSet',
-                                        ),
-                                      );
-                                    }
                                     final view = list[index - 1];
-                                    final selected =
-                                        _includeItemTypes != 'BoxSet' &&
-                                        view.id == _parentId;
+                                    final selected = view.id == _parentId;
                                     return _ViewChip(
+                                      key: ValueKey(
+                                        'media-browser-library-${view.id}',
+                                      ),
                                       privacyId: view.id,
                                       label: view.name,
                                       selected: selected,

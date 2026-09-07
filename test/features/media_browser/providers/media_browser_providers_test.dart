@@ -191,6 +191,7 @@ void main() {
     // 音乐库出「最新专辑」行。
     expect(includeItemTypesForView('music'), 'MusicAlbum');
     expect(includeItemTypesForView('Music'), 'MusicAlbum');
+    expect(includeItemTypesForView('boxsets'), 'BoxSet');
     // 混合库（类型为空或未知）不过滤，展示全部条目。
     expect(includeItemTypesForView(null), isNull);
     expect(includeItemTypesForView('mixed'), isNull);

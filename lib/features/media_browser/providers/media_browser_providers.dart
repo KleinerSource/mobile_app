@@ -113,6 +113,7 @@ String? includeItemTypesForView(String? collectionType) =>
       'movies' => 'Movie',
       'tvshows' => 'Series',
       'music' => 'MusicAlbum',
+      'boxsets' || 'boxset' => 'BoxSet',
       _ => null,
     };
 

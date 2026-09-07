@@ -152,11 +152,16 @@ Future<void> _pumpLibrary(
   await tester.pumpAndSettle();
 }
 
-MediaBrowserItem _libraryView(String id, {String collectionType = 'movies'}) {
+MediaBrowserItem _libraryView(
+  String id, {
+  String name = '电影库',
+  String collectionType = 'movies',
+  String type = 'CollectionFolder',
+}) {
   return MediaBrowserItem.fromJson({
     'Id': id,
-    'Name': '电影库',
-    'Type': 'CollectionFolder',
+    'Name': name,
+    'Type': type,
     'CollectionType': collectionType,
   });
 }
@@ -264,7 +269,7 @@ void main() {
     expect(repo.itemPageCalls, contains((null, 'Movie')));
   });
 
-  testWidgets('合集作为独立入口并可返回全部电影', (tester) async {
+  testWidgets('服务器返回的合集媒体库可请求合集并返回全部电影', (tester) async {
     final repo = _RecordingRepo(
       page: MediaBrowserItemPage(
         items: [_item('a', '影片甲')],
@@ -272,7 +277,10 @@ void main() {
         startIndex: 0,
         limit: 24,
       ),
-      libraryViews: [_libraryView('library-1')],
+      libraryViews: [
+        _libraryView('library-1'),
+        _libraryView('collections', name: '服务器合集库', collectionType: 'boxsets'),
+      ],
     );
     await _pumpLibrary(tester, repo, initialViewId: 'library-1');
 
@@ -281,12 +289,12 @@ void main() {
       findsNothing,
     );
     expect(
-      find.byKey(const ValueKey('media-browser-type-boxset')),
+      find.byKey(const ValueKey('media-browser-collections')),
       findsNothing,
     );
-    await tester.tap(find.byKey(const ValueKey('media-browser-collections')));
+    await tester.tap(find.text('服务器合集库'));
     await tester.pumpAndSettle();
-    expect(repo.itemPageCalls, contains((null, 'BoxSet')));
+    expect(repo.itemPageCalls, contains(('collections', 'BoxSet')));
 
     await tester.tap(find.byKey(const ValueKey('media-browser-all-libraries')));
     await tester.pumpAndSettle();
