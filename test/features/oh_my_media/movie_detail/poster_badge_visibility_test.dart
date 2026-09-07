@@ -108,6 +108,8 @@ void main() {
       CoverBadgeSpec(PosterBadgeKind.strm, 'STRM', Color(0xFF475569)),
       CoverBadgeSpec(PosterBadgeKind.subtitle, '字幕', Color(0xFFFF9F1C)),
       CoverBadgeSpec(PosterBadgeKind.subtitle, 'AI 字幕', Color(0xFF8B5CF6)),
+      CoverBadgeSpec(PosterBadgeKind.resolution, 'HD', Color(0xFF0891B2)),
+      CoverBadgeSpec(PosterBadgeKind.crack, '破解', Color(0xFFDB2777)),
     ];
 
     await tester.pumpWidget(
@@ -119,9 +121,15 @@ void main() {
       ),
     );
 
-    expect(find.byType(StackedBadges), findsNWidgets(2));
+    final stacks = tester
+        .widgetList<StackedBadges>(find.byType(StackedBadges))
+        .toList();
+    expect(stacks, hasLength(2));
+    expect(stacks.map((stack) => stack.children.length).toSet(), {2, 3});
     expect(find.text('HEVC'), findsOneWidget);
     expect(find.text('AI 字幕'), findsOneWidget);
+    expect(find.text('HD'), findsOneWidget);
+    expect(find.text('破解'), findsOneWidget);
   });
 
   testWidgets('设置预览包含 AI 字幕 badge', (tester) async {

@@ -252,8 +252,9 @@ List<CoverBadgeSpec> buildCoverBadges({
 }
 
 /// 封面底部技术徽章行:
-/// 视频规格(编码/HDR/分辨率/STRM/破解)与字幕来源分别合并为两个叠堆,
-/// 收起时叠加、点按向上展开,详情页与设置预览共用同一套布局。
+/// 视频规格(编码/HDR/杜比/STRM)与字幕来源分别合并为两个叠堆;
+/// HD/UHD 与破解保持独立显示。收起时叠加、点按向上展开,
+/// 详情页与设置预览共用同一套布局。
 class CoverBadgeRow extends StatelessWidget {
   const CoverBadgeRow({super.key, required this.badges});
 
@@ -263,12 +264,19 @@ class CoverBadgeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     final subs = <CoverBadgeSpec>[];
-    final technical = <CoverBadgeSpec>[];
+    final mediaSpecs = <CoverBadgeSpec>[];
+    final standalone = <CoverBadgeSpec>[];
     for (final b in badges) {
-      if (b.kind == PosterBadgeKind.subtitle) {
-        subs.add(b);
-      } else {
-        technical.add(b);
+      switch (b.kind) {
+        case PosterBadgeKind.codec:
+        case PosterBadgeKind.hdr:
+        case PosterBadgeKind.strm:
+          mediaSpecs.add(b);
+        case PosterBadgeKind.subtitle:
+          subs.add(b);
+        case PosterBadgeKind.crack:
+        case PosterBadgeKind.resolution:
+          standalone.add(b);
       }
     }
 
@@ -285,7 +293,8 @@ class CoverBadgeRow extends StatelessWidget {
       spacing: 6,
       runSpacing: 6,
       children: [
-        badgeGroup(technical),
+        badgeGroup(mediaSpecs),
+        for (final b in standalone) _CoverBadgePill(spec: b),
         badgeGroup(subs, tooltip: l.movieCardSubStack(subs.length)),
       ],
     );
