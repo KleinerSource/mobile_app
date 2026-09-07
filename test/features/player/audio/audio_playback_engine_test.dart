@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:flutter/foundation.dart';
@@ -10,9 +11,19 @@ import 'package:omm/features/player/audio/audio_playback_service.dart';
 import 'package:omm/features/player/audio/audio_metadata.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_queue.dart';
+import 'package:omm/core/platform/app_version.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  PackageInfo.setMockInitialValues(
+    appName: 'Oh My Media',
+    packageName: 'com.ohmymedia.omm',
+    version: '0.92.10',
+    buildNumber: '745',
+    buildSignature: '',
+  );
+  resetAppVersionCache();
 
   test('Scratch 按住到边界不切歌，释放恢复播放后允许曲末推进', () {
     bool shouldAdvance({required bool scratching, required Duration position}) {
@@ -53,6 +64,10 @@ void main() {
         type: PlayerQueueItemType.audio,
         mediaId: 'webdav:/music/two.flac',
         directUrl: 'https://example.test/two.flac',
+        directHeaders: {
+          'user-agent': 'custom-audio-player/1.0',
+          'Authorization': 'Bearer second',
+        },
       ),
     ];
 
@@ -79,6 +94,13 @@ void main() {
       'https://example.test/one.mp3',
       'https://example.test/two.flac',
     ]);
+    expect(jsonDecode(items[0]['headers'] as String), {
+      'User-Agent': 'omm/0.92.10',
+    });
+    expect(jsonDecode(items[1]['headers'] as String), {
+      'user-agent': 'custom-audio-player/1.0',
+      'Authorization': 'Bearer second',
+    });
 
     await engine.dispose();
   });

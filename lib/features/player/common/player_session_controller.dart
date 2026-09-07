@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/playback.dart' as playback_models;
+import '../../../core/platform/app_version.dart';
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_queue.dart';
@@ -33,6 +34,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       StreamController<bool>.broadcast();
   final StreamController<String> _errorController =
       StreamController<String>.broadcast();
+  Map<String, String>? _currentMediaHeaders;
   bool _playbackIntent = false;
   bool _disposed = false;
   int _seekGeneration = 0;
@@ -64,6 +66,9 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   bool get mainMediaLoaded => value.mainMediaLoaded;
   bool get usesBackendSubtitleSelection =>
       _engine.kind == PlaybackEngineKind.ksPlayer;
+  Map<String, String>? get currentMediaHeaders => _currentMediaHeaders == null
+      ? null
+      : Map<String, String>.from(_currentMediaHeaders!);
 
   Stream<Duration> get positionStream => _positionController.stream;
   Stream<Duration> get durationStream => _durationController.stream;
@@ -87,15 +92,11 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     int? audioStreamIndex,
     String? subtitleTrackId,
   }) {
-    final os = kIsWeb
-        ? 'flutter-web'
-        : defaultTargetPlatform.name.toLowerCase();
     switch (_engine.kind) {
       case PlaybackEngineKind.ksPlayer:
         return playback_models.PlaybackClientCaps.ksPlayer(
           qualityPreset: quality,
           forceVideoTranscode: forceVideoTranscode,
-          userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,
         );
@@ -103,7 +104,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
         return playback_models.PlaybackClientCaps.mediaKit(
           qualityPreset: quality,
           forceVideoTranscode: forceVideoTranscode,
-          userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,
         );
@@ -111,7 +111,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
         return playback_models.PlaybackClientCaps.mediaKit(
           qualityPreset: quality,
           forceVideoTranscode: false,
-          userAgent: 'omm/$os',
         );
     }
   }
@@ -331,10 +330,12 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }) async {
     _invalidateSeek();
     _playbackIntent = play;
+    final mediaHeaders = await mergeMediaRequestHeaders(headers);
+    _currentMediaHeaders = mediaHeaders;
     final request = PlaybackOpenRequest(
       url: url,
       startAt: startAt,
-      headers: headers,
+      headers: mediaHeaders,
       play: play,
       formatHint: formatHint,
       mediaInfo: mediaInfo,
@@ -492,11 +493,14 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     Duration position, {
     String? sourceUrl,
     Map<String, String>? headers,
-  }) {
+  }) async {
+    final mediaHeaders = await mergeMediaRequestHeaders(
+      headers ?? _currentMediaHeaders,
+    );
     return _engine.captureFrame(
       position,
       sourceUrl: sourceUrl,
-      headers: headers,
+      headers: mediaHeaders,
     );
   }
 
@@ -523,6 +527,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _currentMediaHeaders = null;
     _unbindEngine();
     await _engine.dispose();
     await _positionController.close();

@@ -4,34 +4,16 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderException;
-import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/auth_session.dart';
 import '../auth/auth_session_repository.dart';
 import '../config/server_config.dart';
+import '../platform/app_version.dart';
 import 'feiniu_signer.dart';
 import 'api_exception.dart';
 import 'envelope.dart';
 import 'error_mapper.dart';
 import 'server_compatibility.dart';
-
-// 缓存的 User-Agent：形如 omm/0.10.6，避免每个请求都读取 PackageInfo。
-String? _cachedUserAgent;
-
-Future<String?> _appUserAgent() async {
-  final cached = _cachedUserAgent;
-  if (cached != null) return cached;
-  try {
-    final info = await PackageInfo.fromPlatform();
-    final ua = 'omm/${info.version}';
-    _cachedUserAgent = ua;
-    return ua;
-  } catch (_) {
-    // 单元测试和部分非原生运行环境没有注册 package_info_plus 插件。
-    // User-Agent 不是请求成立的前置条件，读取失败时继续使用默认请求头。
-    return null;
-  }
-}
 
 Dio buildDio(
   ServerConfig config, {
@@ -108,10 +90,7 @@ Dio buildDio(
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final userAgent = await _appUserAgent();
-        if (userAgent != null) {
-          options.headers['User-Agent'] = userAgent;
-        }
+        options.headers['User-Agent'] = await appUserAgent();
         AuthSession? session;
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
           session = await sessionRepository.current();

@@ -3,6 +3,8 @@ import 'package:omm/core/models/playback.dart';
 import 'package:omm/features/player/common/engine_playback_route.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
+import 'package:omm/core/platform/app_version.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'fake_playback_engine.dart';
 
@@ -18,6 +20,16 @@ PlaybackDecision resolvedStrm({bool hls = false}) => PlaybackDecision.fromJson({
 });
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  PackageInfo.setMockInitialValues(
+    appName: 'Oh My Media',
+    packageName: 'com.ohmymedia.omm',
+    version: '0.92.10',
+    buildNumber: '745',
+    buildSignature: '',
+  );
+  resetAppVersionCache();
+
   for (final quality in ['auto', 'original']) {
     for (final hls in [false, true]) {
       test('$quality 档 STRM（HLS=$hls）使用客户端直连，不创建服务器会话', () {
@@ -44,6 +56,22 @@ void main() {
   }
 
   for (final kind in [PlaybackEngineKind.libmpv, PlaybackEngineKind.ksPlayer]) {
+    test('$kind 无显式覆盖时使用统一版本 UA', () async {
+      final engine = FakePlaybackEngine(kind);
+      final session = PlayerSessionController(engine: engine);
+      try {
+        await session.open('https://cdn.example/video.mp4');
+        expect(engine.lastOpenRequest?.headers, {'User-Agent': 'omm/0.92.10'});
+        await session.captureFrame(
+          const Duration(seconds: 5),
+          sourceUrl: 'https://cdn.example/preview.mp4',
+        );
+        expect(engine.lastCaptureHeaders, {'User-Agent': 'omm/0.92.10'});
+      } finally {
+        await session.dispose();
+      }
+    });
+
     test('$kind 打开、定位和重开均保留 STRM URL 和 UA', () async {
       final engine = FakePlaybackEngine(kind);
       final session = PlayerSessionController(engine: engine);

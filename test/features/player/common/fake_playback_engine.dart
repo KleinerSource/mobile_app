@@ -28,6 +28,8 @@ class FakePlaybackEngine implements PlaybackEngine {
   final List<Duration> seekPositions = [];
   int openCount = 0;
   PlaybackOpenRequest? lastOpenRequest;
+  String? lastCaptureSourceUrl;
+  Map<String, String>? lastCaptureHeaders;
 
   @override
   PlaybackEngineCapabilities get capabilities => switch (kind) {
@@ -178,7 +180,13 @@ class FakePlaybackEngine implements PlaybackEngine {
     Duration position, {
     String? sourceUrl,
     Map<String, String>? headers,
-  }) async => Uint8List.fromList(const [1, 2, 3]);
+  }) async {
+    lastCaptureSourceUrl = sourceUrl;
+    lastCaptureHeaders = headers == null
+        ? null
+        : Map<String, String>.from(headers);
+    return Uint8List.fromList(const [1, 2, 3]);
+  }
 
   @override
   Future<void> clearFramePreview() async {

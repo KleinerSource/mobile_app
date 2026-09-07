@@ -29,8 +29,10 @@ import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/playback.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/features/translation/translation_repository.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 // ==================== 原 test/core/api_routes_test.dart ====================
 void _main_0() {
@@ -282,7 +284,7 @@ void _main_0() {
     final decision = await api.decision(7, caps);
     expect(decision.mode, 'direct_play');
     expect(adapter.requestBodies.first['resolve_private_strm'], isTrue);
-    expect(adapter.requestBodies.first['ua'], startsWith('omm/'));
+    expect(adapter.requestBodies.first['ua'], 'omm/0.92.10');
     expect(await api.streamUrl(7), '/api/movies/id/7/stream?mode=direct');
     expect((await api.status(7)).active, isTrue);
     expect((await api.events(7).toList()).single.quality, '1080p');
@@ -419,6 +421,7 @@ class _RouteAdapter implements HttpClientAdapter {
   final paths = <String>[];
   final queries = <Map<String, String>>[];
   final requestBodies = <Map<String, dynamic>>[];
+  final requestHeaders = <Map<String, dynamic>>[];
 
   @override
   void close({bool force = false}) {}
@@ -431,6 +434,7 @@ class _RouteAdapter implements HttpClientAdapter {
   ) async {
     paths.add(options.uri.path);
     queries.add(options.uri.queryParameters);
+    requestHeaders.add(Map<String, dynamic>.from(options.headers));
     if (options.data is Map) {
       requestBodies.add(Map<String, dynamic>.from(options.data as Map));
     }
@@ -522,6 +526,16 @@ void _main_1() {
     final dio = buildDio(const ServerConfig(baseUrl: 'http://h:8001'));
     expect(dio.options.baseUrl, 'http://h:8001/api');
     expect(dio.options.connectTimeout, const Duration(seconds: 15));
+  });
+
+  test('API 请求使用统一版本 UA', () async {
+    final adapter = _RouteAdapter();
+    final dio = buildDio(const ServerConfig(baseUrl: 'http://h:8001'))
+      ..httpClientAdapter = adapter;
+
+    await dio.get<dynamic>('/health');
+
+    expect(adapter.requestHeaders.single['User-Agent'], 'omm/0.92.10');
   });
 
   test('错误拦截器把 success:false 转为 ApiException', () async {
@@ -929,6 +943,15 @@ DioException _resp(int code, Object body, {String statusText = ''}) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  PackageInfo.setMockInitialValues(
+    appName: 'Oh My Media',
+    packageName: 'com.ohmymedia.omm',
+    version: '0.92.10',
+    buildNumber: '745',
+    buildSignature: '',
+  );
+  resetAppVersionCache();
   group('api_routes', _main_0);
   group('dio_factory', _main_1);
   group('dio_auth_interceptor', _main_2);

@@ -81,11 +81,13 @@ class PlayerQueueItem {
     return 'item:${_digest(title)}';
   }
 
-  Map<String, dynamic> toAudioPayload() => <String, dynamic>{
+  Map<String, dynamic> toAudioPayload({
+    Map<String, String>? headers,
+  }) => <String, dynamic>{
     'title': title,
     'mediaId': safeMediaId,
     'url': directUrl ?? '',
-    'headers': jsonEncode(directHeaders ?? const <String, String>{}),
+    'headers': jsonEncode(headers ?? directHeaders ?? const <String, String>{}),
     'formatHint': directFormatHint ?? '',
     'fileName': directPlaybackFileName ?? title,
   };

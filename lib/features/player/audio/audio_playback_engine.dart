@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import '../../../core/platform/app_log_store.dart';
+import '../../../core/platform/app_version.dart';
 import 'audio_metadata.dart';
 import 'audio_playback_service.dart';
 import '../common/playback_engine.dart';
@@ -117,12 +118,16 @@ class AudioPlaybackEngine
             ),
           ]
         : items;
+    final queueHeaders = <Map<String, String>>[
+      for (final item in queue)
+        await mergeMediaRequestHeaders(item.directHeaders ?? request.headers),
+    ];
     var index = request.queueIndex;
     if (index < 0 || index >= queue.length) index = 0;
     _setScratchSource(
       queue[index].safeMediaId,
       queue[index].directUrl ?? request.url,
-      queue[index].directHeaders ?? request.headers,
+      queueHeaders[index],
     );
     final queueKey = playerQueueKey(queue);
     final dispose = request.onQueueDispose;
@@ -131,7 +136,10 @@ class AudioPlaybackEngine
     }
     try {
       await _handler.customAction(audioOpenQueueAction, <String, dynamic>{
-        'queue': queue.map((item) => item.toAudioPayload()).toList(),
+        'queue': [
+          for (var i = 0; i < queue.length; i++)
+            queue[i].toAudioPayload(headers: queueHeaders[i]),
+        ],
         'queueIndex': index,
         'positionMs': (request.startAt ?? Duration.zero).inMilliseconds,
         'play': request.play,

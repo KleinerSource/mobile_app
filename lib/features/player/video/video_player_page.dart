@@ -893,9 +893,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     // 这样后台恢复时会重新打开清单，而不是对已停止的会话直接 play。
     _usingHls = _isHlsUrl(url, formatHint);
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
-    _pictureInPictureHeaders = headers == null
-        ? null
-        : Map<String, String>.from(headers);
+    _pictureInPictureHeaders = _host.currentMediaHeaders;
   }
 
   Future<void> _waitForFirstFrame() async {
@@ -947,7 +945,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     );
     _usingHls = isHls;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
-    _pictureInPictureHeaders = null;
+    _pictureInPictureHeaders = _host.currentMediaHeaders;
   }
 
   void _validateDecisionForQuality(
