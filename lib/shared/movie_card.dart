@@ -26,6 +26,7 @@ class MediaCardTemplate {
   static const titleMetaGap = 2.0;
   static const homeCardWidth = 132.0;
   static const homeRowHeight = 268.0;
+  static const homeSquareRowHeight = 190.0;
   static const titleMaxLines = 2;
   static const metaMaxLines = 1;
   static const gridChildAspectRatio = 0.5;

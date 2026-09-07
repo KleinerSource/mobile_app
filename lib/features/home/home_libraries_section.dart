@@ -13,6 +13,7 @@ class HomeLibraryCardEntry {
     required this.id,
     required this.name,
     this.coverUrl,
+    this.coverUrls = const <String>[],
     required this.onTap,
     this.imageHeaders,
     this.category,
@@ -26,6 +27,9 @@ class HomeLibraryCardEntry {
 
   /// 库封面；为空或加载失败时回退品牌渐变。
   final String? coverUrl;
+
+  /// 多张库封面按顺序并排显示；为空时使用 [coverUrl]。
+  final List<String> coverUrls;
   final Map<String, String>? imageHeaders;
   final VoidCallback onTap;
   final String? category;
@@ -165,7 +169,18 @@ class _HomeLibraryCardState extends State<_HomeLibraryCard> {
                                 if (currentChild != null) currentChild,
                               ],
                             ),
-                        child: entry.coverUrl != null
+                        child: entry.coverUrls.isNotEmpty
+                            ? KeyedSubtree(
+                                key: ValueKey('covers-${entry.id}'),
+                                child: Poster(
+                                  urls: entry.coverUrls,
+                                  title: entry.name,
+                                  aspectRatio: 5 / 3,
+                                  radius: 0,
+                                  httpHeaders: entry.imageHeaders,
+                                ),
+                              )
+                            : entry.coverUrl != null
                             ? KeyedSubtree(
                                 key: ValueKey('cover-${entry.id}'),
                                 child: Poster(

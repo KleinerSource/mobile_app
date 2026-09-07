@@ -76,4 +76,41 @@ void main() {
     );
     expect(image.httpHeaders, headers);
   });
+
+  testWidgets('多张海报最多显示三张并排封面', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: Locale('zh'),
+        home: Center(
+          child: SizedBox(
+            width: 300,
+            child: Poster(
+              urls: [
+                'https://example.com/poster-1.jpg',
+                'https://example.com/poster-2.jpg',
+                'https://example.com/poster-3.jpg',
+                'https://example.com/poster-4.jpg',
+              ],
+              title: '媒体库',
+              aspectRatio: 5 / 3,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(CachedNetworkImage), findsNWidgets(3));
+    expect(
+      tester
+          .widgetList<CachedNetworkImage>(find.byType(CachedNetworkImage))
+          .map((image) => image.imageUrl),
+      [
+        'https://example.com/poster-1.jpg',
+        'https://example.com/poster-2.jpg',
+        'https://example.com/poster-3.jpg',
+      ],
+    );
+  });
 }

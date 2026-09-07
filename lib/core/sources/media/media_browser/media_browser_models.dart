@@ -499,6 +499,7 @@ class MediaBrowserItem {
     this.albumArtist,
     this.artistNames = const <String>[],
     this.primaryImageTag,
+    this.posterImageTags = const <String>[],
     this.previewPath,
     this.backdropImageTags = const <String>[],
     this.thumbImageTag,
@@ -557,6 +558,9 @@ class MediaBrowserItem {
   /// 参与艺术家名列表（不含专辑艺术家语义，顺序与服务器一致）。
   final List<String> artistNames;
   final String? primaryImageTag;
+
+  /// 媒体库入口卡片使用的多张海报；目前由 fnOS 媒体库接口提供。
+  final List<String> posterImageTags;
 
   /// Stash Scene 的短预览视频路径；其他 MediaBrowser 来源为空。
   final String? previewPath;
@@ -629,6 +633,7 @@ class MediaBrowserItem {
     albumArtist: albumArtist,
     artistNames: artistNames,
     primaryImageTag: primaryImageTag,
+    posterImageTags: posterImageTags,
     previewPath: previewPath,
     backdropImageTags: backdropImageTags,
     thumbImageTag: thumbImageTag,

@@ -55,6 +55,7 @@ class FeiniuMediaDb {
     this.topDir = '',
     this.dir = '',
     this.poster,
+    this.posters = const <String>[],
     this.language = '',
     this.includeAdult = false,
     this.skipFilesize = 0,
@@ -72,6 +73,9 @@ class FeiniuMediaDb {
   final String topDir;
   final String dir;
   final String? poster;
+
+  /// 飞牛媒体库接口返回的影片封面，按接口顺序保留。
+  final List<String> posters;
   final String language;
   final bool includeAdult;
   final int skipFilesize;
@@ -86,6 +90,15 @@ class FeiniuMediaDb {
       json['dir_list'] ?? json['dirs'] ?? json['paths'],
     );
     final fallbackPaths = _pathList(json['dir'] ?? json['top_dir']);
+    final singlePoster = _imagePath(
+      json['poster'] ?? json['image'] ?? json['cover'],
+    );
+    final posterPaths = _imagePaths(json['posters']);
+    final posters = posterPaths.isNotEmpty
+        ? posterPaths
+        : singlePoster == null
+        ? const <String>[]
+        : [singlePoster];
     return FeiniuMediaDb(
       guid: _string(json['guid'] ?? json['id'] ?? json['mdb_guid']),
       name: _string(json['name'] ?? json['mdb_name'] ?? json['title']),
@@ -93,9 +106,8 @@ class FeiniuMediaDb {
       dirList: listedPaths.isNotEmpty ? listedPaths : fallbackPaths,
       topDir: _string(json['top_dir']),
       dir: _string(json['dir']),
-      poster: _imagePath(
-        json['poster'] ?? json['posters'] ?? json['image'] ?? json['cover'],
-      ),
+      poster: singlePoster ?? (posters.isEmpty ? null : posters.first),
+      posters: posters,
       language: _string(json['lan'] ?? json['language']),
       includeAdult: _bool(json['include_adult'] ?? json['includeAdult']),
       skipFilesize: _int(json['skip_filesize'] ?? json['skipFilesize']),
@@ -137,7 +149,10 @@ class FeiniuMediaDb {
     name: name,
     type: 'CollectionFolder',
     collectionType: category,
-    primaryImageTag: poster ?? '/mediadb/$guid/poster.jpg',
+    primaryImageTag:
+        poster ??
+        (posters.isEmpty ? '/mediadb/$guid/poster.jpg' : posters.first),
+    posterImageTags: posters,
     childCount: null,
   );
 }

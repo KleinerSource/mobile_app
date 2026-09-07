@@ -135,7 +135,12 @@ void main() {
       const MediaRef(sourceId: SourceId('feiniu'), value: 'item-1'),
     );
 
-    expect(views.single.primaryImageTag, '/mediadb/library-1/poster.jpg');
+    expect(views.single.primaryImageTag, '/55/02/movie-1.webp');
+    expect(views.single.posterImageTags, [
+      '/55/02/movie-1.webp',
+      '/3d/05/movie-2.webp',
+      '/9f/04/movie-3.webp',
+    ]);
     expect(item.primaryImageTag, '/mediadb/item-1/poster.jpg');
     expect(item.backdropImageTags, ['/mediadb/item-1/backdrop.jpg']);
     expect(item.productionYear, 2025);
@@ -476,7 +481,12 @@ class _FeiniuMetadataAdapter implements HttpClientAdapter {
             'guid': 'library-1',
             'name': '本地电影',
             'category': 'movies',
-            'poster': '/mediadb/library-1/poster.jpg',
+            'poster': '',
+            'posters': [
+              '/55/02/movie-1.webp',
+              '/3d/05/movie-2.webp',
+              '/9f/04/movie-3.webp',
+            ],
           },
         ],
       },

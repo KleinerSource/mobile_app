@@ -11,6 +11,7 @@ class Poster extends StatelessWidget {
   const Poster({
     super.key,
     this.url,
+    this.urls,
     required this.title,
     this.year,
     this.aspectRatio = 2 / 3,
@@ -21,6 +22,9 @@ class Poster extends StatelessWidget {
   });
 
   final String? url;
+
+  /// 多图模式按顺序并排显示，最多取三张。
+  final List<String>? urls;
   final String title;
   final int? year;
   final double aspectRatio;
@@ -60,7 +64,21 @@ class Poster extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             const _PlaceholderBase(),
-            if (url != null && url!.isNotEmpty)
+            if (_imageUrls.isNotEmpty)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < _imageUrls.length; i++) ...[
+                    if (i > 0)
+                      const SizedBox(
+                        width: 2,
+                        child: ColoredBox(color: Colors.black54),
+                      ),
+                    Expanded(child: _networkImage(context, _imageUrls[i])),
+                  ],
+                ],
+              )
+            else if (url != null && url!.isNotEmpty)
               LayoutBuilder(
                 builder: (context, constraints) {
                   final logicalWidth = constraints.maxWidth;
@@ -89,6 +107,33 @@ class Poster extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  List<String> get _imageUrls => [
+    ...(urls ?? const <String>[]),
+  ].where((value) => value.trim().isNotEmpty).take(3).toList(growable: false);
+
+  Widget _networkImage(BuildContext context, String imageUrl) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth = constraints.maxWidth;
+        final physicalWidth = logicalWidth.isFinite && logicalWidth > 0
+            ? (logicalWidth * MediaQuery.devicePixelRatioOf(context)).round()
+            : null;
+        return CachedNetworkImage(
+          cacheManager: AppImageCacheManager.instance,
+          imageUrl: imageUrl,
+          httpHeaders: httpHeaders,
+          fit: BoxFit.cover,
+          memCacheWidth: physicalWidth,
+          maxWidthDiskCache: 1080,
+          fadeInDuration: const Duration(milliseconds: 200),
+          placeholder: (_, __) => const SizedBox.shrink(),
+          errorWidget: (_, __, ___) =>
+              _PlaceholderLabel(title: title, year: year),
+        );
+      },
     );
   }
 }

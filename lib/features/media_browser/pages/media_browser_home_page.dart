@@ -285,7 +285,11 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
       onRetry: onRetry,
       trailing: trailing,
       itemWidth: itemWidth,
-      rowHeight: isStash ? 286 : MediaCardTemplate.homeRowHeight,
+      rowHeight: isStash
+          ? 286
+          : square
+          ? MediaCardTemplate.homeSquareRowHeight
+          : MediaCardTemplate.homeRowHeight,
       itemKeyBuilder: (item) => item.id,
       itemBuilder: (context, item) => urls.maybeWhen(
         data: (value) => isStash
@@ -357,6 +361,18 @@ class _MediaBrowserViewSectionsState
                     HomeLibraryCardEntry(
                       id: view.id,
                       name: view.name,
+                      coverUrls:
+                          [
+                                for (final tag in view.posterImageTags.take(3))
+                                  urls?.poster(
+                                    view.id,
+                                    maxWidth: 600,
+                                    tag: tag,
+                                  ),
+                              ]
+                              .whereType<String>()
+                              .where((url) => url.isNotEmpty)
+                              .toList(growable: false),
                       coverUrl: urls?.poster(
                         view.id,
                         maxWidth: 600,

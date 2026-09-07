@@ -183,7 +183,7 @@ class HomeLayoutEditButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 28, 22, 0),
+      padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
       child: Center(
         child: OutlinedButton.icon(
           onPressed: onPressed,
