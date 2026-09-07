@@ -2,8 +2,14 @@
 //   - test/core/update_repository_test.dart
 //   - test/core/update_service_test.dart
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/update/update_models.dart';
 import 'package:omm/core/update/update_repository.dart';
 import 'package:omm/core/update/update_service.dart';
@@ -227,6 +233,49 @@ void _main_1() {
 
     expect(result.candidate.asset.name, 'omm_0.38.22+409.apk');
   });
+
+  test('更新检查和安装包下载都使用统一应用 UA', () async {
+    final recordingAdapter = _ReleaseRecordingAdapter({
+      repository.releaseTagApiUrl(UpdatePlatform.android): _release(
+        tag: 'latest-android',
+        asset: 'omm_0.38.22+409.apk',
+      ),
+      'https://github.com/example/app/releases/download/package': <int>[
+        0x50,
+        0x4b,
+        0x03,
+      ],
+    });
+    final dio = Dio()..httpClientAdapter = recordingAdapter;
+    final service = GitHubUpdateService(dio: dio);
+
+    await service.check(
+      repositoryUrl: repository.canonicalUrl,
+      platform: UpdatePlatform.android,
+      currentVersion: currentVersion,
+    );
+    final file = await service.download(
+      const GitHubReleaseAsset(
+        name: 'omm_0.38.22+409.apk',
+        downloadUrl: 'https://github.com/example/app/releases/download/package',
+      ),
+    );
+
+    try {
+      expect(recordingAdapter.requestHeaders, hasLength(2));
+      for (final headers in recordingAdapter.requestHeaders) {
+        expect(
+          headers.entries
+              .where((entry) => entry.key.toLowerCase() == 'user-agent')
+              .toList(),
+          hasLength(1),
+        );
+        expect(headers['User-Agent'], 'omm/0.92.10');
+      }
+    } finally {
+      if (await file.exists()) await file.delete();
+    }
+  });
 }
 
 Map<String, Object> _release({required String tag, required String asset}) {
@@ -274,7 +323,55 @@ class _ReleaseApiStub extends Interceptor {
   }
 }
 
+class _ReleaseRecordingAdapter implements HttpClientAdapter {
+  _ReleaseRecordingAdapter(this.responses);
+
+  final Map<String, Object?> responses;
+  final List<Map<String, dynamic>> requestHeaders = [];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestHeaders.add(Map<String, dynamic>.from(options.headers));
+    final data = responses[options.uri.toString()];
+    if (data == null) {
+      return ResponseBody.fromString('', 404);
+    }
+    if (data is List<int>) {
+      return ResponseBody.fromBytes(data, 200);
+    }
+    return ResponseBody.fromString(
+      jsonEncode(data),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+        pathProviderChannel,
+        (call) async => Directory.systemTemp.path,
+      );
+  PackageInfo.setMockInitialValues(
+    appName: 'Oh My Media',
+    packageName: 'com.ohmymedia.omm',
+    version: '0.92.10',
+    buildNumber: '745',
+    buildSignature: '',
+  );
+  resetAppVersionCache();
   group('update_repository', _main_0);
   group('update_service', _main_1);
 }

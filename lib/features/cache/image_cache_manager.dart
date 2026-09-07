@@ -1,5 +1,28 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../core/api/app_request_headers.dart';
+
+class AppImageFileService extends FileService {
+  AppImageFileService({FileService? delegate})
+    : _delegate = delegate ?? HttpFileService();
+
+  final FileService _delegate;
+
+  @override
+  int get concurrentFetches => _delegate.concurrentFetches;
+
+  @override
+  set concurrentFetches(int value) => _delegate.concurrentFetches = value;
+
+  @override
+  Future<FileServiceResponse> get(
+    String url, {
+    Map<String, String>? headers,
+  }) async {
+    return _delegate.get(url, headers: await mergeAppRequestHeaders(headers));
+  }
+}
+
 /// 应用图片专用 CacheManager。
 ///
 /// 与 [DefaultCacheManager] 共用同一份缓存目录和索引（key 相同，设置页的
@@ -11,7 +34,13 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 /// 有 DefaultCacheManager 实例在跑，它仍会按 200 的上限清洗这份共享索引。
 class AppImageCacheManager extends CacheManager with ImageCacheManager {
   AppImageCacheManager._()
-    : super(Config(DefaultCacheManager.key, maxNrOfCacheObjects: 3000));
+    : super(
+        Config(
+          DefaultCacheManager.key,
+          maxNrOfCacheObjects: 3000,
+          fileService: AppImageFileService(),
+        ),
+      );
 
   static final AppImageCacheManager instance = AppImageCacheManager._();
 }

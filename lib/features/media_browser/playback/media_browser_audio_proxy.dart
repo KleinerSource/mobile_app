@@ -7,8 +7,8 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:omm/core/api/app_request_headers.dart';
 import 'package:omm/core/platform/app_log_store.dart';
-import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）音频回环代理。
@@ -18,7 +18,9 @@ import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 /// 临时文件（播放开始时若曲子尚未缓存则顺带落盘，当前曲目完成后预取
 /// 下一首），已完整落盘的曲目改由本地文件应答，seek 零延迟。
 class MediaBrowserAudioProxy {
-  MediaBrowserAudioProxy._(this._downloader);
+  MediaBrowserAudioProxy._(this._downloader) {
+    installAppUserAgentInterceptor(_downloader);
+  }
 
   final Dio _downloader;
   final List<_ProxiedTrack> _orderedTracks = <_ProxiedTrack>[];
@@ -213,7 +215,7 @@ class MediaBrowserAudioProxy {
     var teeExpected = 0;
     Completer<File>? teeClaim;
     try {
-      final mediaHeaders = await mergeMediaRequestHeaders(track.headers);
+      final mediaHeaders = await mergeAppRequestHeaders(track.headers);
       final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
       final remote = await _downloader.get<ResponseBody>(
         track.remoteUrl,
@@ -377,7 +379,7 @@ class MediaBrowserAudioProxy {
     final file = await _cacheFileFor(track);
     try {
       appLog('[MbAudioProxy] 开始下载: ${track.track.name}');
-      final mediaHeaders = await mergeMediaRequestHeaders(track.headers);
+      final mediaHeaders = await mergeAppRequestHeaders(track.headers);
       await _downloader.download(
         track.remoteUrl,
         file.path,

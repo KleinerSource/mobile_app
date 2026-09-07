@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/misc.dart' show ProviderException;
 import '../auth/auth_session.dart';
 import '../auth/auth_session_repository.dart';
 import '../config/server_config.dart';
-import '../platform/app_version.dart';
+import 'app_request_headers.dart';
 import 'feiniu_signer.dart';
 import 'api_exception.dart';
 import 'envelope.dart';
@@ -90,7 +90,6 @@ Dio buildDio(
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        options.headers['User-Agent'] = await appUserAgent();
         AuthSession? session;
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
           session = await sessionRepository.current();
@@ -219,6 +218,8 @@ Dio buildDio(
       },
     ),
   );
+
+  installAppUserAgentInterceptor(dio);
 
   return dio;
 }

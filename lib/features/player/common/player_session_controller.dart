@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/playback.dart' as playback_models;
-import '../../../core/platform/app_version.dart';
+import '../../../core/api/app_request_headers.dart';
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_queue.dart';
@@ -330,7 +330,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }) async {
     _invalidateSeek();
     _playbackIntent = play;
-    final mediaHeaders = await mergeMediaRequestHeaders(headers);
+    final mediaHeaders = await mergeAppRequestHeaders(headers);
     _currentMediaHeaders = mediaHeaders;
     final request = PlaybackOpenRequest(
       url: url,
@@ -494,7 +494,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     String? sourceUrl,
     Map<String, String>? headers,
   }) async {
-    final mediaHeaders = await mergeMediaRequestHeaders(
+    final mediaHeaders = await mergeAppRequestHeaders(
       headers ?? _currentMediaHeaders,
     );
     return _engine.captureFrame(

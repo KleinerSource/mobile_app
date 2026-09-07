@@ -9,8 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:omm/core/api/app_request_headers.dart';
 import 'package:omm/core/api/dio_factory.dart';
-import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_proxy.dart';
 import 'package:omm/features/media_browser/playback/media_browser_lyrics.dart';
@@ -179,7 +179,9 @@ class MediaBrowserAudioQueueSession {
                receiveTimeout: const Duration(seconds: 30),
              ),
            ),
-       _handler = playbackHandler;
+       _handler = playbackHandler {
+    installAppUserAgentInterceptor(_downloader);
+  }
 
   final List<MediaBrowserItem> tracks;
   final MediaBrowserServerUrls urls;
@@ -341,7 +343,7 @@ class MediaBrowserAudioQueueSession {
       if (!await file.exists()) {
         // 下载器是无鉴权裸 Dio，这里必须带 token 兜底；产物是临时文件
         // 不进图片缓存，token 变化不影响缓存 key。
-        final mediaHeaders = await mergeMediaRequestHeaders(urls.directHeaders);
+        final mediaHeaders = await mergeAppRequestHeaders(urls.directHeaders);
         await _downloader.download(
           urls.authedPoster(imageItemId),
           file.path,

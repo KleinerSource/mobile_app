@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import '../../../core/platform/app_log_store.dart';
-import '../../../core/platform/app_version.dart';
+import '../../../core/api/app_request_headers.dart';
 import 'audio_metadata.dart';
 import 'audio_playback_service.dart';
 import '../common/playback_engine.dart';
@@ -120,7 +120,7 @@ class AudioPlaybackEngine
         : items;
     final queueHeaders = <Map<String, String>>[
       for (final item in queue)
-        await mergeMediaRequestHeaders(item.directHeaders ?? request.headers),
+        await mergeAppRequestHeaders(item.directHeaders ?? request.headers),
     ];
     var index = request.queueIndex;
     if (index < 0 || index >= queue.length) index = 0;

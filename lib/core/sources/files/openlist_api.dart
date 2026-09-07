@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import '../../platform/app_version.dart';
+import '../../api/app_request_headers.dart';
 
 /// OpenList（AList v3 兼容）连接参数。
 ///
@@ -61,18 +61,7 @@ class OpenListClient {
           validateStatus: (status) => status != null && status < 500,
         ),
       ) {
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          final headers = <String, String>{
-            for (final entry in options.headers.entries)
-              entry.key: entry.value.toString(),
-          };
-          options.headers = await mergeMediaRequestHeaders(headers);
-          handler.next(options);
-        },
-      ),
-    );
+    installAppUserAgentInterceptor(_dio);
   }
 
   final OpenListConnectionOptions _options;

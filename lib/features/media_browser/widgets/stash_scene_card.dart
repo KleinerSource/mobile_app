@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,7 @@ import 'package:omm/core/sources/media/media_browser/media_browser_server_urls.d
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/portrait_media_card.dart';
@@ -530,12 +532,13 @@ class _CoverImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = url?.trim() ?? '';
     if (value.isEmpty) return const _CoverPlaceholder();
-    return Image.network(
-      value,
+    return CachedNetworkImage(
+      cacheManager: AppImageCacheManager.instance,
+      imageUrl: value,
+      httpHeaders: headers,
       fit: BoxFit.cover,
       alignment: Alignment.center,
-      headers: headers,
-      errorBuilder: (_, __, ___) => const _CoverPlaceholder(),
+      errorWidget: (_, __, ___) => const _CoverPlaceholder(),
     );
   }
 }

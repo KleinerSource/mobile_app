@@ -32,23 +32,6 @@ Future<String> _loadAppUserAgent() async {
   }
 }
 
-/// 为媒体请求头强制设置唯一的 OMM User-Agent。
-///
-/// 媒体源可能携带平台、播放器或服务端下发的其他 UA；媒体请求统一忽略
-/// 这些值，只使用 [appUserAgent]。其他鉴权头原样保留，且大小写不同的
-/// User-Agent 键也会被清理，避免底层播放器再次发出多个 UA。
-Future<Map<String, String>> mergeMediaRequestHeaders(
-  Map<String, String>? headers,
-) async {
-  final merged = <String, String>{};
-  for (final entry in (headers ?? const <String, String>{}).entries) {
-    if (entry.key.toLowerCase() == 'user-agent') continue;
-    merged[entry.key] = entry.value;
-  }
-  merged['User-Agent'] = await appUserAgent();
-  return merged;
-}
-
 String formatAppUserAgent(String version) {
   final normalizedVersion = version.trim();
   return normalizedVersion.isEmpty ? 'omm/unknown' : 'omm/$normalizedVersion';

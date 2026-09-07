@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../core/platform/app_version.dart';
+import '../../core/api/app_request_headers.dart';
 
 /// 预览视频播放器的最小协议，供不同媒体模块复用并便于测试注入。
 abstract interface class PreviewPlayer {
@@ -87,7 +87,7 @@ class MediaKitPreviewPlayer implements PreviewPlayer {
     Map<String, String>? headers,
     bool autoplay = true,
   }) async {
-    final mediaHeaders = await mergeMediaRequestHeaders(headers);
+    final mediaHeaders = await mergeAppRequestHeaders(headers);
     await _player
         .open(Media(url, httpHeaders: mediaHeaders), play: autoplay)
         .timeout(const Duration(seconds: 3));

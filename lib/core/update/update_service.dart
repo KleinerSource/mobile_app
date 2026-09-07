@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../api/app_request_headers.dart';
 import 'update_models.dart';
 
 class UpdateException implements Exception {
@@ -42,10 +43,11 @@ class GitHubUpdateService {
               headers: const {
                 'Accept': 'application/vnd.github+json',
                 'X-GitHub-Api-Version': '2022-11-28',
-                'User-Agent': 'MD-Center-App',
               },
             ),
-          );
+          ) {
+    installAppUserAgentInterceptor(_dio);
+  }
 
   final Dio _dio;
 
