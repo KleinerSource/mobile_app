@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'api_exception.dart';
 
 const requiredServerProjectName = 'oh-my-media';
-const minimumSupportedServerVersion = '2.1.120';
 const defaultOmmPort = 8001;
 const defaultOmmHttpsPort = 443;
 const defaultDboPort = 9090;
@@ -24,7 +23,7 @@ enum ServerProject {
   ohMyMedia(
     projectName: 'oh-my-media',
     displayName: 'Oh My Media',
-    minimumVersion: '2.1.120',
+    minimumVersion: '2.3.0',
   ),
   dbOnline(
     projectName: 'db_online',
@@ -179,15 +178,14 @@ ServerVersionInfo requireCompatibleServerVersion(Object? raw) {
   return info;
 }
 
-bool isSupportedServerVersion(
-  String version, [
-  String minimumVersion = minimumSupportedServerVersion,
-]) {
+bool isSupportedServerVersion(String version, [String? minimumVersion]) {
   final actual = _parseVersion(version);
   if (actual == null) return false;
-  if (minimumVersion.trim().isEmpty) return true;
+  final requiredMinimum =
+      (minimumVersion ?? ServerProject.ohMyMedia.minimumVersion).trim();
+  if (requiredMinimum.isEmpty) return true;
 
-  final minimum = _parseVersion(minimumVersion);
+  final minimum = _parseVersion(requiredMinimum);
   if (minimum == null) return false;
 
   for (var i = 0; i < actual.length; i++) {

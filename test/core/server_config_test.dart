@@ -1267,13 +1267,13 @@ void _main_3() {
   });
 
   test('最低版本满足要求', () {
-    expect(isSupportedServerVersion('2.1.120'), isTrue);
-    expect(isSupportedServerVersion('2.1.121'), isTrue);
+    expect(isSupportedServerVersion('2.3.0'), isTrue);
+    expect(isSupportedServerVersion('2.3.1'), isTrue);
     expect(isSupportedServerVersion('2.10.0'), isTrue);
   });
 
   test('低于最低版本或格式非法时拒绝', () {
-    expect(isSupportedServerVersion('2.1.119'), isFalse);
+    expect(isSupportedServerVersion('2.2.99'), isFalse);
     expect(isSupportedServerVersion('1.5.99'), isFalse);
     expect(isSupportedServerVersion('1.9.0-beta'), isFalse);
     expect(isSupportedServerVersion('dev'), isFalse);
@@ -1282,11 +1282,11 @@ void _main_3() {
   test('项目名称和版本均正确时通过', () {
     final info = requireCompatibleServerVersion({
       'success': true,
-      'data': {'project_name': 'oh-my-media', 'version': '2.1.120'},
+      'data': {'project_name': 'oh-my-media', 'version': '2.3.0'},
     });
 
     expect(info.projectName, 'oh-my-media');
-    expect(info.version, '2.1.120');
+    expect(info.version, '2.3.0');
   });
 
   test('项目名称错误时拒绝', () {
