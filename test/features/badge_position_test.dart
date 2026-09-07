@@ -159,6 +159,7 @@ void main() {
 
     final preview = find.byType(MovieCard);
     expect(preview, findsOneWidget);
+    expect(find.byTooltip('AI 字幕'), findsOneWidget);
     expect(find.text('字幕 / 破解 / 清晰度'), findsOneWidget);
     final initialTop = tester.getTopLeft(preview).dy;
     final scrollable = find.byType(Scrollable);

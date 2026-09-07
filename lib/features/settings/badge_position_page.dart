@@ -22,6 +22,7 @@ class BadgePositionPage extends ConsumerWidget {
     rating: 8.7,
     runtime: 120,
     hasExternalSubtitle: true,
+    hasAiSubtitle: true,
     hasInternalSubtitle: true,
     hasNewResources: true,
     videoHeight: 1080,
