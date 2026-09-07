@@ -101,7 +101,12 @@ class MovieFilter {
       'sort_by': sortBy,
       'sort_order': sortOrder,
     };
-    if (search != null && search!.trim().isNotEmpty) {
+    // 演员搜索已经改为先请求 /actors/search，再使用 actor_ids 查询影片。
+    // 即使旧调用方误传 MovieSearchType.actor，也不能重新发出已移除的
+    // /movies?search_type=actor 请求。
+    if (searchType != MovieSearchType.actor &&
+        search != null &&
+        search!.trim().isNotEmpty) {
       m['search'] = search!.trim();
       m['search_type'] = searchType.queryValue;
     }
@@ -144,7 +149,9 @@ class MovieFilter {
       if (values.isNotEmpty) m[key] = List<int>.from(values);
     }
 
-    if (search != null && search!.trim().isNotEmpty) {
+    if (searchType != MovieSearchType.actor &&
+        search != null &&
+        search!.trim().isNotEmpty) {
       m['search'] = search!.trim();
       m['search_type'] = searchType.queryValue;
     }

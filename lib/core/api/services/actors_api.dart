@@ -13,6 +13,10 @@ abstract class ActorsApi {
   @GET('/actors/options')
   Future<dynamic> options(@Queries() Map<String, dynamic> q);
 
+  /// 顶部演员搜索建议，只返回名称匹配的演员实体，不查询影片。
+  @GET('/actors/search')
+  Future<dynamic> search(@Queries() Map<String, dynamic> q);
+
   /// 获取外部数据源头像预览图片。
   /// body: { avatar_url, source? }，source=avdb 时按 AVDB 配置下载。
   @POST('/actors/avatar/preview')

@@ -7,6 +7,8 @@ abstract interface class OmmMetadataOperationsSource {
 
   Future<Object?> actorOptions(Map<String, dynamic> query);
 
+  Future<Object?> searchActors(Map<String, dynamic> query);
+
   Future<List<int>> previewActorAvatar(Map<String, dynamic> body);
 
   Future<Object?> actorDetail(int id);

@@ -36,6 +36,10 @@ class OmmMediaOperationsAdapter
       _call(() => client.actors.options(query));
 
   @override
+  Future<Object?> searchActors(Map<String, dynamic> query) =>
+      _call(() => client.actors.search(query));
+
+  @override
   Future<List<int>> previewActorAvatar(Map<String, dynamic> body) =>
       _call(() async {
         final response = await client.actors.previewAvatar(body);

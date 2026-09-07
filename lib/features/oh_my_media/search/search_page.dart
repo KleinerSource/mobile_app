@@ -7,10 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
@@ -43,6 +47,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   String _query = '';
   MovieSearchType _searchType = MovieSearchType.title;
   MediaViewMode _viewMode = MediaViewMode.portrait;
+  List<ActorItem> _actorSuggestions = const [];
+  String? _actorSearchError;
+  bool _actorSearchLoading = false;
+  int _actorRequestId = 0;
+  int? _selectedActorId;
 
   @override
   void initState() {
@@ -60,8 +69,123 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onChanged(String v) {
+    final query = v.trim();
+    final requestId = ++_actorRequestId;
+    if (_searchType == MovieSearchType.actor) {
+      setState(() {
+        _query = query;
+        _selectedActorId = null;
+        _actorSuggestions = const [];
+        _actorSearchError = null;
+        _actorSearchLoading = query.isNotEmpty;
+      });
+      _debounce.run(() {
+        if (!mounted ||
+            requestId != _actorRequestId ||
+            _searchType != MovieSearchType.actor ||
+            query.isEmpty) {
+          return;
+        }
+        unawaited(_searchActors(query, requestId));
+      });
+      return;
+    }
+
     _debounce.run(() {
-      if (mounted) setState(() => _query = v.trim());
+      if (mounted) {
+        setState(() {
+          _query = query;
+          _selectedActorId = null;
+          _actorSuggestions = const [];
+          _actorSearchError = null;
+          _actorSearchLoading = false;
+        });
+      }
+    });
+  }
+
+  void _onSearchTypeChanged(MovieSearchType type) {
+    _debounce.cancel();
+    final query = _controller.text.trim();
+    final requestId = ++_actorRequestId;
+    setState(() {
+      _searchType = type;
+      _query = query;
+      _selectedActorId = null;
+      _actorSuggestions = const [];
+      _actorSearchError = null;
+      _actorSearchLoading = type == MovieSearchType.actor && query.isNotEmpty;
+    });
+    if (type == MovieSearchType.actor && query.isNotEmpty) {
+      _debounce.run(() {
+        if (!mounted ||
+            requestId != _actorRequestId ||
+            _searchType != MovieSearchType.actor) {
+          return;
+        }
+        unawaited(_searchActors(query, requestId));
+      });
+    }
+  }
+
+  Future<void> _searchActors(String query, int requestId) async {
+    try {
+      final source = ref.read(ommMediaSourceProvider);
+      if (source == null) throw StateError('当前服务器不是 OMM');
+      final raw = await source.metadataOperations.searchActors({
+        'search': query,
+        'limit': 8,
+        'offset': 0,
+      });
+      final result = unwrapOptions<ActorItem>(
+        raw,
+        (data) => ActorItem.fromJson(data),
+      );
+      if (!mounted ||
+          requestId != _actorRequestId ||
+          _searchType != MovieSearchType.actor ||
+          _controller.text.trim() != query) {
+        return;
+      }
+      setState(() {
+        _actorSuggestions = result.items;
+        _actorSearchError = null;
+        _actorSearchLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _actorRequestId) return;
+      setState(() {
+        _actorSuggestions = const [];
+        _actorSearchError = toApiException(error).message;
+        _actorSearchLoading = false;
+      });
+    }
+  }
+
+  void _submitSearch(String value) {
+    if (_searchType != MovieSearchType.actor) return;
+    final query = value.trim();
+    if (query.isEmpty) return;
+    _debounce.cancel();
+    final requestId = ++_actorRequestId;
+    setState(() {
+      _query = query;
+      _selectedActorId = null;
+      _actorSuggestions = const [];
+      _actorSearchError = null;
+      _actorSearchLoading = true;
+    });
+    unawaited(_searchActors(query, requestId));
+  }
+
+  void _selectActor(ActorItem actor) {
+    _debounce.cancel();
+    ++_actorRequestId;
+    setState(() {
+      _selectedActorId = actor.id;
+      _actorSuggestions = const [];
+      _actorSearchError = null;
+      _actorSearchLoading = false;
     });
   }
 
@@ -136,9 +260,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             icon: type.icon,
                           ),
                       ],
-                      onChanged: (type) {
-                        setState(() => _searchType = type);
-                      },
+                      onChanged: _onSearchTypeChanged,
                     ),
                     const SizedBox(width: 4),
                     Expanded(
@@ -165,6 +287,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           fontWeight: FontWeight.w500,
                         ),
                         onChanged: _onChanged,
+                        onSubmitted: _submitSearch,
                       ),
                     ),
                     if (_controller.text.isNotEmpty)
@@ -172,8 +295,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         icon: Icon(Icons.close, size: 16, color: c.muted),
                         onPressed: () {
                           _debounce.cancel();
+                          ++_actorRequestId;
                           _controller.clear();
-                          setState(() => _query = '');
+                          setState(() {
+                            _query = '';
+                            _selectedActorId = null;
+                            _actorSuggestions = const [];
+                            _actorSearchError = null;
+                            _actorSearchLoading = false;
+                          });
                         },
                       ),
                     const SizedBox(width: 4),
@@ -186,10 +316,28 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Expanded(
               child: _query.isEmpty
                   ? _EmptyHint()
+                  : _searchType == MovieSearchType.actor &&
+                        _selectedActorId == null
+                  ? _ActorSuggestions(
+                      actors: _actorSuggestions,
+                      loading: _actorSearchLoading,
+                      error: _actorSearchError,
+                      onSelected: _selectActor,
+                      onRetry: () {
+                        final query = _controller.text.trim();
+                        if (query.isEmpty) return;
+                        final requestId = ++_actorRequestId;
+                        setState(() => _actorSearchLoading = true);
+                        unawaited(_searchActors(query, requestId));
+                      },
+                    )
                   : _SearchResults(
-                      key: ValueKey('${_searchType.queryValue}:$_query'),
+                      key: ValueKey(
+                        '${_searchType.queryValue}:$_query:$_selectedActorId',
+                      ),
                       query: _query,
                       searchType: _searchType,
+                      actorId: _selectedActorId,
                       viewMode: _viewMode,
                     ),
             ),
@@ -245,15 +393,88 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
+class _ActorSuggestions extends StatelessWidget {
+  const _ActorSuggestions({
+    required this.actors,
+    required this.loading,
+    required this.error,
+    required this.onSelected,
+    required this.onRetry,
+  });
+
+  final List<ActorItem> actors;
+  final bool loading;
+  final String? error;
+  final ValueChanged<ActorItem> onSelected;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (error != null) {
+      return ErrorView(message: error!, onRetry: onRetry);
+    }
+    if (actors.isEmpty) {
+      return EmptyView(message: AppL10n.of(context).searchNoResult);
+    }
+
+    final c = appColors(context);
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+      itemCount: actors.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final actor = actors[index];
+        return Material(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => onSelected(actor),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  ActorAvatar(
+                    actorId: actor.id,
+                    name: actor.name,
+                    hue: AppHues.all[index % AppHues.all.length],
+                    size: 40,
+                    avatarPaths: actor.avatarPaths,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      actor.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: c.muted),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SearchResults extends ConsumerStatefulWidget {
   const _SearchResults({
     super.key,
     required this.query,
     required this.searchType,
+    this.actorId,
     required this.viewMode,
   });
   final String query;
   final MovieSearchType searchType;
+  final int? actorId;
   final MediaViewMode viewMode;
 
   @override
@@ -313,6 +534,16 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
 
   void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
+  MovieFilter get _movieFilter => MovieFilter(
+    search: widget.actorId == null ? widget.query : null,
+    searchType: widget.actorId == null
+        ? widget.searchType
+        : MovieSearchType.title,
+    actorIds: widget.actorId == null ? const [] : [widget.actorId!],
+    sortBy: 'created_at',
+    sortOrder: 'desc',
+  );
+
   int? _nextAutoPreviewId() {
     if (widget.viewMode != MediaViewMode.landscape) return null;
     final items = _controller.itemList ?? const <MovieListItem>[];
@@ -362,16 +593,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
       requests: _requests,
       loadFirstPage: (limit) => ref
           .read(mediaRepositoryProvider)
-          .list(
-            MovieFilter(
-              search: widget.query,
-              searchType: widget.searchType,
-              sortBy: 'created_at',
-              sortOrder: 'desc',
-            ),
-            limit: limit,
-            offset: 0,
-          ),
+          .list(_movieFilter, limit: limit, offset: 0),
     );
   }
 
@@ -381,16 +603,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     try {
       final page = await ref
           .read(mediaRepositoryProvider)
-          .list(
-            MovieFilter(
-              search: widget.query,
-              searchType: widget.searchType,
-              sortBy: 'created_at',
-              sortOrder: 'desc',
-            ),
-            limit: _pageSize,
-            offset: offset,
-          );
+          .list(_movieFilter, limit: _pageSize, offset: offset);
       if (!pageRequest.isCurrent) return;
       if (!mounted) return;
 

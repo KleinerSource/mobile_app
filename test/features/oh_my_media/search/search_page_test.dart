@@ -7,13 +7,27 @@ import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
+import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/oh_my_media/movies/media_repository.dart';
+import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/oh_my_media/search/search_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('演员影片过滤不会序列化已移除的 search_type=actor', () {
+    final query = const MovieFilter(
+      search: '演员甲',
+      searchType: MovieSearchType.actor,
+      actorIds: [7],
+    ).toQuery(limit: 60, offset: 0);
+
+    expect(query['actor_ids'], '7');
+    expect(query.containsKey('search'), isFalse);
+    expect(query.containsKey('search_type'), isFalse);
+  });
+
   testWidgets('切换搜索词时旧请求不会覆盖新结果或留下加载状态', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
@@ -90,11 +104,33 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
-    String? searchType;
+    String? actorSearchPath;
+    String? movieSearchType;
+    String? movieActorIds;
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          searchType = options.queryParameters['search_type']?.toString();
+          final path = options.uri.path;
+          if (path.endsWith('/actors/search')) {
+            actorSearchPath = path;
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                data: {
+                  'success': true,
+                  'data': [
+                    {'id': 7, 'name': '演员甲'},
+                  ],
+                  'has_more': false,
+                  'limit': 8,
+                  'offset': 0,
+                },
+              ),
+            );
+            return;
+          }
+          movieSearchType = options.queryParameters['search_type']?.toString();
+          movieActorIds = options.queryParameters['actor_ids']?.toString();
           handler.resolve(
             Response<dynamic>(
               requestOptions: options,
@@ -121,6 +157,7 @@ void main() {
       ProviderScope(
         overrides: [
           requiredApiClientProvider.overrideWithValue(client),
+          ommMediaSourceProvider.overrideWithValue(source),
           mediaRepositoryProvider.overrideWithValue(
             MediaRepository(
               catalog: source,
@@ -150,7 +187,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
-    expect(searchType, 'actor');
+    expect(actorSearchPath, '/api/actors/search');
+    expect(find.text('演员甲'), findsWidgets);
+
+    await tester.tap(find.text('演员甲').last);
+    await tester.pumpAndSettle();
+
+    expect(movieSearchType, isNull);
+    expect(movieActorIds, '7');
     expect(find.text('演员结果'), findsWidgets);
   });
 
