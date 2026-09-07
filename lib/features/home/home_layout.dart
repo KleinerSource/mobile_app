@@ -184,8 +184,7 @@ class HomeLayoutEditButton extends StatelessWidget {
     final colors = appColors(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 28, 22, 0),
-      child: SizedBox(
-        width: double.infinity,
+      child: Center(
         child: OutlinedButton.icon(
           onPressed: onPressed,
           icon: const Icon(Icons.tune_rounded, size: 18),
@@ -193,7 +192,10 @@ class HomeLayoutEditButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: colors.accent,
             side: BorderSide(color: colors.divider),
-            padding: const EdgeInsets.symmetric(vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -253,6 +255,11 @@ class _HomeLayoutEditorSheetState extends State<_HomeLayoutEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 暗色主题的 surface 是半透明白色 token，直接覆盖 alpha 会变成亮白底。
+    final moduleColor = isDark
+        ? Color.alphaBlend(colors.surfaceAlt, colors.bg)
+        : colors.surface.withValues(alpha: 0.72);
     final l = AppL10n.of(context);
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.72,
@@ -306,7 +313,7 @@ class _HomeLayoutEditorSheetState extends State<_HomeLayoutEditorSheet> {
                   key: ValueKey(module.id),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: colors.surface.withValues(alpha: 0.72),
+                    color: moduleColor,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: colors.divider),
                   ),

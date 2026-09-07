@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/home/home_layout.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
@@ -34,6 +35,7 @@ void main() {
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
         locale: const Locale('zh'),
+        theme: buildAppTheme(Brightness.dark),
         home: Builder(
           builder: (context) => Scaffold(
             body: HomeLayoutEditButton(
@@ -49,6 +51,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('第一模块'), findsOneWidget);
     expect(find.text('第二模块'), findsOneWidget);
+
+    final button = find.byType(OutlinedButton);
+    final scaffoldWidth = tester.getSize(find.byType(Scaffold)).width;
+    expect(tester.getSize(button).width, lessThan(scaffoldWidth * 0.75));
+    expect(tester.getRect(button).center.dx, closeTo(scaffoldWidth / 2, 1));
+
+    final moduleRow = find
+        .ancestor(of: find.text('第一模块'), matching: find.byType(Container))
+        .first;
+    final decoration =
+        tester.widget<Container>(moduleRow).decoration! as BoxDecoration;
+    expect(
+      decoration.color,
+      Color.alphaBlend(AppColors.dark.surfaceAlt, AppColors.dark.bg),
+    );
 
     await tester.tap(find.byType(Switch).first);
     await tester.tap(find.text('完成'));
