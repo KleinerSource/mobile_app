@@ -1904,11 +1904,17 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   @override
   Widget build(BuildContext context) {
     return PopScope<void>(
-      // 返回前必须先恢复竖屏，否则路由会先以横屏退出，上一层页面再异步旋转。
-      // 拦截系统返回键和返回手势，让它们与播放器退出按钮走同一流程。
-      canPop: false,
+      // 必须允许当前播放路由直接弹出。若这里设为 false，外层
+      // NavigatorPopHandler 会误判子导航器无法处理返回，把 Android 边缘返回
+      // 继续交给根路由，最终直接退出应用。
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_exitPlayer());
+        if (didPop) {
+          // 系统返回已经完成路由弹出；在退出动画期间先停掉传感器并恢复竖屏，
+          // 播放器和进度由 dispose 继续清理。
+          _stopOrientationSensor();
+          unawaited(_restorePortraitOrientation());
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.black,

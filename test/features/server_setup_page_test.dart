@@ -181,6 +181,65 @@ void main() {
           ?.hintText,
       '9999',
     );
+
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HTTPS').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(2)
+          .decoration
+          ?.hintText,
+      '443',
+    );
+  });
+
+  testWidgets('新建服务器未填写端口时保存协议默认端口', (tester) async {
+    final prefs = await _prefs();
+    final store = _MemoryTokenStore();
+    await _pumpSetupWithAuth(
+      tester,
+      prefs,
+      sessions: AuthSessionRepository(store: store),
+      credentials: ServerCredentialsRepository(store: store),
+      controller: _RecordingAuthController(null),
+    );
+
+    await tester.enterText(find.byType(TextField).at(0), '我的 OMM');
+    await tester.enterText(find.byType(TextField).at(1), 'example.com');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    final servers = jsonDecode(prefs.getString('server.servers')!) as List;
+    final lines = (servers.single as Map)['lines'] as List;
+    expect((lines.single as Map)['base_url'], 'http://example.com:8001');
+  });
+
+  testWidgets('新建 HTTPS 服务器未填写端口时保存 443', (tester) async {
+    final prefs = await _prefs();
+    final store = _MemoryTokenStore();
+    await _pumpSetupWithAuth(
+      tester,
+      prefs,
+      sessions: AuthSessionRepository(store: store),
+      credentials: ServerCredentialsRepository(store: store),
+      controller: _RecordingAuthController(null),
+    );
+
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HTTPS').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '我的 HTTPS OMM');
+    await tester.enterText(find.byType(TextField).at(1), 'example.com');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    final servers = jsonDecode(prefs.getString('server.servers')!) as List;
+    final lines = (servers.single as Map)['lines'] as List;
+    expect((lines.single as Map)['base_url'], 'https://example.com:443');
   });
 
   testWidgets('飞牛与 Jellyfin 登录需要用户名', (tester) async {

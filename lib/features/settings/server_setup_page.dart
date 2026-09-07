@@ -730,10 +730,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _showError(l.serverSetupPortInvalid);
       return null;
     }
-    return ServerConfig.normalizeForProject(
-      Uri(scheme: _scheme, host: host, port: port).toString(),
-      project,
-    );
+    final uri = Uri(scheme: _scheme, host: host, port: port);
+    // Uri 会省略 HTTP/HTTPS 的标准端口；保存服务器配置时必须保留显式
+    // 端口，否则下次编辑只能按当前默认值推断，可能覆盖之前的端口。
+    final endpoint = uri.hasPort ? uri.toString() : '${uri.toString()}:$port';
+    return ServerConfig.normalizeForProject(endpoint, project);
   }
 
   int? _readPort(ServerProject project) {

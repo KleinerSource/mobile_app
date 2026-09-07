@@ -5,13 +5,16 @@ import 'api_exception.dart';
 const requiredServerProjectName = 'oh-my-media';
 const minimumSupportedServerVersion = '2.1.120';
 const defaultOmmPort = 8001;
+const defaultOmmHttpsPort = 443;
 const defaultDboPort = 9090;
+const defaultDboHttpsPort = 443;
 const defaultEmbyPort = 8096;
 const defaultEmbyHttpsPort = 8920;
 const defaultJellyfinPort = 8096;
 const defaultJellyfinHttpsPort = 8920;
 const defaultFeiniuPort = 5666;
 const defaultStashPort = 9999;
+const defaultStashHttpsPort = 443;
 const defaultSmbPort = 445;
 const defaultWebDavHttpPort = 80;
 const defaultWebDavHttpsPort = 443;
@@ -82,8 +85,10 @@ enum ServerProject {
 
 int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
   return switch (project) {
-    ServerProject.ohMyMedia => defaultOmmPort,
-    ServerProject.dbOnline => defaultDboPort,
+    ServerProject.ohMyMedia =>
+      scheme.toLowerCase() == 'https' ? defaultOmmHttpsPort : defaultOmmPort,
+    ServerProject.dbOnline =>
+      scheme.toLowerCase() == 'https' ? defaultDboHttpsPort : defaultDboPort,
     // Emby 默认监听 8096；HTTPS 通常经反向代理落在 8920。
     ServerProject.emby =>
       scheme.toLowerCase() == 'https' ? defaultEmbyHttpsPort : defaultEmbyPort,
@@ -93,7 +98,10 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
           ? defaultJellyfinHttpsPort
           : defaultJellyfinPort,
     ServerProject.feiniu => defaultFeiniuPort,
-    ServerProject.stash => defaultStashPort,
+    ServerProject.stash =>
+      scheme.toLowerCase() == 'https'
+          ? defaultStashHttpsPort
+          : defaultStashPort,
     ServerProject.smb => defaultSmbPort,
     ServerProject.webDav =>
       scheme.toLowerCase() == 'https'

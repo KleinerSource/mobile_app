@@ -1254,7 +1254,11 @@ void _main_2() {
 void _main_3() {
   test('各服务器类型返回正确的默认端口', () {
     expect(defaultServerPort(ServerProject.ohMyMedia), 8001);
+    expect(defaultServerPort(ServerProject.ohMyMedia, scheme: 'https'), 443);
     expect(defaultServerPort(ServerProject.dbOnline), 9090);
+    expect(defaultServerPort(ServerProject.dbOnline, scheme: 'https'), 443);
+    expect(defaultServerPort(ServerProject.stash), 9999);
+    expect(defaultServerPort(ServerProject.stash, scheme: 'https'), 443);
     expect(defaultServerPort(ServerProject.smb), 445);
     expect(defaultServerPort(ServerProject.webDav), 80);
     expect(defaultServerPort(ServerProject.webDav, scheme: 'https'), 443);
