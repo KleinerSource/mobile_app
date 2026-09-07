@@ -4,6 +4,7 @@ import 'actor.dart';
 import 'related_file.dart';
 import 'related_movie.dart';
 import 'resource.dart';
+import 'movie_subtitle.dart';
 
 part 'movie.freezed.dart';
 part 'movie.g.dart';
@@ -208,6 +209,7 @@ abstract class MovieDetail with _$MovieDetail {
     @JsonKey(name: 'related_files')
     @Default(<RelatedFile>[])
     List<RelatedFile> relatedFiles,
+    @Default(<MovieSubtitle>[]) List<MovieSubtitle> subtitles,
   }) = _MovieDetail;
 
   factory MovieDetail.fromJson(Map<String, dynamic> json) =>

@@ -430,21 +430,26 @@ class _HeroHeader extends ConsumerWidget {
     final mediaInfo = ref.watch(mediaInfoProvider(movie.id)).value;
     final video = mediaInfo?.streams.video;
     final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
-    final subtitleFiles = movie.relatedFiles
+    final subtitlePaths = <String>[
+      ...movie.relatedFiles
         .where(
           (file) =>
               file.type?.trim().toLowerCase() == 'subtitle' &&
               file.path.trim().isNotEmpty,
         )
-        .toList();
+        .map((file) => file.path),
+      ...movie.subtitles
+          .map((subtitle) => subtitle.filePath.trim())
+          .where((path) => path.isNotEmpty),
+    ];
     // 外挂字幕 = 非 AI 的外挂字幕;AI 字幕单独标识,两者互斥分类
     final hasExternalSubtitle =
         movie.hasExternalSubtitle ||
-        subtitleFiles.any((f) => !isAISubtitlePath(f.path));
+        subtitlePaths.any((path) => !isAISubtitlePath(path));
     // AI 字幕: 详情接口字段优先,回退按字幕文件名识别(.ai. 标记段)
     final hasAISubtitle =
         movie.hasAiSubtitle ||
-        subtitleFiles.any((f) => isAISubtitlePath(f.path));
+        subtitlePaths.any(isAISubtitlePath);
     final badges = buildCoverBadges(
       filePath: movie.filePath,
       fileSize: movie.fileSize,

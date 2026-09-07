@@ -7,6 +7,7 @@ import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/settings/poster_badge_display_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/stacked_badges.dart';
 
 void main() {
   setUp(() {
@@ -98,5 +99,46 @@ void main() {
       find.ancestor(of: find.text('HEVC'), matching: find.byType(Container)),
     );
     expect((badgeContainer.decoration! as BoxDecoration).color, badge.color);
+  });
+
+  testWidgets('视频规格角标统一叠加且字幕组包含 AI 字幕', (tester) async {
+    const badges = [
+      CoverBadgeSpec(PosterBadgeKind.codec, 'HEVC', Color(0xFF059669)),
+      CoverBadgeSpec(PosterBadgeKind.hdr, 'Dolby Vision', Color(0xFF7C3AED)),
+      CoverBadgeSpec(PosterBadgeKind.strm, 'STRM', Color(0xFF475569)),
+      CoverBadgeSpec(PosterBadgeKind.subtitle, '字幕', Color(0xFFFF9F1C)),
+      CoverBadgeSpec(PosterBadgeKind.subtitle, 'AI 字幕', Color(0xFF8B5CF6)),
+    ];
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        locale: Locale('zh'),
+        home: Scaffold(body: CoverBadgeRow(badges: badges)),
+      ),
+    );
+
+    expect(find.byType(StackedBadges), findsNWidgets(2));
+    expect(find.text('HEVC'), findsOneWidget);
+    expect(find.text('AI 字幕'), findsOneWidget);
+  });
+
+  testWidgets('设置预览包含 AI 字幕 badge', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: PosterBadgeDisplayPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('AI 字幕'), findsOneWidget);
   });
 }

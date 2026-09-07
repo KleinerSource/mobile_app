@@ -90,6 +90,12 @@ class _PosterBadgePreview extends StatelessWidget {
     CoverBadgeSpec(
       PosterBadgeKind.subtitle,
       l.badgeSubtitle,
+      const Color(0xFF8B5CF6),
+      l.movieCardSubAi,
+    ),
+    CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      l.badgeSubtitle,
       const Color(0xFF16A34A),
       l.movieCardSubMuxedTrack,
     ),

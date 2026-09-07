@@ -805,6 +805,20 @@ void _main_6() {
     expect(movie.relatedFiles.single.path, '/movies/test.srt');
   });
 
+  test('详情模型解析 subtitles 字幕记录', () {
+    final movie = MovieDetail.fromJson({
+      'id': 31,
+      'title': 'AI 字幕回退测试',
+      'subtitles': [
+        {'id': 1, 'file_path': '/movies/title.ai.chs.srt'},
+      ],
+    });
+
+    expect(movie.subtitles.single.id, 1);
+    expect(movie.subtitles.single.filePath, '/movies/title.ai.chs.srt');
+    expect(isAISubtitlePath(movie.subtitles.single.filePath), isTrue);
+  });
+
   test('列表模型解析内嵌字幕轨道和视频分辨率状态', () {
     final movie = MovieListItem.fromJson({
       'id': 2,
