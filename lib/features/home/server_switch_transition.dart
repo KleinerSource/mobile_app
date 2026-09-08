@@ -43,7 +43,7 @@ class ServerSwitchTransitionOverlay extends ConsumerStatefulWidget {
 
 class _ServerSwitchTransitionOverlayState
     extends ConsumerState<ServerSwitchTransitionOverlay>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   void _updateViewState(VoidCallback update) => setState(update);
 
   final _usernameController = TextEditingController();

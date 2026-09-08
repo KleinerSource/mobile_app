@@ -164,7 +164,6 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
   String? _lastActiveServerId;
   bool? _lastIsFileServer;
   bool _contentRemovalBelongsToServerSwitch = false;
-  final _navigatorKey = GlobalKey<NavigatorState>();
   late final NavigatorObserver _routeObserver;
   final Set<Route<dynamic>> _observedContentRoutes = <Route<dynamic>>{};
   final Set<Route<dynamic>> _ignoredContentRoutes = <Route<dynamic>>{};
@@ -246,10 +245,9 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     return ServerNavigationScope(
       child: NavigatorPopHandler<void>(
         onPopWithResult: (_) {
-          _navigatorKey.currentState?.maybePop();
+          _routeObserver.navigator?.maybePop();
         },
         child: Navigator(
-          key: _navigatorKey,
           observers: [_routeObserver],
           pages: pages,
           // 页面栈必须接收 Navigator 的真实返回；资源释放由 route observer

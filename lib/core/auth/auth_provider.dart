@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -1017,7 +1017,7 @@ class AuthController extends AsyncNotifier<AuthState> {
           username: username,
           password: password,
           deviceId: deviceId,
-          deviceName: Platform.operatingSystem,
+          deviceName: kIsWeb ? 'web' : defaultTargetPlatform.name,
           appVersion: await _appVersion(),
         );
     if (result.accessToken.isEmpty || result.user.id.isEmpty) {
