@@ -5699,7 +5699,7 @@ class AppL10nZh extends AppL10n {
   String get movieFlagCrack => '破解';
 
   @override
-  String get batchEditSubtitleExclusive => '字幕与外挂字幕互斥';
+  String get batchEditSubtitleExclusive => '「默认」保持影片现有标记不变；「无」移除对应标记与水印';
 
   @override
   String get batchEditTagSubtitle => '分别指定要追加和移除的标签集合';

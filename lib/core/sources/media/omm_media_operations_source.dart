@@ -151,13 +151,13 @@ abstract interface class OmmMediaOperationsSource {
     int? seriesId,
   });
 
+  /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
   Future<({int successCount, int failedCount})> batchWatermark({
     required List<MediaRef> movies,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   });
 
   Future<String?> mergeDuplicateFiles({
@@ -174,24 +174,23 @@ abstract interface class OmmMediaOperationsSource {
     required Map<String, dynamic> requirements,
   });
 
+  /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
   Future<void> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   });
 
   Future<List<int>> previewPosterCrop(
     MediaRef movie, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   });
 
   /// 为单部影片生成预览视频与 Sprite/VTT 资产。

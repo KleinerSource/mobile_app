@@ -1987,7 +1987,7 @@
   "movieFlagSubtitle": "字幕",
   "movieFlagExternalSubtitle": "外挂字幕",
   "movieFlagCrack": "破解",
-  "batchEditSubtitleExclusive": "字幕与外挂字幕互斥",
+  "batchEditSubtitleExclusive": "「默认」保持影片现有标记不变；「无」移除对应标记与水印",
   "batchEditTagSubtitle": "分别指定要追加和移除的标签集合",
   "batchEditAdd": "添加{kind}",
   "@batchEditAdd": {"placeholders":{"kind":{"type":"String"}}},

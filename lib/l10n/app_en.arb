@@ -1987,7 +1987,7 @@
   "movieFlagSubtitle": "Subtitles",
   "movieFlagExternalSubtitle": "External subtitles",
   "movieFlagCrack": "Cracked",
-  "batchEditSubtitleExclusive": "Embedded and external subtitle flags are mutually exclusive",
+  "batchEditSubtitleExclusive": "Default keeps existing flags; None removes the flag and its watermark",
   "batchEditTagSubtitle": "Choose tags to add and remove separately",
   "batchEditAdd": "Add {kind}",
   "@batchEditAdd": {"placeholders":{"kind":{"type":"String"}}},

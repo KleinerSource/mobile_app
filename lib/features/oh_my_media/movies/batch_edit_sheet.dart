@@ -9,6 +9,7 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/util/map_with_concurrency.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/capsule_select.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -37,16 +38,10 @@ class BatchEditSheet extends ConsumerStatefulWidget {
 }
 
 class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
-  bool _quickSubtitle = false;
-  bool _quickExsub = false;
-  bool _quickCrack = false;
+  // 快速标记三态：''（默认）保持影片现有标记不变。
+  String _quickSubtitleMode = '';
+  String _quickCrackMode = '';
   String _quickResolution = '';
-  bool _quickResolutionTouched = false;
-
-  String get _quickPosterResolution =>
-      _quickResolution == '4k' || _quickResolution == '2k'
-      ? _quickResolution
-      : '';
 
   Set<int> _addTagIds = {};
   Set<int> _removeTagIds = {};
@@ -99,20 +94,6 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
     }
   }
 
-  void _onQuickSubtitle(bool? v) {
-    setState(() {
-      _quickSubtitle = v ?? false;
-      if (_quickSubtitle) _quickExsub = false;
-    });
-  }
-
-  void _onQuickExsub(bool? v) {
-    setState(() {
-      _quickExsub = v ?? false;
-      if (_quickExsub) _quickSubtitle = false;
-    });
-  }
-
   /// 名称解析 → 现有 id 或创建新条目
   Future<int?> _ensureResourceId(ResourceKind kind, String name) async {
     final repo = ref.read(resourcesRepositoryProvider);
@@ -156,10 +137,42 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         if (gid != null) addGenres.add(gid);
       }
 
-      if (_quickSubtitle || _quickExsub) await applyQuick('中文字幕');
-      if (_quickCrack) await applyQuick('无码破解');
-      // “未设置”表示不调整；只有明确选择“无”或具体清晰度时才处理互斥标签。
-      if (_quickResolutionTouched && _quickResolution.isNotEmpty) {
+      if (_quickSubtitleMode == 'sub' || _quickSubtitleMode == 'exsub') {
+        await applyQuick('中文字幕');
+      }
+      if (_quickSubtitleMode == 'none') {
+        final subtitleKeywords = movieQuickFlagConfig(
+          MovieQuickFlag.subtitle,
+        ).keywords;
+        final tagIds = await Future.wait<int?>([
+          for (final keyword in subtitleKeywords)
+            _findResourceId(ResourceKind.tag, keyword),
+        ]);
+        removeTags.addAll(tagIds.whereType<int>());
+        final genreIds = await Future.wait<int?>([
+          for (final keyword in subtitleKeywords)
+            _findResourceId(ResourceKind.genre, keyword),
+        ]);
+        removeGenres.addAll(genreIds.whereType<int>());
+      }
+      if (_quickCrackMode == 'crack') await applyQuick('无码破解');
+      if (_quickCrackMode == 'none') {
+        final crackKeywords = movieQuickFlagConfig(
+          MovieQuickFlag.crack,
+        ).keywords;
+        final tagIds = await Future.wait<int?>([
+          for (final keyword in crackKeywords)
+            _findResourceId(ResourceKind.tag, keyword),
+        ]);
+        removeTags.addAll(tagIds.whereType<int>());
+        final genreIds = await Future.wait<int?>([
+          for (final keyword in crackKeywords)
+            _findResourceId(ResourceKind.genre, keyword),
+        ]);
+        removeGenres.addAll(genreIds.whereType<int>());
+      }
+      // “默认”表示不调整；只有明确选择“无”或具体清晰度时才处理互斥标签。
+      if (_quickResolution.isNotEmpty) {
         final selectedKeywords = switch (_quickResolution) {
           '4k' => movieQuickFlagConfig(MovieQuickFlag.fourK).keywords,
           '2k' => movieQuickFlagConfig(MovieQuickFlag.twoK).keywords,
@@ -185,8 +198,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         ]);
         removeGenres.addAll(genreIds.whereType<int>());
       }
-      if (_quickResolutionTouched &&
-          (_quickResolution == '4k' || _quickResolution == '2k')) {
+      if (_quickResolution == '4k' || _quickResolution == '2k') {
         await applyQuick(switch (_quickResolution) {
           '4k' => '4K',
           '2k' => '2K',
@@ -198,11 +210,9 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
           addTags.isNotEmpty || addGenres.isNotEmpty || _setSeriesId != null;
       final hasRemove = removeTags.isNotEmpty || removeGenres.isNotEmpty;
       final hasWatermark =
-          _quickSubtitle ||
-          _quickExsub ||
-          _quickCrack ||
-          _quickPosterResolution.isNotEmpty ||
-          (_quickResolutionTouched && _quickResolution == 'none');
+          _quickSubtitleMode.isNotEmpty ||
+          _quickCrackMode.isNotEmpty ||
+          _quickResolution.isNotEmpty;
 
       if (!mounted) return;
       if (!hasAdd && !hasRemove && !hasWatermark) {
@@ -229,13 +239,19 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         );
       }
       if (hasWatermark) {
+        // null（未设置）交由后端按各影片标签保持现有水印。
         final r = await repo.batchWatermark(
           movieIds: widget.movieIds,
-          subtitle: _quickSubtitle,
-          exsub: _quickExsub,
-          crack: _quickCrack,
-          uhd: false,
-          resolution: _quickPosterResolution,
+          subtitle: _quickSubtitleMode.isEmpty
+              ? null
+              : _quickSubtitleMode == 'sub',
+          exsub: _quickSubtitleMode.isEmpty
+              ? null
+              : _quickSubtitleMode == 'exsub',
+          crack: _quickCrackMode.isEmpty ? null : _quickCrackMode == 'crack',
+          resolution: _quickResolution.isEmpty
+              ? null
+              : _quickResolution,
         );
         if (r.failedCount > 0) {
           if (!mounted) return;
@@ -293,51 +309,45 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Expanded(
-                          child: _QuickFlagChip(
-                            label: l.movieFlagSubtitle,
-                            value: _quickSubtitle,
-                            onChanged: (v) => _onQuickSubtitle(v),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: _QuickFlagChip(
-                            label: l.movieFlagExternalSubtitle,
-                            value: _quickExsub,
-                            onChanged: (v) => _onQuickExsub(v),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: _QuickFlagChip(
-                            label: l.movieFlagCrack,
-                            value: _quickCrack,
-                            onChanged: (v) =>
-                                setState(() => _quickCrack = v ?? false),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _quickResolution,
-                            decoration: const InputDecoration(
-                              labelText: '清晰度',
-                              isDense: true,
+                        CapsuleSelect(
+                          label: l.movieFlagSubtitle,
+                          value: _quickSubtitleMode,
+                          options: [
+                            (value: '', label: '默认'),
+                            (value: 'none', label: '无'),
+                            (value: 'sub', label: l.movieFlagSubtitle),
+                            (
+                              value: 'exsub',
+                              label: l.movieFlagExternalSubtitle,
                             ),
-                            items: const [
-                              DropdownMenuItem(value: '', child: Text('未设置')),
-                              DropdownMenuItem(value: 'none', child: Text('无')),
-                              DropdownMenuItem(value: '4k', child: Text('4K')),
-                              DropdownMenuItem(value: '2k', child: Text('2K')),
-                            ],
-                            onChanged: (value) => setState(() {
-                              _quickResolution = value ?? '';
-                              _quickResolutionTouched = true;
-                            }),
-                          ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _quickSubtitleMode = v),
+                        ),
+                        CapsuleSelect(
+                          label: l.movieFlagCrack,
+                          value: _quickCrackMode,
+                          options: [
+                            (value: '', label: '默认'),
+                            (value: 'none', label: '无'),
+                            (value: 'crack', label: l.movieFlagCrack),
+                          ],
+                          onChanged: (v) => setState(() => _quickCrackMode = v),
+                        ),
+                        CapsuleSelect(
+                          label: '清晰度',
+                          value: _quickResolution,
+                          options: const [
+                            (value: '', label: '默认'),
+                            (value: 'none', label: '无'),
+                            (value: '4k', label: '4K'),
+                            (value: '2k', label: '2K'),
+                          ],
+                          onChanged: (v) => setState(() => _quickResolution = v),
                         ),
                       ],
                     ),
@@ -954,60 +964,6 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
               ),
             ),
             Icon(Icons.expand_more, color: c.muted, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickFlagChip extends StatelessWidget {
-  const _QuickFlagChip({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-  final String label;
-  final bool value;
-  final ValueChanged<bool?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        decoration: BoxDecoration(
-          color: value ? c.accent.withValues(alpha: 0.15) : c.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: value ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              value ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-              size: 14,
-              color: value ? c.accent : c.muted,
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: value ? c.accent : c.text,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ),
           ],
         ),
       ),

@@ -5800,7 +5800,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get batchEditSubtitleExclusive =>
-      'Embedded and external subtitle flags are mutually exclusive';
+      'Default keeps existing flags; None removes the flag and its watermark';
 
   @override
   String get batchEditTagSubtitle => 'Choose tags to add and remove separately';

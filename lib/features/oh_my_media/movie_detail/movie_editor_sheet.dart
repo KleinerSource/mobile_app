@@ -18,6 +18,7 @@ import 'package:omm/features/translation/translation_providers.dart';
 import 'entity_picker_sheet.dart';
 import 'movie_quick_flag.dart';
 import 'poster_crop_controller.dart';
+import '../../../shared/capsule_select.dart';
 import '../../../shared/single_flight_gate.dart';
 
 /// 影片元数据编辑 bottom sheet (全功能)
@@ -61,26 +62,23 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   late List<MovieQuickEntity> _tags;
   late List<({int id, String name})> _actors;
 
-  // 封面裁剪 · 水印快捷操作与互斥清晰度选择
+  // 封面裁剪 · 水印快捷操作与互斥清晰度选择。
+  // 三态胶囊默认“未设置”：不回显影片当前标记，全部未选择时不加载裁剪器、
+  // 也不触发水印；未设置的参数以 null 下发，由后端按影片现有标签推导
+  // （如影片已是破解，仅选择字幕时水印会自动带上破解）。
   double _cropOffset = 1.0; // frontend_new 默认 1
   bool _cropDirty = false;
-  bool _subtitle = false;
-  bool _exsub = false;
-  bool _crack = false;
-  String _resolution = '';
+  String _subtitleMode = '';  String _crackMode = '';
+  String _resolutionMode = '';
   bool _flagUpdating = false;
 
-  String get _posterResolution =>
-      _resolution == '4k' || _resolution == '2k' ? _resolution : '';
-
-  String get _resolutionSelection =>
-      _resolution == 'none' ? 'none' : _posterResolution;
-
-  bool get _anyFlagOn =>
-      _subtitle || _exsub || _crack || _posterResolution.isNotEmpty;
+  bool get _anyFlagSelected =>
+      _subtitleMode.isNotEmpty ||
+      _crackMode.isNotEmpty ||
+      _resolutionMode.isNotEmpty;
 
   bool get _shouldApplyPosterCrop =>
-      _cropDirty && _fanartUrl != null && (_anyFlagOn || _resolution == 'none');
+      _cropDirty && _fanartUrl != null && _anyFlagSelected;
 
   bool _saving = false;
   String? _error;
@@ -107,7 +105,6 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     _genres = m.genres.map((e) => (id: e.id, name: e.name)).toList();
     _tags = m.tags.map((e) => (id: e.id, name: e.name)).toList();
     _actors = m.actors.map((e) => (id: e.id, name: e.name)).toList();
-    _syncQuickFlagsFromSelections();
   }
 
   @override
@@ -158,16 +155,16 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     try {
       final repo = ref.read(mediaRepositoryProvider);
       await repo.updateMovie(widget.movie.id, body);
-      // 应用裁剪 · 仅在有任意水印开关被勾选时
+      // 应用裁剪 · 仅在用户显式选择过任意水印标记时；未设置的参数
+      // 传 null，由后端按影片现有标签推导。
       if (_shouldApplyPosterCrop) {
         await repo.applyPosterCrop(
           widget.movie.id,
           cropOffset: _cropOffset,
-          subtitle: _subtitle,
-          exsub: _exsub,
-          crack: _crack,
-          uhd: false,
-          resolution: _posterResolution,
+          subtitle: _subtitleMode.isEmpty ? null : _subtitleMode == 'sub',
+          exsub: _subtitleMode.isEmpty ? null : _subtitleMode == 'exsub',
+          crack: _crackMode.isEmpty ? null : _crackMode == 'crack',
+          resolution: _resolutionMode.isEmpty ? null : _resolutionMode,
         );
       }
       // 触发详情 provider 刷新
@@ -250,40 +247,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
         case EntityPickerKind.series:
           break;
       }
-      if (kind == EntityPickerKind.genre || kind == EntityPickerKind.tag) {
-        _syncQuickFlagsFromSelections();
-      }
     });
-  }
-
-  void _syncQuickFlagsFromSelections() {
-    final hasSubtitle = hasMovieQuickFlag(
-      flag: MovieQuickFlag.subtitle,
-      tags: _tags,
-      genres: _genres,
-    );
-    if (!hasSubtitle) _exsub = false;
-    _subtitle = hasSubtitle && !_exsub;
-    _crack = hasMovieQuickFlag(
-      flag: MovieQuickFlag.crack,
-      tags: _tags,
-      genres: _genres,
-    );
-    if (hasMovieQuickFlag(
-      flag: MovieQuickFlag.fourK,
-      tags: _tags,
-      genres: _genres,
-    )) {
-      _resolution = '4k';
-    } else if (hasMovieQuickFlag(
-      flag: MovieQuickFlag.twoK,
-      tags: _tags,
-      genres: _genres,
-    )) {
-      _resolution = '2k';
-    } else {
-      _resolution = '';
-    }
   }
 
   Future<MovieQuickEntity> _ensureQuickResource(
@@ -306,28 +270,6 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
 
     final created = await repository.create(kind, name: name);
     return (id: created.id, name: created.name);
-  }
-
-  void _setQuickFlagValue(MovieQuickFlag flag, bool enabled) {
-    switch (flag) {
-      case MovieQuickFlag.subtitle:
-        _subtitle = enabled;
-        if (enabled) _exsub = false;
-        break;
-      case MovieQuickFlag.exsub:
-        _exsub = enabled;
-        if (enabled) _subtitle = false;
-        break;
-      case MovieQuickFlag.crack:
-        _crack = enabled;
-        break;
-      case MovieQuickFlag.fourK:
-        _resolution = enabled ? '4k' : '';
-        break;
-      case MovieQuickFlag.twoK:
-        _resolution = enabled ? '2k' : '';
-        break;
-    }
   }
 
   Future<void> _changeResolution(String? value) async {
@@ -365,7 +307,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       }
       if (mounted) {
         setState(() {
-          _resolution = selected;
+          _resolutionMode = selected;
           _cropDirty = true;
         });
       }
@@ -397,6 +339,26 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     );
   }
 
+  /// 字幕胶囊（默认 / 无 / 字幕 / 外挂字幕）：“默认”保持现状不变，“无”移除标记与水印。
+  Future<void> _changeSubtitleFlag(String selected) async {
+    if (selected.isEmpty) return;
+    setState(() => _subtitleMode = selected);
+    if (selected == 'none') {
+      await _changeQuickFlag(MovieQuickFlag.subtitle, false);
+      return;
+    }
+    final flag =
+        selected == 'exsub' ? MovieQuickFlag.exsub : MovieQuickFlag.subtitle;
+    await _changeQuickFlag(flag, true);
+  }
+
+  /// 破解胶囊（默认 / 无 / 破解）：“无”移除标记与水印。
+  Future<void> _changeCrackFlag(String selected) async {
+    if (selected.isEmpty) return;
+    setState(() => _crackMode = selected);
+    await _changeQuickFlag(MovieQuickFlag.crack, selected == 'crack');
+  }
+
   Future<void> _changeQuickFlag(MovieQuickFlag flag, bool enabled) async {
     if (_saving || _flagUpdating) return;
     setState(() => _flagUpdating = true);
@@ -418,7 +380,6 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
           );
           _tags = selections.tags;
           _genres = selections.genres;
-          _setQuickFlagValue(flag, true);
           _cropDirty = true;
         });
       } else {
@@ -430,7 +391,6 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
           );
           _tags = selections.tags;
           _genres = selections.genres;
-          _setQuickFlagValue(flag, false);
           _cropDirty = true;
         });
       }
@@ -504,37 +464,79 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                     const SizedBox(height: 4),
                     IgnorePointer(
                       ignoring: _flagUpdating,
-                      child: _FlagsRow(
-                        subtitle: _subtitle,
-                        exsub: _exsub,
-                        crack: _crack,
-                        resolution: _resolutionSelection,
-                        onResolutionChanged: _changeResolution,
-                        onChanged: (flag, value) =>
-                            unawaited(_changeQuickFlag(flag, value)),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          CapsuleSelect(
+                            label: l.movieFlagSubtitle,
+                            value: _subtitleMode,
+                            options: [
+                              (value: '', label: '默认'),
+                              (value: 'none', label: '无'),
+                              (value: 'sub', label: l.movieFlagSubtitle),
+                              (
+                                value: 'exsub',
+                                label: l.movieFlagExternalSubtitle,
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                unawaited(_changeSubtitleFlag(v)),
+                          ),
+                          CapsuleSelect(
+                            label: l.movieFlagCrack,
+                            value: _crackMode,
+                            options: [
+                              (value: '', label: '默认'),
+                              (value: 'none', label: '无'),
+                              (value: 'crack', label: l.movieFlagCrack),
+                            ],
+                            onChanged: (v) => unawaited(_changeCrackFlag(v)),
+                          ),
+                          CapsuleSelect(
+                            label: '清晰度',
+                            value: _resolutionMode,
+                            options: const [
+                              (value: '', label: '默认'),
+                              (value: 'none', label: '无'),
+                              (value: '4k', label: '4K'),
+                              (value: '2k', label: '2K'),
+                            ],
+                            onChanged: (v) => unawaited(_changeResolution(v)),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _label(l.movieEditorFanartCrop),
-                    const SizedBox(height: 4),
-                    PosterCropController(
-                      movieId: widget.movie.id,
-                      fanartUrl: _fanartUrl!,
-                      cropOffset: _cropOffset,
-                      subtitle: _subtitle,
-                      exsub: _exsub,
-                      crack: _crack,
-                      uhd: false,
-                      resolution: _posterResolution,
-                      enabled: _anyFlagOn,
-                      onChanged: (v) {
-                        setState(() {
-                          _cropOffset = v;
-                          _cropDirty = true;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 18),
+                    // 全部“未设置”时不加载裁剪器，避免进入编辑页就触发裁剪逻辑。
+                    if (_anyFlagSelected) ...[
+                      const SizedBox(height: 12),
+                      _label(l.movieEditorFanartCrop),
+                      const SizedBox(height: 4),
+                      PosterCropController(
+                        movieId: widget.movie.id,
+                        fanartUrl: _fanartUrl!,
+                        cropOffset: _cropOffset,
+                        subtitle: _subtitleMode.isEmpty
+                            ? null
+                            : _subtitleMode == 'sub',
+                        exsub: _subtitleMode.isEmpty
+                            ? null
+                            : _subtitleMode == 'exsub',
+                        crack: _crackMode.isEmpty
+                            ? null
+                            : _crackMode == 'crack',
+                        resolution: _resolutionMode.isEmpty
+                            ? null
+                            : _resolutionMode,
+                        onChanged: (v) {
+                          setState(() {
+                            _cropOffset = v;
+                            _cropDirty = true;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                    ],
                   ],
 
                   // ===== 文本字段 =====
@@ -1043,137 +1045,6 @@ class _PickerSection extends StatelessWidget {
                   Wrap(spacing: 6, runSpacing: 6, children: children!),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 快捷操作横排 (字幕 / 外挂字幕 / 破解) 与互斥清晰度选择
-class _FlagsRow extends StatelessWidget {
-  const _FlagsRow({
-    required this.subtitle,
-    required this.exsub,
-    required this.crack,
-    required this.resolution,
-    required this.onResolutionChanged,
-    required this.onChanged,
-  });
-
-  final bool subtitle;
-  final bool exsub;
-  final bool crack;
-  final String resolution;
-  final ValueChanged<String?> onResolutionChanged;
-  final void Function(MovieQuickFlag flag, bool value) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      (
-        MovieQuickFlag.subtitle,
-        AppL10n.of(context).movieFlagSubtitle,
-        subtitle,
-      ),
-      (
-        MovieQuickFlag.exsub,
-        AppL10n.of(context).movieFlagExternalSubtitle,
-        exsub,
-      ),
-      (MovieQuickFlag.crack, AppL10n.of(context).movieFlagCrack, crack),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final (flag, label, value) in items)
-              _FlagChip(
-                label: label,
-                value: value,
-                onChanged: (next) => onChanged(flag, next),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          initialValue: resolution,
-          decoration: const InputDecoration(labelText: '清晰度'),
-          items: const [
-            DropdownMenuItem(value: '', child: Text('未设置')),
-            DropdownMenuItem(value: 'none', child: Text('无')),
-            DropdownMenuItem(value: '4k', child: Text('4K')),
-            DropdownMenuItem(value: '2k', child: Text('2K')),
-          ],
-          onChanged: onResolutionChanged,
-        ),
-      ],
-    );
-  }
-}
-
-class _FlagChip extends StatelessWidget {
-  const _FlagChip({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(100),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(100),
-        onTap: () => onChanged(!value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: value ? c.accent.withValues(alpha: 0.18) : c.chipBg,
-            border: Border.all(
-              color: value
-                  ? c.accent.withValues(alpha: 0.6)
-                  : Colors.transparent,
-              width: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                transitionBuilder: (child, anim) =>
-                    ScaleTransition(scale: anim, child: child),
-                child: Icon(
-                  value ? Icons.check_circle : Icons.circle_outlined,
-                  key: ValueKey(value),
-                  size: 14,
-                  color: value ? c.accent : c.muted2,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: value ? c.accent : c.text,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
-                ),
-              ),
-            ],
           ),
         ),
       ),

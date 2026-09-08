@@ -695,20 +695,19 @@ class OmmMediaOperationsAdapter
   @override
   Future<({int successCount, int failedCount})> batchWatermark({
     required List<MediaRef> movies,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) async {
+    // null（未设置）不发送，由后端按各影片标签保持现有水印。
     final raw = await _call(
       () => client.movies.batchWatermark({
         'movie_ids': movies.map(_ommId).toList(growable: false),
-        'subtitle': subtitle,
-        'exsub': exsub,
-        'crack': crack,
-        'uhd': uhd,
-        'resolution': resolution,
+        if (subtitle != null) 'subtitle': subtitle,
+        if (exsub != null) 'exsub': exsub,
+        if (crack != null) 'crack': crack,
+        if (resolution != null) 'resolution': resolution,
       }),
     );
     _throwIfUnsuccessful(raw, '海报裁剪失败');
@@ -779,19 +778,17 @@ class OmmMediaOperationsAdapter
   Future<void> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) async {
     final raw = await _call(
       () => client.movies.updatePosterWatermark(_ommId(movie), {
-        'subtitle': subtitle,
-        'exsub': exsub,
-        'crack': crack,
-        'uhd': uhd,
-        'resolution': resolution,
+        if (subtitle != null) 'subtitle': subtitle,
+        if (exsub != null) 'exsub': exsub,
+        if (crack != null) 'crack': crack,
+        if (resolution != null) 'resolution': resolution,
         'crop_offset': cropOffset,
       }),
     );
@@ -802,19 +799,17 @@ class OmmMediaOperationsAdapter
   Future<List<int>> previewPosterCrop(
     MediaRef movie, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) async {
     final response = await _call(
       () => client.movies.previewPosterWatermark(_ommId(movie), {
-        'subtitle': subtitle,
-        'exsub': exsub,
-        'crack': crack,
-        'uhd': uhd,
-        'resolution': resolution,
+        if (subtitle != null) 'subtitle': subtitle,
+        if (exsub != null) 'exsub': exsub,
+        if (crack != null) 'crack': crack,
+        if (resolution != null) 'resolution': resolution,
         'crop_offset': cropOffset,
       }),
     );

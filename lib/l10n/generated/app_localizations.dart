@@ -10503,7 +10503,7 @@ abstract class AppL10n {
   /// No description provided for @batchEditSubtitleExclusive.
   ///
   /// In zh, this message translates to:
-  /// **'字幕与外挂字幕互斥'**
+  /// **'「默认」保持影片现有标记不变；「无」移除对应标记与水印'**
   String get batchEditSubtitleExclusive;
 
   /// No description provided for @batchEditTagSubtitle.

@@ -25,11 +25,10 @@ class PosterCropController extends ConsumerStatefulWidget {
     required this.fanartUrl,
     required this.cropOffset,
     required this.onChanged,
-    this.subtitle = false,
-    this.exsub = false,
-    this.crack = false,
-    this.uhd = false,
-    this.resolution = '',
+    this.subtitle,
+    this.exsub,
+    this.crack,
+    this.resolution,
     this.enabled = true,
   });
 
@@ -37,11 +36,12 @@ class PosterCropController extends ConsumerStatefulWidget {
   final String fanartUrl;
   final double cropOffset;
   final ValueChanged<double> onChanged;
-  final bool subtitle;
-  final bool exsub;
-  final bool crack;
-  final bool uhd;
-  final String resolution;
+
+  /// 水印标记三态：null（未设置）由后端按影片现有标签推导。
+  final bool? subtitle;
+  final bool? exsub;
+  final bool? crack;
+  final String? resolution;
 
   /// 未启用时只显示原 fanart,不渲染窗口/蒙版/拖拽。
   final bool enabled;
@@ -97,7 +97,6 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
         widget.subtitle != old.subtitle ||
         widget.exsub != old.exsub ||
         widget.crack != old.crack ||
-        widget.uhd != old.uhd ||
         widget.resolution != old.resolution ||
         widget.enabled != old.enabled;
     if (widget.cropOffset != old.cropOffset || flagsChanged) {
@@ -143,7 +142,6 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
             subtitle: widget.subtitle,
             exsub: widget.exsub,
             crack: widget.crack,
-            uhd: widget.uhd,
             resolution: widget.resolution,
           );
       if (!mounted) return;

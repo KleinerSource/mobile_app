@@ -228,19 +228,18 @@ class MediaRepository {
     seriesId: seriesId,
   );
 
+  /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
   Future<({int successCount, int failedCount})> batchWatermark({
     required List<int> movieIds,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) => _operations.batchWatermark(
     movies: movieIds.map(_movieRef).toList(growable: false),
     subtitle: subtitle,
     exsub: exsub,
     crack: crack,
-    uhd: uhd,
     resolution: resolution,
   );
 
@@ -271,11 +270,10 @@ class MediaRepository {
   Future<void> applyPosterCrop(
     int id, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) async {
     await _operations.applyPosterCrop(
       _movieRef(id),
@@ -283,7 +281,6 @@ class MediaRepository {
       subtitle: subtitle,
       exsub: exsub,
       crack: crack,
-      uhd: uhd,
       resolution: resolution,
     );
     MovieDataChanges.bumpImages(movieId: id);
@@ -292,18 +289,16 @@ class MediaRepository {
   Future<List<int>> previewPosterCrop(
     int id, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) => _operations.previewPosterCrop(
     _movieRef(id),
     cropOffset: cropOffset,
     subtitle: subtitle,
     exsub: exsub,
     crack: crack,
-    uhd: uhd,
     resolution: resolution,
   );
 

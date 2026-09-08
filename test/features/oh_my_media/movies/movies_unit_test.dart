@@ -348,11 +348,10 @@ class _FakeOperations implements OmmMediaOperationsSource {
   @override
   Future<({int successCount, int failedCount})> batchWatermark({
     required List<source_models.MediaRef> movies,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) => throw UnimplementedError();
 
   @override
@@ -379,22 +378,20 @@ class _FakeOperations implements OmmMediaOperationsSource {
   Future<void> applyPosterCrop(
     source_models.MediaRef movie, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) async {}
 
   @override
   Future<List<int>> previewPosterCrop(
     source_models.MediaRef movie, {
     required double cropOffset,
-    bool subtitle = false,
-    bool exsub = false,
-    bool crack = false,
-    bool uhd = false,
-    String resolution = '',
+    bool? subtitle,
+    bool? exsub,
+    bool? crack,
+    String? resolution,
   }) async => [];
 }
 
