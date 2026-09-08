@@ -460,7 +460,7 @@ void main() {
                 8,
                 versionInfo: const ServerVersionInfo(
                   projectName: 'oh-my-media',
-                  version: '2.3.0',
+                  version: '9.99.999',
                 ),
               ),
             ),
@@ -562,7 +562,7 @@ Future<void> _pumpSetupWithAuth(
               8,
               versionInfo: const ServerVersionInfo(
                 projectName: 'oh-my-media',
-                version: '2.3.0',
+                version: '9.99.999',
               ),
             ),
           ),
