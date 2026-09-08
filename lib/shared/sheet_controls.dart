@@ -15,7 +15,8 @@ double sheetMaxHeight(BuildContext context) {
   final mediaQuery = MediaQuery.of(context);
   return (mediaQuery.size.height -
           mediaQuery.viewPadding.top -
-          sheetTopClearance)
+          sheetTopClearance -
+          mediaQuery.viewInsets.bottom)
       .clamp(0.0, mediaQuery.size.height)
       .toDouble();
 }

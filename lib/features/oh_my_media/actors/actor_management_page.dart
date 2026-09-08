@@ -623,12 +623,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       isScrollControlled: true,
       builder: (sheetContext) {
         return Padding(
-          padding: EdgeInsets.fromLTRB(
-            22,
-            4,
-            22,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 22,
-          ),
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,

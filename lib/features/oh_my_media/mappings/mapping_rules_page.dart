@@ -528,11 +528,11 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
             return StatefulBuilder(
               builder: (sctx, setSt) {
                 return Padding(
-                  padding: EdgeInsets.only(
+                  padding: const EdgeInsets.only(
                     left: 22,
                     right: 22,
                     top: 4,
-                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
+                    bottom: 22,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

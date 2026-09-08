@@ -167,9 +167,8 @@ class _ActorAssociationEditorSheetState
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final mq = MediaQuery.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom + 22),
+      padding: const EdgeInsets.only(bottom: 22),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
         child: Column(

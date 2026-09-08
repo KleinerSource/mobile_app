@@ -83,12 +83,7 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
     final l = AppL10n.of(context);
     final kindLabel = widget.kind.label(l);
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        22,
-        4,
-        22,
-        MediaQuery.of(context).viewInsets.bottom + 22,
-      ),
+      padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

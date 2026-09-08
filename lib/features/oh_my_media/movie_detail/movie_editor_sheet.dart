@@ -415,12 +415,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     final c = appColors(context);
     final l = AppL10n.of(context);
     return Padding(
-      padding: EdgeInsets.only(
-        left: 0,
-        right: 0,
-        top: 4,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 22,
-      ),
+      padding: const EdgeInsets.only(left: 0, right: 0, top: 4, bottom: 22),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

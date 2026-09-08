@@ -57,14 +57,19 @@ void main() {
       tester,
       const SizedBox(
         key: ValueKey('keyboard-sheet-content'),
-        height: 140,
+        height: 260,
         child: Center(child: Text('输入内容')),
       ),
     );
 
     final view = tester.view;
     final originalViewInsets = view.viewInsets;
+    final originalViewPadding = view.viewPadding;
     final keyboardHeight = 300.0;
+    const topSafeArea = 47.0;
+    view.viewPadding = FakeViewPadding(
+      top: topSafeArea * view.devicePixelRatio,
+    );
     view.viewInsets = FakeViewPadding(
       bottom: keyboardHeight * view.devicePixelRatio,
     );
@@ -78,8 +83,13 @@ void main() {
         tester.getBottomLeft(find.byType(GlassPanel)).dy,
         lessThanOrEqualTo(keyboardTop),
       );
+      expect(
+        tester.getTopLeft(find.byType(GlassPanel)).dy,
+        greaterThanOrEqualTo(topSafeArea + sheetTopClearance),
+      );
     } finally {
       view.viewInsets = originalViewInsets;
+      view.viewPadding = originalViewPadding;
       await tester.pumpAndSettle();
     }
   });
