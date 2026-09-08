@@ -34,10 +34,13 @@ abstract class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'has_internal_subtitle')
     @Default(false)
     bool hasInternalSubtitle,
-    @JsonKey(name: 'video_width') int? videoWidth,
-    @JsonKey(name: 'video_height') int? videoHeight,
     @JsonKey(name: 'file_name') String? fileName,
-    @JsonKey(name: 'file_resolution') String? fileResolution,
+    // 后端统一计算的清晰度档位(媒体宽高优先，缺失回退 file_resolution)，
+    // 由 resolution_tier 解析而来；徽章只消费该字段，不再自行推导。
+    @ResolutionTierConverter()
+    @JsonKey(name: 'resolution_tier')
+    @Default(ResolutionTier.none)
+    ResolutionTier resolutionTier,
     @JsonKey(name: 'preview_video_url') String? previewVideoUrl,
     @Default(<ActorRef>[]) List<ActorRef> actors,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
@@ -49,6 +52,52 @@ abstract class MovieListItem with _$MovieListItem {
 
 /// 分辨率级别 · 用于卡片角标
 enum ResolutionTier { sd, hd, fhd, k2, uhd, none }
+
+/// 解析后端统一返回的 resolution_tier 档位字符串
+/// ('4k' | '2k' | 'fhd' | 'hd' | 'sd')，其余(含 unknown/缺失)视为 none。
+ResolutionTier resolutionTierFromApi(String? tier) {
+  switch ((tier ?? '').trim().toLowerCase()) {
+    case '4k':
+      return ResolutionTier.uhd;
+    case '2k':
+      return ResolutionTier.k2;
+    case 'fhd':
+      return ResolutionTier.fhd;
+    case 'hd':
+      return ResolutionTier.hd;
+    case 'sd':
+      return ResolutionTier.sd;
+  }
+  return ResolutionTier.none;
+}
+
+String? resolutionTierToApi(ResolutionTier tier) {
+  switch (tier) {
+    case ResolutionTier.uhd:
+      return '4k';
+    case ResolutionTier.k2:
+      return '2k';
+    case ResolutionTier.fhd:
+      return 'fhd';
+    case ResolutionTier.hd:
+      return 'hd';
+    case ResolutionTier.sd:
+      return 'sd';
+    case ResolutionTier.none:
+      return null;
+  }
+}
+
+/// resolution_tier 字段与 ResolutionTier 枚举的 JSON 转换。
+class ResolutionTierConverter implements JsonConverter<ResolutionTier, String?> {
+  const ResolutionTierConverter();
+
+  @override
+  ResolutionTier fromJson(String? json) => resolutionTierFromApi(json);
+
+  @override
+  String? toJson(ResolutionTier object) => resolutionTierToApi(object);
+}
 
 // 番号后缀识别 · 规则参考 frontend_new PlyrPlayer
 //
@@ -95,45 +144,6 @@ bool isAISubtitlePath(String? path) {
   return _kAISubtitleRegex.hasMatch(stem);
 }
 
-/// 按数据库已缓存的媒体尺寸识别清晰度，缺少尺寸时回退扫描入库时保存的文件名解析结果。
-ResolutionTier resolutionTierFor({
-  int? width,
-  int? height,
-  String? fileResolution,
-}) {
-  final actualWidth = width ?? 0;
-  final actualHeight = height ?? 0;
-  if (actualWidth > 0 || actualHeight > 0) {
-    if (actualHeight >= 2160 || actualWidth >= 3840) {
-      return ResolutionTier.uhd;
-    }
-    if (actualHeight >= 1440 || actualWidth >= 2560) {
-      return ResolutionTier.k2;
-    }
-    if (actualHeight >= 1080 || actualWidth >= 1920) {
-      return ResolutionTier.fhd;
-    }
-    if (actualHeight >= 720 || actualWidth >= 1280) {
-      return ResolutionTier.hd;
-    }
-    return ResolutionTier.sd;
-  }
-
-  switch ((fileResolution ?? '').trim().toLowerCase()) {
-    case '4k':
-      return ResolutionTier.uhd;
-    case '2k':
-      return ResolutionTier.k2;
-    case 'fhd':
-      return ResolutionTier.fhd;
-    case 'hd':
-      return ResolutionTier.hd;
-    case 'sd':
-      return ResolutionTier.sd;
-  }
-  return ResolutionTier.none;
-}
-
 extension MovieListItemX on MovieListItem {
   /// 文件名 (无扩展名, 小写) · 用于按番号后缀识别字幕/破解
   String get _fileNameStem {
@@ -158,14 +168,6 @@ extension MovieListItemX on MovieListItem {
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
     return _kUmrCrackRegex.hasMatch(stem) || _kCrackRegex.hasMatch(stem);
-  }
-
-  ResolutionTier get resolutionTier {
-    return resolutionTierFor(
-      width: videoWidth,
-      height: videoHeight,
-      fileResolution: fileResolution,
-    );
   }
 }
 
@@ -196,7 +198,10 @@ abstract class MovieDetail with _$MovieDetail {
     String? trailer,
     @JsonKey(name: 'file_path') String? filePath,
     @JsonKey(name: 'file_size') int? fileSize,
-    @JsonKey(name: 'file_resolution') String? fileResolution,
+    @ResolutionTierConverter()
+    @JsonKey(name: 'resolution_tier')
+    @Default(ResolutionTier.none)
+    ResolutionTier resolutionTier,
     @JsonKey(name: 'last_downloaded_at') String? lastDownloadedAt,
     @JsonKey(name: 'movie_part') String? moviePart,
     @JsonKey(name: 'poster_uuid') String? posterUuid,

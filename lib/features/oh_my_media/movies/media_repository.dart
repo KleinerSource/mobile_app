@@ -341,7 +341,9 @@ class MediaRepository {
       fanartUuid: item.fanart,
       fileSize: _asInt(attributes['file_size']),
       fileName: attributes['file_name']?.toString(),
-      fileResolution: attributes['file_resolution']?.toString(),
+      resolutionTier: resolutionTierFromApi(
+        attributes['resolution_tier']?.toString(),
+      ),
       seriesName: attributes['series_name']?.toString(),
       previewVideoUrl: attributes['preview_video_url']?.toString(),
       hasNewResources: attributes['has_new_resources'] == true,

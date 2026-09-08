@@ -819,18 +819,16 @@ void _main_6() {
     expect(isAISubtitlePath(movie.subtitles.single.filePath), isTrue);
   });
 
-  test('列表模型解析内嵌字幕轨道和视频分辨率状态', () {
+  test('列表模型解析内嵌字幕轨道和统一清晰度档位', () {
     final movie = MovieListItem.fromJson({
       'id': 2,
       'title': '列表测试',
       'has_internal_subtitle': true,
-      'video_width': 1920,
-      'video_height': 1080,
+      'resolution_tier': 'fhd',
     });
 
     expect(movie.hasInternalSubtitle, isTrue);
-    expect(movie.videoWidth, 1920);
-    expect(movie.videoHeight, 1080);
+    expect(movie.resolutionTier, ResolutionTier.fhd);
     // 内嵌轨道与文件名标识相互独立
     expect(movie.hasMuxedSubtitle, isTrue);
     expect(movie.hasFilenameSubtitle, isFalse);

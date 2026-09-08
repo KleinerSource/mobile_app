@@ -25,7 +25,7 @@ class BadgePositionPage extends ConsumerWidget {
     hasAiSubtitle: true,
     hasInternalSubtitle: true,
     hasNewResources: true,
-    videoHeight: 1080,
+    resolutionTier: ResolutionTier.fhd,
     fileName: 'abc-123-uc.mp4',
   );
 

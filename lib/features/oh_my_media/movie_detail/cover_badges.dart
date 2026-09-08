@@ -97,9 +97,7 @@ CoverBadgeSpec resolutionBadgeSpec(ResolutionTier tier) {
 /// 无数据的项自动省略。
 List<CoverBadgeSpec> buildCoverBadges({
   String? filePath,
-  String? fileResolution,
-  int? videoWidth,
-  int? videoHeight,
+  ResolutionTier resolutionTier = ResolutionTier.none,
   VideoStreamInfo? video,
   bool hasExternalSubtitle = false,
   bool hasAISubtitle = false,
@@ -231,18 +229,8 @@ List<CoverBadgeSpec> buildCoverBadges({
     );
   }
 
-  // 分辨率：数据库媒体尺寸优先，缺失时回退扫描入库时保存的文件名解析结果。
-  final storedWidth = videoWidth != null && videoWidth > 0
-      ? videoWidth
-      : video?.width;
-  final storedHeight = videoHeight != null && videoHeight > 0
-      ? videoHeight
-      : video?.height;
-  final resolutionTier = resolutionTierFor(
-    width: storedWidth,
-    height: storedHeight,
-    fileResolution: fileResolution,
-  );
+  // 分辨率：档位由后端统一计算(媒体宽高优先，缺失回退文件名标识)，
+  // 详情页把 resolution_tier 解析结果直传进来，本地不再推导。
   if (resolutionTier != ResolutionTier.none) {
     badges.add(resolutionBadgeSpec(resolutionTier));
   }

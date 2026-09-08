@@ -375,7 +375,7 @@ void main() {
     });
     final prefs = await SharedPreferences.getInstance();
 
-    Future<void> pumpMovie(int height) async {
+    Future<void> pumpMovie(ResolutionTier tier) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
@@ -391,7 +391,7 @@ void main() {
                     movie: MovieListItem(
                       id: 1,
                       title: 'A',
-                      videoHeight: height,
+                      resolutionTier: tier,
                     ),
                     posterUrlBuilder: (u) => 'http://x/$u',
                   ),
@@ -413,22 +413,22 @@ void main() {
       return (badge.decoration! as BoxDecoration).color!;
     }
 
-    await pumpMovie(720);
+    await pumpMovie(ResolutionTier.hd);
     expect(
       badgeColor(Icons.display_settings_outlined),
       const Color(0xFFCD7F32),
     );
     expect(find.text('HD'), findsNothing);
 
-    await pumpMovie(1080);
+    await pumpMovie(ResolutionTier.fhd);
     expect(badgeColor(Icons.hd_outlined), const Color(0xFF64D2FF));
     expect(find.text('FHD'), findsNothing);
 
-    await pumpMovie(1440);
+    await pumpMovie(ResolutionTier.k2);
     expect(badgeColor(Icons.aspect_ratio), const Color(0xFFBF5AF2));
     expect(find.text('2K'), findsNothing);
 
-    await pumpMovie(2160);
+    await pumpMovie(ResolutionTier.uhd);
     expect(badgeColor(Icons.high_quality_outlined), const Color(0xFFFF9F0A));
     expect(find.text('UHD'), findsNothing);
   });

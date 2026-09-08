@@ -451,9 +451,7 @@ class _HeroHeader extends ConsumerWidget {
         movie.hasAiSubtitle || subtitlePaths.any(isAISubtitlePath);
     final badges = buildCoverBadges(
       filePath: movie.filePath,
-      fileResolution: movie.fileResolution,
-      videoWidth: mediaInfo?.videoWidth,
-      videoHeight: mediaInfo?.videoHeight,
+      resolutionTier: movie.resolutionTier,
       video: video,
       hasExternalSubtitle: hasExternalSubtitle,
       hasAISubtitle: hasAISubtitle,
