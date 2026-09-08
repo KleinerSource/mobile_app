@@ -93,6 +93,15 @@ class MovieCard extends ConsumerWidget {
         byCorner[positions.rating]!.add(RatingBadge(rating: movie.rating!));
       }
       if (positions.contentBadgeEnabled) {
+        // 内容角标按类型分组显示:分辨率 / 破解独立成枚,字幕来源合并为
+        // 叠加堆(多来源时点按展开),不与分辨率/破解混叠
+        final tier = movie.resolutionTier;
+        if (tier != ResolutionTier.none) {
+          byCorner[contentBadgeCorner]!.add(_ResolutionBadge(tier: tier));
+        }
+        if (movie.hasCracked) {
+          byCorner[contentBadgeCorner]!.add(const _CrackBadge());
+        }
         // 四种字幕来源: 外挂(橙) / AI(紫,文件名带 .ai. 标记) / 内嵌轨道(绿) / 文件名标识(黄)
         final subBadges = <Widget>[
           if (movie.hasExternalSubtitle)
@@ -116,31 +125,19 @@ class MovieCard extends ConsumerWidget {
               tooltip: l.movieCardSubFilename,
             ),
         ];
-        // 内容角标(分辨率/破解/字幕来源)合并为一个叠堆:分辨率信息量最高
-        // 置于堆面常显,其余点按向上展开,避免海报角落横向铺开多枚徽章。
-        final contentBadges = <Widget>[
-          if (movie.resolutionTier != ResolutionTier.none)
-            _ResolutionBadge(tier: movie.resolutionTier),
-          if (movie.hasCracked) const _CrackBadge(),
-          ...subBadges,
-        ];
-        if (contentBadges.length > 1) {
+        if (subBadges.length > 1) {
           final corner = contentBadgeCorner;
           byCorner[corner]!.add(
             StackedBadges(
-              // 仅字幕来源时保留字幕计数提示;含分辨率/破解的合并堆由
-              // 各徽章自身 tooltip 说明
-              tooltip: subBadges.length == contentBadges.length
-                  ? l.movieCardSubStack(subBadges.length)
-                  : null,
+              tooltip: l.movieCardSubStack(subBadges.length),
               expandUpward:
                   corner == BadgeCorner.bottomLeft ||
                   corner == BadgeCorner.bottomRight,
-              children: contentBadges,
+              children: subBadges,
             ),
           );
-        } else if (contentBadges.length == 1) {
-          byCorner[contentBadgeCorner]!.add(contentBadges.single);
+        } else {
+          byCorner[contentBadgeCorner]!.addAll(subBadges);
         }
       }
     }
