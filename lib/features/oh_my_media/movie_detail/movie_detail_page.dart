@@ -449,9 +449,22 @@ class _HeroHeader extends ConsumerWidget {
     // AI 字幕: 详情接口字段优先,回退按字幕文件名识别(.ai. 标记段)
     final hasAISubtitle =
         movie.hasAiSubtitle || subtitlePaths.any(isAISubtitlePath);
+    // 统一档位由后端计算：优先 media-info 接口的实时值——首次进入详情页
+    // 触发 ffprobe 后即为实测结果；详情接口快照(含 file_resolution 兜底)作回退。
+    // 同番号多分卷资源可能有不同档位(如 cd1 4K / cd2 FHD)，
+    // 逐分卷叠加展示，当前影片档位置于堆面。
+    final liveTier = mediaInfo?.resolutionTier;
+    final currentTier = liveTier != null && liveTier != ResolutionTier.none
+        ? liveTier
+        : movie.resolutionTier;
+    final resolutionTiers = <ResolutionTier>[
+      if (currentTier != ResolutionTier.none) currentTier,
+      for (final part in movie.partMovies)
+        if (part.resolutionTier != ResolutionTier.none) part.resolutionTier,
+    ];
     final badges = buildCoverBadges(
       filePath: movie.filePath,
-      resolutionTier: movie.resolutionTier,
+      resolutionTiers: resolutionTiers,
       video: video,
       hasExternalSubtitle: hasExternalSubtitle,
       hasAISubtitle: hasAISubtitle,

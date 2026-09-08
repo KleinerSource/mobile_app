@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'movie.dart';
+
 /// 媒体流详情模型。
 ///
 /// 后端 `GET /movies/id/{id}/media-info` 在文件级摘要字段之外还返回
@@ -191,6 +193,7 @@ class MediaInfoDetail {
     this.fileSize,
     this.videoWidth,
     this.videoHeight,
+    this.resolutionTier = ResolutionTier.none,
   });
 
   /// 文件级摘要字段（同一响应的顶层字段）。
@@ -204,6 +207,11 @@ class MediaInfoDetail {
   final int? videoWidth;
   final int? videoHeight;
 
+  /// 后端统一计算的清晰度档位(媒体宽高优先，缺失回退 file_resolution)。
+  /// media-info 接口实时返回——首次进入详情页触发 ffprobe 后即为实测结果，
+  /// 封面徽章据此刷新，无需等待详情接口重新拉取。
+  final ResolutionTier resolutionTier;
+
   final MediaStreams streams;
 
   static MediaInfoDetail fromJson(Map<String, dynamic> json) {
@@ -214,6 +222,7 @@ class MediaInfoDetail {
       fileSize: _asInt(json['file_size']),
       videoWidth: _asInt(json['video_width']),
       videoHeight: _asInt(json['video_height']),
+      resolutionTier: resolutionTierFromApi(_asStr(json['resolution_tier'])),
       streams: MediaStreams.fromJson(json),
     );
   }

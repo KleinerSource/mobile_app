@@ -93,8 +93,7 @@ class MovieCard extends ConsumerWidget {
         byCorner[positions.rating]!.add(RatingBadge(rating: movie.rating!));
       }
       if (positions.contentBadgeEnabled) {
-        // 四种字幕来源: 外挂(橙) / AI(紫,文件名带 .ai. 标记) / 内嵌轨道(绿) / 文件名标识(黄),
-        // 多来源时合并为叠加堆,点按展开
+        // 四种字幕来源: 外挂(橙) / AI(紫,文件名带 .ai. 标记) / 内嵌轨道(绿) / 文件名标识(黄)
         final subBadges = <Widget>[
           if (movie.hasExternalSubtitle)
             _SubtitleBadge(
@@ -117,28 +116,31 @@ class MovieCard extends ConsumerWidget {
               tooltip: l.movieCardSubFilename,
             ),
         ];
-        if (subBadges.length > 1) {
+        // 内容角标(分辨率/破解/字幕来源)合并为一个叠堆:分辨率信息量最高
+        // 置于堆面常显,其余点按向上展开,避免海报角落横向铺开多枚徽章。
+        final contentBadges = <Widget>[
+          if (movie.resolutionTier != ResolutionTier.none)
+            _ResolutionBadge(tier: movie.resolutionTier),
+          if (movie.hasCracked) const _CrackBadge(),
+          ...subBadges,
+        ];
+        if (contentBadges.length > 1) {
           final corner = contentBadgeCorner;
           byCorner[corner]!.add(
             StackedBadges(
-              tooltip: l.movieCardSubStack(subBadges.length),
+              // 仅字幕来源时保留字幕计数提示;含分辨率/破解的合并堆由
+              // 各徽章自身 tooltip 说明
+              tooltip: subBadges.length == contentBadges.length
+                  ? l.movieCardSubStack(subBadges.length)
+                  : null,
               expandUpward:
                   corner == BadgeCorner.bottomLeft ||
                   corner == BadgeCorner.bottomRight,
-              children: subBadges,
+              children: contentBadges,
             ),
           );
-        } else {
-          byCorner[contentBadgeCorner]!.addAll(subBadges);
-        }
-      }
-      if (positions.contentBadgeEnabled && movie.hasCracked) {
-        byCorner[contentBadgeCorner]!.add(const _CrackBadge());
-      }
-      if (positions.contentBadgeEnabled) {
-        final tier = movie.resolutionTier;
-        if (tier != ResolutionTier.none) {
-          byCorner[contentBadgeCorner]!.add(_ResolutionBadge(tier: tier));
+        } else if (contentBadges.length == 1) {
+          byCorner[contentBadgeCorner]!.add(contentBadges.single);
         }
       }
     }

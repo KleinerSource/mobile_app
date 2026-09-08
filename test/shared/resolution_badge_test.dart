@@ -36,7 +36,7 @@ void main() {
   test('封面徽章直接使用统一档位', () {
     final badges = buildCoverBadges(
       filePath: 'title-720p.mp4',
-      resolutionTier: ResolutionTier.uhd,
+      resolutionTiers: const [ResolutionTier.uhd],
     );
     expect(
       badges
@@ -48,7 +48,7 @@ void main() {
 
     final none = buildCoverBadges(
       filePath: 'title-720p.mp4',
-      resolutionTier: ResolutionTier.none,
+      resolutionTiers: const [],
     );
     expect(
       none.where((badge) => badge.kind == PosterBadgeKind.resolution),

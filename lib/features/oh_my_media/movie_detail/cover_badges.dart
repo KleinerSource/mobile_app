@@ -95,9 +95,13 @@ CoverBadgeSpec resolutionBadgeSpec(ResolutionTier tier) {
 /// 组合数据库媒体信息 + 文件名后缀 + 外挂字幕状态生成封面徽章(与 Web 端 useCoverBadges 对齐):
 /// 编码 / HDR / STRM / 外挂字幕 / AI 字幕 / 内嵌字幕轨道 / 文件名内嵌字幕 / 破解 / 4K / 2K / FHD / HD / SD，
 /// 无数据的项自动省略。
+///
+/// [resolutionTiers] 是后端统一计算的清晰度档位列表:首位为当前影片档位
+/// (media-info 实时值优先，详情快照兜底)，其后可跟同番号其他分卷的档位，
+/// 支持多分卷多分辨率叠加展示；空列表或均为 none 时不显示分辨率徽章。
 List<CoverBadgeSpec> buildCoverBadges({
   String? filePath,
-  ResolutionTier resolutionTier = ResolutionTier.none,
+  List<ResolutionTier> resolutionTiers = const [],
   VideoStreamInfo? video,
   bool hasExternalSubtitle = false,
   bool hasAISubtitle = false,
@@ -229,19 +233,22 @@ List<CoverBadgeSpec> buildCoverBadges({
     );
   }
 
-  // 分辨率：档位由后端统一计算(媒体宽高优先，缺失回退文件名标识)，
-  // 详情页把 resolution_tier 解析结果直传进来，本地不再推导。
-  if (resolutionTier != ResolutionTier.none) {
-    badges.add(resolutionBadgeSpec(resolutionTier));
+  // 分辨率：档位由后端统一计算(媒体宽高优先，缺失回退文件名标识)。
+  // 多分卷影片可能有多个档位(如 cd1 4K / cd2 FHD)，各生成一枚徽章，
+  // 由 CoverBadgeRow 叠加展示；去重并保持首个(当前影片)优先。
+  final seenTiers = <ResolutionTier>{};
+  for (final tier in resolutionTiers) {
+    if (tier == ResolutionTier.none || !seenTiers.add(tier)) continue;
+    badges.add(resolutionBadgeSpec(tier));
   }
 
   return badges;
 }
 
 /// 封面底部技术徽章行:
-/// 视频规格(编码/HDR/杜比/STRM)与字幕来源分别合并为两个叠堆;
-/// 分辨率与破解保持独立显示。收起时叠加、点按向上展开,
-/// 详情页与设置预览共用同一套布局。
+/// 视频规格(编码/HDR/杜比/STRM)、分辨率(含多分卷多档)与字幕来源
+/// 分别合并为叠堆;多个分辨率档位同样叠加,点按展开。收起时叠加、
+/// 点按向上展开,详情页与设置预览共用同一套布局。
 class CoverBadgeRow extends StatelessWidget {
   const CoverBadgeRow({super.key, required this.badges});
 
@@ -252,6 +259,7 @@ class CoverBadgeRow extends StatelessWidget {
     final l = AppL10n.of(context);
     final subs = <CoverBadgeSpec>[];
     final mediaSpecs = <CoverBadgeSpec>[];
+    final resolutions = <CoverBadgeSpec>[];
     final standalone = <CoverBadgeSpec>[];
     for (final b in badges) {
       switch (b.kind) {
@@ -261,8 +269,9 @@ class CoverBadgeRow extends StatelessWidget {
           mediaSpecs.add(b);
         case PosterBadgeKind.subtitle:
           subs.add(b);
-        case PosterBadgeKind.crack:
         case PosterBadgeKind.resolution:
+          resolutions.add(b);
+        case PosterBadgeKind.crack:
           standalone.add(b);
       }
     }
@@ -281,6 +290,7 @@ class CoverBadgeRow extends StatelessWidget {
       runSpacing: 6,
       children: [
         badgeGroup(mediaSpecs),
+        badgeGroup(resolutions),
         for (final b in standalone) _CoverBadgePill(spec: b),
         badgeGroup(subs, tooltip: l.movieCardSubStack(subs.length)),
       ],
