@@ -23,7 +23,7 @@ enum ServerProject {
   ohMyMedia(
     projectName: 'oh-my-media',
     displayName: 'Oh My Media',
-    minimumVersion: '2.3.0',
+    minimumVersion: '2.3.155',
   ),
   dbOnline(
     projectName: 'db_online',
@@ -40,8 +40,16 @@ enum ServerProject {
     displayName: 'Jellyfin Server',
     minimumVersion: '10.8.0',
   ),
-  feiniu(projectName: 'feiniu', displayName: '飞牛影视', minimumVersion: '0.8.0'),
-  stash(projectName: 'stash', displayName: 'Stash', minimumVersion: ''),
+  feiniu(
+    projectName: 'feiniu',
+    displayName: '飞牛影视', 
+    minimumVersion: '0.8.0'
+    ),
+  stash(
+    projectName: 'stash', 
+    displayName: 'Stash', 
+    minimumVersion: ''
+  ),
   smb(
     projectName: 'smb',
     displayName: 'SMB',
