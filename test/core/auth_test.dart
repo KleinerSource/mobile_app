@@ -581,6 +581,57 @@ void _main_2() {
     expect(savedCredentials?.password, 'pw');
   });
 
+  test('Emby 登录遇到 OperationError 时回退到根路径', () async {
+    final requests = <String>[];
+    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => httpServer.close(force: true));
+    httpServer.listen((request) async {
+      requests.add(request.uri.path);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path == '/Users/AuthenticateByName') {
+        request.response.write(
+          jsonEncode({
+            'AccessToken': 'tok-root',
+            'User': {'Id': 'u-root', 'Name': 'alice'},
+          }),
+        );
+      } else {
+        request.response.statusCode = HttpStatus.internalServerError;
+        request.response.write(jsonEncode({'Message': 'OperationError'}));
+      }
+      await request.response.close();
+    });
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore());
+    final container = await _authContainer(sessions);
+    addTearDown(container.dispose);
+
+    final line = ServerLine(
+      id: 'emby-root-auth',
+      name: 'Emby',
+      baseUrl: 'http://${httpServer.address.address}:${httpServer.port}',
+    );
+    final server = ServerProfile(
+      id: 'emby-root-auth-server',
+      name: 'Emby',
+      lines: [line],
+      activeLineId: line.id,
+      projectName: 'emby',
+    );
+
+    await container
+        .read(authControllerProvider.notifier)
+        .loginForServer(server: server, username: 'alice', password: 'pw');
+
+    expect(requests, [
+      '/emby/Users/AuthenticateByName',
+      '/Users/AuthenticateByName',
+    ]);
+    expect(
+      (await sessions.forServer(server.id).load())?.accessToken,
+      'tok-root',
+    );
+  });
+
   test('Emby Session 失效后使用已保存用户名密码自动恢复', () async {
     final recorder = _RequestRecorder();
     final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

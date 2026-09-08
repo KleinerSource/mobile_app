@@ -1786,7 +1786,7 @@ abstract class AppL10n {
   /// No description provided for @settingsPosterBadgesSub.
   ///
   /// In zh, this message translates to:
-  /// **'编码 / HDR / STRM / 字幕 / 破解 / HD'**
+  /// **'编码 / HDR / STRM / 字幕 / 破解 / 4K / 2K / FHD / HD / SD'**
   String get settingsPosterBadgesSub;
 
   /// No description provided for @settingsPlayerSettings.

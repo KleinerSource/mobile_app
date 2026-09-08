@@ -927,7 +927,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsPosterBadgesSub =>
-      'Codec / HDR / STRM / Subtitles / Crack / HD';
+      'Codec / HDR / STRM / Subtitles / Crack / 4K / 2K / FHD / HD / SD';
 
   @override
   String get settingsPlayerSettings => 'Player settings';

@@ -279,9 +279,12 @@ void _main_3() {
     expect(exsub.keywords, subtitle.keywords);
     expect(movieQuickFlagConfig(MovieQuickFlag.crack).canonicalName, '无码破解');
     expect(movieQuickFlagConfig(MovieQuickFlag.crack).keywords, ['无码破解', '破解']);
-    final uhd = movieQuickFlagConfig(MovieQuickFlag.uhd);
-    expect(uhd.canonicalName, 'UHD');
-    expect(uhd.keywords, ['UHD']);
+    final fourK = movieQuickFlagConfig(MovieQuickFlag.fourK);
+    expect(fourK.canonicalName, '4K');
+    expect(fourK.keywords, ['4K', '2160P']);
+    final twoK = movieQuickFlagConfig(MovieQuickFlag.twoK);
+    expect(twoK.canonicalName, '2K');
+    expect(twoK.keywords, ['2K', 'QHD', '1440P']);
   });
 
   test('开启快捷操作同时追加对应标签和分类并保留现有选择', () {
@@ -319,8 +322,8 @@ void _main_3() {
   test('快捷状态从分类或标签任一命中计算且忽略大小写', () {
     expect(
       hasMovieQuickFlag(
-        flag: MovieQuickFlag.uhd,
-        tags: const [(id: 1, name: 'uhd')],
+        flag: MovieQuickFlag.fourK,
+        tags: const [(id: 1, name: '2160p')],
         genres: const [],
       ),
       isTrue,

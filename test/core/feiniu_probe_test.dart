@@ -43,7 +43,7 @@ void main() {
     }
   });
 
-  test('根地址线路在常规探测失败后回退到飞牛 /v 接口', () async {
+  test('已知飞牛项目的根地址线路只使用飞牛版本接口', () async {
     final requests = <String>[];
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) {
@@ -63,22 +63,86 @@ void main() {
     });
 
     try {
-      final result = await probeServerLine(
+      final result = await ServerLineProbeCoordinator().probe(
         ServerLine(
           id: 'feiniu-root',
           name: '飞牛影视',
           baseUrl: 'http://127.0.0.1:${server.port}',
         ),
+        expectedProjectName: ServerProject.feiniu.projectName,
       );
 
       expect(result.success, isTrue);
       expect(result.versionInfo?.project, ServerProject.feiniu);
-      expect(requests, [
-        '/api/version',
-        '/System/Info/Public',
-        '/emby/System/Info/Public',
-        '/v/api/v1/sys/version',
-      ]);
+      expect(requests, ['/v/api/v1/sys/version']);
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test('已知 Emby 项目不请求通用 /api/version', () async {
+    final requests = <String>[];
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) {
+      requests.add(request.uri.path);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path == '/System/Info/Public') {
+        request.response.write(
+          jsonEncode({'Version': '4.8.0.80', 'ProductName': 'Emby Server'}),
+        );
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+      }
+      request.response.close();
+    });
+
+    try {
+      final result = await ServerLineProbeCoordinator().probe(
+        ServerLine(
+          id: 'emby',
+          name: 'Emby',
+          baseUrl: 'http://127.0.0.1:${server.port}',
+        ),
+        expectedProjectName: ServerProject.emby.projectName,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.versionInfo?.project, ServerProject.emby);
+      expect(requests, ['/System/Info/Public']);
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test('已知 Jellyfin 项目不请求通用 /api/version', () async {
+    final requests = <String>[];
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) {
+      requests.add(request.uri.path);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path == '/System/Info/Public') {
+        request.response.write(
+          jsonEncode({'Version': '10.8.0', 'ProductName': 'Jellyfin Server'}),
+        );
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+      }
+      request.response.close();
+    });
+
+    try {
+      final result = await ServerLineProbeCoordinator().probe(
+        ServerLine(
+          id: 'jellyfin',
+          name: 'Jellyfin',
+          baseUrl: 'http://127.0.0.1:${server.port}',
+        ),
+        expectedProjectName: ServerProject.jellyfin.projectName,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.versionInfo?.project, ServerProject.jellyfin);
+      expect(requests, ['/System/Info/Public']);
     } finally {
       await server.close(force: true);
     }

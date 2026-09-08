@@ -157,6 +157,7 @@ abstract interface class OmmMediaOperationsSource {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   });
 
   Future<String?> mergeDuplicateFiles({
@@ -180,6 +181,7 @@ abstract interface class OmmMediaOperationsSource {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   });
 
   Future<List<int>> previewPosterCrop(
@@ -189,6 +191,7 @@ abstract interface class OmmMediaOperationsSource {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   });
 
   /// 为单部影片生成预览视频与 Sprite/VTT 资产。

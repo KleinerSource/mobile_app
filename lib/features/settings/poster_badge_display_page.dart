@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_theme.dart';
+import '../../core/models/movie.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
@@ -111,12 +112,14 @@ class _PosterBadgePreview extends StatelessWidget {
       const Color(0xFFDB2777),
       l.movieCardCrack,
     ),
-    CoverBadgeSpec(
-      PosterBadgeKind.resolution,
-      'HD',
-      const Color(0xFF0891B2),
-      l.posterBadgePreviewHd,
-    ),
+    for (final tier in [
+      ResolutionTier.uhd,
+      ResolutionTier.k2,
+      ResolutionTier.fhd,
+      ResolutionTier.hd,
+      ResolutionTier.sd,
+    ])
+      resolutionBadgeSpec(tier),
   ];
 
   final PosterBadgeVisibility visibility;

@@ -13,6 +13,7 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/oh_my_media/movie_detail/entity_picker_sheet.dart';
+import 'package:omm/features/oh_my_media/movie_detail/movie_quick_flag.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -39,7 +40,13 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
   bool _quickSubtitle = false;
   bool _quickExsub = false;
   bool _quickCrack = false;
-  bool _quickUHD = false;
+  String _quickResolution = '';
+  bool _quickResolutionTouched = false;
+
+  String get _quickPosterResolution =>
+      _quickResolution == '4k' || _quickResolution == '2k'
+      ? _quickResolution
+      : '';
 
   Set<int> _addTagIds = {};
   Set<int> _removeTagIds = {};
@@ -119,6 +126,18 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
     return created.id;
   }
 
+  /// 只查找已有资源，不为批量移除创建新条目。
+  Future<int?> _findResourceId(ResourceKind kind, String name) async {
+    final lower = name.trim().toLowerCase();
+    if (lower.isEmpty) return null;
+    final repo = ref.read(resourcesRepositoryProvider);
+    final result = await repo.options(kind, search: name);
+    for (final r in result.items) {
+      if (r.name.trim().toLowerCase() == lower) return r.id;
+    }
+    return null;
+  }
+
   Future<void> _onSave() async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -127,6 +146,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
     try {
       final addTags = Set<int>.of(_addTagIds);
       final addGenres = Set<int>.of(_addGenreIds);
+      final removeTags = Set<int>.of(_removeTagIds);
+      final removeGenres = Set<int>.of(_removeGenreIds);
 
       Future<void> applyQuick(String canonical) async {
         final tid = await _ensureResourceId(ResourceKind.tag, canonical);
@@ -137,13 +158,51 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
 
       if (_quickSubtitle || _quickExsub) await applyQuick('中文字幕');
       if (_quickCrack) await applyQuick('无码破解');
-      if (_quickUHD) await applyQuick('UHD');
+      // “未设置”表示不调整；只有明确选择“无”或具体清晰度时才处理互斥标签。
+      if (_quickResolutionTouched && _quickResolution.isNotEmpty) {
+        final selectedKeywords = switch (_quickResolution) {
+          '4k' => movieQuickFlagConfig(MovieQuickFlag.fourK).keywords,
+          '2k' => movieQuickFlagConfig(MovieQuickFlag.twoK).keywords,
+          _ => const <String>[],
+        };
+        final selectedKeywordSet = selectedKeywords
+            .map((value) => value.trim().toLowerCase())
+            .toSet();
+        final keywords = movieResolutionCleanupKeywords
+            .where(
+              (value) =>
+                  !selectedKeywordSet.contains(value.trim().toLowerCase()),
+            )
+            .toList(growable: false);
+        final ids = await Future.wait<int?>([
+          for (final keyword in keywords)
+            _findResourceId(ResourceKind.tag, keyword),
+        ]);
+        removeTags.addAll(ids.whereType<int>());
+        final genreIds = await Future.wait<int?>([
+          for (final keyword in keywords)
+            _findResourceId(ResourceKind.genre, keyword),
+        ]);
+        removeGenres.addAll(genreIds.whereType<int>());
+      }
+      if (_quickResolutionTouched &&
+          (_quickResolution == '4k' || _quickResolution == '2k')) {
+        await applyQuick(switch (_quickResolution) {
+          '4k' => '4K',
+          '2k' => '2K',
+          _ => _quickResolution,
+        });
+      }
 
       final hasAdd =
           addTags.isNotEmpty || addGenres.isNotEmpty || _setSeriesId != null;
-      final hasRemove = _removeTagIds.isNotEmpty || _removeGenreIds.isNotEmpty;
+      final hasRemove = removeTags.isNotEmpty || removeGenres.isNotEmpty;
       final hasWatermark =
-          _quickSubtitle || _quickExsub || _quickCrack || _quickUHD;
+          _quickSubtitle ||
+          _quickExsub ||
+          _quickCrack ||
+          _quickPosterResolution.isNotEmpty ||
+          (_quickResolutionTouched && _quickResolution == 'none');
 
       if (!mounted) return;
       if (!hasAdd && !hasRemove && !hasWatermark) {
@@ -165,8 +224,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       if (hasRemove) {
         await repo.batchRemoveAssociations(
           movieIds: widget.movieIds,
-          tagIds: _removeTagIds.toList(),
-          genreIds: _removeGenreIds.toList(),
+          tagIds: removeTags.toList(),
+          genreIds: removeGenres.toList(),
         );
       }
       if (hasWatermark) {
@@ -175,7 +234,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
           subtitle: _quickSubtitle,
           exsub: _quickExsub,
           crack: _quickCrack,
-          uhd: _quickUHD,
+          uhd: false,
+          resolution: _quickPosterResolution,
         );
         if (r.failedCount > 0) {
           if (!mounted) return;
@@ -261,11 +321,22 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         ),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: _QuickFlagChip(
-                            label: 'UHD',
-                            value: _quickUHD,
-                            onChanged: (v) =>
-                                setState(() => _quickUHD = v ?? false),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _quickResolution,
+                            decoration: const InputDecoration(
+                              labelText: '清晰度',
+                              isDense: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: '', child: Text('未设置')),
+                              DropdownMenuItem(value: 'none', child: Text('无')),
+                              DropdownMenuItem(value: '4k', child: Text('4K')),
+                              DropdownMenuItem(value: '2k', child: Text('2K')),
+                            ],
+                            onChanged: (value) => setState(() {
+                              _quickResolution = value ?? '';
+                              _quickResolutionTouched = true;
+                            }),
                           ),
                         ),
                       ],

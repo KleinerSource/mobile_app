@@ -102,7 +102,7 @@ abstract class MoviesApi {
   @POST('/movies/batch/associations/remove')
   Future<dynamic> batchRemoveAssociations(@Body() Map<String, dynamic> body);
 
-  /// 批量海报水印/裁剪 · body: { movie_ids, subtitle, exsub, crack, uhd }
+  /// 批量海报水印/裁剪 · body: { movie_ids, subtitle, exsub, crack, uhd, resolution }
   @POST('/movies/batch/watermark')
   Future<dynamic> batchWatermark(@Body() Map<String, dynamic> body);
 

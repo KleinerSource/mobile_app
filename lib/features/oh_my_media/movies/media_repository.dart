@@ -234,12 +234,14 @@ class MediaRepository {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) => _operations.batchWatermark(
     movies: movieIds.map(_movieRef).toList(growable: false),
     subtitle: subtitle,
     exsub: exsub,
     crack: crack,
     uhd: uhd,
+    resolution: resolution,
   );
 
   Future<String?> mergeDuplicateFiles({
@@ -273,6 +275,7 @@ class MediaRepository {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) async {
     await _operations.applyPosterCrop(
       _movieRef(id),
@@ -281,6 +284,7 @@ class MediaRepository {
       exsub: exsub,
       crack: crack,
       uhd: uhd,
+      resolution: resolution,
     );
     MovieDataChanges.bumpImages(movieId: id);
   }
@@ -292,6 +296,7 @@ class MediaRepository {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) => _operations.previewPosterCrop(
     _movieRef(id),
     cropOffset: cropOffset,
@@ -299,6 +304,7 @@ class MediaRepository {
     exsub: exsub,
     crack: crack,
     uhd: uhd,
+    resolution: resolution,
   );
 
   Future<PreviewStartResult> generatePreview(
@@ -335,6 +341,7 @@ class MediaRepository {
       fanartUuid: item.fanart,
       fileSize: _asInt(attributes['file_size']),
       fileName: attributes['file_name']?.toString(),
+      fileResolution: attributes['file_resolution']?.toString(),
       seriesName: attributes['series_name']?.toString(),
       previewVideoUrl: attributes['preview_video_url']?.toString(),
       hasNewResources: attributes['has_new_resources'] == true,

@@ -44,7 +44,10 @@ class ServerSwitchTransitionOverlay extends ConsumerStatefulWidget {
 class _ServerSwitchTransitionOverlayState
     extends ConsumerState<ServerSwitchTransitionOverlay>
     with TickerProviderStateMixin {
-  void _updateViewState(VoidCallback update) => setState(update);
+  void _updateViewState(VoidCallback update) {
+    if (!mounted) return;
+    setState(update);
+  }
 
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -189,6 +192,8 @@ class _ServerSwitchTransitionOverlayState
   void _ensureEntry(BuildContext context, ServerSwitchState transition) {
     final targetServerId = transition.targetServerId;
     if (targetServerId == null || _entryServerId == targetServerId) return;
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations == true;
 
     _entryServerId = targetServerId;
     _apiKeyController.clear();
@@ -201,7 +206,7 @@ class _ServerSwitchTransitionOverlayState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _entryServerId != targetServerId) return;
-      if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+      if (disableAnimations) {
         _entryController.value = 1;
         _handoffController.value = 1;
       } else {
@@ -223,6 +228,8 @@ class _ServerSwitchTransitionOverlayState
   void _ensureFinishing(BuildContext context, ServerSwitchState transition) {
     final targetServerId = transition.targetServerId;
     if (targetServerId == null || _finishingServerId == targetServerId) return;
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations == true;
 
     _finishingServerId = targetServerId;
     _entryController.stop();
@@ -232,7 +239,7 @@ class _ServerSwitchTransitionOverlayState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _finishingServerId != targetServerId) return;
-      if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+      if (disableAnimations) {
         _finishController.value = 1;
         _entryController.value = 1;
         _handoffController.value = 1;
@@ -270,6 +277,8 @@ class _ServerSwitchTransitionOverlayState
   void _ensureReturning(BuildContext context, ServerSwitchState transition) {
     final targetServerId = transition.targetServerId;
     if (targetServerId == null || _returningServerId == targetServerId) return;
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations == true;
 
     _returningServerId = targetServerId;
     _entryController.stop();
@@ -291,7 +300,7 @@ class _ServerSwitchTransitionOverlayState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _returningServerId != targetServerId) return;
-      if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+      if (disableAnimations) {
         _entryController.value = 0;
         ref
             .read(serverSwitchTransitionProvider.notifier)
@@ -576,7 +585,6 @@ class _ServerSwitchTransitionOverlayState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _authScrollResetScheduled = false;
       if (!mounted || !_authScrollController.hasClients) return;
-      if (MediaQuery.viewInsetsOf(context).bottom > 0) return;
       final position = _authScrollController.position;
       if (position.pixels <= position.minScrollExtent) return;
       unawaited(

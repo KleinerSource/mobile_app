@@ -82,9 +82,10 @@ class ServerLineProbeCoordinator {
   ServerLineProbeCoordinator({
     ServerLineProbe? probe,
     @Deprecated('线路探测已改为立即并发，此参数仅为兼容保留') this.fallbackDelay = Duration.zero,
-  }) : _probe = probe ?? probeServerLine;
+  }) : _probeOverride = probe;
 
-  final ServerLineProbe _probe;
+  /// 测试或特殊调用方注入的探测器；默认探测必须保留已知项目上下文。
+  final ServerLineProbe? _probeOverride;
 
   /// 兼容旧调用方；线路切换不再等待优先窗口，所有线路会立即并发探测。
   @Deprecated('线路探测已改为立即并发，此参数不再生效')
@@ -161,7 +162,14 @@ class ServerLineProbeCoordinator {
     String? expectedProjectName,
   }) async {
     try {
-      final result = await _probe(line);
+      final result =
+          await (_probeOverride?.call(line) ??
+              probeServerLine(
+                line,
+                projectOverride: ServerProject.fromProjectName(
+                  expectedProjectName ?? '',
+                ),
+              ));
       final expected = expectedProjectName?.trim().toLowerCase();
       final actual = result.versionInfo?.projectName.trim().toLowerCase();
       if (result.success &&
@@ -187,9 +195,39 @@ class ServerLineProbeCoordinator {
   }
 }
 
-Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
+Future<ServerLineProbeResult> probeServerLine(
+  ServerLine line, {
+  ServerProject? projectOverride,
+}) async {
   final stopwatch = Stopwatch()..start();
   try {
+    if (projectOverride == ServerProject.emby ||
+        projectOverride == ServerProject.jellyfin) {
+      final mediaServerInfo = await _probeEmbyLikeVersion(line);
+      if (mediaServerInfo == null) {
+        throw ApiException('服务器版本检测失败');
+      }
+      stopwatch.stop();
+      return ServerLineProbeResult.success(
+        line,
+        stopwatch.elapsedMilliseconds,
+        versionInfo: mediaServerInfo,
+      );
+    }
+
+    if (projectOverride == ServerProject.feiniu) {
+      final feiniuInfo = await _probeFeiniuVersion(line);
+      if (feiniuInfo == null) {
+        throw ApiException('服务器版本检测失败');
+      }
+      stopwatch.stop();
+      return ServerLineProbeResult.success(
+        line,
+        stopwatch.elapsedMilliseconds,
+        versionInfo: feiniuInfo,
+      );
+    }
+
     final preferFeiniu = _looksLikeFeiniuBasePath(line.baseUrl);
     if (preferFeiniu) {
       final feiniuInfo = await _probeFeiniuVersion(line);

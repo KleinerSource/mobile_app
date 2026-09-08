@@ -426,18 +426,18 @@ class _HeroHeader extends ConsumerWidget {
               ? movie.posterUuid
               : (movie.thumbUuid?.isNotEmpty == true ? movie.thumbUuid : null));
 
-    // 技术徽章(编码/HDR/字幕/破解/UHD...)基于媒体探测 + 文件名后缀
+    // 技术徽章(编码/HDR/字幕/破解/清晰度)基于数据库媒体探测结果；文件名后缀只用于字幕/破解。
     final mediaInfo = ref.watch(mediaInfoProvider(movie.id)).value;
     final video = mediaInfo?.streams.video;
     final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
     final subtitlePaths = <String>[
       ...movie.relatedFiles
-        .where(
-          (file) =>
-              file.type?.trim().toLowerCase() == 'subtitle' &&
-              file.path.trim().isNotEmpty,
-        )
-        .map((file) => file.path),
+          .where(
+            (file) =>
+                file.type?.trim().toLowerCase() == 'subtitle' &&
+                file.path.trim().isNotEmpty,
+          )
+          .map((file) => file.path),
       ...movie.subtitles
           .map((subtitle) => subtitle.filePath.trim())
           .where((path) => path.isNotEmpty),
@@ -448,11 +448,12 @@ class _HeroHeader extends ConsumerWidget {
         subtitlePaths.any((path) => !isAISubtitlePath(path));
     // AI 字幕: 详情接口字段优先,回退按字幕文件名识别(.ai. 标记段)
     final hasAISubtitle =
-        movie.hasAiSubtitle ||
-        subtitlePaths.any(isAISubtitlePath);
+        movie.hasAiSubtitle || subtitlePaths.any(isAISubtitlePath);
     final badges = buildCoverBadges(
       filePath: movie.filePath,
-      fileSize: movie.fileSize,
+      fileResolution: movie.fileResolution,
+      videoWidth: mediaInfo?.videoWidth,
+      videoHeight: mediaInfo?.videoHeight,
       video: video,
       hasExternalSubtitle: hasExternalSubtitle,
       hasAISubtitle: hasAISubtitle,

@@ -189,6 +189,8 @@ class MediaInfoDetail {
     this.durationSec,
     this.bitRate,
     this.fileSize,
+    this.videoWidth,
+    this.videoHeight,
   });
 
   /// 文件级摘要字段（同一响应的顶层字段）。
@@ -196,6 +198,11 @@ class MediaInfoDetail {
   final double? durationSec;
   final int? bitRate;
   final int? fileSize;
+
+  /// 数据库中持久化的媒体摘要宽高。详情接口可能没有可展开的嵌套视频流，
+  /// 因此清晰度徽章必须优先使用这两个字段。
+  final int? videoWidth;
+  final int? videoHeight;
 
   final MediaStreams streams;
 
@@ -205,6 +212,8 @@ class MediaInfoDetail {
       durationSec: _asDouble(json['duration_sec']),
       bitRate: _asInt(json['bit_rate']),
       fileSize: _asInt(json['file_size']),
+      videoWidth: _asInt(json['video_width']),
+      videoHeight: _asInt(json['video_height']),
       streams: MediaStreams.fromJson(json),
     );
   }

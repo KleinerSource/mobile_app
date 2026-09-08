@@ -61,16 +61,26 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   late List<MovieQuickEntity> _tags;
   late List<({int id, String name})> _actors;
 
-  // 封面裁剪 · 4 个水印快捷操作
+  // 封面裁剪 · 水印快捷操作与互斥清晰度选择
   double _cropOffset = 1.0; // frontend_new 默认 1
   bool _cropDirty = false;
   bool _subtitle = false;
   bool _exsub = false;
   bool _crack = false;
-  bool _uhd = false;
+  String _resolution = '';
   bool _flagUpdating = false;
 
-  bool get _anyFlagOn => _subtitle || _exsub || _crack || _uhd;
+  String get _posterResolution =>
+      _resolution == '4k' || _resolution == '2k' ? _resolution : '';
+
+  String get _resolutionSelection =>
+      _resolution == 'none' ? 'none' : _posterResolution;
+
+  bool get _anyFlagOn =>
+      _subtitle || _exsub || _crack || _posterResolution.isNotEmpty;
+
+  bool get _shouldApplyPosterCrop =>
+      _cropDirty && _fanartUrl != null && (_anyFlagOn || _resolution == 'none');
 
   bool _saving = false;
   String? _error;
@@ -149,14 +159,15 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       final repo = ref.read(mediaRepositoryProvider);
       await repo.updateMovie(widget.movie.id, body);
       // 应用裁剪 · 仅在有任意水印开关被勾选时
-      if (_cropDirty && _fanartUrl != null && _anyFlagOn) {
+      if (_shouldApplyPosterCrop) {
         await repo.applyPosterCrop(
           widget.movie.id,
           cropOffset: _cropOffset,
           subtitle: _subtitle,
           exsub: _exsub,
           crack: _crack,
-          uhd: _uhd,
+          uhd: false,
+          resolution: _posterResolution,
         );
       }
       // 触发详情 provider 刷新
@@ -258,11 +269,21 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       tags: _tags,
       genres: _genres,
     );
-    _uhd = hasMovieQuickFlag(
-      flag: MovieQuickFlag.uhd,
+    if (hasMovieQuickFlag(
+      flag: MovieQuickFlag.fourK,
       tags: _tags,
       genres: _genres,
-    );
+    )) {
+      _resolution = '4k';
+    } else if (hasMovieQuickFlag(
+      flag: MovieQuickFlag.twoK,
+      tags: _tags,
+      genres: _genres,
+    )) {
+      _resolution = '2k';
+    } else {
+      _resolution = '';
+    }
   }
 
   Future<MovieQuickEntity> _ensureQuickResource(
@@ -300,10 +321,80 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       case MovieQuickFlag.crack:
         _crack = enabled;
         break;
-      case MovieQuickFlag.uhd:
-        _uhd = enabled;
+      case MovieQuickFlag.fourK:
+        _resolution = enabled ? '4k' : '';
+        break;
+      case MovieQuickFlag.twoK:
+        _resolution = enabled ? '2k' : '';
         break;
     }
+  }
+
+  Future<void> _changeResolution(String? value) async {
+    if (_saving || _flagUpdating) return;
+    final selected = value ?? '';
+    // “未设置”表示不调整，保留已有标签和海报水印；只有“无”才执行清理。
+    if (selected.isEmpty) return;
+    setState(() => _flagUpdating = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final removed = _removeResolutionSelections();
+      _tags = removed.tags;
+      _genres = removed.genres;
+      if (selected.isNotEmpty) {
+        final flag = switch (selected) {
+          '4k' => MovieQuickFlag.fourK,
+          '2k' => MovieQuickFlag.twoK,
+          _ => null,
+        };
+        if (flag != null) {
+          final canonicalName = movieQuickFlagConfig(flag).canonicalName;
+          final resources = await Future.wait<MovieQuickEntity>([
+            _ensureQuickResource(ResourceKind.tag, canonicalName, _tags),
+            _ensureQuickResource(ResourceKind.genre, canonicalName, _genres),
+          ]);
+          final selections = addMovieQuickFlagSelections(
+            tags: _tags,
+            genres: _genres,
+            tag: resources[0],
+            genre: resources[1],
+          );
+          _tags = selections.tags;
+          _genres = selections.genres;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _resolution = selected;
+          _cropDirty = true;
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppL10n.of(
+              context,
+            ).movieEditorQuickActionFailed(toApiException(error).message),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _flagUpdating = false);
+    }
+  }
+
+  MovieQuickSelections _removeResolutionSelections() {
+    final keywords = movieResolutionCleanupKeywords
+        .map((value) => value.trim().toLowerCase())
+        .toSet();
+    bool keep(MovieQuickEntity item) =>
+        !keywords.contains(item.name.trim().toLowerCase());
+    return (
+      tags: _tags.where(keep).toList(growable: false),
+      genres: _genres.where(keep).toList(growable: false),
+    );
   }
 
   Future<void> _changeQuickFlag(MovieQuickFlag flag, bool enabled) async {
@@ -417,7 +508,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         subtitle: _subtitle,
                         exsub: _exsub,
                         crack: _crack,
-                        uhd: _uhd,
+                        resolution: _resolutionSelection,
+                        onResolutionChanged: _changeResolution,
                         onChanged: (flag, value) =>
                             unawaited(_changeQuickFlag(flag, value)),
                       ),
@@ -432,7 +524,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                       subtitle: _subtitle,
                       exsub: _exsub,
                       crack: _crack,
-                      uhd: _uhd,
+                      uhd: false,
+                      resolution: _posterResolution,
                       enabled: _anyFlagOn,
                       onChanged: (v) {
                         setState(() {
@@ -957,20 +1050,22 @@ class _PickerSection extends StatelessWidget {
   }
 }
 
-/// 水印快捷操作横排 (字幕 / 外挂字幕 / 破解 / UHD)
+/// 快捷操作横排 (字幕 / 外挂字幕 / 破解) 与互斥清晰度选择
 class _FlagsRow extends StatelessWidget {
   const _FlagsRow({
     required this.subtitle,
     required this.exsub,
     required this.crack,
-    required this.uhd,
+    required this.resolution,
+    required this.onResolutionChanged,
     required this.onChanged,
   });
 
   final bool subtitle;
   final bool exsub;
   final bool crack;
-  final bool uhd;
+  final String resolution;
+  final ValueChanged<String?> onResolutionChanged;
   final void Function(MovieQuickFlag flag, bool value) onChanged;
 
   @override
@@ -987,18 +1082,34 @@ class _FlagsRow extends StatelessWidget {
         exsub,
       ),
       (MovieQuickFlag.crack, AppL10n.of(context).movieFlagCrack, crack),
-      (MovieQuickFlag.uhd, 'UHD', uhd),
     ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final (flag, label, value) in items)
-          _FlagChip(
-            label: label,
-            value: value,
-            onChanged: (next) => onChanged(flag, next),
-          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final (flag, label, value) in items)
+              _FlagChip(
+                label: label,
+                value: value,
+                onChanged: (next) => onChanged(flag, next),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          initialValue: resolution,
+          decoration: const InputDecoration(labelText: '清晰度'),
+          items: const [
+            DropdownMenuItem(value: '', child: Text('未设置')),
+            DropdownMenuItem(value: 'none', child: Text('无')),
+            DropdownMenuItem(value: '4k', child: Text('4K')),
+            DropdownMenuItem(value: '2k', child: Text('2K')),
+          ],
+          onChanged: onResolutionChanged,
+        ),
       ],
     );
   }

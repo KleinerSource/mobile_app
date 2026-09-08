@@ -12,6 +12,7 @@ import 'media_metadata_widgets.dart';
 import 'media_list_row.dart';
 import 'poster.dart';
 import 'portrait_media_card.dart';
+import 'resolution_badge.dart';
 import 'stacked_badges.dart';
 import 'landscape_media_card.dart';
 
@@ -909,12 +910,8 @@ class _ResolutionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (tier) {
-      ResolutionTier.uhd => ('UHD', const Color(0xFF2D6CDF)),
-      ResolutionTier.fhd => ('FHD', const Color(0xFF0EA5E9)),
-      ResolutionTier.hd => ('HD', const Color(0xFF10B981)),
-      _ => ('', Colors.white),
-    };
+    final label = tier.badgeLabel;
+    final color = tier.badgeColor;
     if (label.isEmpty) return const SizedBox.shrink();
 
     return Tooltip(
@@ -934,7 +931,7 @@ class _ResolutionBadge extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.tv_rounded, color: Colors.white, size: 13),
+        child: Icon(tier.badgeIcon, color: Colors.white, size: 13),
       ),
     );
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/models/media_streams.dart';
+import 'package:omm/core/models/movie.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/stacked_badges.dart';
+import 'package:omm/shared/resolution_badge.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 
 /// 详情页封面技术徽章规格。
@@ -33,6 +35,9 @@ class CoverBadgeSpec {
     if (value.startsWith('range:')) {
       return l.coverBadgeRangeTooltip(value.substring('range:'.length));
     }
+    if (value.startsWith('resolution:')) {
+      return '${l.mediaStreamResolution}: ${value.substring('resolution:'.length)}';
+    }
     return switch (value) {
       'strm' => l.coverBadgeStrmTooltip,
       'externalSubtitle' => l.movieCardSubExternal,
@@ -41,8 +46,6 @@ class CoverBadgeSpec {
       'filenameSubtitle' => l.movieCardSubFilename,
       'embeddedSubtitle' => l.coverBadgeEmbeddedSubtitleTooltip,
       'crack' => l.coverBadgeCrackTooltip,
-      'resolutionUhd' => l.coverBadgeResolutionUhdTooltip,
-      'resolutionHd' => l.coverBadgeResolutionHdTooltip,
       _ => value,
     };
   }
@@ -53,26 +56,24 @@ class CoverBadgeSpec {
     PosterBadgeKind.strm => Icons.link_outlined,
     PosterBadgeKind.subtitle => Icons.closed_caption_outlined,
     PosterBadgeKind.crack => Icons.lock_open_rounded,
-    PosterBadgeKind.resolution => Icons.tv_rounded,
+    PosterBadgeKind.resolution => resolutionTierFromBadgeLabel(label).badgeIcon,
   };
 }
 
 // 番号后缀正则 · 规则与 core/models/movie.dart (MovieListItemX) 及
 // Web 端 useCoverBadges.js 保持一致。
 final _kEmbeddedSubtitleRegex = RegExp(
-  r'(?:^|[-_. ])(c|ch|chs|cht|zh|sub|subs)(?=$|[-_. ])',
+  r'(?:^|[-_. ()\[\]{}])(c|ch|chs|cht|zh|sub|subs)(?=$|[-_. ()\[\]{}])',
 );
-final _kCrackWithSubRegex = RegExp(r'(?:^|[-_. ])(uc|umr-c)(?=$|[-_. ])');
-final _kUmrCrackRegex = RegExp(r'(?:^|[-_. ])umr(?:-c)?(?=$|[-_. ])');
+final _kCrackWithSubRegex = RegExp(
+  r'(?:^|[-_. ()\[\]{}])(uc|umr-c)(?=$|[-_. ()\[\]{}])',
+);
+final _kUmrCrackRegex = RegExp(
+  r'(?:^|[-_. ()\[\]{}])umr(?:-c)?(?=$|[-_. ()\[\]{}])',
+);
 final _kCrackRegex = RegExp(
-  r'(?:^|[-_. ])(u|uc|uncen|uncensored|leak|leaked)(?=$|[-_. ])',
+  r'(?:^|[-_. ()\[\]{}])(u|uc|uncen|uncensored|leak|leaked)(?=$|[-_. ()\[\]{}])',
 );
-final _kUhdRegex = RegExp(r'(?:^|[-_. ])(2160p|4k|uhd)(?=$|[-_. ])');
-final _kProb4Regex = RegExp(r'(?:^|[-_. ])prob[-_. ]?4(?=$|[-_. ])');
-final _kHdRegex = RegExp(
-  r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])',
-);
-const _uhdSizeThreshold = 15 * 1024 * 1024 * 1024;
 
 String _fileNameStem(String? filePath) {
   final raw = (filePath ?? '').trim();
@@ -82,12 +83,23 @@ String _fileNameStem(String? filePath) {
   return name.replaceFirst(RegExp(r'\.[^.]+$'), '').toLowerCase();
 }
 
-/// 组合文件名后缀 + 媒体探测结果生成封面徽章(与 Web 端 useCoverBadges 对齐):
-/// 编码 / HDR / STRM / 外挂字幕 / AI 字幕 / 内嵌字幕轨道 / 文件名内嵌字幕 / 破解 / UHD / HD，
+CoverBadgeSpec resolutionBadgeSpec(ResolutionTier tier) {
+  return CoverBadgeSpec(
+    PosterBadgeKind.resolution,
+    tier.badgeLabel,
+    tier.badgeColor,
+    'resolution:${tier.badgeLabel}',
+  );
+}
+
+/// 组合数据库媒体信息 + 文件名后缀 + 外挂字幕状态生成封面徽章(与 Web 端 useCoverBadges 对齐):
+/// 编码 / HDR / STRM / 外挂字幕 / AI 字幕 / 内嵌字幕轨道 / 文件名内嵌字幕 / 破解 / 4K / 2K / FHD / HD / SD，
 /// 无数据的项自动省略。
 List<CoverBadgeSpec> buildCoverBadges({
   String? filePath,
-  int? fileSize,
+  String? fileResolution,
+  int? videoWidth,
+  int? videoHeight,
   VideoStreamInfo? video,
   bool hasExternalSubtitle = false,
   bool hasAISubtitle = false,
@@ -219,33 +231,20 @@ List<CoverBadgeSpec> buildCoverBadges({
     );
   }
 
-  // UHD / HD: 高度优先，文件名后缀与 prob4+大小 兜底
-  final height = video?.height ?? 0;
-  final isUhd =
-      height >= 2160 ||
-      (stem.isNotEmpty && _kUhdRegex.hasMatch(stem)) ||
-      (stem.isNotEmpty &&
-          (fileSize ?? 0) > _uhdSizeThreshold &&
-          _kProb4Regex.hasMatch(stem));
-  if (isUhd) {
-    badges.add(
-      const CoverBadgeSpec(
-        PosterBadgeKind.resolution,
-        'UHD',
-        Color(0xFF2563EB),
-        'resolutionUhd',
-      ),
-    );
-  } else if ((height >= 720 && height < 2160) ||
-      (stem.isNotEmpty && _kHdRegex.hasMatch(stem))) {
-    badges.add(
-      const CoverBadgeSpec(
-        PosterBadgeKind.resolution,
-        'HD',
-        Color(0xFF0891B2),
-        'resolutionHd',
-      ),
-    );
+  // 分辨率：数据库媒体尺寸优先，缺失时回退扫描入库时保存的文件名解析结果。
+  final storedWidth = videoWidth != null && videoWidth > 0
+      ? videoWidth
+      : video?.width;
+  final storedHeight = videoHeight != null && videoHeight > 0
+      ? videoHeight
+      : video?.height;
+  final resolutionTier = resolutionTierFor(
+    width: storedWidth,
+    height: storedHeight,
+    fileResolution: fileResolution,
+  );
+  if (resolutionTier != ResolutionTier.none) {
+    badges.add(resolutionBadgeSpec(resolutionTier));
   }
 
   return badges;
@@ -253,7 +252,7 @@ List<CoverBadgeSpec> buildCoverBadges({
 
 /// 封面底部技术徽章行:
 /// 视频规格(编码/HDR/杜比/STRM)与字幕来源分别合并为两个叠堆;
-/// HD/UHD 与破解保持独立显示。收起时叠加、点按向上展开,
+/// 分辨率与破解保持独立显示。收起时叠加、点按向上展开,
 /// 详情页与设置预览共用同一套布局。
 class CoverBadgeRow extends StatelessWidget {
   const CoverBadgeRow({super.key, required this.badges});

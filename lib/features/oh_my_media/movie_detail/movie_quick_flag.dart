@@ -4,7 +4,7 @@ typedef MovieQuickSelections = ({
   List<MovieQuickEntity> genres,
 });
 
-enum MovieQuickFlag { subtitle, exsub, crack, uhd }
+enum MovieQuickFlag { subtitle, exsub, crack, fourK, twoK }
 
 class MovieQuickFlagConfig {
   const MovieQuickFlagConfig({
@@ -24,16 +24,32 @@ const _crackConfig = MovieQuickFlagConfig(
   canonicalName: '无码破解',
   keywords: ['无码破解', '破解'],
 );
-const _uhdConfig = MovieQuickFlagConfig(
-  canonicalName: 'UHD',
-  keywords: ['UHD'],
+const _fourKConfig = MovieQuickFlagConfig(
+  canonicalName: '4K',
+  keywords: ['4K', '2160P'],
 );
+const _twoKConfig = MovieQuickFlagConfig(
+  canonicalName: '2K',
+  keywords: ['2K', 'QHD', '1440P'],
+);
+
+/// 快捷清晰度下拉框只提供 4K / 2K；这些别名用于切换时清理互斥的旧清晰度标签。
+const movieResolutionCleanupKeywords = <String>[
+  '4K',
+  '2160P',
+  '2K',
+  'QHD',
+  '1440P',
+  'FHD',
+  '1080P',
+];
 
 MovieQuickFlagConfig movieQuickFlagConfig(MovieQuickFlag flag) {
   return switch (flag) {
     MovieQuickFlag.subtitle || MovieQuickFlag.exsub => _subtitleConfig,
     MovieQuickFlag.crack => _crackConfig,
-    MovieQuickFlag.uhd => _uhdConfig,
+    MovieQuickFlag.fourK => _fourKConfig,
+    MovieQuickFlag.twoK => _twoKConfig,
   };
 }
 

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -20,8 +18,6 @@ import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
 import 'features/files/file_manager_shell.dart';
 import 'features/player/common/player_settings.dart';
-import 'features/player/audio/file_audio_metadata_session.dart';
-import 'features/cache/music_cache.dart';
 import 'features/files/file_navigation.dart';
 import 'features/player/audio/audio_playback_service.dart';
 import 'features/settings/app_update_startup_gate.dart';
@@ -37,8 +33,6 @@ Future<void> main() async {
     ..maximumSizeBytes = 80 << 20
     ..maximumSize = 300;
   MediaKit.ensureInitialized();
-  unawaited(FileAudioMetadataSession.cleanupStaleCache());
-  unawaited(MusicCacheService().cleanupStaleCache());
   final startupPreferences = await SharedPreferences.getInstance();
   final startupLocale = AppLocale.fromValue(
     startupPreferences.getString('app.locale'),

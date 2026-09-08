@@ -16,10 +16,11 @@ const _mediaBrowserCardFields =
 /// 按项目统一注入（X-Emby-Token / Authorization: MediaBrowser Token）；
 /// 播放器和图片内核无法带请求头，改用配置中的 token 查询参数。
 class MediaBrowserApi {
-  MediaBrowserApi(this._dio, this.config);
+  MediaBrowserApi(this._dio, this.config) : _pathPrefix = config.pathPrefix;
 
   final Dio _dio;
   final MediaBrowserConfig config;
+  String _pathPrefix;
 
   /// 用户名 + 密码登录。
   ///
@@ -36,18 +37,37 @@ class MediaBrowserApi {
     if (normalizedUser.isEmpty) {
       throw ArgumentError.value(username, 'username', '用户名不能为空');
     }
-    final response = await _dio.post<Map<String, dynamic>>(
-      config.path('/Users/AuthenticateByName'),
-      data: {'Username': normalizedUser, 'Pw': password},
-      options: Options(
-        headers: {
-          config.authHeaderName:
-              'MediaBrowser Client="Oh My Media", Device="$deviceName", '
-              'DeviceId="$deviceId", Version="$appVersion"',
-        },
-        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
-      ),
+    final requestOptions = Options(
+      headers: {
+        config.authHeaderName:
+            'MediaBrowser Client="Oh My Media", Device="$deviceName", '
+            'DeviceId="$deviceId", Version="$appVersion"',
+      },
+      extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
     );
+    final body = {'Username': normalizedUser, 'Pw': password};
+    late final Response<Map<String, dynamic>> response;
+    try {
+      response = await _dio.post<Map<String, dynamic>>(
+        _p('/Users/AuthenticateByName'),
+        data: body,
+        options: requestOptions,
+      );
+    } on DioException catch (error) {
+      if (config.project != ServerProject.emby ||
+          _pathPrefix.isEmpty ||
+          !_isMissingEndpoint(error)) {
+        rethrow;
+      }
+      // Emby 的部分版本把 MediaBrowser API 挂在根路径，而另一些版本
+      // 使用 /emby 前缀；登录时按 404/405 回退一次并复用成功的前缀。
+      response = await _dio.post<Map<String, dynamic>>(
+        '/Users/AuthenticateByName',
+        data: body,
+        options: requestOptions,
+      );
+      _pathPrefix = '';
+    }
     final data = response.data;
     if (data == null) {
       throw ApiException('登录响应为空');
@@ -62,7 +82,7 @@ class MediaBrowserApi {
   /// /Users/{Id}，为空时抛 ArgumentError。
   Future<MediaBrowserUser> validateSession(String? persistedUserId) async {
     if (config.supportsCurrentUser) {
-      return _userFrom(_p('/Users/Me'), skipSessionExpiry: true);
+      return _userFromWithEmbyFallback('/Users/Me');
     }
     final normalized = persistedUserId?.trim() ?? '';
     if (normalized.isEmpty) {
@@ -72,9 +92,8 @@ class MediaBrowserApi {
         '用户 ID 不能为空',
       );
     }
-    return _userFrom(
-      _p('/Users/${Uri.encodeComponent(normalized)}'),
-      skipSessionExpiry: true,
+    return _userFromWithEmbyFallback(
+      '/Users/${Uri.encodeComponent(normalized)}',
     );
   }
 
@@ -793,7 +812,32 @@ class MediaBrowserApi {
     return MediaBrowserUser.fromJson(data);
   }
 
-  String _p(String relative) => config.path(relative);
+  String _p(String relative) => '$_pathPrefix$relative';
+
+  Future<MediaBrowserUser> _userFromWithEmbyFallback(String relative) async {
+    try {
+      return await _userFrom(_p(relative), skipSessionExpiry: true);
+    } on DioException catch (error) {
+      if (config.project != ServerProject.emby ||
+          _pathPrefix.isEmpty ||
+          !_isMissingEndpoint(error)) {
+        rethrow;
+      }
+      final user = await _userFrom(relative, skipSessionExpiry: true);
+      _pathPrefix = '';
+      return user;
+    }
+  }
+
+  bool _isMissingEndpoint(DioException error) {
+    final status = error.response?.statusCode;
+    if (status == 404 || status == 405) return true;
+    if (status != 500) return false;
+    final data = error.response?.data;
+    if (data is! Map) return false;
+    final message = data['Message'] ?? data['message'] ?? data['error'];
+    return message?.toString().trim().toLowerCase() == 'operationerror';
+  }
 
   Future<void> _reportPlayback(
     String path,

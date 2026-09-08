@@ -369,7 +369,7 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('清晰度角标统一使用电视图标并按级别着色', (tester) async {
+  testWidgets('清晰度角标使用分辨率专属图标并按级别着色', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,
     });
@@ -404,28 +404,32 @@ void main() {
       await tester.pump();
     }
 
-    Color badgeColor() {
+    Color badgeColor(IconData icon) {
       final badge = tester.widget<Container>(
         find
-            .ancestor(
-              of: find.byIcon(Icons.tv_rounded),
-              matching: find.byType(Container),
-            )
+            .ancestor(of: find.byIcon(icon), matching: find.byType(Container))
             .first,
       );
       return (badge.decoration! as BoxDecoration).color!;
     }
 
     await pumpMovie(720);
-    expect(badgeColor(), const Color(0xFF10B981));
+    expect(
+      badgeColor(Icons.display_settings_outlined),
+      const Color(0xFFCD7F32),
+    );
     expect(find.text('HD'), findsNothing);
 
     await pumpMovie(1080);
-    expect(badgeColor(), const Color(0xFF0EA5E9));
+    expect(badgeColor(Icons.hd_outlined), const Color(0xFF64D2FF));
     expect(find.text('FHD'), findsNothing);
 
+    await pumpMovie(1440);
+    expect(badgeColor(Icons.aspect_ratio), const Color(0xFFBF5AF2));
+    expect(find.text('2K'), findsNothing);
+
     await pumpMovie(2160);
-    expect(badgeColor(), const Color(0xFF2D6CDF));
+    expect(badgeColor(Icons.high_quality_outlined), const Color(0xFFFF9F0A));
     expect(find.text('UHD'), findsNothing);
   });
 

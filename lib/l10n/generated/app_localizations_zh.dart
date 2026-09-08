@@ -912,7 +912,8 @@ class AppL10nZh extends AppL10n {
   String get settingsPosterBadges => '海报角标显示';
 
   @override
-  String get settingsPosterBadgesSub => '编码 / HDR / STRM / 字幕 / 破解 / HD';
+  String get settingsPosterBadgesSub =>
+      '编码 / HDR / STRM / 字幕 / 破解 / 4K / 2K / FHD / HD / SD';
 
   @override
   String get settingsPlayerSettings => '播放器设置';

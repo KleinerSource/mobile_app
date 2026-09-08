@@ -352,6 +352,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) => throw UnimplementedError();
 
   @override
@@ -382,6 +383,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) async {}
 
   @override
@@ -392,6 +394,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) async => [];
 }
 

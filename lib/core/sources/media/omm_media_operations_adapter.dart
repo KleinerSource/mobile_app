@@ -699,6 +699,7 @@ class OmmMediaOperationsAdapter
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) async {
     final raw = await _call(
       () => client.movies.batchWatermark({
@@ -707,6 +708,7 @@ class OmmMediaOperationsAdapter
         'exsub': exsub,
         'crack': crack,
         'uhd': uhd,
+        'resolution': resolution,
       }),
     );
     _throwIfUnsuccessful(raw, '海报裁剪失败');
@@ -781,6 +783,7 @@ class OmmMediaOperationsAdapter
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) async {
     final raw = await _call(
       () => client.movies.updatePosterWatermark(_ommId(movie), {
@@ -788,6 +791,7 @@ class OmmMediaOperationsAdapter
         'exsub': exsub,
         'crack': crack,
         'uhd': uhd,
+        'resolution': resolution,
         'crop_offset': cropOffset,
       }),
     );
@@ -802,6 +806,7 @@ class OmmMediaOperationsAdapter
     bool exsub = false,
     bool crack = false,
     bool uhd = false,
+    String resolution = '',
   }) async {
     final response = await _call(
       () => client.movies.previewPosterWatermark(_ommId(movie), {
@@ -809,6 +814,7 @@ class OmmMediaOperationsAdapter
         'exsub': exsub,
         'crack': crack,
         'uhd': uhd,
+        'resolution': resolution,
         'crop_offset': cropOffset,
       }),
     );

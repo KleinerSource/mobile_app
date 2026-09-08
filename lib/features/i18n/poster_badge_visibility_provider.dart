@@ -16,7 +16,7 @@ extension PosterBadgeKindL10n on PosterBadgeKind {
     PosterBadgeKind.strm => 'STRM',
     PosterBadgeKind.subtitle => l.badgeSubtitle,
     PosterBadgeKind.crack => l.badgeCrack,
-    PosterBadgeKind.resolution => 'HD / UHD',
+    PosterBadgeKind.resolution => '4K / 2K / FHD / HD / SD',
   };
 }
 
