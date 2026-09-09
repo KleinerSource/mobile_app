@@ -72,8 +72,14 @@ class MediaRepository {
   Future<void> downloadExtraFanarts(int id) =>
       _operations.downloadExtraFanarts(_movieRef(id));
 
-  Future<MediaInfoDetail?> mediaInfoDetail(int id) =>
-      _operations.mediaInfoDetail(_movieRef(id));
+  Future<MediaInfoDetail?> mediaInfoDetail(int id) async {
+    final info = await _operations.mediaInfoDetail(_movieRef(id));
+    if (info?.refreshed == true) {
+      // 自动 ffprobe 更新了分辨率等卡片信息，但没有修改封面内容。
+      MovieDataChanges.bumpMetadata(movieId: id);
+    }
+    return info;
+  }
 
   Future<bool> toggleFavorite(int id) async {
     final result = await _operations.toggleFavorite(_movieRef(id));

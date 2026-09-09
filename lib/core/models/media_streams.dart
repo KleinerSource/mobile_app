@@ -187,6 +187,7 @@ class MediaStreams {
 class MediaInfoDetail {
   const MediaInfoDetail({
     required this.streams,
+    this.refreshed = false,
     this.container,
     this.durationSec,
     this.bitRate,
@@ -195,6 +196,9 @@ class MediaInfoDetail {
     this.videoHeight,
     this.resolutionTier = ResolutionTier.none,
   });
+
+  /// 本次请求成功重新探测并保存了媒体信息；缓存命中、探测失败时为 false。
+  final bool refreshed;
 
   /// 文件级摘要字段（同一响应的顶层字段）。
   final String? container;
@@ -216,6 +220,7 @@ class MediaInfoDetail {
 
   static MediaInfoDetail fromJson(Map<String, dynamic> json) {
     return MediaInfoDetail(
+      refreshed: json['refreshed'] == true,
       container: _asStr(json['container']),
       durationSec: _asDouble(json['duration_sec']),
       bitRate: _asInt(json['bit_rate']),

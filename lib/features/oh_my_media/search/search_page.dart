@@ -581,8 +581,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     // 详情页内没有任何真实变更时沿用缓存,不刷新。
     final now = changesBeforeVisit.latest;
     if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
-    if (now.metadata != changesBeforeVisit.metadata ||
-        now.progress != changesBeforeVisit.progress) {
+    if (now.changedSince(changesBeforeVisit)) {
       await _refreshAfterMovie();
     }
   }

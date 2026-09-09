@@ -291,8 +291,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     // 详情页内没有任何真实变更(编辑/播放/确认资源等)时沿用缓存,不刷新。
     final now = changesBeforeVisit.latest;
     if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
-    if (now.metadata != changesBeforeVisit.metadata ||
-        now.progress != changesBeforeVisit.progress) {
+    if (now.changedSince(changesBeforeVisit)) {
       await _refreshAfterMovie();
     }
   }
