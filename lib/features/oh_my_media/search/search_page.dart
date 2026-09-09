@@ -591,9 +591,9 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     await refreshPagedListInBackground<MovieListItem>(
       controller: _controller,
       requests: _requests,
-      loadFirstPage: (limit) => ref
+      loadPage: (limit, offset) => ref
           .read(mediaRepositoryProvider)
-          .list(_movieFilter, limit: limit, offset: 0),
+          .list(_movieFilter, limit: limit, offset: offset),
     );
   }
 

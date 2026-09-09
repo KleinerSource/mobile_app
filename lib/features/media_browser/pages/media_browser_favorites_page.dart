@@ -253,13 +253,15 @@ class _MediaBrowserFavoritesPageState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
       requests: _requests,
-      loadFirstPage: (limit) async {
+      onApplied: (page) => _totalCount = page.totalCount,
+      loadPage: (limit, offset) async {
         final result = await readMediaBrowserItemPage(
           ref,
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
             query: media_models.MediaQuery(
               limit: limit,
+              offset: offset,
               sortBy: sort.value,
               orderBy: sort.order == 'Ascending' ? 'asc' : 'desc',
               filters: {
@@ -270,12 +272,11 @@ class _MediaBrowserFavoritesPageState
             ),
           ),
         );
-        _totalCount = result.total;
         return PagedResult(
           items: result.items,
           totalCount: result.total,
           limit: limit,
-          offset: 0,
+          offset: offset,
         );
       },
     );

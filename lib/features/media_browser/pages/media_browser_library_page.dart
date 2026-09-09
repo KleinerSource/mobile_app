@@ -442,13 +442,14 @@ class _MediaBrowserLibraryPageState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
       requests: _requests,
-      loadFirstPage: (limit) async {
+      loadPage: (limit, offset) async {
         final result = await readMediaBrowserItemPage(
           ref,
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
             query: media_models.MediaQuery(
               limit: limit,
+              offset: offset,
               sortBy: sortBy,
               orderBy: sortOrder == 'Ascending' ? 'asc' : 'desc',
               filters: {
@@ -469,7 +470,7 @@ class _MediaBrowserLibraryPageState
           items: result.items,
           totalCount: result.total,
           limit: limit,
-          offset: 0,
+          offset: offset,
         );
       },
     );

@@ -242,7 +242,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
       controller: _controller,
       requests: _requests,
       onApplied: (page) => _totalCount = page.totalCount,
-      loadFirstPage: (limit) async {
+      loadPage: (limit, offset) async {
         final page = await ref
             .read(mediaRepositoryProvider)
             .list(
@@ -252,7 +252,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                 sortOrder: 'desc',
               ),
               limit: limit,
-              offset: 0,
+              offset: offset,
             );
         return page;
       },

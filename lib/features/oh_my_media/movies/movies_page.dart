@@ -302,17 +302,17 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       controller: _controller,
       requests: _requests,
       onApplied: (page) => _totalCount = page.totalCount,
-      loadFirstPage: (limit) async {
+      loadPage: (limit, offset) async {
         final maxItems = widget.maxItems;
         final requestLimit = maxItems == null
             ? limit
-            : limit.clamp(1, maxItems).toInt();
+            : limit.clamp(1, maxItems - offset).toInt();
         final page = await ref
             .read(mediaRepositoryProvider)
-            .list(_currentFilter, limit: requestLimit, offset: 0);
+            .list(_currentFilter, limit: requestLimit, offset: offset);
         final items = maxItems == null
             ? page.items
-            : page.items.take(maxItems).toList();
+            : page.items.take(maxItems - offset).toList();
         final totalCount = maxItems == null
             ? page.totalCount
             : page.totalCount.clamp(0, maxItems).toInt();
@@ -322,7 +322,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                 items: items,
                 totalCount: totalCount,
                 limit: requestLimit,
-                offset: 0,
+                offset: offset,
               );
       },
     );

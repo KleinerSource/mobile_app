@@ -128,10 +128,10 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
       controller: _controller,
       requests: _requests,
       onApplied: (page) => _totalCount = page.totalCount,
-      loadFirstPage: (limit) async {
+      loadPage: (limit, offset) async {
         final page = await ref
             .read(mediaRepositoryProvider)
-            .list(_filter, limit: limit, offset: 0);
+            .list(_filter, limit: limit, offset: offset);
         return page;
       },
     );

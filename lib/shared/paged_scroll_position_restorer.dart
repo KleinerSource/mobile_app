@@ -92,16 +92,18 @@ bool applyPagedListPage<T>({
   return hasMore;
 }
 
-typedef PagedListPageLoader<T> = Future<PagedResult<T>> Function(int limit);
+typedef PagedListPageLoader<T> =
+    Future<PagedResult<T>> Function(int limit, int offset);
 
 /// 在保留当前列表的前提下，后台刷新已加载的数据。
 ///
 /// [PagingController.refresh] 会先清空 [itemList] 并显示首屏加载状态，适合
 /// 用户主动下拉刷新，但不适合从详情页返回这种需要保持内容连续的场景。
-/// 这里按当前已加载数量请求第一页，成功后原地替换列表并更新分页游标。
+/// 服务端可能限制单次返回数量，因此按实际返回条数补齐已加载范围，
+/// 全部成功后一次性替换列表和分页游标，避免中间的短列表改变滚动位置。
 Future<bool> refreshPagedListInBackground<T>({
   required PagingController<int, T> controller,
-  required PagedListPageLoader<T> loadFirstPage,
+  required PagedListPageLoader<T> loadPage,
   PagedRequestCoordinator? requests,
   void Function(PagedResult<T> page)? onApplied,
 }) async {
@@ -113,17 +115,32 @@ Future<bool> refreshPagedListInBackground<T>({
   if (requests != null && request == null) return false;
 
   try {
-    final page = await loadFirstPage(currentItems.length);
+    final items = <T>[];
+    late PagedResult<T> page;
+    do {
+      page = await loadPage(currentItems.length - items.length, items.length);
+      if (request != null && !request.isCurrent) return false;
 
-    if (request != null && !request.isCurrent) return false;
+      // 主动刷新、筛选和翻页可能改变当前列表；每页完成后都检查，
+      // 过期请求既不能提交，也不应继续补页。
+      if (!identical(controller.itemList, currentItems)) return false;
+      items.addAll(page.items);
+    } while (items.length < currentItems.length &&
+        page.hasMore &&
+        page.items.isNotEmpty);
 
-    // 用户可能在请求期间主动刷新或切换筛选条件，避免旧结果覆盖新列表。
-    if (!identical(controller.itemList, currentItems)) return false;
-
-    controller.itemList = page.items;
-    controller.nextPageKey = page.hasMore ? page.items.length : null;
-    controller.error = null;
-    onApplied?.call(page);
+    controller.value = PagingState(
+      itemList: items,
+      nextPageKey: page.hasMore && page.items.isNotEmpty ? items.length : null,
+    );
+    onApplied?.call(
+      PagedResult(
+        items: items,
+        totalCount: page.totalCount,
+        limit: currentItems.length,
+        offset: 0,
+      ),
+    );
     // 已提交的新快照也使同代次、使用旧偏移量启动的翻页失效。
     requests?.invalidate();
     return true;

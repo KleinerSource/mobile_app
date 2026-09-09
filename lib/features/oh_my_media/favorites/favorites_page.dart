@@ -286,7 +286,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       controller: _controller,
       requests: _requests,
       onApplied: (page) => _totalCount = page.totalCount,
-      loadFirstPage: (limit) async {
+      loadPage: (limit, offset) async {
         final result = await ref
             .read(favoritesRepositoryProvider)
             .list(
@@ -296,7 +296,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 hasNewResources: _newResourcesOnly ? true : null,
               ),
               limit: limit,
-              offset: 0,
+              offset: offset,
             );
         return result.page;
       },

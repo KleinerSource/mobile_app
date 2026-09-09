@@ -318,7 +318,7 @@ class _MediaBrowserSearchResultsState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _pagingController,
       requests: _requests,
-      loadFirstPage: (limit) async {
+      loadPage: (limit, offset) async {
         final result = await readMediaBrowserItemPage(
           ref,
           MediaBrowserItemPageRequest(
@@ -328,6 +328,7 @@ class _MediaBrowserSearchResultsState
               sortBy: 'SortName',
               orderBy: 'asc',
               limit: limit,
+              offset: offset,
               filters: {
                 'includeItemTypes': _requestIncludeItemTypes,
                 'recursive': true,
@@ -339,7 +340,7 @@ class _MediaBrowserSearchResultsState
           items: result.items,
           totalCount: result.total,
           limit: limit,
-          offset: 0,
+          offset: offset,
         );
       },
     );
