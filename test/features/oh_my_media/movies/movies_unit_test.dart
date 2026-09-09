@@ -3,7 +3,9 @@
 //   - test/features/oh_my_media/movies/media_repository_test.dart
 //   - test/features/oh_my_media/movies/movie_data_changes_test.dart
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/models/movie.dart';
@@ -18,6 +20,7 @@ import 'package:omm/features/oh_my_media/movies/media_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==================== 原 test/features/oh_my_media/movies/image_cache_test.dart ====================
 void _main_0() {
@@ -34,6 +37,27 @@ void _main_0() {
 
     expect(refreshed.queryParameters['token'], 'abc');
     expect(refreshed.queryParameters['_mdc_image_revision'], '3');
+  });
+
+  test('刷新后的封面缓存版本在应用重启后仍能恢复', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final firstRun = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(firstRun.dispose);
+
+    expect(firstRun.read(imageCacheRevisionProvider), 0);
+    firstRun.read(imageCacheRevisionProvider.notifier).refresh();
+    await Future<void>.delayed(Duration.zero);
+    expect(prefs.getInt(imageCacheRevisionPreferenceKey), 1);
+
+    final nextRun = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(nextRun.dispose);
+
+    expect(nextRun.read(imageCacheRevisionProvider), 1);
   });
 }
 

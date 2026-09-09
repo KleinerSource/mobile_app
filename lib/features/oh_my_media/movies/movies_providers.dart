@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -19,11 +21,36 @@ final movieFilterProvider = StateProvider<MovieFilter>(
 
 /// 图片服务通常使用稳定 UUID 作为路径；同一个 UUID 的封面被服务器替换
 /// 后，CachedNetworkImage 仍会命中旧文件。下拉刷新时递增此版本，让图片
-/// URL 产生新的缓存键，同时保留服务器原有的图片路径。
-final imageCacheRevisionProvider = StateProvider<int>((_) => 0);
+/// URL 产生新的缓存键，同时保留服务器原有的图片路径；版本号持久化后，
+/// 应用重启也会继续使用新的缓存键。
+const imageCacheRevisionPreferenceKey = 'app.image_cache_revision.v1';
+
+class ImageCacheRevisionNotifier extends Notifier<int> {
+  @override
+  int build() {
+    return ref
+            .watch(sharedPrefsProvider)
+            .getInt(imageCacheRevisionPreferenceKey) ??
+        0;
+  }
+
+  void refresh() {
+    state++;
+    unawaited(
+      ref
+          .read(sharedPrefsProvider)
+          .setInt(imageCacheRevisionPreferenceKey, state),
+    );
+  }
+}
+
+final imageCacheRevisionProvider =
+    NotifierProvider<ImageCacheRevisionNotifier, int>(
+      ImageCacheRevisionNotifier.new,
+    );
 
 void refreshImageCache(WidgetRef ref) {
-  ref.read(imageCacheRevisionProvider.notifier).state++;
+  ref.read(imageCacheRevisionProvider.notifier).refresh();
 }
 
 String imageUrlWithCacheRevision(String url, int revision) {
