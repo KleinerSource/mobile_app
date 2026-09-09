@@ -76,6 +76,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   int? _totalCount;
   int _requestSerial = 0;
   bool _lastPageComplete = false;
+  bool _hasReachedEnd = false;
   late final PagedSelectionController<int> _selection;
 
   /// 当前左滑展开的行（资源 id），同一时刻只展开一个。
@@ -87,7 +88,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _selection = PagedSelectionController<int>();
     _selection.addModeListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
-    _scrollController.addListener(_closeSwipeOnScroll);
+    _scrollController.addListener(_handleScroll);
   }
 
   int get _pageSize => widget.kind == ResourceKind.series
@@ -96,7 +97,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
 
   @override
   void dispose() {
-    _scrollController.removeListener(_closeSwipeOnScroll);
+    _scrollController.removeListener(_handleScroll);
     _openSwipe.dispose();
     _debounce.cancel();
     _requests.dispose();
@@ -115,8 +116,19 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
-  void _closeSwipeOnScroll() {
+  void _handleScroll() {
     if (_openSwipe.value != null) _openSwipe.value = null;
+    if (!_lastPageComplete ||
+        _hasReachedEnd ||
+        !_scrollController.hasClients) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0 ||
+        position.pixels < position.maxScrollExtent - 1) {
+      return;
+    }
+    if (mounted) setState(() => _hasReachedEnd = true);
   }
 
   void _onSearchChanged(String v) {
@@ -194,6 +206,9 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   void _resetPaging({bool preserveScroll = false}) {
     _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _lastPageComplete = false;
+    _hasReachedEnd = false;
+    if (mounted) setState(() {});
     refreshPagedController(
       controller: _controller,
       requests: _requests,
@@ -437,12 +452,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                           const SliverToBoxAdapter(child: SizedBox(height: 10)),
                           // 列表
                           SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                              22,
-                              0,
-                              22,
-                              _selectionMode ? 136 : 80,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 22),
                             sliver: PagedSliverList<int, ResourceItem>.separated(
                               pagingController: _controller,
                               separatorBuilder: (_, itemIndex) {
@@ -547,9 +557,14 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     ),
                                 noItemsFoundIndicatorBuilder: (_) =>
                                     _Empty(kind: widget.kind),
-                                noMoreItemsIndicatorBuilder: (_) =>
-                                    const NoMoreContent(),
                               ),
+                            ),
+                          ),
+                          if (_lastPageComplete && _hasReachedEnd)
+                            const SliverToBoxAdapter(child: NoMoreContent()),
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: _selectionMode ? 136 : 80,
                             ),
                           ),
                         ],
