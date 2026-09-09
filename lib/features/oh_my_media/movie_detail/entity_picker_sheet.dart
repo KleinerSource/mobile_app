@@ -528,6 +528,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
         ),
       );
     }
+    final showNoMore = !_loading && !_hasMore && items.isNotEmpty;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -539,9 +540,11 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
             itemCount:
-                items.length + (_localPinyinMode != true && _hasMore ? 1 : 0),
+                items.length +
+                ((_localPinyinMode != true && _hasMore) || showNoMore ? 1 : 0),
             itemBuilder: (ctx, i) {
               if (i >= items.length) {
+                if (showNoMore) return const NoMoreContent();
                 if (_error != null) {
                   return PaginationRetry(
                     onRetry: () => _loadPage(reset: false),
@@ -577,7 +580,6 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
             },
           ),
         ),
-        if (!_loading && !_hasMore && items.isNotEmpty) const NoMoreContent(),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
       ],
     );
@@ -752,6 +754,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
         ),
       );
     }
+    final showNoMore = !_loading && !_hasMore && items.isNotEmpty;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -761,9 +764,10 @@ class _ActorListState extends ConsumerState<_ActorList> {
             shrinkWrap: true,
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-            itemCount: items.length + (_hasMore ? 1 : 0),
+            itemCount: items.length + (_hasMore || showNoMore ? 1 : 0),
             itemBuilder: (ctx, i) {
               if (i >= items.length) {
+                if (showNoMore) return const NoMoreContent();
                 if (_error != null) {
                   return PaginationRetry(onRetry: () => _fetch(reset: false));
                 }
@@ -797,7 +801,6 @@ class _ActorListState extends ConsumerState<_ActorList> {
             },
           ),
         ),
-        if (!_loading && !_hasMore && items.isNotEmpty) const NoMoreContent(),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
       ],
     );

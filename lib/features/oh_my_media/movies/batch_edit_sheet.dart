@@ -780,6 +780,8 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setS) {
+            final showNoMore =
+                !searching && !loadingMore && !hasMore && items.isNotEmpty;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -841,9 +843,11 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                           },
                           child: ListView.builder(
                             shrinkWrap: true,
-                            itemCount: items.length + (hasMore ? 1 : 0),
+                            itemCount:
+                                items.length + (hasMore || showNoMore ? 1 : 0),
                             itemBuilder: (ctx, i) {
                               if (i >= items.length) {
+                                if (showNoMore) return const NoMoreContent();
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12,
@@ -889,8 +893,6 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                           ),
                         ),
                 ),
-                if (!searching && !loadingMore && !hasMore && items.isNotEmpty)
-                  const NoMoreContent(),
                 SafeArea(
                   top: false,
                   child: Padding(
