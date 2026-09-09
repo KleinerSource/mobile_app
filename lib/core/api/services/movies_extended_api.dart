@@ -10,7 +10,10 @@ class MoviesExtendedApi {
 
   Future<Object?> refreshMediaInfo(int movieId) async {
     final response = await _dio.post<dynamic>(
-      '/movies/id/$movieId/media-info/refresh',
+      '/movies/media-info/refresh',
+      data: {
+        'movie_ids': [movieId],
+      },
     );
     return unwrapStd<Object?>(response.data, (data) => data);
   }
@@ -61,7 +64,10 @@ class MoviesExtendedApi {
 
   Future<Object?> downloadDbonlineExtrafanart(int movieId) async {
     final response = await _dio.post<dynamic>(
-      '/movies/id/$movieId/dbonline/extrafanart',
+      '/movies/dbonline/extrafanart',
+      data: {
+        'movie_ids': [movieId],
+      },
     );
     return unwrapStd<Object?>(response.data, (data) => data);
   }
@@ -88,7 +94,7 @@ class MoviesExtendedApi {
 
   Future<Object?> batchExtraFanart(Map<String, dynamic> body) async {
     final response = await _dio.post<dynamic>(
-      '/movies/batch/dbonline/extrafanart',
+      '/movies/dbonline/extrafanart',
       data: body,
     );
     return unwrapStd<Object?>(response.data, (data) => data);
@@ -96,14 +102,21 @@ class MoviesExtendedApi {
 
   Future<Object?> extraFanartProgress(String taskId) async {
     final response = await _dio.get<dynamic>(
-      '/movies/batch/dbonline/extrafanart/$taskId',
+      '/movies/dbonline/extrafanart/$taskId',
     );
     return unwrapStd<Object?>(response.data, (data) => data);
   }
 
   Future<void> cancelExtraFanart(String taskId) async {
     final response = await _dio.post<dynamic>(
-      '/movies/batch/dbonline/extrafanart/$taskId/cancel',
+      '/movies/dbonline/extrafanart/$taskId/cancel',
+    );
+    unwrapStd<void>(response.data, (_) {});
+  }
+
+  Future<void> cancelMediaInfoRefresh(String taskId) async {
+    final response = await _dio.post<dynamic>(
+      '/movies/media-info/refresh/$taskId/cancel',
     );
     unwrapStd<void>(response.data, (_) {});
   }

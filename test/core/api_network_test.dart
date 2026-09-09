@@ -265,11 +265,14 @@ void _main_0() {
     );
   });
 
-  test('影片预览图获取使用详情页数据源接口', () async {
+  test('影片预览图获取使用资源动作接口并提交单元素数组', () async {
     final adapter = _RouteAdapter();
     await MoviesExtendedApi(_dio(adapter)).downloadDbonlineExtrafanart(7);
 
-    expect(adapter.paths.single, '/api/movies/id/7/dbonline/extrafanart');
+    expect(adapter.paths.single, '/api/movies/dbonline/extrafanart');
+    expect(adapter.requestBodies.single, {
+      'movie_ids': [7],
+    });
   });
 
   test('播放接口覆盖决策、串流地址、状态、SSE 和停止会话', () async {
