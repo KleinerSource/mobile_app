@@ -452,7 +452,12 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                           const SliverToBoxAdapter(child: SizedBox(height: 10)),
                           // 列表
                           SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
+                            padding: EdgeInsets.fromLTRB(
+                              22,
+                              0,
+                              22,
+                              _selectionMode ? 136 : 80,
+                            ),
                             sliver: PagedSliverList<int, ResourceItem>.separated(
                               pagingController: _controller,
                               separatorBuilder: (_, itemIndex) {
@@ -557,14 +562,11 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     ),
                                 noItemsFoundIndicatorBuilder: (_) =>
                                     _Empty(kind: widget.kind),
+                                noMoreItemsIndicatorBuilder: (_) =>
+                                    _hasReachedEnd
+                                    ? const NoMoreContent()
+                                    : const SizedBox.shrink(),
                               ),
-                            ),
-                          ),
-                          if (_lastPageComplete && _hasReachedEnd)
-                            const SliverToBoxAdapter(child: NoMoreContent()),
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: _selectionMode ? 136 : 80,
                             ),
                           ),
                         ],
