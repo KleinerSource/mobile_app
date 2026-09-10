@@ -129,6 +129,13 @@ void _main_1() {
     });
     expect(operations.lastFavoriteOnly, true);
   });
+
+  test('额外预览图下载返回统一调度任务 ID', () async {
+    final taskId = await repository.downloadExtraFanarts(9);
+
+    expect(taskId, 'extra-fanart-task');
+    expect(operations.lastRef?.value, '9');
+  });
 }
 
 class _FakeCatalog implements CatalogSource {
@@ -204,7 +211,10 @@ class _FakeOperations implements OmmMediaOperationsSource {
   Future<List<String>> extraFanarts(source_models.MediaRef movie) async => [];
 
   @override
-  Future<void> downloadExtraFanarts(source_models.MediaRef movie) async {}
+  Future<String> downloadExtraFanarts(source_models.MediaRef movie) async {
+    lastRef = movie;
+    return 'extra-fanart-task';
+  }
 
   @override
   Future<MediaInfoDetail?> mediaInfoDetail(

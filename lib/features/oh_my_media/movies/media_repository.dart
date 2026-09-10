@@ -69,7 +69,7 @@ class MediaRepository {
   Future<List<String>> extraFanarts(int id) =>
       _operations.extraFanarts(_movieRef(id));
 
-  Future<void> downloadExtraFanarts(int id) =>
+  Future<String> downloadExtraFanarts(int id) =>
       _operations.downloadExtraFanarts(_movieRef(id));
 
   Future<MediaInfoDetail?> mediaInfoDetail(int id) async {

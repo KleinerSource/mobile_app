@@ -7,9 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
+import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
@@ -43,6 +46,7 @@ class _MovieExtraFanartSectionState
     extends ConsumerState<MovieExtraFanartSection> {
   final ScrollController _previewController = ScrollController();
   bool _fetching = false;
+  String? _fanartTaskId;
 
   @override
   void dispose() {
@@ -80,28 +84,68 @@ class _MovieExtraFanartSectionState
     if (_fetching || !widget.canFetch) return;
     setState(() => _fetching = true);
     try {
-      await ref
+      final taskId = await ref
           .read(mediaRepositoryProvider)
           .downloadExtraFanarts(widget.movieId);
       if (!mounted) return;
+      _fanartTaskId = taskId;
+      _consumeFanartTask(ref.read(taskCenterProvider));
+      unawaited(
+        ref.read(taskCenterProvider.notifier).syncTaskSnapshot(taskId).then((
+          _,
+        ) {
+          if (mounted && _fanartTaskId == taskId) {
+            _consumeFanartTask(ref.read(taskCenterProvider));
+          }
+        }),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _fetching = false);
+      final message = error is SourceException
+          ? error.message
+          : toApiException(error).message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(message))),
+      );
+    }
+  }
+
+  void _consumeFanartTask(List<TaskItem> tasks) {
+    final taskId = _fanartTaskId;
+    if (taskId == null) return;
+
+    TaskItem? current;
+    for (final task in tasks) {
+      if (task.id != taskId) continue;
+      if (current == null ||
+          task.attempt > current.attempt ||
+          (task.attempt == current.attempt &&
+              task.revision > current.revision)) {
+        current = task;
+      }
+    }
+    if (current == null || !current.isTerminal) return;
+
+    _fanartTaskId = null;
+    if (mounted) setState(() => _fetching = false);
+    if (current.isCompleted) {
+      refreshImageCache(ref);
       ref.invalidate(extraFanartsProvider(widget.movieId));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).fanartFetchDone)),
       );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(
-              context,
-            ).fanartFetchFailed(toApiException(error).message),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _fetching = false);
+      return;
     }
+
+    final reason = current.message.trim().isNotEmpty
+        ? current.message.trim()
+        : current.isCanceled
+        ? '任务已取消'
+        : '任务执行失败';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(reason))),
+    );
   }
 
   Widget _header(BuildContext context, {required bool hasImages}) {
@@ -226,6 +270,9 @@ class _MovieExtraFanartSectionState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<List<TaskItem>>(taskCenterProvider, (_, next) {
+      _consumeFanartTask(next);
+    });
     final async = ref.watch(extraFanartsProvider(widget.movieId));
     final l = AppL10n.of(context);
     return async.when(

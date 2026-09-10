@@ -50,7 +50,8 @@ abstract interface class OmmMediaOperationsSource {
 
   Future<List<String>> extraFanarts(MediaRef movie);
 
-  Future<void> downloadExtraFanarts(MediaRef movie);
+  /// 提交额外预览图下载任务，并返回统一调度任务 ID。
+  Future<String> downloadExtraFanarts(MediaRef movie);
 
   Future<MediaInfoDetail?> mediaInfoDetail(MediaRef movie);
 

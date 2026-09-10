@@ -105,6 +105,26 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     await loadHistory(reset: false);
   }
 
+  /// 通过 HTTP 校准单个任务快照，补上提交响应与 WebSocket 订阅之间的竞态。
+  Future<void> syncTaskSnapshot(String taskId) async {
+    final id = taskId.trim();
+    if (_disposed || !ref.mounted || id.isEmpty) return;
+    try {
+      final raw = await ref.read(requiredApiClientProvider).tasks.get(id);
+      if (_disposed || !ref.mounted || raw is! Map || raw['success'] != true) {
+        return;
+      }
+      final data = raw['data'];
+      final value = data is Map && data['task'] is Map ? data['task'] : data;
+      if (value is! Map) return;
+      final snapshot = Map<String, dynamic>.from(value);
+      snapshot.putIfAbsent('type', () => 'scheduler_status');
+      updateFromSchedulerMessage(snapshot);
+    } catch (_) {
+      // WebSocket 仍会继续推送；单次 HTTP 校准失败不改变任务状态。
+    }
+  }
+
   Future<void> loadHistory({required bool reset}) async {
     if (_disposed || !ref.mounted) return;
     if (ref.read(taskCenterMetaProvider).loading) return;

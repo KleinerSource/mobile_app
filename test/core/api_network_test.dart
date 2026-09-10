@@ -893,6 +893,20 @@ void _main_4() {
       expect(ex.message, '已存在');
     });
 
+    test('通用 404 保留实际请求方法和路径', () {
+      final ex = mapDioError(
+        _resp(
+          404,
+          {'message': 'Not Found'},
+          method: 'POST',
+          baseUrl: 'http://127.0.0.1:8001/api',
+          path: '/tasks',
+        ),
+      );
+      expect(ex.message, '接口不存在（POST http://127.0.0.1:8001/api/tasks）');
+      expect(ex.status, 404);
+    });
+
     test('回落 dbonline error 字段', () {
       final ex = mapDioError(_resp(401, {'error': '密码错误'}));
       expect(ex.message, '密码错误');
@@ -934,8 +948,15 @@ void _main_4() {
   });
 }
 
-DioException _resp(int code, Object body, {String statusText = ''}) {
-  final opts = RequestOptions(path: '/x');
+DioException _resp(
+  int code,
+  Object body, {
+  String statusText = '',
+  String method = 'GET',
+  String baseUrl = '',
+  String path = '/x',
+}) {
+  final opts = RequestOptions(baseUrl: baseUrl, path: path, method: method);
   return DioException(
     requestOptions: opts,
     response: Response(

@@ -259,6 +259,54 @@ void _main_0() {
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_provider_test.dart ====================
 void _main_1() {
+  test('单任务 HTTP 快照可以补齐错过的 WS 终态', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'http://test'))
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            final data = options.path == '/tasks/fanart-task-1'
+                ? const {
+                    'success': true,
+                    'data': {
+                      'taskId': 'fanart-task-1',
+                      'recordId': 'fanart-record-1',
+                      'taskType': 'extra_fanart_download',
+                      'attempt': 1,
+                      'revision': 3,
+                      'status': 'completed',
+                      'isRunning': false,
+                    },
+                  }
+                : const {
+                    'success': true,
+                    'data': {'items': [], 'total': 0, 'stats': {}},
+                  };
+            handler.resolve(
+              Response<dynamic>(requestOptions: options, data: data),
+            );
+          },
+        ),
+      );
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(taskCenterProvider.notifier);
+    await notifier.syncTaskSnapshot('fanart-task-1');
+
+    final task = container
+        .read(taskCenterProvider)
+        .singleWhere((item) => item.id == 'fanart-task-1');
+    expect(task.taskType, 'extra_fanart_download');
+    expect(task.isCompleted, isTrue);
+  });
+
   test('任务中心按服务端时间排序，缺失时间时保持稳定顺序', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

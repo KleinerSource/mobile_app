@@ -276,12 +276,13 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<void> downloadExtraFanarts(MediaRef movie) async {
-    await _call(
+  Future<String> downloadExtraFanarts(MediaRef movie) async {
+    final raw = await _call(
       () => client.tasks.submit('extra_fanart_download', {
         'movie_ids': [_ommId(movie)],
       }),
     );
+    return _taskId(_taskSnapshot(raw));
   }
 
   @override

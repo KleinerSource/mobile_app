@@ -18,11 +18,23 @@ ApiException mapDioError(DioException e) {
 
   final status = e.response?.statusCode;
   final data = _decodeJsonBody(e.response?.data);
+  String withRouteContext(String message) {
+    if (status != 404 || message.trim().toLowerCase() != 'not found') {
+      return message;
+    }
+    final method = e.requestOptions.method.trim().toUpperCase();
+    final uri = e.requestOptions.uri;
+    final target = uri.scheme == 'http' || uri.scheme == 'https'
+        ? '${uri.origin}${uri.path}'
+        : uri.path;
+    return '接口不存在（$method $target）';
+  }
+
   if (data is Map) {
     final detail = data['detail'];
     if (detail is String) {
       return ApiException(
-        detail,
+        withRouteContext(detail),
         status: status,
         requestId: reqId,
         data: data['data'],
@@ -54,7 +66,7 @@ ApiException mapDioError(DioException e) {
     final msg = data['message'] ?? data['error'];
     if (msg is String && msg.isNotEmpty) {
       return ApiException(
-        msg,
+        withRouteContext(msg),
         status: status,
         requestId: reqId,
         data: data['data'],
