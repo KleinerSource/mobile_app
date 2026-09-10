@@ -8,6 +8,7 @@ extension _VideoPlayerTranscode on _VideoPlayerPageState {
     // SSE 是长连接，cancel() 的 Future 可能要等到底层 HTTP stream 完整收尾。
     // 先让旧回调失效并异步取消，不能让它阻塞后续的清晰度切换队列。
     _cancelTranscodeMonitoring();
+    if (_connectionLease?.isActive != true) return;
     final movieId = widget.movieId;
     final source = ref.read(ommMediaSourceProvider);
     final stopFuture =
@@ -43,6 +44,7 @@ extension _VideoPlayerTranscode on _VideoPlayerPageState {
     String quality,
     playback_models.PlaybackDecision decision,
   ) {
+    if (_connectionLease?.isActive != true) return;
     final movieId = widget.movieId;
     if (movieId == null) return;
     _cancelTranscodeMonitoring();
@@ -138,7 +140,8 @@ extension _VideoPlayerTranscode on _VideoPlayerPageState {
     String? subtitleTrackId,
   }) async {
     if (!_isCurrentTranscodeMonitoring(monitoringGeneration) ||
-        !_transcodeSessionActive) {
+        !_transcodeSessionActive ||
+        _connectionLease?.isActive != true) {
       return;
     }
     final movieId = widget.movieId;

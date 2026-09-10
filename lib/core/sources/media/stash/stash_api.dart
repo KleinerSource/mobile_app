@@ -36,6 +36,7 @@ class StashApi {
     StashApiKeyRepository? apiKeyRepository,
     this.apiKey,
     this.onApiKeyInvalid,
+    this.isRequestActive,
   }) : _apiKeyRepository = apiKeyRepository;
 
   factory StashApi.forEndpoint(String endpoint, {String? apiKey}) {
@@ -50,6 +51,7 @@ class StashApi {
   final StashApiKeyRepository? _apiKeyRepository;
   final String? apiKey;
   final FutureOr<void> Function()? onApiKeyInvalid;
+  final bool Function()? isRequestActive;
 
   Future<void> validateApiKey([String? override]) async {
     // 启动校验失败会直接进入重新输入 Key 的状态，不再触发鉴权失效
@@ -265,9 +267,10 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
   }
 
   Future<void> _invalidateApiKey() async {
+    if (isRequestActive?.call() == false) return;
     final id = serverId?.trim() ?? '';
     if (id.isNotEmpty) await _apiKeyRepository?.delete(id);
-    await onApiKeyInvalid?.call();
+    if (isRequestActive?.call() != false) await onApiKeyInvalid?.call();
   }
 
   Future<String?> _readApiKey(String? override) async {

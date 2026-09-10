@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/api/app_request_headers.dart';
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_proxy.dart';
 import 'package:omm/features/media_browser/playback/media_browser_lyrics.dart';
@@ -57,10 +58,15 @@ Future<void> _openMediaBrowserAudioPlayback(
       .toList(growable: false);
   if (playable.isEmpty || !context.mounted) return;
   if (ref.read(mediaBrowserConfigProvider) == null) return;
+  final connectionLease = ref.read(serverConnectionProvider).lease;
   MediaBrowserAudioQueueSession? session;
   MediaBrowserAudioProxy? proxy;
+  VoidCallback? unregisterConnectionLease;
   try {
     final urls = await ref.read(mediaBrowserServerUrlsProvider.future);
+    if (connectionLease?.isActive == false) {
+      throw const ServerConnectionClosedException();
+    }
     final repository = ref.read(mediaBrowserMediaRepositoryProvider);
     // 经回环代理把远程直链 Range 透传给播放器实现流式在线播放，完整
     // 缓存落盘后由本地文件应答，任意时刻拖动立即生效。
@@ -69,6 +75,7 @@ Future<void> _openMediaBrowserAudioPlayback(
       tracks: playable,
       urls: urls,
       repository: repository,
+      connectionLease: connectionLease,
       directUrlFor: (track) => startedProxy.register(
         track,
         urls.audioStream(
@@ -80,6 +87,13 @@ Future<void> _openMediaBrowserAudioPlayback(
         headers: urls.directHeaders,
       ),
     );
+    unregisterConnectionLease = connectionLease?.register(() {
+      unawaited(session!.dispose());
+      unawaited(startedProxy.close());
+    });
+    if (connectionLease?.isActive == false) {
+      throw const ServerConnectionClosedException();
+    }
     final index = startIndex.clamp(0, playable.length - 1);
     final current = session.queue[index];
     session.startPlaybackReports();
@@ -100,15 +114,20 @@ Future<void> _openMediaBrowserAudioPlayback(
       useRootNavigator: true,
     );
   } catch (error) {
-    if (context.mounted) {
+    if (error is! ServerConnectionClosedException &&
+        connectionLease?.isActive != false &&
+        context.mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
     }
   } finally {
+    unregisterConnectionLease?.call();
     // 播放结束同步专辑页/搜索结果的播放次数与收藏状态。
-    ref.invalidate(mediaBrowserAlbumTracksProvider);
-    ref.invalidate(mediaBrowserItemDetailProvider);
+    if (connectionLease?.isActive != false) {
+      ref.invalidate(mediaBrowserAlbumTracksProvider);
+      ref.invalidate(mediaBrowserItemDetailProvider);
+    }
     await session?.dispose();
     await proxy?.close();
   }
@@ -168,6 +187,7 @@ class MediaBrowserAudioQueueSession {
     required this.tracks,
     required this.urls,
     required this.repository,
+    this.connectionLease,
     this.directUrlFor,
     Dio? artworkDownloader,
     audio_service.AudioHandler? playbackHandler,
@@ -186,6 +206,7 @@ class MediaBrowserAudioQueueSession {
   final List<MediaBrowserItem> tracks;
   final MediaBrowserServerUrls urls;
   final MediaBrowserMediaRepository repository;
+  final ServerConnectionLease? connectionLease;
 
   /// 播放地址构建器；默认直连服务器，回环代理模式下指向本机地址。
   final String Function(MediaBrowserItem track)? directUrlFor;
@@ -235,6 +256,7 @@ class MediaBrowserAudioQueueSession {
   /// 播放服务在队列打开后会发布首个 mediaItem，之后每次切歌再发布，
   /// 这里统一监听：上一曲报 Stopped（读当前进度），新曲报 Playing。
   void startPlaybackReports() {
+    if (connectionLease?.isActive == false) return;
     final handler = _handler ?? _serviceHandlerOrNull();
     if (handler == null) return;
     _mediaItemSubscription = handler.mediaItem
@@ -247,7 +269,7 @@ class MediaBrowserAudioQueueSession {
   }
 
   void _onMediaItemChanged(audio_service.MediaItem? item) {
-    if (_disposed) return;
+    if (_disposed || connectionLease?.isActive == false) return;
     final previous = _reportedItemId;
     final next = item == null ? null : _trackByMediaId[item.id];
     if (next?.id == previous) return;
@@ -298,7 +320,9 @@ class MediaBrowserAudioQueueSession {
 
   /// 音频页的异步元数据加载器：艺术家 / 专辑 / 服务器歌词 / 封面。
   Future<AudioTrackMetadata> loadMetadata(PlayerQueueItem item) async {
-    if (_disposed) return const AudioTrackMetadata();
+    if (_disposed || connectionLease?.isActive == false) {
+      return const AudioTrackMetadata();
+    }
     final track = _trackByMediaId[item.safeMediaId];
     if (track == null) return const AudioTrackMetadata();
 
@@ -309,7 +333,9 @@ class MediaBrowserAudioQueueSession {
     } catch (_) {
       // 歌词是增强信息，失败静默回退。
     }
-    if (_disposed) return const AudioTrackMetadata();
+    if (_disposed || connectionLease?.isActive == false) {
+      return const AudioTrackMetadata();
+    }
     return AudioTrackMetadata(
       artworkPath: artwork,
       artworkMimeType: artwork == null ? null : 'image/jpeg',
@@ -335,7 +361,9 @@ class MediaBrowserAudioQueueSession {
 
   Future<String?> _downloadArtwork(String imageItemId) async {
     try {
+      if (_disposed || connectionLease?.isActive == false) return null;
       final directory = await _artworkDirectory();
+      if (_disposed || connectionLease?.isActive == false) return null;
       final file = File(
         '${directory.path}${Platform.pathSeparator}'
         'mb_audio_${_digest(imageItemId)}.jpg',
@@ -349,7 +377,7 @@ class MediaBrowserAudioQueueSession {
           file.path,
           options: Options(headers: mediaHeaders),
         );
-        if (_disposed) {
+        if (_disposed || connectionLease?.isActive == false) {
           await _deleteQuietly(file);
           return null;
         }
@@ -365,11 +393,12 @@ class MediaBrowserAudioQueueSession {
 
   Future<void> _dispose() async {
     _disposed = true;
+    _downloader.close(force: true);
     await _mediaItemSubscription?.cancel();
     _mediaItemSubscription = null;
     final reported = _reportedItemId;
     _reportedItemId = null;
-    if (reported != null) {
+    if (reported != null && connectionLease?.isActive != false) {
       try {
         await repository.reportPlaybackStopped(
           itemId: reported,

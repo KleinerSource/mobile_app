@@ -11,6 +11,18 @@ import 'server_config.dart';
 typedef ServerLineProbe =
     Future<ServerLineProbeResult> Function(ServerLine line);
 
+class ServerLineProbeCancellation {
+  final CancelToken cancelToken = CancelToken();
+
+  bool get isCancelled => cancelToken.isCancelled;
+
+  void cancel() {
+    if (!cancelToken.isCancelled) {
+      cancelToken.cancel('服务器线路探测已取消');
+    }
+  }
+}
+
 class ServerLineProbeResult {
   const ServerLineProbeResult._({
     required this.line,
@@ -95,14 +107,20 @@ class ServerLineProbeCoordinator {
   Future<ServerLineProbeResult> probe(
     ServerLine line, {
     String? expectedProjectName,
+    ServerLineProbeCancellation? cancellation,
   }) {
-    return _safeProbe(line, expectedProjectName: expectedProjectName);
+    return _safeProbe(
+      line,
+      expectedProjectName: expectedProjectName,
+      cancellation: cancellation,
+    );
   }
 
   ServerLineProbeBatch probeAll(
     Iterable<ServerLine> lines, {
     void Function(ServerLineProbeResult result)? onResult,
     String? expectedProjectName,
+    ServerLineProbeCancellation? cancellation,
   }) {
     final candidates = List<ServerLine>.of(lines);
     final firstAvailable = Completer<ServerLineProbeResult?>();
@@ -117,19 +135,25 @@ class ServerLineProbeCoordinator {
     }
 
     final futures = candidates.map((line) async {
-      final result = await _safeProbe(
-        line,
-        expectedProjectName: expectedProjectName,
-      );
-      onResult?.call(result);
-      if (result.success && !firstAvailable.isCompleted) {
-        firstAvailable.complete(result);
+      try {
+        final result = await _safeProbe(
+          line,
+          expectedProjectName: expectedProjectName,
+          cancellation: cancellation,
+        );
+        if (cancellation?.isCancelled != true) onResult?.call(result);
+        if (result.success &&
+            cancellation?.isCancelled != true &&
+            !firstAvailable.isCompleted) {
+          firstAvailable.complete(result);
+        }
+        return result;
+      } finally {
+        remaining--;
+        if (remaining == 0 && !firstAvailable.isCompleted) {
+          firstAvailable.complete(null);
+        }
       }
-      remaining--;
-      if (remaining == 0 && !firstAvailable.isCompleted) {
-        firstAvailable.complete(null);
-      }
-      return result;
     }).toList();
 
     return ServerLineProbeBatch(
@@ -145,13 +169,23 @@ class ServerLineProbeCoordinator {
     required ServerLine current,
     Iterable<ServerLine> alternatives = const [],
     String? expectedProjectName,
+    ServerLineProbeCancellation? cancellation,
   }) async {
-    final batch = probeAll([
-      current,
-      ...alternatives,
-    ], expectedProjectName: expectedProjectName);
+    final batch = probeAll(
+      [current, ...alternatives],
+      expectedProjectName: expectedProjectName,
+      cancellation: cancellation,
+    );
     final selected = await batch.firstAvailable;
+    if (cancellation?.isCancelled == true) {
+      return ServerLineSelection(
+        selected: null,
+        results: await batch.completed,
+      );
+    }
     if (selected != null) {
+      // 首条可用线路已经足以完成选择，立即终止其余并发探测。
+      cancellation?.cancel();
       return ServerLineSelection(selected: selected, results: [selected]);
     }
     return ServerLineSelection(selected: null, results: await batch.completed);
@@ -160,7 +194,11 @@ class ServerLineProbeCoordinator {
   Future<ServerLineProbeResult> _safeProbe(
     ServerLine line, {
     String? expectedProjectName,
+    ServerLineProbeCancellation? cancellation,
   }) async {
+    if (cancellation?.isCancelled == true) {
+      return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+    }
     try {
       final result =
           await (_probeOverride?.call(line) ??
@@ -169,7 +207,11 @@ class ServerLineProbeCoordinator {
                 projectOverride: ServerProject.fromProjectName(
                   expectedProjectName ?? '',
                 ),
+                cancelToken: cancellation?.cancelToken,
               ));
+      if (cancellation?.isCancelled == true) {
+        return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+      }
       final expected = expectedProjectName?.trim().toLowerCase();
       final actual = result.versionInfo?.projectName.trim().toLowerCase();
       if (result.success &&
@@ -185,6 +227,10 @@ class ServerLineProbeCoordinator {
       }
       return result;
     } catch (error) {
+      if (cancellation?.isCancelled == true ||
+          (error is DioException && CancelToken.isCancel(error))) {
+        return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+      }
       final exception = toApiException(error);
       return ServerLineProbeResult.failure(
         line,
@@ -198,12 +244,16 @@ class ServerLineProbeCoordinator {
 Future<ServerLineProbeResult> probeServerLine(
   ServerLine line, {
   ServerProject? projectOverride,
+  CancelToken? cancelToken,
 }) async {
   final stopwatch = Stopwatch()..start();
   try {
     if (projectOverride == ServerProject.emby ||
         projectOverride == ServerProject.jellyfin) {
-      final mediaServerInfo = await _probeEmbyLikeVersion(line);
+      final mediaServerInfo = await _probeEmbyLikeVersion(
+        line,
+        cancelToken: cancelToken,
+      );
       if (mediaServerInfo == null) {
         throw ApiException('服务器版本检测失败');
       }
@@ -216,7 +266,10 @@ Future<ServerLineProbeResult> probeServerLine(
     }
 
     if (projectOverride == ServerProject.feiniu) {
-      final feiniuInfo = await _probeFeiniuVersion(line);
+      final feiniuInfo = await _probeFeiniuVersion(
+        line,
+        cancelToken: cancelToken,
+      );
       if (feiniuInfo == null) {
         throw ApiException('服务器版本检测失败');
       }
@@ -230,7 +283,10 @@ Future<ServerLineProbeResult> probeServerLine(
 
     final preferFeiniu = _looksLikeFeiniuBasePath(line.baseUrl);
     if (preferFeiniu) {
-      final feiniuInfo = await _probeFeiniuVersion(line);
+      final feiniuInfo = await _probeFeiniuVersion(
+        line,
+        cancelToken: cancelToken,
+      );
       if (feiniuInfo != null) {
         stopwatch.stop();
         return ServerLineProbeResult.success(
@@ -246,7 +302,10 @@ Future<ServerLineProbeResult> probeServerLine(
     // 失败中断整条回退链，因此先读免鉴权的公开设置。
     final openListDavLike = _looksLikeOpenListDavEndpoint(line.baseUrl);
     if (openListDavLike) {
-      final openListInfo = await _probeOpenListVersion(line);
+      final openListInfo = await _probeOpenListVersion(
+        line,
+        cancelToken: cancelToken,
+      );
       if (openListInfo != null) {
         stopwatch.stop();
         return ServerLineProbeResult.success(
@@ -257,7 +316,7 @@ Future<ServerLineProbeResult> probeServerLine(
       }
     }
 
-    final versionInfo = await _probeOmmVersion(line);
+    final versionInfo = await _probeOmmVersion(line, cancelToken: cancelToken);
     if (versionInfo != null) {
       if (versionInfo.project == ServerProject.dbOnline) {
         final dio = buildDio(
@@ -266,17 +325,22 @@ Future<ServerLineProbeResult> probeServerLine(
           sendTimeout: const Duration(milliseconds: 1200),
           receiveTimeout: const Duration(milliseconds: 2200),
         );
-        final healthResponse = await dio.get<dynamic>(
-          '/health',
-          options: Options(
-            extra: const {
-              'skipAuth': true,
-              'skipRefresh': true,
-              'skipRetry': true,
-            },
-          ),
-        );
-        _requireHealthyServer(healthResponse.data);
+        try {
+          final healthResponse = await dio.get<dynamic>(
+            '/health',
+            cancelToken: cancelToken,
+            options: Options(
+              extra: const {
+                'skipAuth': true,
+                'skipRefresh': true,
+                'skipRetry': true,
+              },
+            ),
+          );
+          _requireHealthyServer(healthResponse.data);
+        } finally {
+          dio.close(force: true);
+        }
       }
       stopwatch.stop();
       return ServerLineProbeResult.success(
@@ -288,7 +352,10 @@ Future<ServerLineProbeResult> probeServerLine(
 
     // OMM 协议不通时回退尝试 Emby/Jellyfin：System/Info/Public 是免鉴权
     // 的标准入口，OMM/DBO 服务器对其返回 404，不会误判。
-    final mediaServerInfo = await _probeEmbyLikeVersion(line);
+    final mediaServerInfo = await _probeEmbyLikeVersion(
+      line,
+      cancelToken: cancelToken,
+    );
     if (mediaServerInfo != null) {
       stopwatch.stop();
       return ServerLineProbeResult.success(
@@ -299,7 +366,10 @@ Future<ServerLineProbeResult> probeServerLine(
     }
 
     if (!preferFeiniu) {
-      final feiniuInfo = await _probeFeiniuVersion(line);
+      final feiniuInfo = await _probeFeiniuVersion(
+        line,
+        cancelToken: cancelToken,
+      );
       if (feiniuInfo != null) {
         stopwatch.stop();
         return ServerLineProbeResult.success(
@@ -311,7 +381,10 @@ Future<ServerLineProbeResult> probeServerLine(
     }
 
     if (!openListDavLike) {
-      final openListInfo = await _probeOpenListVersion(line);
+      final openListInfo = await _probeOpenListVersion(
+        line,
+        cancelToken: cancelToken,
+      );
       if (openListInfo != null) {
         stopwatch.stop();
         return ServerLineProbeResult.success(
@@ -324,7 +397,7 @@ Future<ServerLineProbeResult> probeServerLine(
 
     // 常规服务器探测全部失败后，再用 GraphQL 入口识别 Stash，避免对已知
     // 的 OMM、Emby、Jellyfin、飞牛和 OpenList 额外发起请求。
-    final stashInfo = await _probeStash(line);
+    final stashInfo = await _probeStash(line, cancelToken: cancelToken);
     if (stashInfo != null) {
       stopwatch.stop();
       return ServerLineProbeResult.success(
@@ -337,6 +410,10 @@ Future<ServerLineProbeResult> probeServerLine(
     throw ApiException('服务器版本检测失败');
   } catch (error) {
     stopwatch.stop();
+    if (cancelToken?.isCancelled == true ||
+        (error is DioException && CancelToken.isCancel(error))) {
+      return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+    }
     final exception = toApiException(error);
     return ServerLineProbeResult.failure(
       line,
@@ -350,7 +427,10 @@ Future<ServerLineProbeResult> probeServerLine(
 
 /// Stash 没有兼容性版本接口；GraphQL 本身就是稳定识别入口。
 /// 200、401、403 都说明入口存在，404/405 才交给其它项目继续探测。
-Future<ServerVersionInfo?> _probeStash(ServerLine line) async {
+Future<ServerVersionInfo?> _probeStash(
+  ServerLine line, {
+  CancelToken? cancelToken,
+}) async {
   final base = ServerConfig.normalize(line.baseUrl);
   final dio = Dio(
     BaseOptions(
@@ -366,6 +446,7 @@ Future<ServerVersionInfo?> _probeStash(ServerLine line) async {
     await dio.post<dynamic>(
       '/graphql',
       data: const {'query': 'query StashProbe { __typename }'},
+      cancelToken: cancelToken,
       options: Options(
         validateStatus: (status) =>
             status != null &&
@@ -378,6 +459,8 @@ Future<ServerVersionInfo?> _probeStash(ServerLine line) async {
     final status = error.response?.statusCode;
     if (status == 404 || status == 405) return null;
     rethrow;
+  } finally {
+    dio.close(force: true);
   }
 }
 
@@ -387,7 +470,10 @@ bool _isAuthenticationFailure(ApiException exception) {
 
 /// 飞牛影视的版本接口挂在服务器的 /v/api/v1 下，响应为 code/msg/data
 /// 信封；版本接口免登录，可用于服务器线路识别。
-Future<ServerVersionInfo?> _probeFeiniuVersion(ServerLine line) async {
+Future<ServerVersionInfo?> _probeFeiniuVersion(
+  ServerLine line, {
+  CancelToken? cancelToken,
+}) async {
   final dio = buildDio(
     ServerConfig(baseUrl: line.baseUrl),
     projectOverride: ServerProject.feiniu,
@@ -398,6 +484,7 @@ Future<ServerVersionInfo?> _probeFeiniuVersion(ServerLine line) async {
   try {
     final response = await dio.get<dynamic>(
       '/sys/version',
+      cancelToken: cancelToken,
       options: Options(
         extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
       ),
@@ -424,12 +511,17 @@ Future<ServerVersionInfo?> _probeFeiniuVersion(ServerLine line) async {
     final exception = toApiException(error);
     if (exception.status == 404 || exception.status == 405) return null;
     rethrow;
+  } finally {
+    dio.close(force: true);
   }
 }
 
 /// 读取 OpenList/AList 的公开站点设置；两个项目都通过
 /// `/api/public/settings` 返回 `data.version`，无需登录。
-Future<ServerVersionInfo?> _probeOpenListVersion(ServerLine line) async {
+Future<ServerVersionInfo?> _probeOpenListVersion(
+  ServerLine line, {
+  CancelToken? cancelToken,
+}) async {
   final siteBaseUrl = _openListSiteBaseUrl(line.baseUrl);
   final dio = buildDio(
     ServerConfig(baseUrl: siteBaseUrl),
@@ -440,6 +532,7 @@ Future<ServerVersionInfo?> _probeOpenListVersion(ServerLine line) async {
   try {
     final response = await dio.get<dynamic>(
       '$siteBaseUrl/api/public/settings',
+      cancelToken: cancelToken,
       options: Options(
         extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
       ),
@@ -461,6 +554,8 @@ Future<ServerVersionInfo?> _probeOpenListVersion(ServerLine line) async {
     final exception = toApiException(error);
     if (exception.status == 404 || exception.status == 405) return null;
     rethrow;
+  } finally {
+    dio.close(force: true);
   }
 }
 
@@ -498,33 +593,38 @@ bool _looksLikeFeiniuBasePath(String raw) {
 
 /// 读取 OMM/DBO 的 /api/version；响应不是兼容信封时返回 null，交由
 /// Emby 回退探测继续判断。
-Future<ServerVersionInfo?> _probeOmmVersion(ServerLine line) async {
+Future<ServerVersionInfo?> _probeOmmVersion(
+  ServerLine line, {
+  CancelToken? cancelToken,
+}) async {
   final dio = buildDio(
     ServerConfig(baseUrl: line.baseUrl),
     connectTimeout: const Duration(milliseconds: 1200),
     sendTimeout: const Duration(milliseconds: 1200),
     receiveTimeout: const Duration(milliseconds: 2200),
   );
-  final Response<dynamic> response;
   try {
-    response = await dio.get<dynamic>(
+    final response = await dio.get<dynamic>(
       '/version',
+      cancelToken: cancelToken,
       options: Options(
         extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
       ),
     );
+    final data = response.data;
+    if (data is! Map || data['success'] is! bool) {
+      return null;
+    }
+    return requireCompatibleServerVersion(data);
   } on DioException catch (error) {
     final exception = toApiException(error);
     if (exception.status == 404 || exception.status == 405) {
       return null;
     }
     rethrow;
+  } finally {
+    dio.close(force: true);
   }
-  final data = response.data;
-  if (data is! Map || data['success'] is! bool) {
-    return null;
-  }
-  return requireCompatibleServerVersion(data);
 }
 
 /// 读取 Emby/Jellyfin 的 System/Info/Public；非该系列服务器（404/格式
@@ -533,7 +633,10 @@ Future<ServerVersionInfo?> _probeOmmVersion(ServerLine line) async {
 /// 两个项目接口同源，靠响应里的 ProductName 区分：Jellyfin 返回
 /// "Jellyfin Server"，Emby 无该字段。根路径探测覆盖 Jellyfin 全系
 /// （/emby 前缀自 10.11 起移除）与部分 Emby，404 时回退 /emby 前缀。
-Future<ServerVersionInfo?> _probeEmbyLikeVersion(ServerLine line) async {
+Future<ServerVersionInfo?> _probeEmbyLikeVersion(
+  ServerLine line, {
+  CancelToken? cancelToken,
+}) async {
   final dio = buildDio(
     ServerConfig(baseUrl: line.baseUrl),
     connectTimeout: const Duration(milliseconds: 1200),
@@ -543,36 +646,50 @@ Future<ServerVersionInfo?> _probeEmbyLikeVersion(ServerLine line) async {
   // 探测用 dio 的 baseUrl 带 OMM 的 /api 前缀，Emby 系接口在根路径下，
   // 必须用绝对地址绕开。
   final base = ServerConfig.normalize(line.baseUrl);
-  final data =
-      await _fetchPublicSystemInfo(dio, '$base/System/Info/Public') ??
-      await _fetchPublicSystemInfo(dio, '$base/emby/System/Info/Public');
-  if (data == null) return null;
-  final version = data['Version'].toString().trim();
-  final productName = data['ProductName']?.toString().trim() ?? '';
-  final project = productName == 'Jellyfin Server'
-      ? ServerProject.jellyfin
-      : ServerProject.emby;
-  if (!isSupportedServerVersion(version, project.minimumVersion)) {
-    throw ServerCompatibilityException(
-      '服务器版本不满足要求，需要 ${project.projectName} >= '
-      '${project.minimumVersion}，当前版本为 ${version.isEmpty ? '未知' : version}',
+  try {
+    final data =
+        await _fetchPublicSystemInfo(
+          dio,
+          '$base/System/Info/Public',
+          cancelToken: cancelToken,
+        ) ??
+        await _fetchPublicSystemInfo(
+          dio,
+          '$base/emby/System/Info/Public',
+          cancelToken: cancelToken,
+        );
+    if (data == null) return null;
+    final version = data['Version'].toString().trim();
+    final productName = data['ProductName']?.toString().trim() ?? '';
+    final project = productName == 'Jellyfin Server'
+        ? ServerProject.jellyfin
+        : ServerProject.emby;
+    if (!isSupportedServerVersion(version, project.minimumVersion)) {
+      throw ServerCompatibilityException(
+        '服务器版本不满足要求，需要 ${project.projectName} >= '
+        '${project.minimumVersion}，当前版本为 ${version.isEmpty ? '未知' : version}',
+      );
+    }
+    return ServerVersionInfo(
+      projectName: project.projectName,
+      version: version,
+      buildTime: data['BuildTime']?.toString().trim() ?? '',
     );
+  } finally {
+    dio.close(force: true);
   }
-  return ServerVersionInfo(
-    projectName: project.projectName,
-    version: version,
-    buildTime: data['BuildTime']?.toString().trim() ?? '',
-  );
 }
 
 Future<Map<String, dynamic>?> _fetchPublicSystemInfo(
   Dio dio,
-  String probeUrl,
-) async {
+  String probeUrl, {
+  CancelToken? cancelToken,
+}) async {
   final Response<dynamic> response;
   try {
     response = await dio.get<dynamic>(
       probeUrl,
+      cancelToken: cancelToken,
       options: Options(
         responseType: ResponseType.json,
         extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},

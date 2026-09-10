@@ -82,6 +82,7 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
     authSessionRepositoryProvider,
   ).forServer(server.id, allowLegacyMigration: false);
 
+  ApiClient? client;
   try {
     final session = await sessionRepository.load();
     if (session == null || !session.hasAccessToken) {
@@ -89,7 +90,7 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
       return fallback;
     }
 
-    final user = await ApiClient.fromConfig(
+    client = ApiClient.fromConfig(
       ServerConfig(
         baseUrl: line.baseUrl,
         lines: [line],
@@ -98,7 +99,10 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
       ),
       sessionRepository: sessionRepository,
       stashApiKeyRepository: read(stashApiKeyRepositoryProvider),
-    ).mediaBrowserFor(mediaBrowserConfig).validateSession(session.userId);
+    );
+    final user = await client
+        .mediaBrowserFor(mediaBrowserConfig)
+        .validateSession(session.userId);
 
     final userId = user.id.trim();
     final profile = ServerProfileData(
@@ -119,5 +123,7 @@ Future<ServerProfileData?> loadMediaBrowserUserProfile(
   } catch (_) {
     cacheFallback();
     return fallback;
+  } finally {
+    client?.close();
   }
 }

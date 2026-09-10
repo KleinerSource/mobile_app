@@ -230,7 +230,7 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
     }
     final client = ApiClient.fromConfig(
       config,
-      sessionRepository: ref.read(authSessionRepositoryProvider),
+      sessionRepository: sessionRepository,
       stashApiKeyRepository: ref.read(stashApiKeyRepositoryProvider),
     );
 
@@ -281,6 +281,8 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
       return exception.status == 401 || exception.status == 403
           ? _ServerStatus.authenticationRequired
           : _ServerStatus.unavailable;
+    } finally {
+      client.close();
     }
   }
 
@@ -321,12 +323,13 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
     final line = server.activeLine;
     if (line == null) return _fallbackProfile(server);
 
+    ApiClient? client;
     try {
       final session = await sessionRepository.load();
       if (session == null || !session.hasAccessToken) {
         return _fallbackProfile(server);
       }
-      final client = ApiClient.fromConfig(
+      client = ApiClient.fromConfig(
         ServerConfig(
           baseUrl: line.baseUrl,
           lines: [line],
@@ -352,6 +355,8 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
       return profile;
     } catch (_) {
       return _fallbackProfile(server);
+    } finally {
+      client?.close();
     }
   }
 }

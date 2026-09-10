@@ -95,7 +95,7 @@ void main() {
     );
   });
 
-  test('ApiClient 飞牛启动时会迁移旧版全局会话并保留 Cookie', () async {
+  test('激活飞牛服务器时迁移旧版全局会话，临时客户端不改变作用域', () async {
     final store = _MemoryTokenStore();
     final sessions = AuthSessionRepository(store: store);
     await sessions.save(
@@ -115,7 +115,7 @@ void main() {
       activeLineId: 'main',
     );
 
-    ApiClient.fromConfig(
+    final client = ApiClient.fromConfig(
       const ServerConfig(
         baseUrl: 'http://test:5666',
         servers: [server],
@@ -123,6 +123,11 @@ void main() {
       ),
       sessionRepository: sessions,
     );
+    addTearDown(client.close);
+
+    expect(sessions.activeServerId, isNull);
+    expect(store.values['omm.auth.cookie'], 'sid=session-1');
+    sessions.setActiveServerId('feiniu-server');
 
     final session = await sessions.current();
     expect(session?.accessToken, 'legacy-token');

@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
+import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
@@ -244,6 +246,106 @@ void main() {
     currentProbe.complete(
       const ServerLineProbeResult.failure(targetCurrentLine, '连接超时'),
     );
+  });
+
+  test('切换开始同步断开旧连接，取消后迟到探测不能提交目标服务器', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final targetProbe = Completer<ServerLineProbeResult>();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(probe: (_) => targetProbe.future),
+        ),
+        authControllerProvider.overrideWith(
+          () => _FakeAuthController(
+            [],
+            [],
+            refreshResult: const AuthState(phase: AuthPhase.authenticated),
+          ),
+        ),
+        dbOnlineRecommendProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestUpdatedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestReleasedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const sourceLine = ServerLine(
+      id: 'source-line',
+      name: '当前服务器',
+      baseUrl: 'https://source.example',
+    );
+    const targetLine = ServerLine(
+      id: 'target-line',
+      name: '目标服务器',
+      baseUrl: 'https://target.example',
+    );
+    const source = ServerProfile(
+      id: 'source-server',
+      name: '当前服务器',
+      lines: [sourceLine],
+      activeLineId: 'source-line',
+      projectName: 'db_online',
+    );
+    const target = ServerProfile(
+      id: 'target-server',
+      name: '目标服务器',
+      lines: [targetLine],
+      activeLineId: 'target-line',
+      projectName: 'db_online',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://source.example',
+            lines: [sourceLine],
+            servers: [source, target],
+            activeServerId: 'source-server',
+          ),
+        );
+
+    final oldConnection = container.read(serverConnectionProvider);
+    final oldLease = oldConnection.lease!;
+    var cancelledSynchronously = false;
+    oldLease.register(() => cancelledSynchronously = true);
+
+    final transition = container.read(serverSwitchTransitionProvider.notifier);
+    final switching = transition.switchTo(target.id);
+
+    expect(cancelledSynchronously, isTrue);
+    expect(oldLease.isActive, isFalse);
+    expect(container.read(serverConnectionProvider).suspended, isTrue);
+    expect(container.read(apiClientProvider), isNull);
+
+    await transition.cancel();
+    final restoredConnection = container.read(serverConnectionProvider);
+    expect(container.read(serverConfigProvider)?.activeServerId, source.id);
+    expect(restoredConnection.accepts(source.id), isTrue);
+    expect(restoredConnection.lease, isNot(same(oldLease)));
+
+    targetProbe.complete(
+      const ServerLineProbeResult.success(
+        targetLine,
+        12,
+        versionInfo: ServerVersionInfo(
+          projectName: 'db_online',
+          version: '1.14.0',
+        ),
+      ),
+    );
+    await switching;
+
+    expect(container.read(serverConfigProvider)?.activeServerId, source.id);
+    expect(container.read(serverConnectionProvider).accepts(source.id), isTrue);
   });
 
   test('DB Online 初始化点击当前服务器复用统一登录流程', () async {
@@ -646,6 +748,286 @@ void main() {
     );
     expect(refreshCalls, [1, 1]);
   });
+
+  test('快速 A 到 B 到 C 时迟到的 B 结果不能覆盖 C', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final bProbe = Completer<ServerLineProbeResult>();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) {
+              if (line.id == 'b-line') return bProbe.future;
+              return Future.value(
+                ServerLineProbeResult.success(
+                  line,
+                  8,
+                  versionInfo: const ServerVersionInfo(
+                    projectName: 'db_online',
+                    version: '1.14.0',
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        authControllerProvider.overrideWith(
+          () => _FakeAuthController(
+            [],
+            [],
+            refreshResult: const AuthState(phase: AuthPhase.authenticated),
+          ),
+        ),
+        dbOnlineRecommendProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestUpdatedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestReleasedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const aLine = ServerLine(
+      id: 'a-line',
+      name: 'A',
+      baseUrl: 'https://a.example',
+    );
+    const bLine = ServerLine(
+      id: 'b-line',
+      name: 'B',
+      baseUrl: 'https://b.example',
+    );
+    const cLine = ServerLine(
+      id: 'c-line',
+      name: 'C',
+      baseUrl: 'https://c.example',
+    );
+    const servers = [
+      ServerProfile(
+        id: 'a-server',
+        name: 'A',
+        lines: [aLine],
+        activeLineId: 'a-line',
+        projectName: 'db_online',
+      ),
+      ServerProfile(
+        id: 'b-server',
+        name: 'B',
+        lines: [bLine],
+        activeLineId: 'b-line',
+        projectName: 'db_online',
+      ),
+      ServerProfile(
+        id: 'c-server',
+        name: 'C',
+        lines: [cLine],
+        activeLineId: 'c-line',
+        projectName: 'db_online',
+      ),
+    ];
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://a.example',
+            lines: [aLine],
+            servers: servers,
+            activeServerId: 'a-server',
+          ),
+        );
+
+    final transition = container.read(serverSwitchTransitionProvider.notifier);
+    final bSwitch = transition.switchTo('b-server');
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(serverSwitchTransitionProvider).targetServerId,
+      'b-server',
+    );
+
+    await transition.switchTo('c-server');
+    expect(container.read(serverConfigProvider)?.activeServerId, 'c-server');
+    expect(container.read(serverConnectionProvider).serverId, 'c-server');
+
+    bProbe.complete(
+      const ServerLineProbeResult.success(
+        bLine,
+        50,
+        versionInfo: ServerVersionInfo(
+          projectName: 'db_online',
+          version: '1.14.0',
+        ),
+      ),
+    );
+    await bSwitch;
+
+    expect(container.read(serverConfigProvider)?.activeServerId, 'c-server');
+    expect(container.read(serverConnectionProvider).serverId, 'c-server');
+  });
+
+  test('B 已提交但鉴权未完成时切换 C，C 失败仍恢复最初的 A', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final authStarted = Completer<void>();
+    final authResult = Completer<AuthState>();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => line.id == 'c-line'
+                ? ServerLineProbeResult.failure(line, 'C 不可用')
+                : ServerLineProbeResult.success(
+                    line,
+                    8,
+                    versionInfo: const ServerVersionInfo(
+                      projectName: 'db_online',
+                      version: '1.14.0',
+                    ),
+                  ),
+          ),
+        ),
+        authControllerProvider.overrideWith(
+          () => _BlockingAuthController(authStarted, authResult),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const aLine = ServerLine(
+      id: 'a-line',
+      name: 'A',
+      baseUrl: 'https://a.example',
+    );
+    const bLine = ServerLine(
+      id: 'b-line',
+      name: 'B',
+      baseUrl: 'https://b.example',
+    );
+    const cLine = ServerLine(
+      id: 'c-line',
+      name: 'C',
+      baseUrl: 'https://c.example',
+    );
+    const servers = [
+      ServerProfile(
+        id: 'a-server',
+        name: 'A',
+        lines: [aLine],
+        activeLineId: 'a-line',
+        projectName: 'db_online',
+      ),
+      ServerProfile(
+        id: 'b-server',
+        name: 'B',
+        lines: [bLine],
+        activeLineId: 'b-line',
+        projectName: 'db_online',
+      ),
+      ServerProfile(
+        id: 'c-server',
+        name: 'C',
+        lines: [cLine],
+        activeLineId: 'c-line',
+        projectName: 'db_online',
+      ),
+    ];
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://a.example',
+            lines: [aLine],
+            servers: servers,
+            activeServerId: 'a-server',
+          ),
+        );
+
+    final transition = container.read(serverSwitchTransitionProvider.notifier);
+    final bSwitch = transition.switchTo('b-server');
+    await authStarted.future;
+    expect(container.read(serverConfigProvider)?.activeServerId, 'b-server');
+
+    await transition.switchTo('c-server');
+
+    expect(container.read(serverConfigProvider)?.activeServerId, 'a-server');
+    expect(container.read(serverConnectionProvider).serverId, 'a-server');
+    authResult.complete(const AuthState(phase: AuthPhase.authenticated));
+    await bSwitch;
+    expect(container.read(serverConfigProvider)?.activeServerId, 'a-server');
+  });
+
+  test('目标探测失败后自动恢复原服务器并创建新连接代际', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async =>
+                ServerLineProbeResult.failure(line, '目标服务器不可用'),
+          ),
+        ),
+        authControllerProvider.overrideWith(() => _FakeAuthController([], [])),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const aLine = ServerLine(
+      id: 'a-line',
+      name: 'A',
+      baseUrl: 'https://a.example',
+    );
+    const bLine = ServerLine(
+      id: 'b-line',
+      name: 'B',
+      baseUrl: 'https://b.example',
+    );
+    const aServer = ServerProfile(
+      id: 'a-server',
+      name: 'A',
+      lines: [aLine],
+      activeLineId: 'a-line',
+      projectName: 'db_online',
+    );
+    const bServer = ServerProfile(
+      id: 'b-server',
+      name: 'B',
+      lines: [bLine],
+      activeLineId: 'b-line',
+      projectName: 'db_online',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://a.example',
+            lines: [aLine],
+            servers: [aServer, bServer],
+            activeServerId: 'a-server',
+          ),
+        );
+    final initialLease = container.read(serverConnectionProvider).lease;
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo('b-server');
+
+    final restored = container.read(serverConnectionProvider);
+    expect(container.read(serverConfigProvider)?.activeServerId, 'a-server');
+    expect(restored.accepts('a-server'), isTrue);
+    expect(restored.lease, isNot(same(initialLease)));
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.error,
+    );
+  });
 }
 
 class _FakeAuthController extends AuthController {
@@ -687,6 +1069,23 @@ class _RecoveryRequiredAuthController extends AuthController {
     phase: AuthPhase.needsLogin,
     requiresCredentialInput: true,
   );
+}
+
+class _BlockingAuthController extends AuthController {
+  _BlockingAuthController(this.started, this.result);
+
+  final Completer<void> started;
+  final Completer<AuthState> result;
+
+  @override
+  Future<AuthState> build() async =>
+      const AuthState(phase: AuthPhase.needsLogin);
+
+  @override
+  Future<AuthState> refreshCurrentServer() {
+    if (!started.isCompleted) started.complete();
+    return result.future;
+  }
 }
 
 class _SwitchTestServerConfigNotifier extends ServerConfigNotifier {

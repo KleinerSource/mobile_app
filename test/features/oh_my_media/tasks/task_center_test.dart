@@ -3,8 +3,6 @@
 //   - test/features/oh_my_media/tasks/task_center_provider_test.dart
 //   - test/features/oh_my_media/tasks/task_center_page_test.dart
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -259,6 +257,33 @@ void _main_0() {
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_provider_test.dart ====================
 void _main_1() {
+  test('服务器连接暂停时不启动任务历史请求', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    var requestCount = 0;
+    final dio = Dio(BaseOptions(baseUrl: 'http://test'))
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requestCount++;
+            handler.resolve(Response<dynamic>(requestOptions: options));
+          },
+        ),
+      );
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(taskCenterProvider);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(requestCount, 0);
+  });
+
   test('单任务 HTTP 快照可以补齐错过的 WS 终态', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -372,22 +397,7 @@ void _main_1() {
     );
     addTearDown(container.dispose);
 
-    final historyLoaded = Completer<void>();
-    var historyLoadingSeen = false;
-    final metaSubscription = container.listen<TaskCenterMeta>(
-      taskCenterMetaProvider,
-      (_, next) {
-        if (next.loading) {
-          historyLoadingSeen = true;
-        } else if (historyLoadingSeen && !historyLoaded.isCompleted) {
-          historyLoaded.complete();
-        }
-      },
-      fireImmediately: true,
-    );
-    addTearDown(metaSubscription.close);
     final notifier = container.read(taskCenterProvider.notifier);
-    await historyLoaded.future;
 
     notifier.restore(
       TaskItem.fromHistory(const {

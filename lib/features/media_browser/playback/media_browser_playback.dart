@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/models/playback.dart' as playback_models;
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
@@ -63,6 +64,8 @@ Future<void> _openMediaBrowserPlayback(
 }) async {
   final config = ref.read(mediaBrowserConfigProvider);
   if (config == null) return;
+  final lease = ref.read(serverConnectionProvider).lease;
+  if (lease == null || !lease.isActive) return;
   final source = ref
       .read(mediaSourceRegistryProvider)
       .find(SourceId(config.sourceId));
@@ -84,6 +87,7 @@ Future<void> _openMediaBrowserPlayback(
       config: config,
       part: queueParts.first,
       transcode: transcode,
+      lease: lease,
     );
     final queue = [
       for (var index = 0; index < queueParts.length; index++)
@@ -95,10 +99,11 @@ Future<void> _openMediaBrowserPlayback(
           part: queueParts[index],
           partNumber: index + 1,
           transcode: transcode,
+          lease: lease,
           resolved: index == 0 ? firstPlayback : null,
         ),
     ];
-    if (!context.mounted) return;
+    if (!context.mounted || !lease.isActive) return;
     await VideoPlayerPage.openDirect(
       context,
       title: queue.first.title,
@@ -115,10 +120,14 @@ Future<void> _openMediaBrowserPlayback(
       autoAdvanceQueue: queue.length > 1,
     );
     // 播放结束同步详情与首页的进度/已看状态。
-    ref.invalidate(mediaBrowserItemDetailProvider);
-    ref.invalidate(mediaBrowserResumeProvider);
+    if (lease.isActive) {
+      ref.invalidate(mediaBrowserItemDetailProvider);
+      ref.invalidate(mediaBrowserResumeProvider);
+    }
   } catch (error) {
-    if (context.mounted) {
+    if (error is! ServerConnectionClosedException &&
+        lease.isActive &&
+        context.mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
@@ -134,6 +143,7 @@ PlayerQueueItem _queueItemForPart({
   required MediaBrowserVideoPart part,
   required int partNumber,
   required bool transcode,
+  required ServerConnectionLease lease,
   required PlayerQueuePlayback? resolved,
 }) {
   final title = _partPlaybackTitle(item, partNumber);
@@ -154,6 +164,7 @@ PlayerQueueItem _queueItemForPart({
       config: config,
       part: part,
       transcode: transcode,
+      lease: lease,
     ),
   );
 }
@@ -164,7 +175,9 @@ Future<PlayerQueuePlayback> _resolveMediaBrowserPart({
   required MediaBrowserConfig config,
   required MediaBrowserVideoPart part,
   required bool transcode,
+  required ServerConnectionLease lease,
 }) async {
+  if (!lease.isActive) throw const ServerConnectionClosedException();
   final itemId = part.itemId.trim();
   final descriptor = await source.resolvePlayback(
     MediaRef(sourceId: SourceId(config.sourceId), value: itemId),
@@ -173,6 +186,7 @@ Future<PlayerQueuePlayback> _resolveMediaBrowserPart({
       mediaSourceId: part.mediaSourceId,
     ),
   );
+  if (!lease.isActive) throw const ServerConnectionClosedException();
   final payload = descriptor.payload;
   final playSessionId = payload is MediaBrowserPlaybackInfo
       ? payload.playSessionId
@@ -180,13 +194,15 @@ Future<PlayerQueuePlayback> _resolveMediaBrowserPart({
   final resumeSec = descriptor.startAt.round();
   // 每个分集都使用自己的 ItemId 和播放会话，不能把第二分集的进度记到父条目。
   unawaited(
-    repo
-        .reportPlaybackStart(
-          itemId: itemId,
-          positionTicks: secondsToMediaBrowserTicks(resumeSec),
-          playSessionId: playSessionId,
-        )
-        .catchError((_) {}),
+    lease.isActive
+        ? repo
+              .reportPlaybackStart(
+                itemId: itemId,
+                positionTicks: secondsToMediaBrowserTicks(resumeSec),
+                playSessionId: playSessionId,
+              )
+              .catchError((_) {})
+        : Future<void>.value(),
   );
   return PlayerQueuePlayback(
     url: descriptor.uri.toString(),
@@ -195,14 +211,16 @@ Future<PlayerQueuePlayback> _resolveMediaBrowserPart({
     audioTracks: _audioTracks(descriptor.audioTracks),
     subtitleTracks: _subtitleTracks(descriptor.subtitleTracks),
     startPositionSec: resumeSec,
-    progressReporter: (positionSec, durationSec, completed) =>
-        repo.reportPlaybackStopped(
-          itemId: itemId,
-          positionTicks: secondsToMediaBrowserTicks(
-            completed ? durationSec : positionSec,
-          ),
-          playSessionId: playSessionId,
+    progressReporter: (positionSec, durationSec, completed) {
+      if (!lease.isActive) return Future<void>.value();
+      return repo.reportPlaybackStopped(
+        itemId: itemId,
+        positionTicks: secondsToMediaBrowserTicks(
+          completed ? durationSec : positionSec,
         ),
+        playSessionId: playSessionId,
+      );
+    },
   );
 }
 

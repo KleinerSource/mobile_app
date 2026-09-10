@@ -3,10 +3,12 @@ part of 'video_player_page.dart';
 // 状态及资源所有权保留在页面；此扩展只组织同一职责的方法。
 extension _VideoPlayerProgress on _VideoPlayerPageState {
   Future<void> _reportProgress() {
+    if (_connectionLease?.isActive != true) return Future<void>.value();
     if (_isDirectPlayback) return _reportFileProgress();
     final movieId = widget.movieId;
     if (movieId == null) return Future<void>.value();
     final next = _progressReportChain.then<void>((_) async {
+      if (_connectionLease?.isActive != true) return;
       final position = _host.position.inSeconds;
       final duration = _host.duration.inSeconds;
       final positionSec = position > 0 ? position : _lastPositionSec;
@@ -33,12 +35,14 @@ extension _VideoPlayerProgress on _VideoPlayerPageState {
   }
 
   Future<void> _reportFileProgress() {
+    if (_connectionLease?.isActive != true) return Future<void>.value();
     final fileName = _activeDirectPlaybackFileName?.trim();
     final serverReporter = _activeDirectProgressReporter;
     if ((fileName == null || fileName.isEmpty) && serverReporter == null) {
       return Future<void>.value();
     }
     final next = _progressReportChain.then<void>((_) async {
+      if (_connectionLease?.isActive != true) return;
       final positionSec = _host.position.inSeconds > 0
           ? _host.position.inSeconds
           : _lastPositionSec;
@@ -57,6 +61,7 @@ extension _VideoPlayerProgress on _VideoPlayerPageState {
           );
         }
       }
+      if (_connectionLease?.isActive != true) return;
       if (serverReporter != null && positionSec > 0 && durationSec > 0) {
         // 服务器侧进度（如 Emby 的 Stopped 报告）不受本地续播偏好影响；
         // 与 OMM 观看记录相同，播放超过 95% 视为看完。

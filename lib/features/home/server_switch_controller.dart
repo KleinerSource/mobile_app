@@ -167,6 +167,7 @@ final serverSwitchTransitionProvider =
 
 class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   int _operation = 0;
+  int? _selectionTicket;
 
   static const _authCheckTimeout = Duration(seconds: 12);
 
@@ -184,7 +185,13 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   Future<void> _showRecoveryPromptAfterExpiry(AuthExpiryEvent event) async {
     await Future<void>.value();
     final config = ref.read(serverConfigProvider);
-    if (config?.activeServerId != event.serverId || state.isActive) return;
+    final connection = ref.read(serverConnectionProvider);
+    if (config?.activeServerId != event.serverId ||
+        (event.generation != 0 && connection.generation != event.generation) ||
+        !connection.accepts(event.serverId) ||
+        state.isActive) {
+      return;
+    }
     try {
       final auth = await ref.read(authControllerProvider.future);
       if (auth.requiresCredentialInput && !state.isActive) {
@@ -336,6 +343,8 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       // 上一台服务器。上一台服务器可能从未登录过，恢复它会把用户带回
       // 另一个登录错误页。
       ++_operation;
+      _cancelPendingSelection();
+      ref.read(serverConnectionProvider.notifier).suspend();
       ref
           .read(serverConfigProvider.notifier)
           .showServerSelection(releaseResources: false);
@@ -361,15 +370,22 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       state = const ServerSwitchState.idle();
       return;
     }
+    _cancelPendingSelection();
+    ref.read(serverConnectionProvider.notifier).suspend();
+    final configNotifier = ref.read(serverConfigProvider.notifier);
+    final selectionTicket = configNotifier.beginServerSelection();
+    _selectionTicket = selectionTicket;
     state = ServerSwitchState.checking(
       targetServerId: previousServerId,
       previousServerId: current.targetServerId,
     );
     try {
-      await ref
-          .read(serverConfigProvider.notifier)
-          .selectServer(previousServerId);
+      await configNotifier.restoreServer(
+        previousServerId,
+        ticket: selectionTicket,
+      );
       if (!_isCurrent(operation)) return;
+      _activateServer(previousServerId);
       final result = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
       final auth = result.auth;
@@ -394,6 +410,8 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         previousServerId: current.targetServerId,
         message: exception.message,
       );
+    } finally {
+      _releaseSelectionTicket(selectionTicket);
     }
   }
 
@@ -570,23 +588,38 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         ref.read(serverConfigRepoProvider).load();
     if (current == null) return;
     if (current.activeServerId == serverId && !allowActiveTarget) return;
-    if (state.isActive && !allowActiveTarget) return;
 
+    // 快速 A→B→C 时，B 可能已经写入配置但仍处于鉴权阶段。此时 C 的
+    // 回退起点必须沿用整条切换链最初的 A，不能把尚未完成的 B 当成稳定起点。
+    final pendingPreviousServerId = state.isActive
+        ? state.previousServerId
+        : null;
     final previousServerId =
         previousServerIdOverride ??
+        pendingPreviousServerId ??
         (current.activeServerId == serverId ? null : current.activeServerId);
     final operation = ++_operation;
+    _cancelPendingSelection();
+    final configNotifier = ref.read(serverConfigProvider.notifier);
+    final selectionTicket = configNotifier.beginServerSelection();
+    _selectionTicket = selectionTicket;
     state = ServerSwitchState.checking(
       targetServerId: serverId,
       previousServerId: previousServerId,
       avatarOrigin: avatarOrigin,
       returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
+    // 第一次 await 之前同步取消旧 lease。Dio、WebSocket、SSE、文件源和
+    // 播放器会立即收到关闭通知，且 suspended 状态会阻止重建旧客户端。
+    ref
+        .read(serverConnectionProvider.notifier)
+        .suspend(expectedServerId: current.activeServerId);
     try {
       if (current.activeServerId != serverId || allowActiveTarget) {
-        await ref.read(serverConfigProvider.notifier).selectServer(serverId);
+        await configNotifier.selectServer(serverId, ticket: selectionTicket);
       }
       if (!_isCurrent(operation)) return;
+      _activateServer(serverId);
       final target = current.servers.firstWhere(
         (server) => server.id == serverId,
       );
@@ -606,7 +639,25 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       );
     } catch (error) {
       if (!_isCurrent(operation)) return;
-      final exception = toApiException(error);
+      if (error is ServerSelectionCancelledException) return;
+      Object effectiveError = error;
+      if (previousServerId != null) {
+        try {
+          // 目标线路可能已经提交并开始鉴权；失败恢复前先关闭该代际，
+          // 再等待配置写队列恢复原服务器，并为它建立全新连接。
+          ref.read(serverConnectionProvider.notifier).suspend();
+          await configNotifier.restoreServer(
+            previousServerId,
+            ticket: selectionTicket,
+          );
+          if (!_isCurrent(operation)) return;
+          _activateServer(previousServerId);
+        } catch (restoreError) {
+          if (!_isCurrent(operation)) return;
+          effectiveError = restoreError;
+        }
+      }
+      final exception = toApiException(effectiveError);
       state = ServerSwitchState.error(
         targetServerId: serverId,
         previousServerId: previousServerId,
@@ -617,7 +668,39 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         avatarOrigin: avatarOrigin,
         returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
+    } finally {
+      _releaseSelectionTicket(selectionTicket);
     }
+  }
+
+  void _cancelPendingSelection() {
+    final ticket = _selectionTicket;
+    if (ticket == null) return;
+    ref.read(serverConfigProvider.notifier).cancelServerSelection(ticket);
+    _selectionTicket = null;
+  }
+
+  void _releaseSelectionTicket(int ticket) {
+    if (_selectionTicket == ticket) _selectionTicket = null;
+  }
+
+  void _activateServer(String serverId) {
+    final config = ref.read(serverConfigProvider);
+    if (config?.activeServerId != serverId) {
+      throw StateError('服务器切换结果已过期');
+    }
+    final project = config?.activeServer?.project;
+    final allowLegacyMigration =
+        project != ServerProject.dbOnline &&
+        project != ServerProject.emby &&
+        project != ServerProject.jellyfin;
+    ref
+        .read(authSessionRepositoryProvider)
+        .setActiveServerId(
+          serverId,
+          allowLegacyMigration: allowLegacyMigration,
+        );
+    ref.read(serverConnectionProvider.notifier).activate(serverId);
   }
 
   bool _isCurrent(int operation) => operation == _operation;

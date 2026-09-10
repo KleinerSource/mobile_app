@@ -5,6 +5,7 @@
 //   - test/core/envelope_test.dart
 //   - test/core/error_mapper_test.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,7 @@ import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_mapper.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/api/services/actors_api.dart';
 import 'package:omm/core/api/services/audio_api.dart';
 import 'package:omm/core/api/services/configs_extended_api.dart';
@@ -643,6 +645,63 @@ class _BinaryBusinessErrorAdapter implements HttpClientAdapter {
 
 // ==================== 原 test/core/dio_auth_interceptor_test.dart ====================
 void _main_2() {
+  test('临时客户端不会修改根会话仓库的活动服务器', () {
+    final repository = AuthSessionRepository();
+    repository.setActiveServerId('server-a');
+    final client = ApiClient.fromConfig(
+      const ServerConfig(
+        baseUrl: 'http://server-b.example',
+        activeServerId: 'server-b',
+      ),
+      sessionRepository: repository,
+    );
+    addTearDown(client.close);
+
+    expect(repository.activeServerId, 'server-a');
+  });
+
+  test('旧连接代际的迟到 401 不清理会话或触发失效事件', () async {
+    final store = _MemoryTokenStore();
+    final repository = AuthSessionRepository(store: store)
+      ..setActiveServerId('server-a');
+    await repository.save(
+      const AuthSession(
+        accessToken: 'server-a-access',
+        refreshToken: '',
+        expiresIn: 3600,
+      ),
+    );
+    final lease = ServerConnectionLease(serverId: 'server-a', generation: 1);
+    final adapter = _DelayedUnauthorizedAdapter();
+    var expiryEvents = 0;
+    final dio = buildDio(
+      const ServerConfig(baseUrl: 'http://server-a.example'),
+      sessionRepository: repository.forServer('server-a'),
+      isRequestActive: () => lease.isActive,
+      onSessionExpired: () => expiryEvents++,
+    )..httpClientAdapter = adapter;
+
+    final request = dio.get<dynamic>('/protected');
+    await adapter.started.future;
+    lease.cancel();
+    adapter.response.complete(
+      ResponseBody.fromString(
+        jsonEncode({'success': false, 'message': 'expired', 'data': null}),
+        401,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      ),
+    );
+
+    await expectLater(request, throwsA(isA<DioException>()));
+    expect(
+      await repository.forServer('server-a').accessToken(),
+      'server-a-access',
+    );
+    expect(expiryEvents, 0);
+  });
+
   test('并发 401 只触发一次 refresh，并重试原请求', () async {
     final store = _MemoryTokenStore();
     final repository = AuthSessionRepository(store: store);
@@ -670,6 +729,24 @@ void _main_2() {
     expect(adapter.authorizations, contains('Bearer new-access'));
     expect(await repository.accessToken(), 'new-access');
   });
+}
+
+class _DelayedUnauthorizedAdapter implements HttpClientAdapter {
+  final started = Completer<void>();
+  final response = Completer<ResponseBody>();
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    if (!started.isCompleted) started.complete();
+    return response.future;
+  }
 }
 
 class _RefreshAdapter implements HttpClientAdapter {

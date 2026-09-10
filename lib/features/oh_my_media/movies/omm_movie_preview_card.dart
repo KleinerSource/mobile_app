@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
@@ -55,6 +56,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
   late final VoidCallback _releaseForCoordinator = _releasePreview;
   PreviewPlayer? _previewPlayer;
   Future<void>? _previewOpening;
+  VoidCallback? _unregisterConnectionLease;
   bool _previewLoading = false;
   bool _previewing = false;
   int _previewGeneration = 0;
@@ -180,6 +182,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
     final config = ref.read(serverConfigProvider);
     if (config?.isOmm != true) return;
+    final activeConfig = config!;
 
     widget.coordinator.claim(_releaseForCoordinator);
     final generation = ++_previewGeneration;
@@ -194,8 +197,25 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
     Future<void>? openFuture;
     try {
-      final token = await ref.read(authSessionRepositoryProvider).accessToken();
-      final url = resolveProtectedUrl(config!, rawUrl, token);
+      final connection = ref.read(serverConnectionProvider);
+      final lease = connection.lease;
+      if (lease == null || !connection.accepts(activeConfig.activeServerId)) {
+        await _stopPreview();
+        return;
+      }
+      _unregisterConnectionLease?.call();
+      _unregisterConnectionLease = lease.register(
+        () => unawaited(_stopPreview()),
+      );
+      final token = await ref
+          .read(authSessionRepositoryProvider)
+          .forServer(activeConfig.activeServerId, allowLegacyMigration: false)
+          .accessToken();
+      if (!ref.read(serverConnectionProvider).owns(lease)) {
+        await _stopPreview();
+        return;
+      }
+      final url = resolveProtectedUrl(activeConfig, rawUrl, token);
       openFuture = player.open(url, autoplay: autoplay);
       _previewOpening = openFuture;
       await openFuture;
@@ -236,6 +256,8 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
   Future<void> _stopPreview({bool rebuild = true}) async {
     _scrubController.reset();
     ++_previewGeneration;
+    _unregisterConnectionLease?.call();
+    _unregisterConnectionLease = null;
     final player = _previewPlayer;
     _previewPlayer = null;
     widget.coordinator.release(_releaseForCoordinator);

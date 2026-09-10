@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/api/server_compatibility.dart';
@@ -54,9 +55,20 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
   }
   // 依赖登录态：登录/登出会触发重建并刷新 token。
   ref.watch(authControllerProvider);
-  final session = await ref.read(authSessionRepositoryProvider).current();
   final serverConfig = ref.watch(serverConfigProvider);
   final activeServerId = serverConfig?.activeServerId;
+  final connection = ref.watch(serverConnectionProvider);
+  final lease = connection.lease;
+  if (lease == null || !connection.accepts(activeServerId)) {
+    throw const ServerConnectionClosedException();
+  }
+  final session = await ref
+      .read(authSessionRepositoryProvider)
+      .forServer(activeServerId, allowLegacyMigration: false)
+      .current();
+  if (!ref.read(serverConnectionProvider).owns(lease)) {
+    throw const ServerConnectionClosedException();
+  }
   final stashKey = config.project == ServerProject.stash
       ? activeServerId == null
             ? null
@@ -64,6 +76,9 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
                   .read(serverCredentialsRepositoryProvider)
                   .readApiKey(activeServerId)
       : null;
+  if (!ref.read(serverConnectionProvider).owns(lease)) {
+    throw const ServerConnectionClosedException();
+  }
   return MediaBrowserServerUrls(
     config: config,
     baseUrl: serverConfig!.baseUrl,

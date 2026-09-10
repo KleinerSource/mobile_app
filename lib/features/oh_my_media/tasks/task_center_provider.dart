@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/library.dart';
@@ -44,16 +45,44 @@ final taskCenterMetaProvider =
 class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   @override
   List<TaskItem> build() {
+    final resourceGeneration = ++_resourceGeneration;
+    _disposed = false;
     // onDispose 需先于 ref.watch 注册，避免 watch 到脏依赖时元素在本 build
     // 内被立即 invalidate，随后注册 onDispose 会抛
     // "Cannot call onDispose after a provider was dispose"。
-    ref.onDispose(_disposeResources);
+    VoidCallback? unregisterLease;
+    ref.onDispose(() {
+      unregisterLease?.call();
+      _disposeResources(resourceGeneration);
+    });
+    final connection = ref.watch(serverConnectionProvider);
+    _connectionLease = connection.lease;
+    unregisterLease = _connectionLease?.register(
+      () => _disposeResources(resourceGeneration),
+    );
     // 服务器切换时重建连接，避免任务状态串到旧线路。
     ref.watch(serverConfigProvider);
-    _connectWs();
-    // 延后到 provider 完成初始化后再更新独立的摘要 provider，避免
-    // Riverpod 3 在 build 期间禁止修改其他 provider。
-    unawaited(Future<void>.microtask(() => loadHistory(reset: true)));
+    if (_connectionLease?.isActive == true) {
+      final lease = _connectionLease!;
+      _connectWs();
+      // 延后到 provider 完成初始化后再更新独立的摘要 provider，避免
+      // Riverpod 3 在 build 期间禁止修改其他 provider。
+      unawaited(
+        Future<void>.microtask(() async {
+          if (!_ownsLease(lease)) return;
+          final meta = ref.read(taskCenterMetaProvider);
+          if (meta.loading) {
+            ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
+              total: meta.total,
+              hasMore: meta.hasMore,
+              loading: false,
+              stats: meta.stats,
+            );
+          }
+          await loadHistory(reset: true);
+        }),
+      );
+    }
     return const [];
   }
 
@@ -63,6 +92,8 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   Timer? _pingTimer;
   int _reconnectAttempts = 0;
   bool _disposed = false;
+  ServerConnectionLease? _connectionLease;
+  int _resourceGeneration = 0;
 
   /// 任务首次进入列表时分配的稳定序号，用于服务端时间相同或缺失时
   /// 保持稳定顺序。进度广播不会改变这个序号。
@@ -109,9 +140,13 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   Future<void> syncTaskSnapshot(String taskId) async {
     final id = taskId.trim();
     if (_disposed || !ref.mounted || id.isEmpty) return;
+    final lease = _connectionLease;
     try {
       final raw = await ref.read(requiredApiClientProvider).tasks.get(id);
-      if (_disposed || !ref.mounted || raw is! Map || raw['success'] != true) {
+      if (!_requestStillCurrent(lease) ||
+          !ref.mounted ||
+          raw is! Map ||
+          raw['success'] != true) {
         return;
       }
       final data = raw['data'];
@@ -127,6 +162,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
   Future<void> loadHistory({required bool reset}) async {
     if (_disposed || !ref.mounted) return;
+    final lease = _connectionLease;
     if (ref.read(taskCenterMetaProvider).loading) return;
     final currentMeta = ref.read(taskCenterMetaProvider);
     ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
@@ -136,8 +172,8 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       stats: currentMeta.stats,
     );
     try {
-      if (reset) await _loadCurrentSnapshots();
-      if (_disposed || !ref.mounted) return;
+      if (reset) await _loadCurrentSnapshots(lease);
+      if (!_requestStillCurrent(lease) || !ref.mounted) return;
       final raw = await ref
           .read(requiredApiClientProvider)
           .tasks
@@ -145,7 +181,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
             limit: _historyPageSize,
             offset: reset ? 0 : _historyOffset,
           );
-      if (_disposed || !ref.mounted) return;
+      if (!_requestStillCurrent(lease) || !ref.mounted) return;
       if (raw is! Map || raw['success'] != true) return;
       final data = raw['data'];
       final items = data is Map && data['items'] is List
@@ -188,7 +224,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     } catch (_) {
       // WebSocket 仍可独立工作；旧服务端未提供统一接口时不打断任务页。
     } finally {
-      if (!_disposed && ref.mounted) {
+      if (_requestStillCurrent(lease) && ref.mounted) {
         final meta = ref.read(taskCenterMetaProvider);
         if (meta.loading) {
           ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
@@ -225,7 +261,9 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   /// 删除服务端终态任务记录。运行中的任务由服务端拒绝删除。
   Future<void> remove(TaskItem task) async {
     if (!task.isTerminal || task.recordId.isEmpty) return;
+    final lease = _connectionLease;
     await ref.read(requiredApiClientProvider).tasks.deleteRecord(task.recordId);
+    if (!_requestStillCurrent(lease)) return;
     final index = state.indexWhere((item) => item.key == task.key);
     if (index >= 0) {
       final removed = state[index];
@@ -244,35 +282,49 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   Future<void> _connectWsAsync() async {
     if (_disposed) return;
     final cfg = ref.read(serverConfigProvider);
-    if (cfg == null || cfg.baseUrl.trim().isEmpty) {
+    final serverId = cfg?.activeServerId;
+    final lease = _connectionLease;
+    if (cfg == null ||
+        cfg.baseUrl.trim().isEmpty ||
+        serverId == null ||
+        lease == null ||
+        !lease.isActive ||
+        lease.serverId != serverId) {
       _scheduleReconnect();
       return;
     }
-    final token = await ref.read(authSessionRepositoryProvider).accessToken();
-    if (_disposed) return;
+    final token = await ref
+        .read(authSessionRepositoryProvider)
+        .forServer(serverId, allowLegacyMigration: false)
+        .accessToken();
+    if (!_ownsLease(lease)) return;
     final resolved = resolveServerUrl(cfg, '/ws/scheduler/status');
     final uri = Uri.parse(
       resolved,
     ).replace(scheme: Uri.parse(resolved).scheme == 'https' ? 'wss' : 'ws');
     final wsUrl = appendQueryToken(uri.toString(), token);
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      _subscription = _channel!.stream.listen(
-        _onMessage,
-        onError: (_, __) => _onDisconnect(),
-        onDone: _onDisconnect,
+      final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _channel = channel;
+      _subscription = channel.stream.listen(
+        (raw) {
+          if (_ownsLease(lease)) _onMessage(raw);
+        },
+        onError: (_, __) => _onDisconnect(lease),
+        onDone: () => _onDisconnect(lease),
         cancelOnError: false,
       );
       _reconnectAttempts = 0;
-      unawaited(_loadCurrentSnapshots());
+      unawaited(_loadCurrentSnapshots(lease));
       _pingTimer?.cancel();
       _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (!_ownsLease(lease)) return;
         try {
           _channel?.sink.add('{"type":"ping"}');
         } catch (_) {}
       });
     } catch (_) {
-      _scheduleReconnect();
+      if (_ownsLease(lease)) _scheduleReconnect();
     }
   }
 
@@ -420,8 +472,8 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     return stats;
   }
 
-  void _onDisconnect() {
-    if (_disposed) return;
+  void _onDisconnect(ServerConnectionLease lease) {
+    if (!_ownsLease(lease)) return;
     _subscription?.cancel();
     _subscription = null;
     try {
@@ -434,24 +486,32 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   void _scheduleReconnect() {
-    if (_disposed || _reconnectTimer != null) return;
+    final lease = _connectionLease;
+    if (!_ownsLease(lease) || _reconnectTimer != null) {
+      return;
+    }
     final exponent = _reconnectAttempts.clamp(0, 4);
     final seconds = (3 * (1 << exponent)).clamp(3, 30);
     _reconnectAttempts++;
     _reconnectTimer = Timer(Duration(seconds: seconds), () {
       _reconnectTimer = null;
-      _connectWs();
+      if (_ownsLease(lease)) _connectWs();
     });
   }
 
-  void _disposeResources() {
+  void _disposeResources(int resourceGeneration) {
+    if (resourceGeneration != _resourceGeneration) return;
     _disposed = true;
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _pingTimer?.cancel();
+    _pingTimer = null;
     _subscription?.cancel();
+    _subscription = null;
     try {
       _channel?.sink.close();
     } catch (_) {}
+    _channel = null;
   }
 
   bool _acceptCurrentSnapshot(TaskItem incoming) {
@@ -472,11 +532,11 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     return true;
   }
 
-  Future<void> _loadCurrentSnapshots() async {
+  Future<void> _loadCurrentSnapshots([ServerConnectionLease? lease]) async {
     try {
       if (_disposed || !ref.mounted) return;
       final raw = await ref.read(requiredApiClientProvider).tasks.list();
-      if (_disposed || !ref.mounted) return;
+      if (!_requestStillCurrent(lease) || !ref.mounted) return;
       if (raw is! Map || raw['success'] != true) return;
       final data = raw['data'];
       final items = data is Map && data['items'] is List
@@ -492,17 +552,27 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
   Future<void> _control(TaskItem task, String action, String fallback) async {
     if (_disposed || !ref.mounted) return;
+    final lease = _connectionLease;
     final raw = await ref
         .read(requiredApiClientProvider)
         .tasks
         .control(task.id, action);
-    if (_disposed || !ref.mounted) return;
+    if (!_requestStillCurrent(lease) || !ref.mounted) return;
     _ensureSuccess(raw, fallback);
     final data = raw is Map ? raw['data'] : null;
     if (data is Map) {
       updateFromSchedulerMessage(Map<String, dynamic>.from(data));
     }
   }
+
+  bool _ownsLease(ServerConnectionLease? lease) =>
+      !_disposed &&
+      lease != null &&
+      lease.isActive &&
+      identical(_connectionLease, lease);
+
+  bool _requestStillCurrent(ServerConnectionLease? lease) =>
+      lease == null ? !_disposed : _ownsLease(lease);
 }
 
 bool _isScanTask(TaskItem task) {

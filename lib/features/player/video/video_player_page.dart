@@ -12,6 +12,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../core/api/dio_factory.dart';
+import '../../../core/api/server_connection.dart';
 import '../../../core/api/url_resolver.dart';
 import '../../../core/auth/auth_session_provider.dart';
 import '../../../core/config/server_config.dart';
@@ -280,6 +281,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
 
   late final PlayerSessionController _host;
   late final FilePlaybackProgressRepository _filePlaybackProgress;
+  ServerConnectionLease? _connectionLease;
+  VoidCallback? _unregisterConnectionLease;
   final PlayerDeviceStatsReader _deviceStatsReader =
       const PlayerDeviceStatsReader();
 
@@ -378,6 +381,10 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
     );
+    _connectionLease = ref.read(serverConnectionProvider).lease;
+    _unregisterConnectionLease = _connectionLease?.register(
+      _handleServerConnectionCancelled,
+    );
     _filePlaybackProgress = FilePlaybackProgressRepository(
       ref.read(sharedPrefsProvider),
     );
@@ -460,6 +467,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   void dispose() {
     final wasLeaving = _isLeaving;
     _isLeaving = true;
+    _unregisterConnectionLease?.call();
+    _unregisterConnectionLease = null;
     _loadGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     if (_pictureInPictureActive || _pictureInPictureRequesting) {
@@ -689,8 +698,19 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       if (movieId == null) throw StateError('播放影片 ID 缺失');
       final source = ref.read(ommMediaSourceProvider);
       if (source == null) throw const SourceException('OMM 播放来源未就绪');
-      final token = await ref.read(authSessionRepositoryProvider).accessToken();
-      if (!mounted || generation != _loadGeneration) return;
+      final lease = _connectionLease;
+      if (lease == null ||
+          !lease.isActive ||
+          lease.serverId != cfg.activeServerId) {
+        throw const ServerConnectionClosedException();
+      }
+      final token = await ref
+          .read(authSessionRepositoryProvider)
+          .forServer(cfg.activeServerId, allowLegacyMigration: false)
+          .accessToken();
+      if (!mounted || generation != _loadGeneration || !lease.isActive) {
+        return;
+      }
 
       if (!_clientHardwareAcceleration && quality != null) {
         await _host.configure(hardwareAcceleration: true);
@@ -1247,14 +1267,41 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   Future<String> _fetchDirectSubtitle(String url) async {
-    final mediaHeaders = await mergeAppRequestHeaders(widget.directHeaders);
+    final lease = _connectionLease;
+    if (_isLeaving || lease?.isActive == false) {
+      throw const ServerConnectionClosedException();
+    }
     final dio = Dio();
     installAppUserAgentInterceptor(dio);
-    final response = await dio.get<List<int>>(
-      url,
-      options: Options(responseType: ResponseType.bytes, headers: mediaHeaders),
-    );
-    return utf8.decode(response.data ?? const <int>[], allowMalformed: true);
+    final unregister = lease?.register(() => dio.close(force: true));
+    try {
+      if (_isLeaving || lease?.isActive == false) {
+        throw const ServerConnectionClosedException();
+      }
+      final mediaHeaders = await mergeAppRequestHeaders(widget.directHeaders);
+      if (_isLeaving || lease?.isActive == false) {
+        throw const ServerConnectionClosedException();
+      }
+      final response = await dio.get<List<int>>(
+        url,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: mediaHeaders,
+        ),
+      );
+      if (_isLeaving || lease?.isActive == false) {
+        throw const ServerConnectionClosedException();
+      }
+      return utf8.decode(response.data ?? const <int>[], allowMalformed: true);
+    } on DioException {
+      if (_isLeaving || lease?.isActive == false) {
+        throw const ServerConnectionClosedException();
+      }
+      rethrow;
+    } finally {
+      unregister?.call();
+      dio.close(force: true);
+    }
   }
 
   Future<void> _onSubtitleChanged(playback_models.SubtitleTrack? track) async {
@@ -1269,10 +1316,19 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     final cfg = ref.read(serverConfigProvider);
     if (cfg == null) return;
     try {
+      final lease = _connectionLease;
+      if (lease == null ||
+          !lease.isActive ||
+          lease.serverId != cfg.activeServerId) {
+        return;
+      }
       final token = track == null
           ? null
-          : await ref.read(authSessionRepositoryProvider).accessToken();
-      if (!mounted || _isLeaving) return;
+          : await ref
+                .read(authSessionRepositoryProvider)
+                .forServer(cfg.activeServerId, allowLegacyMigration: false)
+                .accessToken();
+      if (!mounted || _isLeaving || !lease.isActive) return;
       final loaded = await _selectSubtitle(
         cfg,
         token,
@@ -1858,6 +1914,17 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     try {
       await _host.stop();
     } catch (_) {}
+  }
+
+  void _handleServerConnectionCancelled() {
+    if (_isLeaving) return;
+    _isLeaving = true;
+    _loadGeneration++;
+    _transcodeSessionActive = false;
+    _cancelTranscodeMonitoring();
+    _unbindProgress();
+    unawaited(_disposeQueueResources());
+    unawaited(_host.stop().catchError((_) {}));
   }
 
   Future<void> _disposePlayer() async {

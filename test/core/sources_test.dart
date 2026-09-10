@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -575,14 +576,28 @@ void _main_0() {
       final ommContainer = ProviderContainer(
         overrides: [
           requiredApiClientProvider.overrideWithValue(
-            ApiClient(Dio(), config: ommConfig),
+            ApiClient(
+              Dio(),
+              config: ommConfig,
+              connectionLease: ServerConnectionLease(
+                serverId: 'omm-server',
+                generation: 1,
+              ),
+            ),
           ),
         ],
       );
       final dboContainer = ProviderContainer(
         overrides: [
           requiredApiClientProvider.overrideWithValue(
-            ApiClient(Dio(), config: dboConfig),
+            ApiClient(
+              Dio(),
+              config: dboConfig,
+              connectionLease: ServerConnectionLease(
+                serverId: 'dbo-server',
+                generation: 1,
+              ),
+            ),
           ),
         ],
       );

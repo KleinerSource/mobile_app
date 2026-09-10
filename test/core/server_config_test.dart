@@ -1451,6 +1451,34 @@ void _main_4() {
     expect(results, hasLength(2));
   });
 
+  test('取消线路探测会立即结束挂起的默认请求', () async {
+    final requestStarted = Completer<void>();
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) {
+      if (!requestStarted.isCompleted) requestStarted.complete();
+      // 保持响应挂起，用于验证取消信号会主动终止 Dio 请求。
+    });
+    final line = ServerLine(
+      id: 'hanging',
+      name: '挂起线路',
+      baseUrl: 'http://${server.address.host}:${server.port}',
+    );
+    final cancellation = ServerLineProbeCancellation();
+
+    final resultFuture = ServerLineProbeCoordinator().probe(
+      line,
+      expectedProjectName: ServerProject.ohMyMedia.projectName,
+      cancellation: cancellation,
+    );
+    await requestStarted.future.timeout(const Duration(seconds: 1));
+    cancellation.cancel();
+    final result = await resultFuture.timeout(const Duration(seconds: 1));
+
+    expect(result.success, isFalse);
+    expect(result.message, contains('取消'));
+  });
+
   test('线路探测会拒绝与服务器项目不一致的线路', () async {
     final coordinator = ServerLineProbeCoordinator(
       probe: (line) async => ServerLineProbeResult.success(

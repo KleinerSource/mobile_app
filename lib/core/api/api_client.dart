@@ -6,6 +6,7 @@ import '../auth/auth_session_repository.dart';
 import '../auth/server_credentials_repository.dart';
 import '../config/server_config.dart';
 import 'dio_factory.dart';
+import 'server_connection.dart';
 import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
 import 'services/auth_api.dart';
 import 'server_compatibility.dart';
@@ -39,6 +40,7 @@ class ApiClient {
   ApiClient(
     this.dio, {
     this.config,
+    this.connectionLease,
     StashApiKeyRepository? stashApiKeyRepository,
     FutureOr<void> Function()? onStashApiKeyInvalid,
   }) : auth = AuthApi(dio),
@@ -72,6 +74,7 @@ class ApiClient {
          serverId: config?.activeServerId,
          apiKeyRepository: stashApiKeyRepository,
          onApiKeyInvalid: onStashApiKeyInvalid,
+         isRequestActive: () => connectionLease?.isActive ?? true,
        );
 
   factory ApiClient.fromConfig(
@@ -80,6 +83,7 @@ class ApiClient {
     StashApiKeyRepository? stashApiKeyRepository,
     void Function()? onSessionExpired,
     FutureOr<void> Function()? onStashApiKeyInvalid,
+    ServerConnectionLease? connectionLease,
   }) {
     final activeProject = config.activeServer?.project;
     // DBO/Emby/Jellyfin 只有 access token，不能参与 OMM 旧版全局令牌迁移。
@@ -87,10 +91,6 @@ class ApiClient {
         activeProject != ServerProject.dbOnline &&
         activeProject != ServerProject.emby &&
         activeProject != ServerProject.jellyfin;
-    sessionRepository?.setActiveServerId(
-      config.activeServerId,
-      allowLegacyMigration: allowLegacyMigration,
-    );
     final scopedSessionRepository = sessionRepository?.forServer(
       config.activeServerId,
       allowLegacyMigration: allowLegacyMigration,
@@ -100,8 +100,10 @@ class ApiClient {
         config,
         sessionRepository: scopedSessionRepository,
         onSessionExpired: onSessionExpired,
+        isRequestActive: () => connectionLease?.isActive ?? true,
       ),
       config: config,
+      connectionLease: connectionLease,
       stashApiKeyRepository: stashApiKeyRepository,
       onStashApiKeyInvalid: onStashApiKeyInvalid,
     );
@@ -109,6 +111,7 @@ class ApiClient {
 
   final Dio dio;
   final ServerConfig? config;
+  final ServerConnectionLease? connectionLease;
   final AuthApi auth;
   final SystemApi system;
   final TasksApi tasks;
@@ -136,6 +139,20 @@ class ApiClient {
   final FeiniuApi feiniu;
   final StashApi stash;
   final SystemExtendedApi systemExtended;
+  bool _closed = false;
+
+  bool get isActive =>
+      !_closed && (connectionLease == null || connectionLease!.isActive);
+
+  void ensureActive() {
+    if (!isActive) throw const ServerConnectionClosedException();
+  }
+
+  void close({bool force = true}) {
+    if (_closed) return;
+    _closed = true;
+    dio.close(force: force);
+  }
 
   /// 取 [config] 对应的 MediaBrowser（Emby/Jellyfin）API 实例。
   MediaBrowserApi mediaBrowserFor(MediaBrowserConfig config) =>

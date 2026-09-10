@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../auth/auth_session_repository.dart';
+import '../../api/server_connection.dart';
 import '../../config/server_config_provider.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
@@ -33,7 +34,21 @@ final fileSourceCredentialsRepositoryProvider =
 
 final fileSourceRegistryProvider =
     FutureProvider.autoDispose<FileSourceRegistry>((ref) async {
+      final registry = FileSourceRegistry(const []);
+      var buildDiscarded = false;
+      void Function()? unregisterLease;
+      ref.onDispose(() {
+        buildDiscarded = true;
+        unregisterLease?.call();
+        unawaited(registry.dispose());
+      });
+      final connection = ref.watch(serverConnectionProvider);
+      final lease = connection.lease;
       final activeServerId = ref.watch(serverConfigProvider)?.activeServerId;
+      if (!connection.accepts(activeServerId) || lease == null) {
+        return registry;
+      }
+      unregisterLease = lease.register(() => unawaited(registry.dispose()));
       // 配置必须从仓库直接读取，不能 watch fileSourceConfigsProvider：
       // 设置页保存后会 invalidate 它，若它在脏状态时被 watch，Riverpod 会在
       // 本次 build 内同步 flush 并立即 invalidate 本元素，随后调用
@@ -47,18 +62,10 @@ final fileSourceRegistryProvider =
           .where((config) => config.serverId == activeServerId)
           .toList(growable: false);
       final credentials = ref.watch(fileSourceCredentialsRepositoryProvider);
-      final registry = FileSourceRegistry(const []);
-      // onDispose 在任何 await 之前注册；buildDiscarded 用于释放重建竞争中
-      // 已完成连接但来不及注册的来源，避免连接泄漏。
-      var buildDiscarded = false;
-      ref.onDispose(() {
-        buildDiscarded = true;
-        unawaited(registry.dispose());
-      });
       try {
         for (final config in configs.where((item) => item.enabled)) {
           final source = await FileSourceConnector(credentials).connect(config);
-          if (buildDiscarded) {
+          if (buildDiscarded || !lease.isActive) {
             if (source case final SourceLifecycle lifecycle) {
               await lifecycle.dispose();
             }

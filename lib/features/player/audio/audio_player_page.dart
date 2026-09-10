@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/api/server_connection.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 import '../common/player_overlay_indicators.dart';
@@ -99,6 +100,8 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   late final PlayerSessionController _host;
   late final List<PlayerQueueItem> _audioQueue;
   AudioMetadataCoordinator? _metadataCoordinator;
+  ServerConnectionLease? _connectionLease;
+  VoidCallback? _unregisterConnectionLease;
 
   bool _loading = true;
   String? _error;
@@ -123,6 +126,10 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         .toList(growable: false);
     _engine = AudioPlaybackEngine(handler: AudioPlaybackService.handler);
     _host = PlayerSessionController(engine: _engine);
+    _connectionLease = ref.read(serverConnectionProvider).lease;
+    _unregisterConnectionLease = _connectionLease?.register(
+      _handleServerConnectionCancelled,
+    );
     final loader = widget.audioMetadataLoader;
     if (loader != null) {
       _metadataCoordinator = AudioMetadataCoordinator(loader: loader);
@@ -275,6 +282,17 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     await _host.dispose();
   }
 
+  void _handleServerConnectionCancelled() {
+    if (_leaving) return;
+    _leaving = true;
+    _loadGeneration++;
+    unawaited(_metadataCoordinator?.dispose());
+    // 资源回调与播放器停止均在 lease 取消的同步调用栈内启动，避免远端
+    // 音频流、回环代理或仍在加载的队列继续挂起。
+    unawaited(_disposeQueueResources());
+    unawaited(_stopPlayback());
+  }
+
   Future<void> _exitPlayer() async {
     if (_leaving) return;
     _leaving = true;
@@ -288,6 +306,8 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   @override
   void dispose() {
     _leaving = true;
+    _unregisterConnectionLease?.call();
+    _unregisterConnectionLease = null;
     _loadGeneration++;
     _host.removeListener(_onPlaybackStateChanged);
     unawaited(_metadataCoordinator?.dispose());

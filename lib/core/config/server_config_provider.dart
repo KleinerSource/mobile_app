@@ -39,6 +39,8 @@ final serverSelectionRouteActiveProvider = StateProvider<bool>((ref) => false);
 
 class ServerConfigNotifier extends Notifier<ServerConfig?> {
   Future<void> _configWriteQueue = Future<void>.value();
+  int _serverSelectionGeneration = 0;
+  ServerLineProbeCancellation? _serverSelectionCancellation;
 
   @override
   ServerConfig? build() {
@@ -115,7 +117,33 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     state = repository.load();
   }
 
-  Future<void> selectServer(String serverId) async {
+  int beginServerSelection() {
+    _serverSelectionCancellation?.cancel();
+    _serverSelectionCancellation = ServerLineProbeCancellation();
+    return ++_serverSelectionGeneration;
+  }
+
+  void cancelServerSelection(int ticket) {
+    if (ticket == _serverSelectionGeneration) {
+      _serverSelectionCancellation?.cancel();
+      _serverSelectionCancellation = null;
+      _serverSelectionGeneration++;
+    }
+  }
+
+  bool _isServerSelectionCurrent(int ticket) =>
+      ticket == _serverSelectionGeneration;
+
+  void _requireCurrentServerSelection(int ticket) {
+    if (!_isServerSelectionCurrent(ticket)) {
+      throw const ServerSelectionCancelledException();
+    }
+  }
+
+  Future<void> selectServer(String serverId, {int? ticket}) async {
+    final selectionTicket = ticket ?? beginServerSelection();
+    _requireCurrentServerSelection(selectionTicket);
+    final probeCancellation = _serverSelectionCancellation;
     final current = state ?? ref.read(serverConfigRepoProvider).load();
     if (current == null) return;
     final server = current.servers.firstWhere(
@@ -124,7 +152,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     );
 
     if (server.project?.isFileSource == true) {
-      await saveServer(server, select: true);
+      await _enqueueConfigWrite(() async {
+        _requireCurrentServerSelection(selectionTicket);
+        await _saveServerNow(server, select: true, validatedProbe: null);
+        _requireCurrentServerSelection(selectionTicket);
+      });
       ref.read(serverSelectionReadyProvider.notifier).state = true;
       return;
     }
@@ -143,7 +175,9 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
           current: currentLine,
           alternatives: candidates.where((line) => line.id != currentLine.id),
           expectedProjectName: server.projectName,
+          cancellation: probeCancellation,
         );
+    _requireCurrentServerSelection(selectionTicket);
     final selected = selection.selected;
     if (selected == null) {
       final message = _lineSelectionFailureMessage(selection);
@@ -164,16 +198,36 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
               : line,
         )
         .toList();
-    await saveServer(
-      server.copyWith(
-        lines: testedLines,
-        activeLineId: selected.line.id,
-        serverVersion: selected.versionInfo?.version ?? server.serverVersion,
-      ),
-      select: true,
-      validatedProbe: selected,
+    final selectedServer = server.copyWith(
+      lines: testedLines,
+      activeLineId: selected.line.id,
+      serverVersion: selected.versionInfo?.version ?? server.serverVersion,
     );
+    await _enqueueConfigWrite(() async {
+      _requireCurrentServerSelection(selectionTicket);
+      await _saveServerNow(
+        selectedServer,
+        select: true,
+        validatedProbe: selected,
+      );
+      _requireCurrentServerSelection(selectionTicket);
+    });
     ref.read(serverSelectionReadyProvider.notifier).state = true;
+  }
+
+  /// 取消切换后恢复已经验证过的原服务器，不再发起一次可能挂起的线路探测。
+  Future<void> restoreServer(String serverId, {required int ticket}) {
+    return _enqueueConfigWrite(() async {
+      _requireCurrentServerSelection(ticket);
+      final current = state ?? ref.read(serverConfigRepoProvider).load();
+      if (current == null) return;
+      final server = current.servers.firstWhere(
+        (item) => item.id == serverId,
+        orElse: () => throw StateError('原服务器不存在，无法恢复'),
+      );
+      await _saveServerNow(server, select: true, validatedProbe: null);
+      _requireCurrentServerSelection(ticket);
+    });
   }
 
   Future<void> saveServer(
@@ -626,6 +680,13 @@ final serverConfigProvider =
     NotifierProvider<ServerConfigNotifier, ServerConfig?>(
       ServerConfigNotifier.new,
     );
+
+class ServerSelectionCancelledException implements Exception {
+  const ServerSelectionCancelledException();
+
+  @override
+  String toString() => '服务器选择操作已取消';
+}
 
 /// 选择器展示用配置：服务器运行态被卸载时回退到本地保存的配置。
 final serverSelectionConfigProvider = Provider<ServerConfig?>((ref) {

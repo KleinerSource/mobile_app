@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
@@ -247,5 +248,32 @@ void main() {
     // dispose 幂等，不重复上报。
     await session.dispose();
     expect(source.playbackStops.length, 2);
+  });
+
+  test('服务器 lease 失效后释放音频会话但不向旧服务器上报停止', () async {
+    final source = _FakeMediaBrowserSource();
+    final handler = audio_service.BaseAudioHandler();
+    final lease = ServerConnectionLease(serverId: 'server-a', generation: 1);
+    final session = MediaBrowserAudioQueueSession(
+      tracks: [_track('t1')],
+      urls: _urls(),
+      repository: MediaBrowserMediaRepository(source),
+      connectionLease: lease,
+      playbackHandler: handler,
+    );
+    session.startPlaybackReports();
+    handler.mediaItem.add(
+      audio_service.MediaItem(
+        id: session.queue.single.safeMediaId,
+        title: session.queue.single.title,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(source.playbackStarts, ['t1']);
+
+    lease.cancel();
+    await session.dispose();
+
+    expect(source.playbackStops, isEmpty);
   });
 }

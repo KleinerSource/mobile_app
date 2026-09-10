@@ -14,6 +14,7 @@ import 'api_exception.dart';
 import 'envelope.dart';
 import 'error_mapper.dart';
 import 'server_compatibility.dart';
+import 'server_connection.dart';
 
 Dio buildDio(
   ServerConfig config, {
@@ -23,6 +24,7 @@ Dio buildDio(
   Duration sendTimeout = const Duration(seconds: 30),
   Duration receiveTimeout = const Duration(seconds: 30),
   ServerProject? projectOverride,
+  bool Function()? isRequestActive,
 }) {
   // Emby/Jellyfin 的 REST 接口挂在根路径下，没有 OMM 的 /api 网关。
   final project = projectOverride ?? config.activeServer?.project;
@@ -52,9 +54,11 @@ Dio buildDio(
   Future<bool>? refreshInFlight;
 
   Future<bool> refreshAccessToken() async {
+    if (isRequestActive?.call() == false) return false;
     final repository = sessionRepository;
     if (repository == null) return false;
     final current = await repository.current();
+    if (isRequestActive?.call() == false) return false;
     if (current == null || current.refreshToken.isEmpty) return false;
 
     final refreshRequest = dio.post<dynamic>(
@@ -65,14 +69,16 @@ Dio buildDio(
       ),
     );
     final response = await refreshRequest;
+    if (isRequestActive?.call() == false) return false;
     final session = unwrapStd<AuthSession>(
       response.data,
       (data) => AuthSession.fromJson(Map<String, dynamic>.from(data as Map)),
     );
     if (!session.isUsable) {
-      await repository.clear();
+      if (isRequestActive?.call() != false) await repository.clear();
       return false;
     }
+    if (isRequestActive?.call() == false) return false;
     await repository.save(session);
     return true;
   }
@@ -90,9 +96,23 @@ Dio buildDio(
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
+        if (isRequestActive?.call() == false) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.cancel,
+              error: const ServerConnectionClosedException(),
+            ),
+          );
+          return;
+        }
         AuthSession? session;
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
           session = await sessionRepository.current();
+          if (isRequestActive?.call() == false) {
+            handler.reject(_connectionClosedError(options));
+            return;
+          }
           final token = session?.accessToken;
           if (token != null && token.isNotEmpty) {
             if (isFeiniu) {
@@ -153,6 +173,10 @@ Dio buildDio(
         handler.next(resp);
       },
       onError: (error, handler) async {
+        if (isRequestActive?.call() == false) {
+          handler.next(_connectionClosedError(error.requestOptions));
+          return;
+        }
         final options = error.requestOptions;
         final status =
             error.response?.statusCode ??
@@ -171,8 +195,16 @@ Dio buildDio(
             !_isAuthPath(options.path);
 
         if (canRefresh && await refreshOnce()) {
+          if (isRequestActive?.call() == false) {
+            handler.next(_connectionClosedError(options));
+            return;
+          }
           options.extra['authRetried'] = true;
           final token = await sessionRepository.accessToken();
+          if (isRequestActive?.call() == false) {
+            handler.next(_connectionClosedError(options));
+            return;
+          }
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -186,13 +218,20 @@ Dio buildDio(
           }
         }
 
+        if (isRequestActive?.call() == false) {
+          handler.next(_connectionClosedError(options));
+          return;
+        }
+
         if (status == 401 &&
             sessionRepository != null &&
             options.extra['skipAuth'] != true &&
             options.extra['skipSessionExpiry'] != true &&
             !_isAuthPath(options.path)) {
-          await sessionRepository.clear();
-          onSessionExpired?.call();
+          if (isRequestActive?.call() != false) {
+            await sessionRepository.clear();
+            if (isRequestActive?.call() != false) onSessionExpired?.call();
+          }
         }
         handler.next(_withMappedError(error));
       },
@@ -209,6 +248,7 @@ Dio buildDio(
         Duration(seconds: 2),
       ],
       retryEvaluator: (error, attempt) {
+        if (isRequestActive?.call() == false) return false;
         final method = error.requestOptions.method.toUpperCase();
         if (method != 'GET') return false;
         if (error.requestOptions.extra['skipRetry'] == true) return false;
@@ -246,7 +286,10 @@ bool _isAuthPath(String path) {
 }
 
 DioException _withMappedError(DioException error) {
-  if (error.error is ApiException) return error;
+  if (error.error is ApiException ||
+      error.error is ServerConnectionClosedException) {
+    return error;
+  }
   return DioException(
     requestOptions: error.requestOptions,
     response: error.response,
@@ -255,13 +298,27 @@ DioException _withMappedError(DioException error) {
   );
 }
 
+DioException _connectionClosedError(RequestOptions options) => DioException(
+  requestOptions: options,
+  type: DioExceptionType.cancel,
+  error: const ServerConnectionClosedException(),
+);
+
 ApiException toApiException(Object error) {
   // Riverpod 3 会把 provider 抛出的异常包装成 ProviderException，其 toString()
   // 带完整堆栈，直接展示会撑爆错误页。先剥回原始异常再归一化。
   if (error is ProviderException) return toApiException(error.exception);
   if (error is ApiException) return error;
+  if (error is ServerConnectionClosedException) {
+    return ApiException(error.message);
+  }
   if (error is DioException) {
     if (error.error is ApiException) return error.error as ApiException;
+    if (error.error is ServerConnectionClosedException) {
+      return ApiException(
+        (error.error as ServerConnectionClosedException).message,
+      );
+    }
     return mapDioError(error);
   }
   return ApiException(error.toString());

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -91,23 +92,34 @@ final imageUrlBuilderProvider = Provider<String Function(String uuid)>((ref) {
 
 final movieDetailProvider = FutureProvider.autoDispose.family<MovieDetail, int>(
   (ref, id) async {
-    return ref.read(mediaRepositoryProvider).detail(id);
+    return ref.watch(mediaRepositoryProvider).detail(id);
   },
 );
 
 /// 影片详情页使用完整观看记录，获取服务端保存的精确续播秒数。
 final movieWatchRecordProvider = FutureProvider.autoDispose
     .family<WatchRecord?, int>((ref, id) async {
-      return ref.read(mediaRepositoryProvider).watchRecord(id);
+      return ref.watch(mediaRepositoryProvider).watchRecord(id);
     });
 
 final extraFanartsProvider = FutureProvider.autoDispose
     .family<List<String>, int>((ref, id) async {
-      final rawUrls = await ref.read(mediaRepositoryProvider).extraFanarts(id);
-      final config = ref.read(serverConfigProvider);
+      final config = ref.watch(serverConfigProvider);
+      final connection = ref.watch(serverConnectionProvider);
+      final lease = connection.lease;
+      final rawUrls = await ref.watch(mediaRepositoryProvider).extraFanarts(id);
       if (config == null) return rawUrls;
+      if (lease == null || !connection.accepts(config.activeServerId)) {
+        throw const ServerConnectionClosedException();
+      }
 
-      final token = await ref.read(authSessionRepositoryProvider).accessToken();
+      final token = await ref
+          .read(authSessionRepositoryProvider)
+          .forServer(config.activeServerId, allowLegacyMigration: false)
+          .accessToken();
+      if (!ref.read(serverConnectionProvider).owns(lease)) {
+        throw const ServerConnectionClosedException();
+      }
       final revision = ref.watch(imageCacheRevisionProvider);
       return rawUrls
           .map((url) => resolveProtectedUrl(config, url, token))
@@ -117,12 +129,12 @@ final extraFanartsProvider = FutureProvider.autoDispose
 
 final mediaInfoProvider = FutureProvider.autoDispose
     .family<MediaInfoDetail?, int>((ref, id) async {
-      return ref.read(mediaRepositoryProvider).mediaInfoDetail(id);
+      return ref.watch(mediaRepositoryProvider).mediaInfoDetail(id);
     });
 
 final previewStatusProvider = FutureProvider.autoDispose
     .family<PreviewStatus, int>((ref, id) async {
-      return ref.read(mediaRepositoryProvider).previewStatus(id);
+      return ref.watch(mediaRepositoryProvider).previewStatus(id);
     });
 
 /// 详情页只需要展示已生成的预览视频，不读取任务进度或其它资产状态。
@@ -131,13 +143,28 @@ final previewVideoUrlProvider = FutureProvider.autoDispose.family<String?, int>(
   (ref, id) async {
     final config = ref.watch(serverConfigProvider);
     if (config?.isOmm != true) return null;
+    final activeConfig = config!;
+    final connection = ref.watch(serverConnectionProvider);
+    final lease = connection.lease;
+    if (lease == null || !connection.accepts(activeConfig.activeServerId)) {
+      throw const ServerConnectionClosedException();
+    }
 
     final status = await ref.watch(previewStatusProvider(id).future);
+    if (!ref.read(serverConnectionProvider).owns(lease)) {
+      throw const ServerConnectionClosedException();
+    }
     final asset = status.assets['video'];
     final rawUrl = asset?.url.trim() ?? '';
     if (asset?.ready != true || rawUrl.isEmpty) return null;
 
-    final token = await ref.read(authSessionRepositoryProvider).accessToken();
-    return resolveProtectedUrl(config!, rawUrl, token);
+    final token = await ref
+        .read(authSessionRepositoryProvider)
+        .forServer(activeConfig.activeServerId, allowLegacyMigration: false)
+        .accessToken();
+    if (!ref.read(serverConnectionProvider).owns(lease)) {
+      throw const ServerConnectionClosedException();
+    }
+    return resolveProtectedUrl(activeConfig, rawUrl, token);
   },
 );

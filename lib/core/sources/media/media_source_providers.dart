@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/providers.dart';
+import '../../api/server_connection.dart';
 import '../../api/server_compatibility.dart';
 import '../../auth/auth_session_provider.dart';
 import '../common/source_id.dart';
@@ -28,8 +29,17 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
   // 本元素，之后再注册 onDispose 会抛
   // "Cannot call onDispose after a provider was dispose"。
   final registry = MediaSourceRegistry(const []);
-  ref.onDispose(() => unawaited(registry.dispose()));
+  void Function()? unregisterLease;
+  ref.onDispose(() {
+    unregisterLease?.call();
+    unawaited(registry.dispose());
+  });
   final client = ref.watch(requiredApiClientProvider);
+  final lease = client.connectionLease;
+  if (lease == null || !lease.isActive) {
+    throw const ServerConnectionClosedException();
+  }
+  unregisterLease = lease.register(() => unawaited(registry.dispose()));
   final project = client.config?.activeServer?.project;
   final MediaSource source;
   if (project == ServerProject.dbOnline) {
@@ -43,14 +53,24 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project]!;
     source = MediaBrowserMediaSourceAdapter(
       client.mediaBrowserFor(mediaBrowserConfig),
-      sessionRepository: ref.read(authSessionRepositoryProvider),
+      sessionRepository: ref
+          .read(authSessionRepositoryProvider)
+          .forServer(
+            client.config?.activeServerId,
+            allowLegacyMigration: false,
+          ),
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
     );
   } else if (project == ServerProject.feiniu) {
     source = FeiniuMediaSourceAdapter(
       client.feiniu,
-      sessionRepository: ref.read(authSessionRepositoryProvider),
+      sessionRepository: ref
+          .read(authSessionRepositoryProvider)
+          .forServer(
+            client.config?.activeServerId,
+            allowLegacyMigration: false,
+          ),
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
     );
