@@ -771,12 +771,17 @@ class MovieRelatedSection extends StatelessWidget {
             title.toUpperCase().startsWith(prefix.toUpperCase())
         ? title.substring(prefix.length).trimLeft()
         : title;
+    return normalizedTitle;
+  }
+
+  String? _titlePrefix(RelatedMovie item) {
+    final num = item.num?.trim() ?? '';
+    return num.isEmpty ? null : '[$num]';
+  }
+
+  String? _titleSuffix(RelatedMovie item) {
     final part = item.moviePart?.trim().toUpperCase() ?? '';
-    return [
-      if (prefix.isNotEmpty) prefix,
-      if (normalizedTitle.isNotEmpty) normalizedTitle,
-      if (part.isNotEmpty) '· $part',
-    ].join(' ');
+    return part.isEmpty ? null : '· $part';
   }
 
   MovieListItem _toMovieListItem(RelatedMovie item) {
@@ -830,6 +835,8 @@ class MovieRelatedSection extends StatelessWidget {
                     movie: _toMovieListItem(related),
                     posterUrlBuilder: urlBuilder,
                     onTap: () => onMovieTap(related),
+                    titlePrefix: _titlePrefix(related),
+                    titleSuffix: _titleSuffix(related),
                   ),
                 );
               },

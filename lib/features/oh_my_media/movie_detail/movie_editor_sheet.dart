@@ -458,30 +458,22 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                       widget.movie.partMovies.isNotEmpty) ...[
                     _label(
                       l.movieEditorQuickActions,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.movie.partMovies.isNotEmpty)
-                            _syncPartsCapsule(l, partNames),
-                          if (_flagUpdating) ...[
-                            const SizedBox(width: 8),
-                            const SizedBox(
+                      trailing: _flagUpdating
+                          ? const SizedBox(
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ],
-                        ],
-                      ),
+                            )
+                          : null,
                     ),
-                    if (_fanartUrl != null) ...[
-                      const SizedBox(height: 4),
-                      IgnorePointer(
-                        ignoring: _flagUpdating,
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
+                    const SizedBox(height: 4),
+                    IgnorePointer(
+                      ignoring: _flagUpdating,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (_fanartUrl != null) ...[
                             CapsuleSelect(
                               label: l.movieFlagSubtitle,
                               value: _subtitleMode,
@@ -519,38 +511,39 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                               onChanged: (v) => unawaited(_changeResolution(v)),
                             ),
                           ],
-                        ),
+                          if (widget.movie.partMovies.isNotEmpty)
+                            _syncPartsCapsule(l, partNames),
+                        ],
                       ),
-                      // 全部“未设置”时不加载裁剪器，避免进入编辑页就触发裁剪逻辑。
-                      if (_anyFlagSelected) ...[
-                        const SizedBox(height: 12),
-                        _label(l.movieEditorFanartCrop),
-                        const SizedBox(height: 4),
-                        PosterCropController(
-                          movieId: widget.movie.id,
-                          fanartUrl: _fanartUrl!,
-                          cropOffset: _cropOffset,
-                          subtitle: _subtitleMode.isEmpty
-                              ? null
-                              : _subtitleMode == 'sub',
-                          exsub: _subtitleMode.isEmpty
-                              ? null
-                              : _subtitleMode == 'exsub',
-                          crack: _crackMode.isEmpty
-                              ? null
-                              : _crackMode == 'crack',
-                          resolution: _resolutionMode.isEmpty
-                              ? null
-                              : _resolutionMode,
-                          onChanged: (v) {
-                            setState(() {
-                              _cropOffset = v;
-                              _cropDirty = true;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 18),
-                      ],
+                    ),
+                    if (_fanartUrl != null && _anyFlagSelected) ...[
+                      const SizedBox(height: 12),
+                      _label(l.movieEditorFanartCrop),
+                      const SizedBox(height: 4),
+                      PosterCropController(
+                        movieId: widget.movie.id,
+                        fanartUrl: _fanartUrl!,
+                        cropOffset: _cropOffset,
+                        subtitle: _subtitleMode.isEmpty
+                            ? null
+                            : _subtitleMode == 'sub',
+                        exsub: _subtitleMode.isEmpty
+                            ? null
+                            : _subtitleMode == 'exsub',
+                        crack: _crackMode.isEmpty
+                            ? null
+                            : _crackMode == 'crack',
+                        resolution: _resolutionMode.isEmpty
+                            ? null
+                            : _resolutionMode,
+                        onChanged: (v) {
+                          setState(() {
+                            _cropOffset = v;
+                            _cropDirty = true;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 18),
                     ],
                   ],
 
@@ -782,7 +775,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   Widget _syncPartsCapsule(AppL10n l, String partNames) {
     final c = appColors(context);
     final disabled = _saving || _flagUpdating;
-    final title = l.movieEditorSyncParts(widget.movie.partMovies.length);
+    final title = l.movieEditorSyncPartsLabel;
+    final count = l.movieEditorSyncPartsCount(widget.movie.partMovies.length);
     final hint = partNames.isEmpty
         ? null
         : l.movieEditorSyncPartsHint(partNames);
@@ -840,18 +834,17 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                           fontSize: 11,
                         ),
                       ),
-                      if (hint != null)
-                        Text(
-                          hint,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: disabled ? c.muted : c.muted2,
-                            fontFamily: 'Inter',
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      Text(
+                        count,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: disabled ? c.muted : c.muted2,
+                          fontFamily: 'Inter',
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w500,
                         ),
+                      ),
                     ],
                   ),
                 ),

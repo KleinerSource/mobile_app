@@ -2275,6 +2275,9 @@
   ,"@movieEditorQuickActionFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"movieEditorSyncParts": "同步到 {count} 个分卷"
   ,"@movieEditorSyncParts": {"placeholders":{"count":{"type":"int"}}}
+  ,"movieEditorSyncPartsLabel": "同步到分卷"
+  ,"movieEditorSyncPartsCount": "分卷数量: {count}"
+  ,"@movieEditorSyncPartsCount": {"placeholders":{"count":{"type":"int"}}}
   ,"movieEditorSyncPartsHint": "分卷：{parts}"
   ,"@movieEditorSyncPartsHint": {"placeholders":{"parts":{"type":"String"}}}
   ,"movieEditorBatchTranslating": "批量翻译中"

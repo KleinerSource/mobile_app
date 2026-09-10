@@ -12000,6 +12000,18 @@ abstract class AppL10n {
   /// **'同步到 {count} 个分卷'**
   String movieEditorSyncParts(int count);
 
+  /// No description provided for @movieEditorSyncPartsLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步到分卷'**
+  String get movieEditorSyncPartsLabel;
+
+  /// No description provided for @movieEditorSyncPartsCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'分卷数量: {count}'**
+  String movieEditorSyncPartsCount(int count);
+
   /// No description provided for @movieEditorSyncPartsHint.
   ///
   /// In zh, this message translates to:

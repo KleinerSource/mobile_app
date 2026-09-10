@@ -6527,6 +6527,14 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get movieEditorSyncPartsLabel => '同步到分卷';
+
+  @override
+  String movieEditorSyncPartsCount(int count) {
+    return '分卷数量: $count';
+  }
+
+  @override
   String movieEditorSyncPartsHint(String parts) {
     return '分卷：$parts';
   }

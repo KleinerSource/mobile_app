@@ -6643,6 +6643,14 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get movieEditorSyncPartsLabel => 'Sync to parts';
+
+  @override
+  String movieEditorSyncPartsCount(int count) {
+    return 'Part count: $count';
+  }
+
+  @override
   String movieEditorSyncPartsHint(String parts) {
     return 'Parts: $parts';
   }

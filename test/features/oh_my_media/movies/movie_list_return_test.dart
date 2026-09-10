@@ -197,8 +197,9 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('同步到 1 个分卷'), findsOneWidget);
-          expect(find.text('分卷：CD2'), findsOneWidget);
+          expect(find.text('同步到分卷'), findsOneWidget);
+          expect(find.text('分卷数量: 1'), findsOneWidget);
+          expect(find.byTooltip('同步到分卷 · 分卷：CD2'), findsOneWidget);
           expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
           await tester.enterText(find.byType(TextField).first, '已编辑影片');
           await tester.tap(find.text('保存'));

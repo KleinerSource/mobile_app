@@ -50,6 +50,8 @@ class MovieCard extends ConsumerWidget {
     this.landscape = false,
     this.landscapeOverlay,
     this.landscapeOverlayTopRightIndicator,
+    this.titlePrefix,
+    this.titleSuffix,
   });
 
   final MovieListItem movie;
@@ -60,6 +62,8 @@ class MovieCard extends ConsumerWidget {
   final bool selectionMode;
   final bool selected;
   final bool landscape;
+  final String? titlePrefix;
+  final String? titleSuffix;
 
   /// 横版海报上的覆盖层，尺寸与海报内容完全一致并受卡片裁剪约束。
   final Widget? landscapeOverlay;
@@ -281,6 +285,8 @@ class MovieCard extends ConsumerWidget {
     );
     final info = _MediaCardInfo(
       title: restricted ? l.movieCardRestricted : movie.title,
+      titlePrefix: restricted ? null : titlePrefix,
+      titleSuffix: restricted ? null : titleSuffix,
       meta: restricted ? '' : _meta(l, movie),
       privacyId: movie.id,
       showMeta: !restricted && (movie.year != null || movie.runtime != null),
@@ -322,6 +328,8 @@ class _MediaCardInfo extends StatelessWidget {
     required this.title,
     required this.meta,
     this.code,
+    this.titlePrefix,
+    this.titleSuffix,
     this.privacyId,
     this.showTitle = true,
     this.showMeta = true,
@@ -330,6 +338,8 @@ class _MediaCardInfo extends StatelessWidget {
 
   final String title;
   final String? code;
+  final String? titlePrefix;
+  final String? titleSuffix;
   final String meta;
   final Object? privacyId;
   final bool showTitle;
@@ -342,6 +352,8 @@ class _MediaCardInfo extends StatelessWidget {
     final hasCode = code?.isNotEmpty == true;
     final titleText = title.trim().isEmpty ? '—' : title.trim();
     final displayTitle = hasCode ? '[${code!}] $titleText' : titleText;
+    final fixedPrefix = titlePrefix?.trim() ?? '';
+    final fixedSuffix = titleSuffix?.trim() ?? '';
 
     Widget privacyText({
       required String text,
@@ -366,6 +378,30 @@ class _MediaCardInfo extends StatelessWidget {
       );
     }
 
+    Widget titleWidget(TextStyle style) {
+      if (fixedPrefix.isEmpty && fixedSuffix.isEmpty) {
+        return privacyText(
+          text: displayTitle,
+          style: style,
+          maxLines: MediaCardTemplate.titleMaxLines,
+        );
+      }
+      return LayoutBuilder(
+        builder: (context, constraints) => privacyText(
+          text: _fitMovieCardTitle(
+            context: context,
+            title: titleText,
+            prefix: fixedPrefix,
+            suffix: fixedSuffix,
+            style: style,
+            maxWidth: constraints.maxWidth,
+          ),
+          style: style,
+          maxLines: MediaCardTemplate.titleMaxLines,
+        ),
+      );
+    }
+
     if (!showTitle && !showMeta) {
       return hasCode
           ? privacyText(
@@ -381,11 +417,7 @@ class _MediaCardInfo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showTitle)
-          privacyText(
-            text: displayTitle,
-            style: titleStyle ?? AppText.movieCardTitle(context),
-            maxLines: MediaCardTemplate.titleMaxLines,
-          )
+          titleWidget(titleStyle ?? AppText.movieCardTitle(context))
         else if (hasCode)
           privacyText(
             text: '[${code!}]',
@@ -403,6 +435,58 @@ class _MediaCardInfo extends StatelessWidget {
       ],
     );
   }
+}
+
+String _fitMovieCardTitle({
+  required BuildContext context,
+  required String title,
+  required String prefix,
+  required String suffix,
+  required TextStyle style,
+  required double maxWidth,
+}) {
+  String compose(String value, {bool ellipsized = false}) => [
+    if (prefix.isNotEmpty) prefix,
+    if (value.isNotEmpty || ellipsized) '$value${ellipsized ? '…' : ''}',
+    if (suffix.isNotEmpty) suffix,
+  ].join(' ');
+
+  if (!maxWidth.isFinite || maxWidth <= 0) return compose(title);
+
+  bool fits(String value) {
+    final painter = TextPainter(
+      text: TextSpan(text: value, style: style),
+      maxLines: MediaCardTemplate.titleMaxLines,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+    )..layout(maxWidth: maxWidth);
+    final result = !painter.didExceedMaxLines;
+    painter.dispose();
+    return result;
+  }
+
+  final fullTitle = compose(title);
+  if (fits(fullTitle)) return fullTitle;
+
+  final codePoints = title.runes.toList(growable: false);
+  var lower = 0;
+  var upper = codePoints.length;
+  var fitted = compose('', ellipsized: true);
+  while (lower <= upper) {
+    final middle = (lower + upper) ~/ 2;
+    final candidateTitle = String.fromCharCodes(
+      codePoints.sublist(0, middle),
+    ).trimRight();
+    final candidate = compose(candidateTitle, ellipsized: true);
+    if (fits(candidate)) {
+      fitted = candidate;
+      lower = middle + 1;
+    } else {
+      upper = middle - 1;
+    }
+  }
+  return fitted;
 }
 
 /// 外部数据源影片卡片的共享渲染层。

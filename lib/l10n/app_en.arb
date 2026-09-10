@@ -2275,6 +2275,9 @@
   ,"@movieEditorQuickActionFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"movieEditorSyncParts": "Sync to {count} other parts"
   ,"@movieEditorSyncParts": {"placeholders":{"count":{"type":"int"}}}
+  ,"movieEditorSyncPartsLabel": "Sync to parts"
+  ,"movieEditorSyncPartsCount": "Part count: {count}"
+  ,"@movieEditorSyncPartsCount": {"placeholders":{"count":{"type":"int"}}}
   ,"movieEditorSyncPartsHint": "Parts: {parts}"
   ,"@movieEditorSyncPartsHint": {"placeholders":{"parts":{"type":"String"}}}
   ,"movieEditorBatchTranslating": "Translating all fields"

@@ -63,7 +63,7 @@ void main() {
                   RelatedMovie(id: 7, title: '当前影片', moviePart: 'cd1'),
                   RelatedMovie(
                     id: 8,
-                    title: '[ABC-001] 第二片',
+                    title: '[ABC-001] 小恶魔姐妹花学生妹在校内穿着制服参加课外活动的超长影片名称',
                     num: 'ABC-001',
                     moviePart: ' cd2 ',
                     year: 2024,
@@ -82,7 +82,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('分片关联'), findsOneWidget);
-    expect(find.text('[ABC-001] 第二片 · CD2'), findsWidgets);
+    final visiblePartTitle = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((widget) => widget.data)
+        .whereType<String>()
+        .singleWhere((text) => text.startsWith('[ABC-001]'));
+    expect(visiblePartTitle, contains('…'));
+    expect(visiblePartTitle, endsWith('· CD2'));
     expect(find.textContaining('[ABC-001 CD2]'), findsNothing);
     expect(find.text('当前影片'), findsNothing);
     expect(find.text('重复项'), findsNothing);
