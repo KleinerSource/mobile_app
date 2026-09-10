@@ -130,7 +130,7 @@ class ScanTasksNotifier extends Notifier<List<TrackedScan>> {
 }
 
 bool _isLibraryScan(TaskItem task) {
-  return task.name.contains('扫描') && task.name != '资源扫描';
+  return task.taskType == 'library_scan';
 }
 
 bool _matches(TaskItem task, TrackedScan tracked) {

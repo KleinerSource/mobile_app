@@ -10,9 +10,6 @@ import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/library.dart';
-import 'package:omm/core/models/preview.dart';
-import 'package:omm/features/oh_my_media/audio/audio_providers.dart';
-import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'task_model.dart';
 
 /// 所有后台任务的统一状态源。
@@ -92,31 +89,10 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   void updateFromSchedulerMessage(Map<String, dynamic> message) {
-    if (message['type'] == 'preview_task' &&
-        ref.read(serverConfigProvider)?.isOmm != true) {
-      return;
-    }
-    if (message['type'] != 'scheduler_status' &&
-        message['type'] != 'preview_task') {
-      return;
-    }
+    if (message['type'] != 'scheduler_status') return;
     final task = TaskItem.fromSchedulerMessage(message);
-    if (task.id.isEmpty) return;
+    if (task.id.isEmpty || !_acceptCurrentSnapshot(task)) return;
     _upsert(task);
-  }
-
-  /// 生成接口返回任务后立即登记，避免 WebSocket 首条消息晚于页面反馈。
-  void registerPreview(PreviewTask task, {int? movieId, String? movieTitle}) {
-    if (task.taskId.isEmpty || ref.read(serverConfigProvider)?.isOmm != true) {
-      return;
-    }
-    _upsert(
-      TaskItem.fromPreviewTask(
-        task,
-        fallbackMovieId: movieId,
-        fallbackMovieTitle: movieTitle,
-      ),
-    );
   }
 
   Future<void> refresh() async {
@@ -130,6 +106,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   Future<void> loadHistory({required bool reset}) async {
+    if (_disposed || !ref.mounted) return;
     if (ref.read(taskCenterMetaProvider).loading) return;
     final currentMeta = ref.read(taskCenterMetaProvider);
     ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
@@ -139,10 +116,16 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       stats: currentMeta.stats,
     );
     try {
+      if (reset) await _loadCurrentSnapshots();
+      if (_disposed || !ref.mounted) return;
       final raw = await ref
           .read(requiredApiClientProvider)
           .tasks
-          .list(limit: _historyPageSize, offset: reset ? 0 : _historyOffset);
+          .listRecords(
+            limit: _historyPageSize,
+            offset: reset ? 0 : _historyOffset,
+          );
+      if (_disposed || !ref.mounted) return;
       if (raw is! Map || raw['success'] != true) return;
       final data = raw['data'];
       final items = data is Map && data['items'] is List
@@ -185,117 +168,44 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     } catch (_) {
       // WebSocket 仍可独立工作；旧服务端未提供统一接口时不打断任务页。
     } finally {
-      final meta = ref.read(taskCenterMetaProvider);
-      if (meta.loading) {
-        ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
-          total: meta.total,
-          hasMore: meta.hasMore,
-          loading: false,
-          stats: meta.stats,
-        );
+      if (!_disposed && ref.mounted) {
+        final meta = ref.read(taskCenterMetaProvider);
+        if (meta.loading) {
+          ref.read(taskCenterMetaProvider.notifier).state = TaskCenterMeta(
+            total: meta.total,
+            hasMore: meta.hasMore,
+            loading: false,
+            stats: meta.stats,
+          );
+        }
       }
     }
   }
 
   Future<void> cancel(TaskItem task) async {
     if (!task.canCancel) return;
-    if (task.name == '预览生成') {
-      if (ref.read(serverConfigProvider)?.isOmm != true) return;
-      await ref.read(mediaRepositoryProvider).cancelPreviewTask(task.id);
-      _updateByKey(
-        task.key,
-        (current) => current.copyWith(
-          status: 'canceled',
-          isRunning: false,
-          message: kTaskMsgCanceled,
-        ),
-      );
-      return;
-    }
-    final client = ref.read(requiredApiClientProvider);
-    Object? raw;
-    switch (task.name) {
-      case '字幕转译':
-        raw = await ref
-            .read(audioRepositoryProvider)
-            .cancelTranscriptionRaw(task.id);
-        break;
-      case '音频提取':
-        raw = await ref
-            .read(audioRepositoryProvider)
-            .cancelExtractionRaw(task.id);
-        break;
-      case 'NFO 写入':
-        await client.moviesExtended.cancelNfoSync(task.id);
-        break;
-      case '演员关联同步':
-        raw = await client.mappings.actorExternalSyncBatchCancel(task.id);
-        break;
-      case '预览图下载':
-        await client.moviesExtended.cancelExtraFanart(task.id);
-        break;
-      case '媒体信息探测':
-        await client.moviesExtended.cancelMediaInfoRefresh(task.id);
-        break;
-      case '资源扫描':
-        await client.moviesExtended.cancelResourceScan(task.id);
-        break;
-      default:
-        if (task.name.contains('扫描') && task.libraryIds.isNotEmpty) {
-          raw = await client.libraries.cancelScan(
-            task.libraryIds.first,
-            task.id,
-          );
-        } else {
-          raw = await client.moviesExtended.cancelPreviewTask(task.id);
-        }
-        break;
-    }
-    _ensureSuccess(
-      raw,
-      task.name == '字幕转译' ? kTaskErrCancelTranscribe : kTaskErrCancelExtract,
-    );
-    _updateByKey(
-      task.key,
-      (current) => current.copyWith(
-        status: 'canceled',
-        isRunning: false,
-        message: kTaskMsgCanceled,
-      ),
-    );
+    await _control(task, 'cancel', kTaskErrCancelExtract);
   }
 
   Future<void> retry(TaskItem task) async {
     if (!task.canRetry) return;
-    final raw = await ref
-        .read(audioRepositoryProvider)
-        .retryTranscriptionRaw(task.id);
-    _ensureSuccess(raw, kTaskErrRetryTranscribe);
-    final data = raw is Map ? raw['data'] : null;
-    if (data is Map) {
-      final retried = TaskItem.fromTranscription(
-        Map<String, dynamic>.from(data),
-      );
-      if (retried.id.isNotEmpty) {
-        _upsert(retried);
-        return;
-      }
-    }
-    _updateByKey(
-      task.key,
-      (current) => current.copyWith(
-        status: 'queued',
-        isRunning: true,
-        progress: const TaskProgress(total: 100),
-        message: kTaskMsgRequeued,
-      ),
-    );
+    await _control(task, 'retry', kTaskErrRetryTranscribe);
+  }
+
+  Future<void> pause(TaskItem task) async {
+    if (!task.canPause) return;
+    await _control(task, 'pause', '暂停任务失败');
+  }
+
+  Future<void> resume(TaskItem task) async {
+    if (!task.canResume) return;
+    await _control(task, 'resume', '恢复任务失败');
   }
 
   /// 删除服务端终态任务记录。运行中的任务由服务端拒绝删除。
   Future<void> remove(TaskItem task) async {
     if (!task.isTerminal || task.recordId.isEmpty) return;
-    await ref.read(requiredApiClientProvider).tasks.delete(task.recordId);
+    await ref.read(requiredApiClientProvider).tasks.deleteRecord(task.recordId);
     final index = state.indexWhere((item) => item.key == task.key);
     if (index >= 0) {
       final removed = state[index];
@@ -334,6 +244,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
         cancelOnError: false,
       );
       _reconnectAttempts = 0;
+      unawaited(_loadCurrentSnapshots());
       _pingTimer?.cancel();
       _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         try {
@@ -358,40 +269,56 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   }
 
   void _upsert(TaskItem incoming, {bool updateMeta = true}) {
-    var index = incoming.recordId.isNotEmpty
-        ? state.indexWhere((item) => item.recordId == incoming.recordId)
-        : state.indexWhere((item) => item.key == incoming.key);
+    final next = [...state];
+    if (incoming.attempt > 0) {
+      next.removeWhere(
+        (item) =>
+            item.id == incoming.id &&
+            item.attempt > 0 &&
+            item.attempt < incoming.attempt &&
+            item.isActive,
+      );
+    }
+    var index = incoming.attempt > 0
+        ? next.indexWhere(
+            (item) =>
+                item.id == incoming.id && item.attempt == incoming.attempt,
+          )
+        : incoming.recordId.isNotEmpty
+        ? next.indexWhere((item) => item.recordId == incoming.recordId)
+        : -1;
     if (index < 0 && incoming.recordId.isEmpty && incoming.id.isNotEmpty) {
-      index = state.indexWhere(
+      index = next.indexWhere(
         (item) =>
             item.id == incoming.id &&
             item.name == incoming.name &&
             item.isActive,
       );
       if (index < 0 && !incoming.isActive) {
-        index = state.indexWhere(
+        index = next.indexWhere(
           (item) => item.id == incoming.id && item.name == incoming.name,
         );
       }
     }
     if (index < 0 && _isScanTask(incoming)) {
-      index = state.indexWhere(
+      index = next.indexWhere(
         (item) => item.id == incoming.id && _isScanTask(item),
       );
     }
     if (index < 0 && _isScanTask(incoming)) {
-      index = state.indexWhere(
+      index = next.indexWhere(
         (item) =>
             item.id.startsWith('scan-placeholder-') &&
             item.libraryIds.any(incoming.libraryIds.contains),
       );
     }
-
-    final next = [...state];
     TaskItem? previousTask;
     late final TaskItem currentTask;
     if (index >= 0) {
       final previous = next[index];
+      if (incoming.revision > 0 && previous.revision > incoming.revision) {
+        return;
+      }
       previousTask = previous;
       final merged = previous.merge(incoming);
       // 占位扫描任务拿到真实 id 后 key 会变化，沿用原序号避免卡片跳动。
@@ -429,17 +356,6 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       if (timeOrder != 0) return timeOrder;
       return _orderByKey[right.key]!.compareTo(_orderByKey[left.key]!);
     });
-  }
-
-  void _updateByKey(String key, TaskItem Function(TaskItem) update) {
-    final index = state.indexWhere((item) => item.key == key);
-    if (index < 0) return;
-    final next = [...state];
-    final previous = next[index];
-    next[index] = update(previous);
-    _sortTasks(next);
-    state = next;
-    _syncMetaForTaskChange(previous, next[index]);
   }
 
   void _syncMetaForTaskChange(TaskItem? previous, TaskItem? current) {
@@ -517,10 +433,60 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       _channel?.sink.close();
     } catch (_) {}
   }
+
+  bool _acceptCurrentSnapshot(TaskItem incoming) {
+    if (incoming.attempt <= 0) return true;
+    var latestAttempt = 0;
+    TaskItem? currentAttempt;
+    for (final item in state) {
+      if (item.id != incoming.id) continue;
+      if (item.attempt > latestAttempt) latestAttempt = item.attempt;
+      if (item.attempt == incoming.attempt) currentAttempt = item;
+    }
+    if (incoming.attempt < latestAttempt) return false;
+    if (currentAttempt != null &&
+        incoming.revision > 0 &&
+        currentAttempt.revision >= incoming.revision) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _loadCurrentSnapshots() async {
+    try {
+      if (_disposed || !ref.mounted) return;
+      final raw = await ref.read(requiredApiClientProvider).tasks.list();
+      if (_disposed || !ref.mounted) return;
+      if (raw is! Map || raw['success'] != true) return;
+      final data = raw['data'];
+      final items = data is Map && data['items'] is List
+          ? data['items'] as List
+          : const <dynamic>[];
+      for (final rawItem in items.whereType<Map>()) {
+        updateFromSchedulerMessage(Map<String, dynamic>.from(rawItem));
+      }
+    } catch (_) {
+      // WS 与 HTTP 校准互为补充；单次校准失败交给后续重连或刷新。
+    }
+  }
+
+  Future<void> _control(TaskItem task, String action, String fallback) async {
+    if (_disposed || !ref.mounted) return;
+    final raw = await ref
+        .read(requiredApiClientProvider)
+        .tasks
+        .control(task.id, action);
+    if (_disposed || !ref.mounted) return;
+    _ensureSuccess(raw, fallback);
+    final data = raw is Map ? raw['data'] : null;
+    if (data is Map) {
+      updateFromSchedulerMessage(Map<String, dynamic>.from(data));
+    }
+  }
 }
 
 bool _isScanTask(TaskItem task) {
-  return task.name.contains('扫描') && task.name != '资源扫描';
+  return task.taskType == 'library_scan';
 }
 
 String? _taskStatKey(TaskItem? task) {

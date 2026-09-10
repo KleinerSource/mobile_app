@@ -8,16 +8,6 @@ class MoviesExtendedApi {
 
   final Dio _dio;
 
-  Future<Object?> refreshMediaInfo(int movieId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/media-info/refresh',
-      data: {
-        'movie_ids': [movieId],
-      },
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
   Future<Object?> loadSubtitleForEdit(int movieId, int subtitleId) async {
     final response = await _dio.get<dynamic>(
       '/movies/id/$movieId/subtitle-editor/$subtitleId',
@@ -62,107 +52,8 @@ class MoviesExtendedApi {
     return unwrapStd<Object?>(response.data, (data) => data);
   }
 
-  Future<Object?> downloadDbonlineExtrafanart(int movieId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/dbonline/extrafanart',
-      data: {
-        'movie_ids': [movieId],
-      },
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<Object?> batchNfoSync(Map<String, dynamic> body) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/batch/nfo-sync',
-      data: body,
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<Object?> nfoSyncProgress(String taskId) async {
-    final response = await _dio.get<dynamic>('/movies/nfo-sync/$taskId');
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<void> cancelNfoSync(String taskId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/nfo-sync/$taskId/cancel',
-    );
-    unwrapStd<void>(response.data, (_) {});
-  }
-
-  Future<Object?> batchExtraFanart(Map<String, dynamic> body) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/dbonline/extrafanart',
-      data: body,
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<Object?> extraFanartProgress(String taskId) async {
-    final response = await _dio.get<dynamic>(
-      '/movies/dbonline/extrafanart/$taskId',
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<void> cancelExtraFanart(String taskId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/dbonline/extrafanart/$taskId/cancel',
-    );
-    unwrapStd<void>(response.data, (_) {});
-  }
-
-  Future<void> cancelMediaInfoRefresh(String taskId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/media-info/refresh/$taskId/cancel',
-    );
-    unwrapStd<void>(response.data, (_) {});
-  }
-
-  Future<Object?> batchResourceScan(Map<String, dynamic> body) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/batch/dbonline/resources/scan',
-      data: body,
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<Object?> resourceScanProgress(String taskId) async {
-    final response = await _dio.get<dynamic>(
-      '/movies/batch/dbonline/resources/scan/$taskId',
-    );
-    return unwrapStd<Object?>(response.data, (data) => data);
-  }
-
-  Future<void> cancelResourceScan(String taskId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/batch/dbonline/resources/scan/$taskId/cancel',
-    );
-    unwrapStd<void>(response.data, (_) {});
-  }
-
-  Future<Object?> generateMoviePreviews(
-    int movieId, {
-    bool overwrite = false,
-  }) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/id/$movieId/previews/generate',
-      data: {'overwrite': overwrite},
-    );
-    return response.data;
-  }
-
   Future<Object?> getMoviePreviews(int movieId) async {
     final response = await _dio.get<dynamic>('/movies/id/$movieId/previews');
-    return response.data;
-  }
-
-  Future<Object?> cancelPreviewTask(String taskId) async {
-    final response = await _dio.post<dynamic>(
-      '/movies/preview-tasks/${Uri.encodeComponent(taskId)}/cancel',
-    );
     return response.data;
   }
 }

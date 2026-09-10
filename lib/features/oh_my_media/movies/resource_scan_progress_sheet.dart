@@ -1,18 +1,14 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
-import 'package:omm/core/models/resource_scan.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
+import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
-import 'movies_providers.dart';
 
-/// 资源扫描进度面板。任务没有暂停/取消接口，因此关闭面板只会停止轮询，
-/// 后端任务仍会继续执行。
+/// 资源扫描进度面板。状态直接来自统一任务中心的 HTTP 快照和 WS 更新。
 class ResourceScanProgressSheet extends ConsumerStatefulWidget {
   const ResourceScanProgressSheet({
     super.key,
@@ -43,56 +39,31 @@ class ResourceScanProgressSheet extends ConsumerStatefulWidget {
 
 class _ResourceScanProgressSheetState
     extends ConsumerState<ResourceScanProgressSheet> {
-  Timer? _timer;
-  ResourceScanTask? _task;
-  String? _error;
   bool _notifiedCompleted = false;
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_poll());
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _poll() async {
-    if (!mounted) return;
-    try {
-      final task = await ref
-          .read(mediaRepositoryProvider)
-          .resourceScanProgress(widget.taskId);
-      if (!mounted) return;
-      setState(() {
-        _task = task;
-        _error = null;
-      });
-      if (!task.isActive) {
-        _timer?.cancel();
-        if (!_notifiedCompleted) {
-          _notifiedCompleted = true;
-          widget.onCompleted?.call();
-        }
+  TaskItem? _findTask(List<TaskItem> tasks) {
+    for (final task in tasks) {
+      if (task.id == widget.taskId && task.taskType == 'resource_scan') {
+        return task;
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = toApiException(e).message);
     }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final task = _task;
+    final task = _findTask(ref.watch(taskCenterProvider));
     final active = task?.isActive ?? true;
-    final failed = task?.status == 'error';
-    final ratio = task?.progressRatio ?? 0.0;
+    final failed = task?.status == 'failed';
+    final ratio = (task?.progress.clampedPercent ?? 0) / 100;
+    if (task != null && task.isTerminal && !_notifiedCompleted) {
+      _notifiedCompleted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onCompleted?.call();
+      });
+    }
 
     return SafeArea(
       child: Padding(
@@ -106,7 +77,7 @@ class _ResourceScanProgressSheetState
               title: l.resourceScanTitle,
               subtitle: l.resourceScanProgress,
               trailing: _ResourceScanStatusPill(
-                status: task?.status ?? 'pending',
+                status: task?.status ?? 'queued',
               ),
               padding: EdgeInsets.zero,
             ),
@@ -129,7 +100,7 @@ class _ResourceScanProgressSheetState
                 Text(
                   task == null
                       ? l.resourceScanConnecting
-                      : '${task.currentIndex} / ${task.totalCount}',
+                      : '${task.progress.completed} / ${task.progress.total}',
                   style: TextStyle(
                     color: c.text,
                     fontFamily: 'monospace',
@@ -139,7 +110,7 @@ class _ResourceScanProgressSheetState
                 ),
                 if (task != null)
                   Text(
-                    '${(ratio * 100).toStringAsFixed(1)}%',
+                    '${task.progress.clampedPercent.toStringAsFixed(1)}%',
                     style: TextStyle(
                       color: c.muted,
                       fontFamily: 'monospace',
@@ -149,95 +120,26 @@ class _ResourceScanProgressSheetState
                   ),
               ],
             ),
-            const SizedBox(height: 20),
-            if (task != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border.all(color: c.cardBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    _ResourceScanStat(
-                      label: l.resourceScanSuccess,
-                      value: task.successCount,
-                    ),
-                    _ResourceScanDivider(),
-                    _ResourceScanStat(
-                      label: l.resourceScanFailed,
-                      value: task.failedCount,
-                    ),
-                    _ResourceScanDivider(),
-                    _ResourceScanStat(
-                      label: l.resourceScanNewResources,
-                      value: task.newMovieCount,
-                    ),
-                  ],
-                ),
-              ),
-            if (task?.currentMovie.trim().isNotEmpty == true) ...[
+            if (task != null && task.message.trim().isNotEmpty) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: c.chipBg,
+                  color: failed ? c.danger.withValues(alpha: 0.1) : c.chipBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  task!.currentMovie,
-                  maxLines: 2,
+                  task.message,
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: c.text2,
+                    color: failed ? c.danger : c.text2,
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: c.danger.withValues(alpha: 0.1),
-                  border: Border.all(color: c.danger.withValues(alpha: 0.4)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, size: 16, color: c.danger),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: c.danger,
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (task != null && task.errors.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                task.errors.take(3).join('\n'),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: c.muted, fontSize: 11),
               ),
             ],
             const SizedBox(height: 20),
@@ -268,49 +170,6 @@ class _ResourceScanProgressSheetState
   }
 }
 
-class _ResourceScanStat extends StatelessWidget {
-  const _ResourceScanStat({required this.label, required this.value});
-
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            '$value',
-            style: TextStyle(
-              color: c.text,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: c.muted,
-              fontWeight: FontWeight.w700,
-              fontSize: 10.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResourceScanDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 1, height: 22, color: appColors(context).divider);
-  }
-}
-
 class _ResourceScanStatusPill extends StatelessWidget {
   const _ResourceScanStatusPill({required this.status});
 
@@ -323,7 +182,9 @@ class _ResourceScanStatusPill extends StatelessWidget {
     final (label, color) = switch (status) {
       'running' => (l.resourceScanRunning, c.accent),
       'completed' => (l.resourceScanCompleted, c.accent),
-      'error' => (l.resourceScanFailed, c.danger),
+      'failed' => (l.resourceScanFailed, c.danger),
+      'canceling' => ('取消中', c.warning),
+      'canceled' => (l.audioStatusCanceled, c.muted),
       _ => (l.resourceScanPreparing, c.muted),
     };
     return Container(

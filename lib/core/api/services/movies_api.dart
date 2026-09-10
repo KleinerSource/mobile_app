@@ -47,10 +47,7 @@ abstract class MoviesApi {
   @POST('/movies/delete')
   Future<dynamic> deleteMovies(@Body() Map<String, dynamic> body);
 
-  // ===== NFO 写入/读取/状态 =====
-
-  @POST('/movies/id/{id}/nfo/sync')
-  Future<dynamic> syncNfo(@Path('id') int id);
+  // ===== NFO 读取/状态 =====
 
   @POST('/movies/id/{id}/nfo/refresh')
   Future<dynamic> refreshFromNfo(@Path('id') int id);
@@ -105,10 +102,6 @@ abstract class MoviesApi {
   /// 批量海报水印/裁剪 · body: { movie_ids, subtitle, exsub, crack, uhd, resolution }
   @POST('/movies/batch/watermark')
   Future<dynamic> batchWatermark(@Body() Map<String, dynamic> body);
-
-  /// 批量合并重复番号 · body: { movie_ids, target_movie_id }
-  @POST('/movies/batch/merge-duplicate-files')
-  Future<dynamic> mergeDuplicateFiles(@Body() Map<String, dynamic> body);
 
   /// 比较重复番号 NFO · body: { movie_ids }
   @POST('/movies/batch/duplicate-nfo/compare')

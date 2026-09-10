@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:omm/core/models/library.dart';
-import 'package:omm/core/models/preview.dart';
 
 /// 客户端生成的任务消息码。任务消息可能来自服务器原文，展示层仅对
 /// 已知码做本地化翻译（见 task_name_labels.dart），其余原样显示。
@@ -63,14 +62,25 @@ class TaskItem {
     required this.isRunning,
     required this.progress,
     required this.message,
+    this.taskType = '',
     this.recordId = '',
+    this.attempt = 0,
+    this.revision = 0,
     this.phase = '',
     this.serverCanCancel,
+    this.serverCanPause,
+    this.serverCanResume,
     this.serverCanRetry,
+    this.recoveryDecision = '',
+    this.recoveryReason = '',
+    this.previousRecordId = '',
+    this.nextRecordId = '',
+    this.result,
     this.startTime,
     this.queuePosition = 0,
     this.libraryIds = const [],
     this.libraryName = '',
+    this.displayName = '',
     this.movieId = 0,
     this.movieTitle = '',
     this.movieFileName = '',
@@ -81,9 +91,6 @@ class TaskItem {
   }) : updatedAt = updatedAt ?? _epoch;
 
   factory TaskItem.fromSchedulerMessage(Map<String, dynamic> json) {
-    if (json['type'] == 'preview_task') {
-      return TaskItem.fromPreviewMessage(json);
-    }
     final rawPhase = _asString(json['phase'] ?? json['status']);
     final running = json['isRunning'] == true;
     final status = _normalizeStatus(
@@ -91,19 +98,36 @@ class TaskItem {
       fallback: running ? 'running' : 'completed',
     );
     return TaskItem(
-      id: _asString(json['taskId']),
-      name: _asString(json['taskName'], fallback: '后台任务'),
+      id: _asString(json['taskId'] ?? json['task_id']),
+      taskType: _asString(json['taskType'] ?? json['task_type']),
+      name: _asString(json['taskName'] ?? json['task_name'], fallback: '后台任务'),
       status: status,
-      isRunning: status == 'running',
+      isRunning: _isActiveStatus(status),
       progress: TaskProgress.fromJson(json['progress']),
       message: _asString(json['message']),
       recordId: _asString(json['recordId'] ?? json['record_id']),
+      attempt: _asInt(json['attempt']),
+      revision: _asInt(json['revision']),
       phase: rawPhase,
       serverCanCancel: _asBoolOrNull(json['canCancel'] ?? json['can_cancel']),
+      serverCanPause: _asBoolOrNull(json['canPause'] ?? json['can_pause']),
+      serverCanResume: _asBoolOrNull(json['canResume'] ?? json['can_resume']),
       serverCanRetry: _asBoolOrNull(json['canRetry'] ?? json['can_retry']),
+      recoveryDecision: _asString(
+        json['recoveryDecision'] ?? json['recovery_decision'],
+      ),
+      recoveryReason: _asString(
+        json['recoveryReason'] ?? json['recovery_reason'],
+      ),
+      previousRecordId: _asString(
+        json['previousRecordId'] ?? json['previous_record_id'],
+      ),
+      nextRecordId: _asString(json['nextRecordId'] ?? json['next_record_id']),
+      result: json['result'],
       startTime: _asDateTime(json['startTime'] ?? json['start_time']),
       queuePosition: _asInt(json['queuePosition'] ?? json['queue_position']),
       libraryIds: _asIntList(json['libraryIds'] ?? json['library_ids']),
+      displayName: _asString(json['displayName'] ?? json['display_name']),
       movieId: _asInt(json['movieId'] ?? json['movie_id']),
       movieTitle: _asString(json['movieTitle'] ?? json['movie_title']),
       movieFileName: _asString(
@@ -118,84 +142,8 @@ class TaskItem {
     );
   }
 
-  factory TaskItem.fromPreviewMessage(Map<String, dynamic> json) {
-    final taskId = _asString(json['taskId'] ?? json['task_id']);
-    final running = json['isRunning'] == true;
-    final status = _normalizeStatus(
-      json['status'],
-      fallback: running ? 'running' : 'completed',
-    );
-    final rawProgress = json['progress'];
-    final progress = rawProgress is Map
-        ? TaskProgress.fromJson(rawProgress)
-        : TaskProgress.fromJson(rawProgress);
-    return TaskItem(
-      id: taskId,
-      name: '预览生成',
-      status: status,
-      isRunning: status == 'running',
-      progress: progress,
-      message: _asString(json['message']),
-      recordId: _asString(json['recordId'] ?? json['record_id']),
-      phase: _asString(json['phase'] ?? json['status']),
-      serverCanCancel: _asBoolOrNull(json['canCancel'] ?? json['can_cancel']),
-      serverCanRetry: _asBoolOrNull(json['canRetry'] ?? json['can_retry']),
-      startTime: _asDateTime(json['startTime'] ?? json['start_time']),
-      queuePosition: _asInt(json['queuePosition'] ?? json['queue_position']),
-      movieId: _asInt(
-        json['movieId'] ?? json['movie_id'] ?? json['current_movie_id'],
-      ),
-      movieTitle: _asString(
-        json['movieTitle'] ??
-            json['movie_title'] ??
-            json['current_movie_title'],
-      ),
-      movieFileName: _asString(
-        json['movieFileName'] ?? json['movie_file_name'],
-      ),
-      updatedAt:
-          _asDateTime(json['updatedAt'] ?? json['updated_at']) ??
-          DateTime.now(),
-    );
-  }
-
-  factory TaskItem.fromPreviewTask(
-    PreviewTask task, {
-    int? fallbackMovieId,
-    String? fallbackMovieTitle,
-  }) {
-    final movieId = task.currentMovieId > 0
-        ? task.currentMovieId
-        : fallbackMovieId ??
-              (task.movieIds.length == 1 ? task.movieIds.single : 0);
-    final movieTitle = task.currentMovieTitle.isNotEmpty
-        ? task.currentMovieTitle
-        : fallbackMovieTitle ?? '';
-    return TaskItem(
-      id: task.taskId,
-      name: '预览生成',
-      status: _normalizeStatus(
-        task.status,
-        fallback: task.isActive ? 'running' : 'completed',
-      ),
-      isRunning: task.isActive,
-      progress: TaskProgress(
-        total: task.totalCount,
-        completed: task.completedCount,
-        percent: task.overallProgress,
-      ),
-      message: task.message,
-      phase: task.status,
-      startTime: task.startTime,
-      movieId: movieId,
-      movieTitle: movieTitle,
-      updatedAt: task.endTime ?? task.startTime ?? DateTime.now(),
-    );
-  }
-
-  /// 从 /audios/transcriptions 列表行解析转译任务。
-  /// 转译信息内嵌在音频资产行上，`id` 即音频资产 ID，
-  /// 与 WS scheduler_status 推送的 taskId 同源，可直接用于取消/重试。
+  /// 从 `/audios/transcriptions` 业务投影列表行解析转译任务。
+  /// 转译信息内嵌在音频资产行上；统一控制使用独立的逻辑 `task_id`。
   factory TaskItem.fromTranscription(Map<String, dynamic> json) {
     final phase = _asString(
       json['phase'] ?? json['status'],
@@ -204,10 +152,11 @@ class TaskItem {
     final status = _normalizeStatus(phase, fallback: 'running');
     final percent = _asDouble(json['percent']);
     return TaskItem(
-      id: _asString(json['id']),
+      id: _asString(json['task_id'] ?? json['taskId']),
+      taskType: 'subtitle_transcription',
       name: '字幕转译',
       status: status,
-      isRunning: status == 'running',
+      isRunning: _isActiveStatus(status),
       progress: TaskProgress(
         total: 100,
         completed: percent.round(),
@@ -239,9 +188,10 @@ class TaskItem {
     );
     return TaskItem(
       id: _asString(json['task_id'] ?? json['taskId']),
+      taskType: _asString(json['task_type'] ?? json['taskType']),
       name: _asString(json['task_name'] ?? json['taskName'], fallback: '后台任务'),
       status: status,
-      isRunning: status == 'running',
+      isRunning: _isActiveStatus(status),
       progress: TaskProgress(
         total: _asInt(json['progress_total'] ?? json['progressTotal']),
         completed: _asInt(
@@ -251,10 +201,13 @@ class TaskItem {
       ),
       message: _asString(json['message']),
       recordId: _asString(json['record_id'] ?? json['recordId']),
+      attempt: _asInt(json['attempt']),
+      revision: _asInt(json['revision']),
       phase: phase,
       startTime: _asDateTime(json['start_time'] ?? json['startTime']),
       queuePosition: _asInt(json['queue_position'] ?? json['queuePosition']),
       libraryIds: _asIntList(json['library_ids'] ?? json['libraryIds']),
+      displayName: _asString(json['display_name'] ?? json['displayName']),
       movieId: _asInt(json['movie_id'] ?? json['movieId']),
       movieTitle: _asString(json['movie_title'] ?? json['movieTitle']),
       movieFileName: _asString(
@@ -264,7 +217,20 @@ class TaskItem {
       format: _asString(json['format']),
       bitrateKbps: _asInt(json['bitrate_kbps'] ?? json['bitrateKbps']),
       serverCanCancel: _asBoolOrNull(json['can_cancel'] ?? json['canCancel']),
+      serverCanPause: _asBoolOrNull(json['can_pause'] ?? json['canPause']),
+      serverCanResume: _asBoolOrNull(json['can_resume'] ?? json['canResume']),
       serverCanRetry: _asBoolOrNull(json['can_retry'] ?? json['canRetry']),
+      recoveryDecision: _asString(
+        json['recovery_decision'] ?? json['recoveryDecision'],
+      ),
+      recoveryReason: _asString(
+        json['recovery_reason'] ?? json['recoveryReason'],
+      ),
+      previousRecordId: _asString(
+        json['previous_record_id'] ?? json['previousRecordId'],
+      ),
+      nextRecordId: _asString(json['next_record_id'] ?? json['nextRecordId']),
+      result: json['result'] ?? json['result_json'],
       updatedAt:
           _asDateTime(json['updated_at'] ?? json['updatedAt']) ??
           _asDateTime(json['end_time'] ?? json['endTime']) ??
@@ -287,9 +253,10 @@ class TaskItem {
     final percent = total > 0 ? completed / total * 100 : 0.0;
     return TaskItem(
       id: taskId.isEmpty ? 'scan-placeholder-$libraryId' : taskId,
+      taskType: 'library_scan',
       name: '目录扫描',
       status: status,
-      isRunning: status == 'running',
+      isRunning: _isActiveStatus(status),
       progress: TaskProgress(
         total: total,
         completed: completed,
@@ -300,12 +267,16 @@ class TaskItem {
       queuePosition: status == 'queued' ? 1 : 0,
       libraryIds: [libraryId],
       libraryName: libraryName,
+      displayName: libraryName,
       updatedAt: DateTime.now(),
     );
   }
 
   final String id;
+  final String taskType;
   final String recordId;
+  final int attempt;
+  final int revision;
   final String phase;
   final String name;
   final String status;
@@ -316,6 +287,7 @@ class TaskItem {
   final int queuePosition;
   final List<int> libraryIds;
   final String libraryName;
+  final String displayName;
   final int movieId;
   final String movieTitle;
   final String movieFileName;
@@ -324,9 +296,16 @@ class TaskItem {
   final int bitrateKbps;
   final DateTime updatedAt;
   final bool? serverCanCancel;
+  final bool? serverCanPause;
+  final bool? serverCanResume;
   final bool? serverCanRetry;
+  final String recoveryDecision;
+  final String recoveryReason;
+  final String previousRecordId;
+  final String nextRecordId;
+  final Object? result;
 
-  String get key => recordId.isNotEmpty ? 'record:$recordId' : '$name:$id';
+  String get key => attempt > 0 ? 'task:$id:$attempt' : '$taskType:$id';
 
   bool get isActive => isRunning || _isActiveStatus(status);
 
@@ -348,25 +327,20 @@ class TaskItem {
     return startTime ?? _epoch;
   }
 
-  bool get canCancel =>
-      isActive &&
-      (serverCanCancel ??
-          (name != '重复番号合并' &&
-              (name == '音频提取' ||
-                  name == '字幕转译' ||
-                  name == '预览生成' ||
-                  name == '预览图下载' ||
-                  name == '媒体信息探测' ||
-                  name == 'NFO 写入' ||
-                  name == '演员关联同步' ||
-                  name.contains('扫描'))));
+  bool get canCancel => isActive && serverCanCancel == true;
 
-  bool get canRetry =>
-      (isFailed || isCanceled) && (serverCanRetry ?? (name == '字幕转译'));
+  bool get canPause => status == 'running' && serverCanPause == true;
+
+  bool get canResume => status == 'paused' && serverCanResume == true;
+
+  bool get canRetry => (isFailed || isCanceled) && serverCanRetry == true;
 
   TaskItem copyWith({
     String? id,
+    String? taskType,
     String? recordId,
+    int? attempt,
+    int? revision,
     String? phase,
     String? name,
     String? status,
@@ -377,6 +351,7 @@ class TaskItem {
     int? queuePosition,
     List<int>? libraryIds,
     String? libraryName,
+    String? displayName,
     int? movieId,
     String? movieTitle,
     String? movieFileName,
@@ -385,11 +360,21 @@ class TaskItem {
     int? bitrateKbps,
     DateTime? updatedAt,
     bool? serverCanCancel,
+    bool? serverCanPause,
+    bool? serverCanResume,
     bool? serverCanRetry,
+    String? recoveryDecision,
+    String? recoveryReason,
+    String? previousRecordId,
+    String? nextRecordId,
+    Object? result,
   }) {
     return TaskItem(
       id: id ?? this.id,
+      taskType: taskType ?? this.taskType,
       recordId: recordId ?? this.recordId,
+      attempt: attempt ?? this.attempt,
+      revision: revision ?? this.revision,
       phase: phase ?? this.phase,
       name: name ?? this.name,
       status: status ?? this.status,
@@ -400,6 +385,7 @@ class TaskItem {
       queuePosition: queuePosition ?? this.queuePosition,
       libraryIds: libraryIds ?? this.libraryIds,
       libraryName: libraryName ?? this.libraryName,
+      displayName: displayName ?? this.displayName,
       movieId: movieId ?? this.movieId,
       movieTitle: movieTitle ?? this.movieTitle,
       movieFileName: movieFileName ?? this.movieFileName,
@@ -408,14 +394,24 @@ class TaskItem {
       bitrateKbps: bitrateKbps ?? this.bitrateKbps,
       updatedAt: updatedAt ?? DateTime.now(),
       serverCanCancel: serverCanCancel ?? this.serverCanCancel,
+      serverCanPause: serverCanPause ?? this.serverCanPause,
+      serverCanResume: serverCanResume ?? this.serverCanResume,
       serverCanRetry: serverCanRetry ?? this.serverCanRetry,
+      recoveryDecision: recoveryDecision ?? this.recoveryDecision,
+      recoveryReason: recoveryReason ?? this.recoveryReason,
+      previousRecordId: previousRecordId ?? this.previousRecordId,
+      nextRecordId: nextRecordId ?? this.nextRecordId,
+      result: result ?? this.result,
     );
   }
 
   /// WebSocket 的轻量消息和列表接口的完整记录可以交错到达，保留已有元数据。
   TaskItem merge(TaskItem incoming) {
     return incoming.copyWith(
+      taskType: incoming.taskType.isEmpty ? taskType : incoming.taskType,
       recordId: incoming.recordId.isEmpty ? recordId : incoming.recordId,
+      attempt: incoming.attempt == 0 ? attempt : incoming.attempt,
+      revision: incoming.revision == 0 ? revision : incoming.revision,
       phase: incoming.phase.isEmpty ? phase : incoming.phase,
       message: incoming.message.isEmpty ? message : incoming.message,
       startTime: incoming.startTime ?? startTime,
@@ -425,6 +421,9 @@ class TaskItem {
       libraryName: incoming.libraryName.isEmpty
           ? libraryName
           : incoming.libraryName,
+      displayName: incoming.displayName.isEmpty
+          ? displayName
+          : incoming.displayName,
       movieId: incoming.movieId == 0 ? movieId : incoming.movieId,
       movieTitle: incoming.movieTitle.isEmpty
           ? movieTitle
@@ -437,6 +436,18 @@ class TaskItem {
       bitrateKbps: incoming.bitrateKbps == 0
           ? bitrateKbps
           : incoming.bitrateKbps,
+      recoveryDecision: incoming.recoveryDecision.isEmpty
+          ? recoveryDecision
+          : incoming.recoveryDecision,
+      recoveryReason: incoming.recoveryReason.isEmpty
+          ? recoveryReason
+          : incoming.recoveryReason,
+      previousRecordId: incoming.previousRecordId.isEmpty
+          ? previousRecordId
+          : incoming.previousRecordId,
+      nextRecordId: incoming.nextRecordId.isEmpty
+          ? nextRecordId
+          : incoming.nextRecordId,
       updatedAt: incoming.updatedAt == _epoch ? updatedAt : incoming.updatedAt,
     );
   }
@@ -451,6 +462,7 @@ bool _isActiveStatus(String status) {
     'queued',
     'running',
     'paused',
+    'canceling',
   }.contains(status);
 }
 
@@ -458,9 +470,15 @@ String _normalizeStatus(Object? raw, {String fallback = 'completed'}) {
   final value = raw?.toString().trim().toLowerCase() ?? '';
   switch (value) {
     case 'queued':
+      return 'queued';
     case 'idle':
     case 'pending':
+      return 'queued';
     case 'paused':
+      return 'paused';
+    case 'canceling':
+    case 'cancelling':
+      return 'canceling';
     case 'running':
     case 'processing':
       return 'running';
@@ -479,7 +497,7 @@ String _normalizeStatus(Object? raw, {String fallback = 'completed'}) {
     case 'skipped':
       return 'completed';
     default:
-      return fallback == 'running' ? 'running' : 'completed';
+      return fallback;
   }
 }
 

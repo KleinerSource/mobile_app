@@ -110,9 +110,6 @@ class MediaRepository {
     );
   }
 
-  Future<ResourceScanTask> resourceScanProgress(String taskId) =>
-      _operations.resourceScanProgress(taskId);
-
   Future<void> upsertWatchRecord(
     int id, {
     required int positionSec,

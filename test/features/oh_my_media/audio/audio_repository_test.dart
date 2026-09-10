@@ -68,39 +68,47 @@ void main() {
       11,
     ], overwrite: true);
 
-    expect(adapter.requestBodies[0]['audio_asset_ids'], [11]);
-    expect(adapter.requestBodies[0]['overwrite'], isTrue);
+    expect(adapter.requestBodies[0]['task_type'], 'subtitle_transcription');
+    expect(adapter.requestBodies[0]['input'], {
+      'audio_asset_ids': [11],
+      'overwrite': true,
+    });
     expect(result.accepted, 1);
     expect(result.rejected, isEmpty);
   });
 
-  test('取消与重试转译走音频资产 ID 路径', () async {
+  test('取消与重试使用统一任务 ID 路径', () async {
     final adapter = _AudioAdapter();
     final repository = AudioRepository(
       OmmMediaOperationsAdapter(ApiClient(_dio(adapter))),
     );
 
-    await repository.cancelTranscription(11);
-    await repository.retryTranscription(11, overwrite: false);
+    await repository.cancelTranscription('transcription-11');
+    await repository.retryTranscription('transcription-11');
     await repository.cancelExtraction('task-1');
 
     expect(adapter.paths, [
-      '/api/audios/transcriptions/11/cancel',
-      '/api/audios/transcriptions/11/retry',
-      '/api/audios/extract/task-1/cancel',
+      '/api/tasks/transcription-11/cancel',
+      '/api/tasks/transcription-11/retry',
+      '/api/tasks/task-1/cancel',
     ]);
     expect(adapter.requestBodies[0], isEmpty);
-    expect(adapter.requestBodies[1]['overwrite'], isFalse);
+    expect(adapter.requestBodies[1], isEmpty);
   });
 
   test('转译失败与取消状态解析', () {
     final failed = AudioAsset.fromJson(const {
       'id': 21,
       'movie_id': 1,
-      'transcription': {'status': 'failed', 'error_message': '云端连接超时'},
+      'transcription': {
+        'task_id': 'transcription-21',
+        'status': 'failed',
+        'error_message': '云端连接超时',
+      },
     });
     expect(failed.transcriptionView.isFailed, isTrue);
     expect(failed.transcriptionView.errorMessage, '云端连接超时');
+    expect(failed.transcriptionTaskId, 'transcription-21');
     expect(failed.isTranscriptionDone, isFalse);
 
     final canceled = AudioAsset.fromJson(const {
@@ -163,6 +171,7 @@ class _AudioAdapter implements HttpClientAdapter {
               'duration_sec': 61.6,
               'file_exists': true,
               'transcription': {
+                'task_id': 'transcription-11',
                 'status': 'running',
                 'stage': 'transcribing',
                 'percent': 41.8,
@@ -194,10 +203,15 @@ class _AudioAdapter implements HttpClientAdapter {
             {'id': 12, 'message': '该音频仍有排队或运行中的字幕转译任务，暂不能删除'},
           ],
         };
-      case '/api/audios/transcriptions':
+      case '/api/tasks':
         data = {
-          'items': [
-            {'id': '11'},
+          'task': {
+            'task_id': 'transcription-11',
+            'task_type': 'subtitle_transcription',
+            'status': 'queued',
+          },
+          'accepted': [
+            {'task_id': 'transcription-11', 'record_id': 'record-11'},
           ],
           'rejected': [],
         };

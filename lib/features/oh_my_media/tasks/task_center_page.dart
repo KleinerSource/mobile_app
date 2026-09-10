@@ -225,7 +225,9 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
         : percent.clamp(0.0, 1.0);
     final busy = _busy.contains(task.key);
     final canOpenDetail = _canOpenMovieDetail(task);
-    final title = task.movieTitle.isNotEmpty
+    final title = task.displayName.isNotEmpty
+        ? task.displayName
+        : task.movieTitle.isNotEmpty
         ? task.movieTitle
         : task.libraryName.isNotEmpty
         ? task.libraryName
@@ -336,14 +338,55 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                 height: 1.25,
               ),
             ),
+            if (task.recoveryDecision.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text(
+                _recoverySummary(task),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.warning,
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  String _recoverySummary(TaskItem task) {
+    final decision = switch (task.recoveryDecision) {
+      'replay' => '已自动重放',
+      'replayed' => '原执行已归档',
+      'manual_retry' => '已手动重试',
+      'legacy_migration' => '旧任务已迁移',
+      'canceled' => '重启前已取消',
+      'failed' => '重启后已归档',
+      final value => value,
+    };
+    final parts = <String>[decision];
+    if (task.recoveryReason.isNotEmpty) parts.add(task.recoveryReason);
+    if (task.previousRecordId.isNotEmpty) {
+      parts.add('原执行 ${_shortRecordId(task.previousRecordId)}');
+    }
+    if (task.nextRecordId.isNotEmpty) {
+      parts.add('新执行 ${_shortRecordId(task.nextRecordId)}');
+    }
+    return parts.join(' · ');
+  }
+
+  String _shortRecordId(String value) {
+    return value.length <= 8 ? value : value.substring(0, 8);
+  }
+
   bool _canOpenMovieDetail(TaskItem task) {
-    return (task.name == '字幕转译' && task.isCompleted || task.name == '预览生成') &&
+    return (task.taskType == 'subtitle_transcription' && task.isCompleted ||
+            task.taskType == 'preview_generation') &&
         task.movieId > 0;
   }
 
@@ -364,14 +407,28 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           label: l.taskActionRetry,
           icon: Icons.refresh_rounded,
           color: colors.accent,
-          onPressed: busy ? null : () => _runTaskAction(task, false),
+          onPressed: busy ? null : () => _runTaskAction(task, 'retry'),
+        ),
+      if (task.canResume)
+        _TaskAction(
+          label: l.scanResume,
+          icon: Icons.play_circle_outline_rounded,
+          color: colors.accent,
+          onPressed: busy ? null : () => _runTaskAction(task, 'resume'),
+        ),
+      if (task.canPause)
+        _TaskAction(
+          label: l.scanPause,
+          icon: Icons.pause_circle_outline_rounded,
+          color: colors.warning,
+          onPressed: busy ? null : () => _runTaskAction(task, 'pause'),
         ),
       if (task.canCancel)
         _TaskAction(
           label: busy ? l.taskActionBusy : l.cancel,
           icon: Icons.stop_circle_outlined,
           color: colors.warning,
-          onPressed: busy ? null : () => _runTaskAction(task, true),
+          onPressed: busy ? null : () => _runTaskAction(task, 'cancel'),
         ),
       if (task.isTerminal)
         _TaskAction(
@@ -457,23 +514,36 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     );
   }
 
-  Future<void> _runTaskAction(TaskItem task, bool cancel) async {
+  Future<void> _runTaskAction(TaskItem task, String action) async {
     if (!_busy.add(task.key)) return;
     setState(() {});
     try {
       final notifier = ref.read(taskCenterProvider.notifier);
-      if (cancel) {
-        await notifier.cancel(task);
-      } else {
-        await notifier.retry(task);
+      switch (action) {
+        case 'cancel':
+          await notifier.cancel(task);
+          break;
+        case 'pause':
+          await notifier.pause(task);
+          break;
+        case 'resume':
+          await notifier.resume(task);
+          break;
+        default:
+          await notifier.retry(task);
+          break;
       }
       if (mounted) {
         final l = AppL10n.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(cancel ? l.taskCancelSubmitted : l.taskMsgRequeued),
-          ),
-        );
+        final message = switch (action) {
+          'cancel' => l.taskCancelSubmitted,
+          'pause' => l.scanPause,
+          'resume' => l.scanResume,
+          _ => l.taskMsgRequeued,
+        };
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (error) {
       if (mounted) {
@@ -696,22 +766,28 @@ class _TaskSwipeActionButton extends StatelessWidget {
 }
 
 IconData _taskIcon(TaskItem task) {
-  if (task.name == 'NFO 写入') return Icons.description_outlined;
-  if (task.name == '字幕转译') return Icons.cloud_sync_outlined;
-  if (task.name == '音频提取') return Icons.audiotrack_outlined;
-  if (task.name == '资源扫描') return Icons.manage_search_outlined;
-  if (task.name == '演员关联同步') return Icons.people_outline;
-  if (task.name.contains('扫描')) return Icons.folder_open_outlined;
-  if (task.name == '预览生成') return Icons.video_settings_outlined;
-  if (task.name.contains('预览图')) return Icons.image_outlined;
-  return Icons.construction_outlined;
+  return switch (task.taskType) {
+    'nfo_sync' => Icons.description_outlined,
+    'subtitle_transcription' => Icons.cloud_sync_outlined,
+    'audio_extract' => Icons.audiotrack_outlined,
+    'resource_scan' => Icons.manage_search_outlined,
+    'actor_association_sync' => Icons.people_outline,
+    'library_scan' => Icons.folder_open_outlined,
+    'preview_generation' => Icons.video_settings_outlined,
+    'extra_fanart_download' => Icons.image_outlined,
+    'media_info_probe' => Icons.info_outline,
+    'duplicate_movie_merge' => Icons.merge_type_outlined,
+    _ => Icons.construction_outlined,
+  };
 }
 
 Color _taskColor(TaskItem task) {
-  if (task.name == '字幕转译') return AppHues.top(AppHues.sky);
-  if (task.name == '音频提取') return AppHues.top(AppHues.lavender);
-  if (task.name == 'NFO 写入') return AppHues.top(AppHues.solar);
-  return AppHues.top(AppHues.mint);
+  return switch (task.taskType) {
+    'subtitle_transcription' => AppHues.top(AppHues.sky),
+    'audio_extract' => AppHues.top(AppHues.lavender),
+    'nfo_sync' => AppHues.top(AppHues.solar),
+    _ => AppHues.top(AppHues.mint),
+  };
 }
 
 class _SummaryValue extends StatelessWidget {

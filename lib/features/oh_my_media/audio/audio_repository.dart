@@ -64,8 +64,11 @@ class AudioRepository {
       final rejected = data['rejected'] is List
           ? data['rejected'] as List
           : const [];
+      final accepted = data['accepted'] is List
+          ? data['accepted'] as List
+          : const [];
       return TranscriptionEnqueueResult(
-        accepted: items.length,
+        accepted: accepted.isNotEmpty ? assetIds.length : items.length,
         rejected: [
           for (final value in rejected)
             if (value is Map)
@@ -77,18 +80,13 @@ class AudioRepository {
     });
   }
 
-  /// [assetId] 为音频资产 ID。
-  Future<void> cancelTranscription(int assetId) async {
-    final raw = await _api.cancelSubtitleTranscription(assetId.toString());
+  Future<void> cancelTranscription(String taskId) async {
+    final raw = await _api.cancelSubtitleTranscription(taskId);
     unwrapStd<Object?>(raw, (_) => null);
   }
 
-  /// [assetId] 为音频资产 ID。
-  Future<void> retryTranscription(int assetId, {bool? overwrite}) async {
-    final raw = await _api.retrySubtitleTranscription(
-      assetId.toString(),
-      overwrite: overwrite,
-    );
+  Future<void> retryTranscription(String taskId) async {
+    final raw = await _api.retrySubtitleTranscription(taskId);
     unwrapStd<Object?>(raw, (_) => null);
   }
 
@@ -116,11 +114,11 @@ class AudioRepository {
   Future<Object?> cancelExtractionRaw(String taskId) =>
       _api.cancelAudioExtraction(taskId);
 
-  Future<Object?> cancelTranscriptionRaw(String assetId) =>
-      _api.cancelSubtitleTranscription(assetId);
+  Future<Object?> cancelTranscriptionRaw(String taskId) =>
+      _api.cancelSubtitleTranscription(taskId);
 
-  Future<Object?> retryTranscriptionRaw(String assetId, {bool? overwrite}) =>
-      _api.retrySubtitleTranscription(assetId, overwrite: overwrite);
+  Future<Object?> retryTranscriptionRaw(String taskId) =>
+      _api.retrySubtitleTranscription(taskId);
 }
 
 AudioAssetListResult _decodeList(Object? data) {

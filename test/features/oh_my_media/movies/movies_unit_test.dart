@@ -246,10 +246,6 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }
 
   @override
-  Future<ResourceScanTask> resourceScanProgress(String taskId) =>
-      throw UnimplementedError();
-
-  @override
   Future<void> upsertWatchRecord(
     source_models.MediaRef movie, {
     required int positionSec,

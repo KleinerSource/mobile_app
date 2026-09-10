@@ -66,16 +66,4 @@ abstract class MappingsApi {
   /// 应用同步演员关联结果 · body: { mapped_value, original_values, biography?, avatar_url?, avatar_overwrite? }
   @POST('/mappings/actors/external-sync/apply')
   Future<dynamic> actorExternalSyncApply(@Body() Map<String, dynamic> body);
-
-  /// 批量同步演员关联 · body: { actor_names, source? } → { task_id, total_count }
-  @POST('/mappings/actors/external-sync/batch')
-  Future<dynamic> actorExternalSyncBatch(@Body() Map<String, dynamic> body);
-
-  /// 批量任务进度
-  @GET('/mappings/actors/external-sync/batch/{taskId}')
-  Future<dynamic> actorExternalSyncBatchStatus(@Path('taskId') String taskId);
-
-  /// 取消批量任务
-  @POST('/mappings/actors/external-sync/batch/{taskId}/cancel')
-  Future<dynamic> actorExternalSyncBatchCancel(@Path('taskId') String taskId);
 }

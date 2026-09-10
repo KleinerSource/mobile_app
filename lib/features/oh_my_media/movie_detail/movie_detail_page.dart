@@ -195,7 +195,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     ref.listen(taskCenterProvider, (previous, next) {
       bool isPreviewTask(dynamic task) {
         return task.movieId == movie.id &&
-            (task.name == l.taskNamePreview || task.name == '预览生成');
+            task.taskType == 'preview_generation';
       }
 
       final wasActive =
@@ -1129,7 +1129,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
                 .any(
                   (task) =>
                       task.movieId == movie.id &&
-                      (task.name == l.taskNamePreview || task.name == '预览生成') &&
+                      task.taskType == 'preview_generation' &&
                       task.isActive,
                 ) ||
             previewStatus?.task?.isActive == true);
@@ -1162,17 +1162,10 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
             if (_submittingPreview) break;
             setState(() => _submittingPreview = true);
             try {
-              final result = await ref
+              await ref
                   .read(mediaRepositoryProvider)
                   .generatePreview(movie.id, overwrite: false);
               if (!context.mounted) return;
-              ref
-                  .read(taskCenterProvider.notifier)
-                  .registerPreview(
-                    result.task,
-                    movieId: movie.id,
-                    movieTitle: movie.title,
-                  );
               ref.invalidate(previewStatusProvider(movie.id));
               ref.invalidate(previewVideoUrlProvider(movie.id));
               ScaffoldMessenger.of(

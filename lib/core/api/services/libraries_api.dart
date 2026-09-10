@@ -25,30 +25,6 @@ abstract class LibrariesApi {
   @POST('/libraries/delete')
   Future<dynamic> delete(@Body() Map<String, dynamic> body);
 
-  // ===== 扫描 =====
-
-  /// 触发扫描 · body: { incremental: bool }
-  @POST('/libraries/id/{id}/scan')
-  Future<dynamic> scan(@Path('id') int id, @Body() Map<String, dynamic> body);
-
-  @GET('/libraries/id/{id}/scan/active')
-  Future<dynamic> activeScans(@Path('id') int id);
-
-  @GET('/libraries/id/{id}/scan/tasks/{taskId}')
-  Future<dynamic> scanProgress(
-    @Path('id') int id,
-    @Path('taskId') String taskId,
-  );
-
-  @POST('/libraries/id/{id}/scan/tasks/{taskId}/pause')
-  Future<dynamic> pauseScan(@Path('id') int id, @Path('taskId') String taskId);
-
-  @POST('/libraries/id/{id}/scan/tasks/{taskId}/resume')
-  Future<dynamic> resumeScan(@Path('id') int id, @Path('taskId') String taskId);
-
-  @POST('/libraries/id/{id}/scan/tasks/{taskId}/cancel')
-  Future<dynamic> cancelScan(@Path('id') int id, @Path('taskId') String taskId);
-
   // ===== 目录 (嵌套在媒体库下) =====
 
   @GET('/libraries/id/{id}/directories')

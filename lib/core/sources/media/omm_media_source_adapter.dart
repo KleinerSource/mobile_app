@@ -450,12 +450,17 @@ class OmmMediaSourceAdapter
   @override
   Future<ScanJob> startScan(MediaRef library, {bool incremental = true}) async {
     final raw = await _call(
-      () =>
-          client.libraries.scan(_ommId(library), {'incremental': incremental}),
+      () => client.tasks.submit('library_scan', {
+        'library_ids': [_ommId(library)],
+        'incremental': incremental,
+      }),
     );
     final data = _unwrapData(raw);
-    final jobId = data is Map
-        ? (data['task_id'] ?? data['id'] ?? data['taskId'])?.toString()
+    final task = data is Map && data['task'] is Map
+        ? data['task'] as Map
+        : data;
+    final jobId = task is Map
+        ? (task['task_id'] ?? task['id'] ?? task['taskId'])?.toString()
         : data?.toString();
     if (jobId == null || jobId.isEmpty) {
       throw const SourceException('OMM 扫描响应缺少任务 ID');
@@ -465,19 +470,30 @@ class OmmMediaSourceAdapter
 
   @override
   Future<List<ScanJob>> activeScans(MediaRef library) async {
-    final raw = await _call(
-      () => client.libraries.activeScans(_ommId(library)),
-    );
+    final raw = await _call(() => client.tasks.list(taskType: 'library_scan'));
     final data = _unwrapData(raw);
     final items = data is List
         ? data
-        : data is Map && data['active_scans'] is List
-        ? data['active_scans'] as List
         : data is Map && data['items'] is List
         ? data['items'] as List
         : const <Object?>[];
     return items
         .whereType<Map>()
+        .where((item) {
+          final status = (item['status'] ?? '').toString();
+          final ids = item['libraryIds'] ?? item['library_ids'];
+          return const {
+                'queued',
+                'running',
+                'paused',
+                'canceling',
+              }.contains(status) &&
+              (ids is! List ||
+                  ids.isEmpty ||
+                  ids
+                      .map((value) => value.toString())
+                      .contains(_ommId(library).toString()));
+        })
         .map((item) {
           return _scanFromJson(Map<String, dynamic>.from(item), library);
         })
@@ -486,9 +502,7 @@ class OmmMediaSourceAdapter
 
   @override
   Future<ScanJob> scanProgress(MediaRef library, String jobId) async {
-    final raw = await _call(
-      () => client.libraries.scanProgress(_ommId(library), jobId),
-    );
+    final raw = await _call(() => client.tasks.get(jobId));
     final data = _unwrapData(raw);
     if (data is! Map) throw const SourceException('OMM 扫描进度响应格式错误');
     return _scanFromJson(Map<String, dynamic>.from(data), library);
@@ -496,59 +510,41 @@ class OmmMediaSourceAdapter
 
   @override
   Future<void> pauseScan(MediaRef library, String jobId) async {
-    await _call(() => client.libraries.pauseScan(_ommId(library), jobId));
+    await _call(() => client.tasks.control(jobId, 'pause'));
   }
 
   @override
   Future<void> resumeScan(MediaRef library, String jobId) async {
-    await _call(() => client.libraries.resumeScan(_ommId(library), jobId));
+    await _call(() => client.tasks.control(jobId, 'resume'));
   }
 
   @override
   Future<void> cancelScan(MediaRef library, String jobId) async {
-    await _call(() => client.libraries.cancelScan(_ommId(library), jobId));
+    await _call(() => client.tasks.control(jobId, 'cancel'));
   }
 
   @override
   Future<BatchScanResult> startBatchScan({required bool incremental}) async {
     final raw = await _call(
-      () => client.librariesExtended.batchScan({'incremental': incremental}),
+      () => client.tasks.submit('library_scan', {
+        'library_ids': <int>[],
+        'incremental': incremental,
+      }),
     );
     final message = raw is Map ? (raw['message'] ?? '').toString() : '';
     final data = _unwrapData(raw);
     if (data is! Map) {
       throw const SourceException('OMM 批量扫描响应格式错误');
     }
-    final tasks = <BatchScanTask>[];
-    final rawTasks = data['tasks'];
-    if (rawTasks is List) {
-      for (final rawTask in rawTasks.whereType<Map>()) {
-        final task = Map<String, dynamic>.from(rawTask);
-        final libraryId = _intValue(task['library_id']) ?? 0;
-        final taskId = (task['task_id'] ?? '').toString();
-        if (libraryId <= 0 || taskId.isEmpty) continue;
-        tasks.add(
-          BatchScanTask(
-            libraryId: libraryId,
-            libraryName: (task['library_name'] ?? '媒体库 $libraryId').toString(),
-            taskId: taskId,
-            status: (task['status'] ?? 'queued').toString(),
-            queuePosition: _intValue(task['queue_position']) ?? 0,
-            reused: task['reused'] == true,
-          ),
-        );
-      }
-    }
     return BatchScanResult(
       message: message,
-      scanType: (data['scan_type'] ?? (incremental ? '增量扫描' : '全量扫描'))
-          .toString(),
-      enabledCount: _intValue(data['enabled_count']) ?? 0,
-      acceptedCount: _intValue(data['accepted_count']) ?? 0,
-      reusedCount: _intValue(data['reused_count']) ?? 0,
-      failedCount: _intValue(data['failed_count']) ?? 0,
-      skippedDisabledCount: _intValue(data['skipped_disabled_count']) ?? 0,
-      tasks: tasks,
+      scanType: incremental ? '增量扫描' : '全量扫描',
+      enabledCount: 1,
+      acceptedCount: 1,
+      reusedCount: 0,
+      failedCount: 0,
+      skippedDisabledCount: 0,
+      tasks: const <BatchScanTask>[],
     );
   }
 
@@ -647,19 +643,24 @@ class OmmMediaSourceAdapter
   }
 
   ScanJob _scanFromJson(Map<String, dynamic> json, MediaRef library) {
+    final progress = json['progress'];
     return ScanJob(
-      id: (json['task_id'] ?? json['id'] ?? '').toString(),
+      id: (json['task_id'] ?? json['taskId'] ?? json['id'] ?? '').toString(),
       library: library,
       status: _scanStatus(json['status']),
-      totalFiles: _intValue(json['total_files']),
-      processedFiles: _intValue(json['processed_files']),
+      totalFiles: _intValue(
+        progress is Map ? progress['total'] : json['total_files'],
+      ),
+      processedFiles: _intValue(
+        progress is Map ? progress['completed'] : json['processed_files'],
+      ),
       addedFiles: _intValue(json['added_files'] ?? json['new_movies']) ?? 0,
       updatedFiles:
           _intValue(json['updated_files'] ?? json['updated_movies']) ?? 0,
       removedFiles:
           _intValue(json['removed_files'] ?? json['deleted_movies']) ?? 0,
       currentFile: _stringOrNull(
-        json['current_file'] ?? json['current_file_path'],
+        json['current_file'] ?? json['current_file_path'] ?? json['fileName'],
       ),
       message: _stringOrNull(json['message']),
     );

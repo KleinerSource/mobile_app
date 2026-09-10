@@ -99,7 +99,10 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
         if (value is Map) return Map<String, dynamic>.from(value);
         return <String, dynamic>{};
       });
-      final taskId = data['task_id']?.toString().trim() ?? '';
+      final task = data['task'];
+      final taskId = task is Map
+          ? (task['task_id'] ?? task['taskId'])?.toString().trim() ?? ''
+          : '';
       if (taskId.isEmpty) {
         throw ApiException(AppL10n.of(context).audioExtractFailed);
       }

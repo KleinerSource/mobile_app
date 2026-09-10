@@ -72,8 +72,6 @@ abstract interface class OmmMediaOperationsSource {
     bool favoriteOnly = false,
   });
 
-  Future<ResourceScanTask> resourceScanProgress(String taskId);
-
   Future<void> upsertWatchRecord(
     MediaRef movie, {
     required int positionSec,

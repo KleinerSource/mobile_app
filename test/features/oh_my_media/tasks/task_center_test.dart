@@ -11,15 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
-import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/modal_transcription_config.dart';
-import 'package:omm/core/models/preview.dart';
-import 'package:omm/core/sources/media/media_source.dart';
-import 'package:omm/core/sources/media/omm_media_operations_source.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
-import 'package:omm/features/oh_my_media/movies/media_repository.dart';
-import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
@@ -44,9 +38,15 @@ void _main_0() {
     final task = TaskItem.fromSchedulerMessage(const {
       'type': 'scheduler_status',
       'taskId': 'audio-task-1',
+      'recordId': 'record-audio-1',
+      'taskType': 'audio_extract',
       'taskName': '音频提取',
+      'displayName': 'ABC-123 · 示例影片',
+      'attempt': 1,
+      'revision': 3,
       'status': 'running',
       'isRunning': true,
+      'canCancel': true,
       'progress': {'total': 100, 'completed': 42, 'percent': 42.0},
       'message': '正在提取音频',
       'movieId': 7,
@@ -56,25 +56,46 @@ void _main_0() {
       'bitrateKbps': 192,
     });
 
-    expect(task.key, '音频提取:audio-task-1');
+    expect(task.key, 'task:audio-task-1:1');
+    expect(task.taskType, 'audio_extract');
+    expect(task.recordId, 'record-audio-1');
+    expect(task.revision, 3);
     expect(task.isActive, isTrue);
     expect(task.movieId, 7);
+    expect(task.displayName, 'ABC-123 · 示例影片');
     expect(task.movieTitle, '示例影片');
     expect(task.fileName, 'audio.aac');
     expect(task.bitrateKbps, 192);
     expect(task.canCancel, isTrue);
   });
 
-  test('资源扫描任务默认支持取消', () {
+  test('任务能力完全由服务端快照决定', () {
     final task = TaskItem.fromSchedulerMessage(const {
       'type': 'scheduler_status',
       'taskId': 'resource-scan-1',
+      'taskType': 'resource_scan',
       'taskName': '资源扫描',
       'status': 'running',
       'isRunning': true,
+      'canCancel': true,
+      'canPause': true,
+      'canResume': false,
     });
 
     expect(task.canCancel, isTrue);
+    expect(task.canPause, isTrue);
+    expect(task.canResume, isFalse);
+    expect(
+      TaskItem.fromSchedulerMessage(const {
+        'type': 'scheduler_status',
+        'taskId': 'resource-scan-2',
+        'taskType': 'resource_scan',
+        'taskName': '资源扫描',
+        'status': 'running',
+        'isRunning': true,
+      }).canCancel,
+      isFalse,
+    );
   });
 
   test('任务时间兼容 snake_case，并且历史缺失时间不伪造为当前时间', () {
@@ -95,6 +116,25 @@ void _main_0() {
       'status': 'completed',
     });
     expect(history.updatedAt, DateTime.fromMillisecondsSinceEpoch(0));
+  });
+
+  test('任务历史保留重启恢复决策和原新执行关联', () {
+    final history = TaskItem.fromHistory(const {
+      'record_id': 'record-new',
+      'task_id': 'task-replayed',
+      'task_type': 'media_info_probe',
+      'task_name': '媒体信息探测',
+      'status': 'queued',
+      'recovery_decision': 'replay',
+      'recovery_reason': '任务定义启用自动重放',
+      'previous_record_id': 'record-old',
+      'next_record_id': 'record-next',
+    });
+
+    expect(history.recoveryDecision, 'replay');
+    expect(history.recoveryReason, '任务定义启用自动重放');
+    expect(history.previousRecordId, 'record-old');
+    expect(history.nextRecordId, 'record-next');
   });
 
   test('终态任务不显示取消操作，只有失败或取消任务允许重试', () {
@@ -126,7 +166,9 @@ void _main_0() {
   test('字幕转译记录解析错误信息并区分可重试状态', () {
     final failed = TaskItem.fromTranscription(const {
       'id': 12,
+      'task_id': 'transcription-12',
       'status': 'failed',
+      'can_retry': true,
       'percent': 64.5,
       'error_message': '远端任务失败',
       'movie_id': 8,
@@ -137,11 +179,12 @@ void _main_0() {
     });
     final skipped = TaskItem.fromTranscription(const {
       'id': 13,
+      'task_id': 'transcription-13',
       'status': 'skipped',
       'percent': 100,
     });
 
-    expect(failed.id, '12');
+    expect(failed.id, 'transcription-12');
     expect(failed.message, '远端任务失败');
     expect(failed.progress.completed, 65);
     expect(failed.canRetry, isTrue);
@@ -153,8 +196,10 @@ void _main_0() {
 
     final canceled = TaskItem.fromTranscription(const {
       'id': 14,
+      'task_id': 'transcription-14',
       'status': 'cancelled',
       'percent': 20,
+      'can_retry': true,
     });
     expect(canceled.isCanceled, isTrue);
     expect(canceled.canRetry, isTrue);
@@ -410,25 +455,26 @@ void _main_1() {
     expect(tasks.where((task) => task.isActive), hasLength(1));
   });
 
-  test('preview_task 消息进入任务中心并展示细粒度进度', () async {
+  test('统一预览任务按 revision 合并并拒绝迟到消息', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
-      overrides: [
-        sharedPrefsProvider.overrideWithValue(prefs),
-        serverConfigProvider.overrideWith(
-          () => _ServerConfigState(_serverConfig('oh-my-media')),
-        ),
-      ],
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
     );
     addTearDown(container.dispose);
     final notifier = container.read(taskCenterProvider.notifier);
 
     notifier.updateFromSchedulerMessage(const {
-      'type': 'preview_task',
+      'type': 'scheduler_status',
       'taskId': 'preview-1',
+      'recordId': 'preview-record-1',
+      'taskType': 'preview_generation',
+      'taskName': '预览生成',
+      'attempt': 1,
+      'revision': 1,
       'status': 'queued',
-      'isRunning': false,
+      'isRunning': true,
+      'canCancel': true,
       'progress': {'total': 1, 'completed': 0, 'percent': 0},
       'movieId': 7,
       'movieTitle': '长视频',
@@ -437,11 +483,16 @@ void _main_1() {
     expect(container.read(taskCenterProvider).single.canCancel, isTrue);
 
     notifier.updateFromSchedulerMessage(const {
-      'type': 'preview_task',
+      'type': 'scheduler_status',
       'taskId': 'preview-1',
-      'taskName': '忽略客户端名称',
+      'recordId': 'preview-record-1',
+      'taskType': 'preview_generation',
+      'taskName': '预览生成',
+      'attempt': 1,
+      'revision': 2,
       'status': 'running',
       'isRunning': true,
+      'canCancel': true,
       'progress': {'total': 1, 'completed': 0, 'percent': 42.5},
     });
     final running = container.read(taskCenterProvider).single;
@@ -449,79 +500,104 @@ void _main_1() {
     expect(running.movieId, 7);
     expect(running.movieTitle, '长视频');
 
-    for (final status in ['completed', 'failed', 'cancelled']) {
-      notifier.updateFromSchedulerMessage({
-        'type': 'preview_task',
-        'taskId': 'preview-$status',
-        'status': status,
-        'isRunning': false,
-        'progress': {'total': 1, 'completed': 1, 'percent': 100},
-        'movieId': 7,
-        'movieTitle': '长视频',
-      });
-    }
-    final tasks = container.read(taskCenterProvider);
-    expect(tasks.any((task) => task.isCompleted), isTrue);
-    expect(tasks.any((task) => task.isFailed), isTrue);
-    expect(tasks.any((task) => task.isCanceled), isTrue);
-    expect(
-      tasks
-          .where((task) => task.name == '预览生成')
-          .every((task) => !task.canRetry),
-      isTrue,
-    );
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'preview-1',
+      'recordId': 'preview-record-1',
+      'taskType': 'preview_generation',
+      'taskName': '预览生成',
+      'attempt': 1,
+      'revision': 1,
+      'status': 'completed',
+      'isRunning': false,
+      'progress': {'total': 1, 'completed': 1, 'percent': 100},
+    });
+    expect(container.read(taskCenterProvider).single.status, 'running');
+    expect(container.read(taskCenterProvider).single.revision, 2);
   });
 
-  test('提交响应登记和 WebSocket 更新保留影片信息', () {
-    final task = const PreviewTask(
-      taskId: 'preview-2',
-      status: 'queued',
-      movieIds: [11],
-      totalCount: 1,
-    );
-    final item = TaskItem.fromPreviewTask(
-      task,
-      fallbackMovieId: 11,
-      fallbackMovieTitle: '提交响应影片',
-    );
-    expect(item.movieId, 11);
-    expect(item.movieTitle, '提交响应影片');
-
-    final merged = item.merge(
-      TaskItem.fromPreviewMessage(const {
-        'type': 'preview_task',
-        'taskId': 'preview-2',
-        'status': 'running',
-        'isRunning': true,
-        'progress': {'total': 1, 'completed': 0, 'percent': 12.5},
-      }),
-    );
-    expect(merged.movieId, 11);
-    expect(merged.movieTitle, '提交响应影片');
-    expect(merged.progress.percent, 12.5);
-  });
-
-  test('预览任务取消调用预览任务取消接口并更新本地状态', () async {
+  test('新 attempt 替换同一逻辑任务的旧活跃投影', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final repository = _TaskCenterMediaRepository();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(taskCenterProvider.notifier);
+
+    for (final attempt in const [1, 2]) {
+      notifier.updateFromSchedulerMessage({
+        'type': 'scheduler_status',
+        'taskId': 'replay-1',
+        'recordId': 'record-$attempt',
+        'taskType': 'subtitle_transcription',
+        'taskName': '字幕转译',
+        'attempt': attempt,
+        'revision': 1,
+        'status': attempt == 1 ? 'running' : 'queued',
+        'isRunning': true,
+      });
+    }
+
+    final tasks = container.read(taskCenterProvider);
+    expect(tasks, hasLength(1));
+    expect(tasks.single.attempt, 2);
+    expect(tasks.single.recordId, 'record-2');
+  });
+
+  test('任务取消统一调用 TasksApi 并应用返回快照', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    String? controlPath;
+    final dio = Dio(BaseOptions(baseUrl: 'http://test'))
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (options.method == 'POST') controlPath = options.path;
+            final data = options.method == 'POST'
+                ? const {
+                    'type': 'scheduler_status',
+                    'taskId': 'preview-cancel',
+                    'recordId': 'preview-record',
+                    'taskType': 'preview_generation',
+                    'taskName': '预览生成',
+                    'attempt': 1,
+                    'revision': 2,
+                    'status': 'canceling',
+                    'isRunning': true,
+                    'canCancel': false,
+                  }
+                : const {'items': [], 'total': 0, 'stats': {}};
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                data: {'success': true, 'data': data},
+              ),
+            );
+          },
+        ),
+      );
     final container = ProviderContainer(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
-        serverConfigProvider.overrideWith(
-          () => _ServerConfigState(_serverConfig('oh-my-media')),
-        ),
-        mediaRepositoryProvider.overrideWithValue(repository),
+        requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
       ],
     );
     addTearDown(container.dispose);
 
     final notifier = container.read(taskCenterProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
     notifier.updateFromSchedulerMessage(const {
-      'type': 'preview_task',
+      'type': 'scheduler_status',
       'taskId': 'preview-cancel',
+      'recordId': 'preview-record',
+      'taskType': 'preview_generation',
+      'taskName': '预览生成',
+      'attempt': 1,
+      'revision': 1,
       'status': 'running',
       'isRunning': true,
+      'canCancel': true,
       'progress': {'total': 1, 'completed': 0, 'percent': 37.5},
       'movieId': 7,
       'movieTitle': '可取消影片',
@@ -529,23 +605,18 @@ void _main_1() {
 
     await notifier.cancel(container.read(taskCenterProvider).single);
 
-    expect(repository.cancelledTaskId, 'preview-cancel');
+    expect(controlPath, '/tasks/preview-cancel/cancel');
     final task = container.read(taskCenterProvider).single;
-    expect(task.isCanceled, isTrue);
-    expect(task.isActive, isFalse);
+    expect(task.status, 'canceling');
+    expect(task.isActive, isTrue);
     expect(task.canRetry, isFalse);
   });
 
-  test('非 OMM 服务器忽略预览广播和客户端登记', () async {
+  test('任务中心忽略旧的专用 preview_task 消息', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
-      overrides: [
-        sharedPrefsProvider.overrideWithValue(prefs),
-        serverConfigProvider.overrideWith(
-          () => _ServerConfigState(_serverConfig('emby')),
-        ),
-      ],
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
     );
     addTearDown(container.dispose);
 
@@ -557,13 +628,6 @@ void _main_1() {
       'isRunning': true,
       'progress': {'total': 1, 'completed': 0, 'percent': 50},
     });
-    notifier.registerPreview(
-      const PreviewTask(
-        taskId: 'external-preview-2',
-        status: 'queued',
-        totalCount: 1,
-      ),
-    );
 
     expect(container.read(taskCenterProvider), isEmpty);
   });
@@ -584,6 +648,7 @@ void _main_2() {
         .updateFromSchedulerMessage(const <String, dynamic>{
           'type': 'scheduler_status',
           'taskId': 'tr-42',
+          'taskType': 'subtitle_transcription',
           'taskName': '字幕转译',
           'status': 'completed',
           'isRunning': false,
@@ -621,64 +686,4 @@ void main() {
   group('task_center_models', _main_0);
   group('task_center_provider', _main_1);
   group('task_center_page', _main_2);
-}
-
-class _TaskCenterMediaRepository extends MediaRepository {
-  _TaskCenterMediaRepository()
-    : super(
-        catalog: _NoopCatalogSource(),
-        details: _NoopMovieDetailSource(),
-        operations: _NoopOmmOperationsSource(),
-      );
-
-  String? cancelledTaskId;
-
-  @override
-  Future<void> cancelPreviewTask(String taskId) async {
-    cancelledTaskId = taskId;
-  }
-}
-
-class _NoopCatalogSource implements CatalogSource {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(invocation.memberName.toString());
-}
-
-class _NoopMovieDetailSource implements MovieDetailSource {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(invocation.memberName.toString());
-}
-
-class _NoopOmmOperationsSource implements OmmMediaOperationsSource {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(invocation.memberName.toString());
-}
-
-class _ServerConfigState extends ServerConfigNotifier {
-  _ServerConfigState(this.config);
-
-  final ServerConfig config;
-
-  @override
-  ServerConfig build() => config;
-}
-
-ServerConfig _serverConfig(String projectName) {
-  const line = ServerLine(id: 'line', name: '主线路', baseUrl: '');
-  final server = ServerProfile(
-    id: 'server',
-    name: projectName,
-    lines: const [line],
-    activeLineId: line.id,
-    projectName: projectName,
-  );
-  return ServerConfig(
-    baseUrl: line.baseUrl,
-    lines: const [line],
-    servers: [server],
-    activeServerId: server.id,
-  );
 }

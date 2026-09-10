@@ -192,30 +192,42 @@ void _main_0() {
     expect(adapter.paths, <String>['/api/configs/avdb', '/api/configs/ffmpeg']);
   });
 
-  test('预览配置、生成、状态和取消接口使用实际路由', () async {
+  test('预览配置、任务提交、状态读取和统一取消使用实际路由', () async {
     final adapter = _RouteAdapter();
-    final configs = ConfigsExtendedApi(_dio(adapter));
-    final movies = MoviesExtendedApi(_dio(adapter));
+    final dio = _dio(adapter);
+    final configs = ConfigsExtendedApi(dio);
+    final movies = MoviesExtendedApi(dio);
+    final tasks = ApiClient(dio).tasks;
 
     await configs.preview();
     await configs.savePreview({'segments': 12});
-    await movies.generateMoviePreviews(7, overwrite: true);
+    await tasks.submit('preview_generation', {
+      'movie_ids': [7],
+      'targets': ['video', 'sprite'],
+      'overwrite': true,
+    });
     await movies.getMoviePreviews(7);
-    await movies.cancelPreviewTask('preview-1');
+    await tasks.control('preview-1', 'cancel');
 
     expect(adapter.paths, <String>[
       '/api/configs/preview',
       '/api/configs/preview',
-      '/api/movies/id/7/previews/generate',
+      '/api/tasks',
       '/api/movies/id/7/previews',
-      '/api/movies/preview-tasks/preview-1/cancel',
+      '/api/tasks/preview-1/cancel',
     ]);
     expect(adapter.requestBodies[0], {'segments': 12});
-    // 移动端省略 targets，由后端使用 video + sprite 默认目标；只传覆盖标记。
-    expect(adapter.requestBodies[1], {'overwrite': true});
+    expect(adapter.requestBodies[1], {
+      'task_type': 'preview_generation',
+      'input': {
+        'movie_ids': [7],
+        'targets': ['video', 'sprite'],
+        'overwrite': true,
+      },
+    });
   });
 
-  test('媒体库批量增量和全量扫描均由单个后端接口发起', () async {
+  test('媒体库批量增量和全量扫描均由统一任务接口发起', () async {
     for (final incremental in const [true, false]) {
       final adapter = _RouteAdapter();
       final dio = _dio(adapter);
@@ -223,19 +235,22 @@ void _main_0() {
         ApiClient(dio),
       ).startBatchScan(incremental: incremental);
 
-      expect(adapter.paths.single, '/api/libraries/scan');
-      expect(adapter.requestBodies.single, {'incremental': incremental});
-      expect(result.acceptedCount, 2);
-      expect(result.skippedDisabledCount, 1);
-      expect(result.tasks.map((task) => task.libraryId).toList(), [1, 3]);
+      expect(adapter.paths.single, '/api/tasks');
+      expect(adapter.requestBodies.single, {
+        'task_type': 'library_scan',
+        'input': {'library_ids': <int>[], 'incremental': incremental},
+      });
+      expect(result.acceptedCount, 1);
+      expect(result.skippedDisabledCount, 0);
+      expect(result.tasks, isEmpty);
     }
   });
 
-  test('影片资源扫描使用批量扫描接口并传递筛选体', () async {
+  test('影片资源扫描使用统一任务接口并传递筛选体', () async {
     final adapter = _RouteAdapter();
-    final api = MoviesExtendedApi(_dio(adapter));
+    final tasks = ApiClient(_dio(adapter)).tasks;
 
-    await api.batchResourceScan({
+    await tasks.submit('resource_scan', {
       'scan_all': true,
       'favorite_only': false,
       'filters': {
@@ -244,34 +259,36 @@ void _main_0() {
       },
     });
 
-    expect(adapter.paths.single, '/api/movies/batch/dbonline/resources/scan');
-    expect(adapter.requestBodies.single['scan_all'], true);
-    expect(adapter.requestBodies.single['filters'], {
+    expect(adapter.paths.single, '/api/tasks');
+    expect(adapter.requestBodies.single['task_type'], 'resource_scan');
+    final input = adapter.requestBodies.single['input'] as Map;
+    expect(input['scan_all'], true);
+    expect(input['filters'], {
       'has_new_resources': true,
       'genre_ids': [3, 8],
     });
   });
 
-  test('影片资源扫描任务使用资源扫描取消接口', () async {
+  test('影片资源扫描任务使用统一取消接口', () async {
     final adapter = _RouteAdapter();
 
-    await MoviesExtendedApi(
-      _dio(adapter),
-    ).cancelResourceScan('resource-scan-1');
+    await ApiClient(_dio(adapter)).tasks.control('resource-scan-1', 'cancel');
 
-    expect(
-      adapter.paths.single,
-      '/api/movies/batch/dbonline/resources/scan/resource-scan-1/cancel',
-    );
+    expect(adapter.paths.single, '/api/tasks/resource-scan-1/cancel');
   });
 
-  test('影片预览图获取使用资源动作接口并提交单元素数组', () async {
+  test('影片预览图获取使用统一任务接口并提交单元素数组', () async {
     final adapter = _RouteAdapter();
-    await MoviesExtendedApi(_dio(adapter)).downloadDbonlineExtrafanart(7);
-
-    expect(adapter.paths.single, '/api/movies/dbonline/extrafanart');
-    expect(adapter.requestBodies.single, {
+    await ApiClient(_dio(adapter)).tasks.submit('extra_fanart_download', {
       'movie_ids': [7],
+    });
+
+    expect(adapter.paths.single, '/api/tasks');
+    expect(adapter.requestBodies.single, {
+      'task_type': 'extra_fanart_download',
+      'input': {
+        'movie_ids': [7],
+      },
     });
   });
 
@@ -362,22 +379,28 @@ void _main_0() {
     });
   });
 
-  test('云端转译与音频任务接口使用后端实际路径和参数', () async {
+  test('云端转译投影与音频任务使用统一路径和参数', () async {
     final audioAdapter = _RouteAdapter();
-    final audio = AudioApi(_dio(audioAdapter));
+    final dio = _dio(audioAdapter);
+    final audio = AudioApi(dio);
+    final tasks = ApiClient(dio).tasks;
 
     await audio.listTranscriptions(limit: 25, offset: 5, status: 'failed');
-    await audio.extractAudio(movieId: 7, format: 'm4a', bitrateKbps: 256);
-    await audio.cancelAudioExtraction('extract-1');
-    await audio.cancelSubtitleTranscription('12');
-    await audio.retrySubtitleTranscription('13', overwrite: true);
+    await tasks.submit('audio_extract', {
+      'movie_id': 7,
+      'format': 'm4a',
+      'bitrate_kbps': 256,
+    });
+    await tasks.control('extract-1', 'cancel');
+    await tasks.control('transcription-12', 'cancel');
+    await tasks.control('transcription-13', 'retry');
 
     expect(audioAdapter.paths, <String>[
       '/api/audios/transcriptions',
-      '/api/audios/extract',
-      '/api/audios/extract/extract-1/cancel',
-      '/api/audios/transcriptions/12/cancel',
-      '/api/audios/transcriptions/13/retry',
+      '/api/tasks',
+      '/api/tasks/extract-1/cancel',
+      '/api/tasks/transcription-12/cancel',
+      '/api/tasks/transcription-13/retry',
     ]);
     expect(audioAdapter.queries.first, {
       'limit': '25',
@@ -385,16 +408,14 @@ void _main_0() {
       'status': 'failed',
     });
     expect(
-      audioAdapter.requestBodies.any(
-        (body) =>
-            body['movie_id'] == 7 &&
-            body['format'] == 'm4a' &&
-            body['bitrate_kbps'] == 256,
-      ),
-      isTrue,
-    );
-    expect(
-      audioAdapter.requestBodies.any((body) => body['overwrite'] == true),
+      audioAdapter.requestBodies.any((body) {
+        final input = body['input'];
+        return body['task_type'] == 'audio_extract' &&
+            input is Map &&
+            input['movie_id'] == 7 &&
+            input['format'] == 'm4a' &&
+            input['bitrate_kbps'] == 256;
+      }),
       isTrue,
     );
 
@@ -481,31 +502,20 @@ class _RouteAdapter implements HttpClientAdapter {
         'hw_decode_ok': true,
         'hw_encode_ok': true,
       },
-      '/api/libraries/scan' => {
-        'scan_type': '全量扫描',
-        'enabled_count': 2,
-        'accepted_count': 2,
-        'reused_count': 0,
-        'failed_count': 0,
-        'skipped_disabled_count': 1,
-        'tasks': [
-          {
-            'library_id': 1,
-            'library_name': 'Library 1',
-            'task_id': 'task-1',
-            'status': 'running',
-            'queue_position': 0,
-            'reused': false,
-          },
-          {
-            'library_id': 3,
-            'library_name': 'Library 3',
-            'task_id': 'task-3',
-            'status': 'queued',
-            'queue_position': 1,
-            'reused': false,
-          },
+      '/api/tasks' => {
+        'task': {
+          'task_id': 'task-1',
+          'task_type': options.data is Map
+              ? (options.data as Map)['task_type']
+              : '',
+          'status': 'queued',
+          'attempt': 1,
+          'revision': 1,
+        },
+        'accepted': [
+          {'task_id': 'task-1', 'record_id': 'record-1'},
         ],
+        'rejected': [],
       },
       _ => null,
     };

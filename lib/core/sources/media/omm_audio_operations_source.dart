@@ -23,7 +23,7 @@ abstract interface class OmmAudioOperationsSource {
 
   Future<Object?> cancelAudioExtraction(String taskId);
 
-  Future<Object?> cancelSubtitleTranscription(String assetId);
+  Future<Object?> cancelSubtitleTranscription(String taskId);
 
-  Future<Object?> retrySubtitleTranscription(String assetId, {bool? overwrite});
+  Future<Object?> retrySubtitleTranscription(String taskId);
 }

@@ -2,10 +2,11 @@ import 'package:flutter/foundation.dart';
 
 /// 音频资产行上内嵌的字幕转译信息。
 ///
-/// 取消/重试接口的 id 传音频资产 ID（与 WS scheduler_status 的 taskId 同源）。
+/// 资产 ID 与统一调度器的逻辑任务 ID 分离；控制操作必须使用 [taskId]。
 @immutable
 class AudioTranscription {
   const AudioTranscription({
+    this.taskId = '',
     this.status = '',
     this.stage = '',
     this.percent = 0,
@@ -17,6 +18,7 @@ class AudioTranscription {
   factory AudioTranscription.fromJson(Object? raw) {
     if (raw is! Map) return const AudioTranscription();
     return AudioTranscription(
+      taskId: _asString(raw['task_id'] ?? raw['taskId']),
       status: _asString(raw['status']),
       stage: _asString(raw['stage']),
       percent: _asDouble(raw['percent']),
@@ -26,6 +28,7 @@ class AudioTranscription {
     );
   }
 
+  final String taskId;
   final String status;
   final String stage;
   final double percent;
@@ -33,7 +36,8 @@ class AudioTranscription {
   final String errorMessage;
   final String downloadUrl;
 
-  bool get isActive => status == 'queued' || status == 'running';
+  bool get isActive =>
+      status == 'queued' || status == 'running' || status == 'canceling';
 
   bool get isDone => status == 'completed' || status == 'skipped';
 
@@ -99,6 +103,8 @@ class AudioAsset {
 
   AudioTranscription get transcriptionView =>
       transcription ?? const AudioTranscription();
+
+  String get transcriptionTaskId => transcriptionView.taskId;
 
   /// 字幕转译完成：行内转译状态优先，其次回退到资产标记。
   bool get isTranscriptionDone =>
@@ -169,7 +175,7 @@ class TranscriptionEnqueueRejection {
   final String message;
 }
 
-/// POST /audios/transcriptions 的入队结果。
+/// `POST /tasks` 提交字幕转译后的受理结果。
 @immutable
 class TranscriptionEnqueueResult {
   const TranscriptionEnqueueResult({

@@ -188,7 +188,10 @@ class OmmMediaOperationsAdapter
     List<int> assetIds, {
     bool overwrite = false,
   }) => _call(
-    () => client.audio.enqueueTranscriptions(assetIds, overwrite: overwrite),
+    () => client.tasks.submit('subtitle_transcription', {
+      'audio_asset_ids': assetIds,
+      'overwrite': overwrite,
+    }),
   );
 
   @override
@@ -210,29 +213,24 @@ class OmmMediaOperationsAdapter
     String format = 'mp3',
     int bitrateKbps = 192,
   }) => _call(
-    () => client.audio.extractAudio(
-      movieId: movieId,
-      format: format,
-      bitrateKbps: bitrateKbps,
-    ),
+    () => client.tasks.submit('audio_extract', {
+      'movie_id': movieId,
+      'format': format,
+      'bitrate_kbps': bitrateKbps,
+    }),
   );
 
   @override
   Future<Object?> cancelAudioExtraction(String taskId) =>
-      _call(() => client.audio.cancelAudioExtraction(taskId));
+      _call(() => client.tasks.control(taskId, 'cancel'));
 
   @override
-  Future<Object?> cancelSubtitleTranscription(String assetId) =>
-      _call(() => client.audio.cancelSubtitleTranscription(assetId));
+  Future<Object?> cancelSubtitleTranscription(String taskId) =>
+      _call(() => client.tasks.control(taskId, 'cancel'));
 
   @override
-  Future<Object?> retrySubtitleTranscription(
-    String assetId, {
-    bool? overwrite,
-  }) => _call(
-    () =>
-        client.audio.retrySubtitleTranscription(assetId, overwrite: overwrite),
-  );
+  Future<Object?> retrySubtitleTranscription(String taskId) =>
+      _call(() => client.tasks.control(taskId, 'retry'));
 
   @override
   Future<MediaPage<MediaSummary>> listFavorites(MediaQuery query) async {
@@ -279,8 +277,11 @@ class OmmMediaOperationsAdapter
 
   @override
   Future<void> downloadExtraFanarts(MediaRef movie) async {
-    final api = client.moviesExtended;
-    await _call(() => api.downloadDbonlineExtrafanart(_ommId(movie)));
+    await _call(
+      () => client.tasks.submit('extra_fanart_download', {
+        'movie_ids': [_ommId(movie)],
+      }),
+    );
   }
 
   @override
@@ -366,7 +367,6 @@ class OmmMediaOperationsAdapter
     Map<String, dynamic>? filter,
     bool favoriteOnly = false,
   }) async {
-    final api = client.moviesExtended;
     final ids = movies
         ?.map(_ommId)
         .where((id) => id > 0)
@@ -379,17 +379,14 @@ class OmmMediaOperationsAdapter
             'favorite_only': favoriteOnly,
             'filters': filter ?? const <String, dynamic>{},
           };
-    final data = await _call(() => api.batchResourceScan(body));
-    if (data is! Map) throw const SourceException('资源扫描响应格式错误');
-    return ResourceScanStartResult.fromJson(Map<String, dynamic>.from(data));
-  }
-
-  @override
-  Future<ResourceScanTask> resourceScanProgress(String taskId) async {
-    final api = client.moviesExtended;
-    final data = await _call(() => api.resourceScanProgress(taskId));
-    if (data is! Map) throw const SourceException('资源扫描进度响应格式错误');
-    return ResourceScanTask.fromJson(Map<String, dynamic>.from(data));
+    final raw = await _call(() => client.tasks.submit('resource_scan', body));
+    final task = _taskSnapshot(raw);
+    return ResourceScanStartResult(
+      taskId: _taskId(task),
+      acceptedCount: ids?.length ?? 1,
+      skippedCount: 0,
+      skippedIds: const <int>[],
+    );
   }
 
   @override
@@ -434,8 +431,12 @@ class OmmMediaOperationsAdapter
 
   @override
   Future<void> syncNfo(MediaRef movie) async {
-    final raw = await _call(() => client.movies.syncNfo(_ommId(movie)));
-    unwrapStd<void>(raw, (_) {});
+    final raw = await _call(
+      () => client.tasks.submit('nfo_sync', {
+        'movie_ids': [_ommId(movie)],
+      }),
+    );
+    _taskSnapshot(raw);
   }
 
   @override
@@ -727,15 +728,13 @@ class OmmMediaOperationsAdapter
     required MediaRef targetMovie,
   }) async {
     final raw = await _call(
-      () => client.movies.mergeDuplicateFiles({
+      () => client.tasks.submit('duplicate_movie_merge', {
         'movie_ids': movies.map(_ommId).toList(growable: false),
         'target_movie_id': _ommId(targetMovie),
       }),
     );
     _throwIfUnsuccessful(raw, '合并失败');
-    return raw is Map && raw['data'] is Map
-        ? (raw['data'] as Map)['task_id']?.toString()
-        : null;
+    return _taskId(_taskSnapshot(raw));
   }
 
   @override
@@ -822,15 +821,25 @@ class OmmMediaOperationsAdapter
     bool overwrite = false,
   }) async {
     final raw = await _call(
-      () => client.moviesExtended.generateMoviePreviews(
-        _ommId(movie),
-        overwrite: overwrite,
-      ),
+      () => client.tasks.submit('preview_generation', {
+        'movie_ids': [_ommId(movie)],
+        'targets': <String>[],
+        'overwrite': overwrite,
+      }),
     );
-    return unwrapStd<PreviewStartResult>(
-      raw,
-      (data) =>
-          PreviewStartResult.fromJson(Map<String, dynamic>.from(data as Map)),
+    final task = _taskSnapshot(raw);
+    final taskId = _taskId(task);
+    return PreviewStartResult(
+      taskId: taskId,
+      reused: false,
+      task: PreviewTask(
+        taskId: taskId,
+        status: (task['status'] ?? 'queued').toString(),
+        movieIds: [_ommId(movie)],
+        overwrite: overwrite,
+        totalCount: 1,
+        message: (task['message'] ?? '').toString(),
+      ),
     );
   }
 
@@ -848,9 +857,7 @@ class OmmMediaOperationsAdapter
   @override
   Future<void> cancelPreviewTask(String taskId) async {
     if (taskId.trim().isEmpty) throw const SourceException('预览任务 ID 不能为空');
-    final raw = await _call(
-      () => client.moviesExtended.cancelPreviewTask(taskId),
-    );
+    final raw = await _call(() => client.tasks.control(taskId, 'cancel'));
     unwrapStd<void>(raw, (_) {});
   }
 
@@ -955,5 +962,19 @@ class OmmMediaOperationsAdapter
   int _intValue(Object? value) {
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  Map<String, dynamic> _taskSnapshot(Object? raw) {
+    return unwrapStd<Map<String, dynamic>>(raw, (data) {
+      final value = data is Map && data['task'] is Map ? data['task'] : data;
+      if (value is! Map) throw const SourceException('统一任务响应格式错误');
+      return Map<String, dynamic>.from(value);
+    });
+  }
+
+  String _taskId(Map<String, dynamic> task) {
+    final taskId = (task['taskId'] ?? task['task_id'] ?? '').toString().trim();
+    if (taskId.isEmpty) throw const SourceException('统一任务响应缺少任务 ID');
+    return taskId;
   }
 }
