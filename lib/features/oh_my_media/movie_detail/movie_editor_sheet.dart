@@ -453,108 +453,104 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.movie.partMovies.isNotEmpty) ...[
-                    SheetSwitchTile(
-                      title: l.movieEditorSyncParts(
-                        widget.movie.partMovies.length,
-                      ),
-                      subtitle: partNames.isEmpty
-                          ? null
-                          : l.movieEditorSyncPartsHint(partNames),
-                      value: _syncParts,
-                      onChanged: _saving || _flagUpdating
-                          ? null
-                          : (value) => setState(() => _syncParts = value),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                   // ===== 海报裁剪 + 快捷操作 =====
-                  if (_fanartUrl != null) ...[
+                  if (_fanartUrl != null ||
+                      widget.movie.partMovies.isNotEmpty) ...[
                     _label(
                       l.movieEditorQuickActions,
-                      trailing: _flagUpdating
-                          ? const SizedBox(
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.movie.partMovies.isNotEmpty)
+                            _syncPartsCapsule(l, partNames),
+                          if (_flagUpdating) ...[
+                            const SizedBox(width: 8),
+                            const SizedBox(
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(height: 4),
-                    IgnorePointer(
-                      ignoring: _flagUpdating,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          CapsuleSelect(
-                            label: l.movieFlagSubtitle,
-                            value: _subtitleMode,
-                            options: [
-                              (value: '', label: '默认'),
-                              (value: 'none', label: '无'),
-                              (value: 'sub', label: l.movieFlagSubtitle),
-                              (
-                                value: 'exsub',
-                                label: l.movieFlagExternalSubtitle,
-                              ),
-                            ],
-                            onChanged: (v) =>
-                                unawaited(_changeSubtitleFlag(v)),
-                          ),
-                          CapsuleSelect(
-                            label: l.movieFlagCrack,
-                            value: _crackMode,
-                            options: [
-                              (value: '', label: '默认'),
-                              (value: 'none', label: '无'),
-                              (value: 'crack', label: l.movieFlagCrack),
-                            ],
-                            onChanged: (v) => unawaited(_changeCrackFlag(v)),
-                          ),
-                          CapsuleSelect(
-                            label: '清晰度',
-                            value: _resolutionMode,
-                            options: const [
-                              (value: '', label: '默认'),
-                              (value: 'none', label: '无'),
-                              (value: '4k', label: '4K'),
-                              (value: '2k', label: '2K'),
-                            ],
-                            onChanged: (v) => unawaited(_changeResolution(v)),
-                          ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    // 全部“未设置”时不加载裁剪器，避免进入编辑页就触发裁剪逻辑。
-                    if (_anyFlagSelected) ...[
-                      const SizedBox(height: 12),
-                      _label(l.movieEditorFanartCrop),
+                    if (_fanartUrl != null) ...[
                       const SizedBox(height: 4),
-                      PosterCropController(
-                        movieId: widget.movie.id,
-                        fanartUrl: _fanartUrl!,
-                        cropOffset: _cropOffset,
-                        subtitle: _subtitleMode.isEmpty
-                            ? null
-                            : _subtitleMode == 'sub',
-                        exsub: _subtitleMode.isEmpty
-                            ? null
-                            : _subtitleMode == 'exsub',
-                        crack: _crackMode.isEmpty
-                            ? null
-                            : _crackMode == 'crack',
-                        resolution: _resolutionMode.isEmpty
-                            ? null
-                            : _resolutionMode,
-                        onChanged: (v) {
-                          setState(() {
-                            _cropOffset = v;
-                            _cropDirty = true;
-                          });
-                        },
+                      IgnorePointer(
+                        ignoring: _flagUpdating,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            CapsuleSelect(
+                              label: l.movieFlagSubtitle,
+                              value: _subtitleMode,
+                              options: [
+                                (value: '', label: '默认'),
+                                (value: 'none', label: '无'),
+                                (value: 'sub', label: l.movieFlagSubtitle),
+                                (
+                                  value: 'exsub',
+                                  label: l.movieFlagExternalSubtitle,
+                                ),
+                              ],
+                              onChanged: (v) =>
+                                  unawaited(_changeSubtitleFlag(v)),
+                            ),
+                            CapsuleSelect(
+                              label: l.movieFlagCrack,
+                              value: _crackMode,
+                              options: [
+                                (value: '', label: '默认'),
+                                (value: 'none', label: '无'),
+                                (value: 'crack', label: l.movieFlagCrack),
+                              ],
+                              onChanged: (v) => unawaited(_changeCrackFlag(v)),
+                            ),
+                            CapsuleSelect(
+                              label: '清晰度',
+                              value: _resolutionMode,
+                              options: const [
+                                (value: '', label: '默认'),
+                                (value: 'none', label: '无'),
+                                (value: '4k', label: '4K'),
+                                (value: '2k', label: '2K'),
+                              ],
+                              onChanged: (v) => unawaited(_changeResolution(v)),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 18),
+                      // 全部“未设置”时不加载裁剪器，避免进入编辑页就触发裁剪逻辑。
+                      if (_anyFlagSelected) ...[
+                        const SizedBox(height: 12),
+                        _label(l.movieEditorFanartCrop),
+                        const SizedBox(height: 4),
+                        PosterCropController(
+                          movieId: widget.movie.id,
+                          fanartUrl: _fanartUrl!,
+                          cropOffset: _cropOffset,
+                          subtitle: _subtitleMode.isEmpty
+                              ? null
+                              : _subtitleMode == 'sub',
+                          exsub: _subtitleMode.isEmpty
+                              ? null
+                              : _subtitleMode == 'exsub',
+                          crack: _crackMode.isEmpty
+                              ? null
+                              : _crackMode == 'crack',
+                          resolution: _resolutionMode.isEmpty
+                              ? null
+                              : _resolutionMode,
+                          onChanged: (v) {
+                            setState(() {
+                              _cropOffset = v;
+                              _cropDirty = true;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                      ],
                     ],
                   ],
 
@@ -779,6 +775,108 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _syncPartsCapsule(AppL10n l, String partNames) {
+    final c = appColors(context);
+    final disabled = _saving || _flagUpdating;
+    final title = l.movieEditorSyncParts(widget.movie.partMovies.length);
+    final hint = partNames.isEmpty
+        ? null
+        : l.movieEditorSyncPartsHint(partNames);
+
+    void toggle(bool value) => setState(() => _syncParts = value);
+
+    return Tooltip(
+      message: hint == null ? title : '$title · $hint',
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(100),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: disabled ? null : () => toggle(!_syncParts),
+          borderRadius: BorderRadius.circular(100),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            constraints: const BoxConstraints(maxWidth: 210),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _syncParts ? c.accent.withValues(alpha: 0.14) : c.chipBg,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: _syncParts
+                    ? c.accent.withValues(alpha: 0.55)
+                    : c.cardBorder,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _syncParts ? Icons.sync_rounded : Icons.sync_disabled_rounded,
+                  size: 15,
+                  color: disabled
+                      ? c.muted
+                      : (_syncParts ? c.accent : c.muted2),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: disabled
+                              ? c.muted
+                              : (_syncParts ? c.accent : c.text),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                      if (hint != null)
+                        Text(
+                          hint,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: disabled ? c.muted : c.muted2,
+                            fontFamily: 'Inter',
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                SizedBox(
+                  width: 36,
+                  height: 24,
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Switch(
+                      value: _syncParts,
+                      onChanged: disabled ? null : toggle,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      activeThumbColor: c.accent,
+                      activeTrackColor: c.accent.withValues(alpha: 0.38),
+                      inactiveThumbColor: c.muted,
+                      inactiveTrackColor: c.muted2.withValues(alpha: 0.32),
+                      trackOutlineColor: WidgetStatePropertyAll(c.cardBorder),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
