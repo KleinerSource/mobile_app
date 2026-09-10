@@ -139,9 +139,7 @@ class _MovieExtraFanartSectionState
         : current.isCanceled
         ? '任务已取消'
         : '任务执行失败';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(reason))),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
   }
 
   Future<void> _refreshExtraFanartsOnly() async {

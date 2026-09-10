@@ -208,7 +208,7 @@ void main() {
     await tester.pump();
 
     expect(loadCount, 1);
-    expect(find.text('获取额外预览图失败：DB Online 未返回预览图'), findsOneWidget);
+    expect(find.text('DB Online 未返回预览图'), findsOneWidget);
     expect(
       tester.widget<TextButton>(find.byType(TextButton)).onPressed,
       isNotNull,
