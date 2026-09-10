@@ -11,6 +11,7 @@ import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/watch_record.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/actor_avatar.dart';
@@ -1175,9 +1176,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    l.operationFailed(toApiException(error).message),
-                  ),
+                  content: Text(l.operationFailed(sourceErrorMessage(error))),
                 ),
               );
             } finally {
@@ -1385,7 +1384,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.operationFailed(toApiException(e).message))),
+        SnackBar(content: Text(l.operationFailed(sourceErrorMessage(e)))),
       );
     }
   }

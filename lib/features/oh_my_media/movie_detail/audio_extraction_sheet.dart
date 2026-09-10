@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/api_exception.dart';
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/config/server_config_provider.dart'
     show sharedPrefsProvider;
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -110,7 +110,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
       if (mounted) Navigator.of(context).pop(taskId);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = toApiException(error).message);
+        setState(() => _error = sourceErrorMessage(error));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

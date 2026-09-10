@@ -5,9 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_exception.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -102,9 +101,7 @@ class _MovieExtraFanartSectionState
     } catch (error) {
       if (!mounted) return;
       setState(() => _fetching = false);
-      final message = error is SourceException
-          ? error.message
-          : toApiException(error).message;
+      final message = sourceErrorMessage(error);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(message))),
       );
@@ -130,8 +127,7 @@ class _MovieExtraFanartSectionState
     _fanartTaskId = null;
     if (mounted) setState(() => _fetching = false);
     if (current.isCompleted) {
-      refreshImageCache(ref);
-      ref.invalidate(extraFanartsProvider(widget.movieId));
+      unawaited(_refreshExtraFanartsOnly());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).fanartFetchDone)),
       );
@@ -146,6 +142,19 @@ class _MovieExtraFanartSectionState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(reason))),
     );
+  }
+
+  Future<void> _refreshExtraFanartsOnly() async {
+    final provider = extraFanartsProvider(widget.movieId);
+    final urls = ref.read(provider).asData?.value ?? const <String>[];
+    try {
+      await Future.wait(
+        urls.map((url) => CachedNetworkImage.evictFromCache(url)),
+      );
+    } catch (_) {
+      // 缓存清理失败不影响重新读取服务端预览图列表。
+    }
+    if (mounted) ref.invalidate(provider);
   }
 
   Widget _header(BuildContext context, {required bool hasImages}) {
@@ -287,7 +296,7 @@ class _MovieExtraFanartSectionState
           ? _videoOnlyPreview(context)
           : _placeholderState(
               context,
-              message: l.fanartLoadFailed(toApiException(error).message),
+              message: l.fanartLoadFailed(sourceErrorMessage(error)),
               icon: Icons.broken_image_outlined,
             ),
       data: (urls) {

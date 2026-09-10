@@ -246,6 +246,7 @@ void _main_0() {
             .having((error) => error.statusCode, 'statusCode', 503)
             .having((error) => error.message, 'message', '网关错误'),
       );
+      expect(sourceErrorMessage(mapped), '网关错误');
       await expectLater(
         source.listMovies(const MediaQuery()),
         throwsA(

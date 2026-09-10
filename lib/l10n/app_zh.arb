@@ -2037,7 +2037,7 @@
   "@detailDeleteMovieMessage": {"placeholders":{"title":{"type":"String"}}},
   "detailPlotTitle": "简介",
   "detailPlotViewFull": "查看完整简介",
-  "fanartFetchDone": "额外预览图获取完成",
+  "fanartFetchDone": "额外预览图获取成功",
   "fanartFetchFailed": "获取额外预览图失败：{error}",
   "@fanartFetchFailed": {"placeholders":{"error":{"type":"String"}}},
   "fanartTitle": "预览图",

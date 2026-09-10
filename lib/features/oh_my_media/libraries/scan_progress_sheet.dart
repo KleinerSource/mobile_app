@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/library.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_pill.dart';
@@ -104,7 +104,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = toApiException(e).message);
+      setState(() => _error = sourceErrorMessage(e));
     }
   }
 
@@ -118,7 +118,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
       if (mounted) {
         setState(
           () => _error =
-              '${errPrefix ?? AppL10n.of(context).scanActionFailed}: ${toApiException(e).message}',
+              '${errPrefix ?? AppL10n.of(context).scanActionFailed}: ${sourceErrorMessage(e)}',
         );
       }
     } finally {

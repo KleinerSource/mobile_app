@@ -5845,7 +5845,7 @@ class AppL10nZh extends AppL10n {
   String get detailPlotViewFull => '查看完整简介';
 
   @override
-  String get fanartFetchDone => '额外预览图获取完成';
+  String get fanartFetchDone => '额外预览图获取成功';
 
   @override
   String fanartFetchFailed(String error) {

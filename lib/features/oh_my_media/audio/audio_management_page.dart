@@ -9,6 +9,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/drag_selection.dart';
@@ -455,7 +456,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
             content: Text(
               AppL10n.of(
                 context,
-              ).audioCancelExtractionFailed(toApiException(error).message),
+              ).audioCancelExtractionFailed(sourceErrorMessage(error)),
             ),
           ),
         );
@@ -487,7 +488,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
             content: Text(
               AppL10n.of(
                 context,
-              ).audioCancelTranscriptionFailed(toApiException(error).message),
+              ).audioCancelTranscriptionFailed(sourceErrorMessage(error)),
             ),
           ),
         );
@@ -544,9 +545,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).audioEnqueueFailed(toApiException(error).message),
+              AppL10n.of(context).audioEnqueueFailed(sourceErrorMessage(error)),
             ),
           ),
         );
@@ -576,9 +575,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).audioRetryFailed(toApiException(error).message),
+              AppL10n.of(context).audioRetryFailed(sourceErrorMessage(error)),
             ),
           ),
         );

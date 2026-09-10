@@ -12,6 +12,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -878,9 +879,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).moviesScanCreateFailed(toApiException(e).message),
+            AppL10n.of(context).moviesScanCreateFailed(sourceErrorMessage(e)),
           ),
         ),
       );

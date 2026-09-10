@@ -87,7 +87,7 @@ void main() {
     expect(preview.left, lessThan(trailer.left));
   });
 
-  testWidgets('额外预览图任务完成后自动刷新详情列表', (tester) async {
+  testWidgets('额外预览图任务成功后只刷新预览图', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final repository = _FakeMediaRepository();
@@ -151,7 +151,64 @@ void main() {
     await tester.pump();
 
     expect(loadCount, 2);
-    expect(find.text('额外预览图获取完成'), findsOneWidget);
+    expect(prefs.getInt(imageCacheRevisionPreferenceKey), isNull);
+    expect(find.text('额外预览图获取成功'), findsOneWidget);
+    expect(
+      tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('额外预览图任务失败时显示原因且不刷新预览图', (tester) async {
+    final repository = _FakeMediaRepository();
+    late _TestTaskCenter taskCenter;
+    var loadCount = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mediaRepositoryProvider.overrideWithValue(repository),
+          taskCenterProvider.overrideWith(() {
+            taskCenter = _TestTaskCenter();
+            return taskCenter;
+          }),
+          extraFanartsProvider(7).overrideWith((ref) async {
+            loadCount++;
+            return const <String>[];
+          }),
+        ],
+        child: _localizedApp(
+          const Scaffold(
+            body: MovieExtraFanartSection(
+              movieId: 7,
+              movieTitle: '示例影片',
+              canFetch: true,
+              trailerUrl: null,
+              posterUrl: null,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('获取预览图'));
+    await tester.pump();
+    taskCenter.updateFromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'fanart-task-7',
+      'recordId': 'fanart-record-7',
+      'taskType': 'extra_fanart_download',
+      'attempt': 1,
+      'revision': 3,
+      'status': 'failed',
+      'message': 'DB Online 未返回预览图',
+      'isRunning': false,
+    });
+    await tester.pump();
+
+    expect(loadCount, 1);
+    expect(find.text('获取额外预览图失败：DB Online 未返回预览图'), findsOneWidget);
     expect(
       tester.widget<TextButton>(find.byType(TextButton)).onPressed,
       isNotNull,

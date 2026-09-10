@@ -12,6 +12,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -364,7 +365,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           content: Text(
             AppL10n.of(
               context,
-            ).favoritesScanCreateFailed(toApiException(e).message),
+            ).favoritesScanCreateFailed(sourceErrorMessage(e)),
           ),
         ),
       );

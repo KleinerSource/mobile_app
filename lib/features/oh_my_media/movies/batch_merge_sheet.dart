@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/core/util/map_with_concurrency.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -99,7 +100,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).moviesMergeFailed(toApiException(e).message),
+            AppL10n.of(context).moviesMergeFailed(sourceErrorMessage(e)),
           ),
         ),
       );

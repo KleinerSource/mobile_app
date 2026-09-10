@@ -5,6 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/library.dart';
 import 'package:omm/core/platform/app_action_sheet.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -247,7 +248,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).libraryScanFailed(toApiException(e).message),
+            AppL10n.of(context).libraryScanFailed(sourceErrorMessage(e)),
           ),
         ),
       );
@@ -423,9 +424,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).libraryBatchScanFailed(toApiException(e).message),
+              AppL10n.of(context).libraryBatchScanFailed(sourceErrorMessage(e)),
             ),
           ),
         );

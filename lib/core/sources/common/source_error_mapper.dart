@@ -13,3 +13,7 @@ SourceException mapSourceError(Object error, {required String fallback}) {
     cause: error,
   );
 }
+
+/// Returns a user-facing message without exposing the SourceException prefix.
+String sourceErrorMessage(Object error, {String fallback = '操作失败'}) =>
+    mapSourceError(error, fallback: fallback).message;

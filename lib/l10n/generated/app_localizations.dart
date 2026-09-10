@@ -10767,7 +10767,7 @@ abstract class AppL10n {
   /// No description provided for @fanartFetchDone.
   ///
   /// In zh, this message translates to:
-  /// **'额外预览图获取完成'**
+  /// **'额外预览图获取成功'**
   String get fanartFetchDone;
 
   /// No description provided for @fanartFetchFailed.
