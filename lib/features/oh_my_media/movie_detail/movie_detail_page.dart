@@ -763,11 +763,20 @@ class MovieRelatedSection extends StatelessWidget {
   }
 
   String _displayTitle(RelatedMovie item) {
-    final part = item.moviePart?.trim().toUpperCase() ?? '';
-    if (part.isEmpty) return item.title;
     final num = item.num?.trim() ?? '';
-    final code = [num, part].where((value) => value.isNotEmpty).join(' ');
-    return '[$code] ${item.title}';
+    final title = item.title.trim();
+    final prefix = num.isEmpty ? '' : '[$num]';
+    final normalizedTitle =
+        prefix.isNotEmpty &&
+            title.toUpperCase().startsWith(prefix.toUpperCase())
+        ? title.substring(prefix.length).trimLeft()
+        : title;
+    final part = item.moviePart?.trim().toUpperCase() ?? '';
+    return [
+      if (prefix.isNotEmpty) prefix,
+      if (normalizedTitle.isNotEmpty) normalizedTitle,
+      if (part.isNotEmpty) '· $part',
+    ].join(' ');
   }
 
   MovieListItem _toMovieListItem(RelatedMovie item) {
