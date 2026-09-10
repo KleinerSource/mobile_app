@@ -5744,6 +5744,9 @@ class AppL10nZh extends AppL10n {
   String get detailActorRelatedMovies => '演员相关影片';
 
   @override
+  String get detailPartRelatedMovies => '分片关联';
+
+  @override
   String get detailFile => '文件';
 
   @override
@@ -6516,6 +6519,16 @@ class AppL10nZh extends AppL10n {
   @override
   String movieEditorQuickActionFailed(String error) {
     return '快捷操作失败：$error';
+  }
+
+  @override
+  String movieEditorSyncParts(int count) {
+    return '同步到 $count 个分卷';
+  }
+
+  @override
+  String movieEditorSyncPartsHint(String parts) {
+    return '分卷：$parts';
   }
 
   @override

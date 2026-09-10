@@ -250,6 +250,15 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             ),
           ),
         SliverToBoxAdapter(
+          child: MovieRelatedSection(
+            title: l.detailPartRelatedMovies,
+            movies: movie.partMovies,
+            currentMovieId: movie.id,
+            urlBuilder: urlBuilder,
+            onMovieTap: _openRelatedMovie,
+          ),
+        ),
+        SliverToBoxAdapter(
           child: MovieExtraFanartSection(
             movieId: movie.id,
             movieTitle: movie.title,
@@ -277,11 +286,12 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             ),
           ),
         SliverToBoxAdapter(
-          child: _ActorRelatedMoviesSection(
-            movie: movie,
+          child: MovieRelatedSection(
+            title: l.detailActorRelatedMovies,
+            movies: _actorRelatedMovies(movie),
+            currentMovieId: movie.id,
             urlBuilder: urlBuilder,
-            onMovieReturned: () =>
-                ref.invalidate(movieDetailProvider(movie.id)),
+            onMovieTap: _openRelatedMovie,
           ),
         ),
         // 分组显示 series / genres / tags
@@ -382,6 +392,18 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     if (config == null) return null;
     if (actor.avatarPaths != null && actor.avatarPaths!.isEmpty) return null;
     return actorAvatarUrl(config, actor.id);
+  }
+
+  Future<void> _openRelatedMovie(RelatedMovie related) async {
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: related.id);
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: related.id)),
+    );
+    // 关联影片的元数据/封面变更会影响本页关联卡片和分卷清晰度徽章。
+    if (mounted &&
+        changesBeforeVisit.latest.displayChangedSince(changesBeforeVisit)) {
+      ref.invalidate(movieDetailProvider(widget.movie.id));
+    }
   }
 }
 
@@ -707,31 +729,51 @@ class _ActionRow extends ConsumerWidget {
   }
 }
 
-class _ActorRelatedMoviesSection extends StatelessWidget {
-  const _ActorRelatedMoviesSection({
-    required this.movie,
+List<RelatedMovie> _actorRelatedMovies(MovieDetail movie) {
+  final seen = <int>{};
+  final candidates = movie.actorRelatedMovies.where((item) {
+    final isCurrentMovie = item.id == movie.id;
+    final isPartMovie = item.moviePart?.trim().isNotEmpty == true;
+    return !isCurrentMovie && !isPartMovie && seen.add(item.id);
+  }).toList()..shuffle(Random(movie.id));
+  return candidates.take(5).toList(growable: false);
+}
+
+class MovieRelatedSection extends StatelessWidget {
+  const MovieRelatedSection({
+    super.key,
+    required this.title,
+    required this.movies,
+    required this.currentMovieId,
     required this.urlBuilder,
-    required this.onMovieReturned,
+    required this.onMovieTap,
   });
 
-  final MovieDetail movie;
+  final String title;
+  final List<RelatedMovie> movies;
+  final int currentMovieId;
   final String Function(String) urlBuilder;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<RelatedMovie> onMovieTap;
 
-  List<RelatedMovie> _randomMovies() {
+  List<RelatedMovie> _visibleMovies() {
     final seen = <int>{};
-    final candidates = movie.actorRelatedMovies.where((item) {
-      final isCurrentMovie = item.id == movie.id;
-      final isPartMovie = item.moviePart?.trim().isNotEmpty == true;
-      return !isCurrentMovie && !isPartMovie && seen.add(item.id);
-    }).toList()..shuffle(Random(movie.id));
-    return candidates.take(5).toList(growable: false);
+    return movies
+        .where((item) => item.id != currentMovieId && seen.add(item.id))
+        .toList(growable: false);
+  }
+
+  String _displayTitle(RelatedMovie item) {
+    final part = item.moviePart?.trim().toUpperCase() ?? '';
+    if (part.isEmpty) return item.title;
+    final num = item.num?.trim() ?? '';
+    final code = [num, part].where((value) => value.isNotEmpty).join(' ');
+    return '[$code] ${item.title}';
   }
 
   MovieListItem _toMovieListItem(RelatedMovie item) {
     return MovieListItem(
       id: item.id,
-      title: item.title,
+      title: _displayTitle(item),
       num: item.num,
       year: item.year,
       rating: item.rating,
@@ -739,64 +781,46 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
       posterUuid: item.posterUuid ?? item.thumbUuid ?? item.fanartUuid,
       thumbUuid: item.thumbUuid,
       fanartUuid: item.fanartUuid,
+      resolutionTier: item.moviePart?.trim().isNotEmpty == true
+          ? item.resolutionTier
+          : ResolutionTier.none,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final relatedMovies = _randomMovies();
+    final relatedMovies = _visibleMovies();
     if (relatedMovies.isEmpty) return const SizedBox.shrink();
-    final l = AppL10n.of(context);
 
     return MovieDetailFullBleedSection(
-      header: Text(
-        l.detailActorRelatedMovies,
-        style: AppText.sectionTitle(context),
-      ),
+      header: Text(title, style: AppText.sectionTitle(context)),
       child: LayoutBuilder(
         builder: (context, constraints) {
           // 与影片库三列网格保持相同的横向内边距、间距和宽高比。
           const columns = 3;
           const horizontalPadding = 44.0;
           const crossAxisSpacing = 10.0;
-          const childAspectRatio = 0.55;
           final cardWidth =
               (constraints.maxWidth -
                   horizontalPadding -
                   crossAxisSpacing * (columns - 1)) /
               columns;
           return SizedBox(
-            height: cardWidth / childAspectRatio,
+            // 网格比例之外预留少量空间，避免两行标题 + 元信息在窄屏溢出。
+            height: cardWidth / MediaCardTemplate.gridChildAspectRatio + 8,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 22),
               itemCount: relatedMovies.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (ctx, index) {
+              itemBuilder: (_, index) {
                 final related = relatedMovies[index];
                 return SizedBox(
                   width: cardWidth,
                   child: MovieCard(
                     movie: _toMovieListItem(related),
                     posterUrlBuilder: urlBuilder,
-                    onTap: () async {
-                      final changesBeforeVisit = MovieDataChanges.snapshot(
-                        movieId: related.id,
-                      );
-                      await Navigator.of(ctx).push(
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailPage(movieId: related.id),
-                        ),
-                      );
-                      // 关联影片的元数据/封面变更会影响本区块展示;
-                      // 仅浏览未编辑时沿用缓存,不重新拉取详情。
-                      if (ctx.mounted &&
-                          changesBeforeVisit.latest.displayChangedSince(
-                            changesBeforeVisit,
-                          )) {
-                        onMovieReturned();
-                      }
-                    },
+                    onTap: () => onMovieTap(related),
                   ),
                 );
               },

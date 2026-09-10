@@ -136,6 +136,13 @@ void _main_1() {
     expect(taskId, 'extra-fanart-task');
     expect(operations.lastRef?.value, '9');
   });
+
+  test('封面裁剪把分卷同步选项传给 Source', () async {
+    await repository.applyPosterCrop(9, cropOffset: 0.5, syncParts: true);
+
+    expect(operations.lastRef?.value, '9');
+    expect(operations.lastSyncParts, isTrue);
+  });
 }
 
 class _FakeCatalog implements CatalogSource {
@@ -190,6 +197,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   source_models.MediaRef? lastRef;
   bool? lastCompleted;
   int? lastPosition;
+  bool? lastSyncParts;
   Map<String, dynamic>? lastResourceFilter;
   bool? lastFavoriteOnly;
 
@@ -412,7 +420,11 @@ class _FakeOperations implements OmmMediaOperationsSource {
     bool? exsub,
     bool? crack,
     String? resolution,
-  }) async {}
+    bool syncParts = false,
+  }) async {
+    lastRef = movie;
+    lastSyncParts = syncParts;
+  }
 
   @override
   Future<List<int>> previewPosterCrop(

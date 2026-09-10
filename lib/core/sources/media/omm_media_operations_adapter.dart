@@ -782,6 +782,7 @@ class OmmMediaOperationsAdapter
     bool? exsub,
     bool? crack,
     String? resolution,
+    bool syncParts = false,
   }) async {
     final raw = await _call(
       () => client.movies.updatePosterWatermark(_ommId(movie), {
@@ -790,6 +791,7 @@ class OmmMediaOperationsAdapter
         if (crack != null) 'crack': crack,
         if (resolution != null) 'resolution': resolution,
         'crop_offset': cropOffset,
+        'sync_parts': syncParts,
       }),
     );
     _throwIfUnsuccessful(raw, '裁剪失败');

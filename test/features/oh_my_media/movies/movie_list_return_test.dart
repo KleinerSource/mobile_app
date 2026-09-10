@@ -9,6 +9,7 @@ import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/related_movie.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_page.dart';
@@ -39,6 +40,7 @@ void main() {
         final probed = <int>{};
         final cropped = <int>{};
         final listRequests = <Map<String, dynamic>>[];
+        final updateBodies = <Map<String, dynamic>>[];
         final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
         dio.interceptors.add(
           InterceptorsWrapper(
@@ -97,7 +99,9 @@ void main() {
               } else if (options.method == 'PATCH' &&
                   path.contains('/movies/')) {
                 final id = int.parse(path.split('/').last);
-                titles[id] = (options.data as Map)['title'] as String;
+                final body = Map<String, dynamic>.from(options.data as Map);
+                updateBodies.add(body);
+                titles[id] = body['title'] as String;
                 data = {'id': id, 'title': titles[id]};
               } else if (path.endsWith('/lists')) {
                 data = [];
@@ -182,14 +186,25 @@ void main() {
                 id: selected.id,
                 title: selected.title,
                 isFavorited: true,
+                partMovies: [
+                  RelatedMovie(
+                    id: selected.id + 1000,
+                    title: selected.title,
+                    moviePart: 'cd2',
+                  ),
+                ],
               ),
             ),
           );
           await tester.pumpAndSettle();
+          expect(find.text('同步到 1 个分卷'), findsOneWidget);
+          expect(find.text('分卷：CD2'), findsOneWidget);
+          expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
           await tester.enterText(find.byType(TextField).first, '已编辑影片');
           await tester.tap(find.text('保存'));
           await tester.pumpAndSettle();
           expect(titles[selected.id], '已编辑影片');
+          expect(updateBodies.single['sync_parts'], isTrue);
           expect(find.byType(MovieEditorSheet), findsNothing);
         } else if (action == '编辑封面') {
           await tester.runAsync(

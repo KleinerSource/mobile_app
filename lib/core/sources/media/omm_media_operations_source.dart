@@ -181,6 +181,7 @@ abstract interface class OmmMediaOperationsSource {
     bool? exsub,
     bool? crack,
     String? resolution,
+    bool syncParts = false,
   });
 
   Future<List<int>> previewPosterCrop(

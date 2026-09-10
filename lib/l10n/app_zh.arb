@@ -2003,6 +2003,7 @@
   "batchEditSeriesEmpty": "暂无系列",
   "batchEditClearSeries": "清空选择",
   "detailActorRelatedMovies": "演员相关影片",
+  "detailPartRelatedMovies": "分片关联",
   "detailFile": "文件",
   "detailMovieFile": "影片文件",
   "detailFilePath": "文件路径",
@@ -2272,6 +2273,10 @@
   ,"@movieEditorUntitledEntity": {"placeholders":{"entity":{"type":"String"}}}
   ,"movieEditorQuickActionFailed": "快捷操作失败：{error}"
   ,"@movieEditorQuickActionFailed": {"placeholders":{"error":{"type":"String"}}}
+  ,"movieEditorSyncParts": "同步到 {count} 个分卷"
+  ,"@movieEditorSyncParts": {"placeholders":{"count":{"type":"int"}}}
+  ,"movieEditorSyncPartsHint": "分卷：{parts}"
+  ,"@movieEditorSyncPartsHint": {"placeholders":{"parts":{"type":"String"}}}
   ,"movieEditorBatchTranslating": "批量翻译中"
   ,"movieEditorBatchTranslate": "批量翻译"
   ,"movieEditorFieldEmpty": "{label} 内容为空，无需翻译"

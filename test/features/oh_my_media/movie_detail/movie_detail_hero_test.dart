@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/related_movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -36,6 +38,56 @@ void main() {
     await tester.pump();
 
     expect(find.byTooltip('查看封面大图'), findsNothing);
+  });
+
+  testWidgets('分片关联显示番号和分片标识并响应点击', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    RelatedMovie? tappedMovie;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          theme: ThemeData(brightness: Brightness.dark),
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              child: MovieRelatedSection(
+                title: '分片关联',
+                currentMovieId: 7,
+                movies: const [
+                  RelatedMovie(id: 7, title: '当前影片', moviePart: 'cd1'),
+                  RelatedMovie(
+                    id: 8,
+                    title: '第二片',
+                    num: 'ABC-001',
+                    moviePart: ' cd2 ',
+                    year: 2024,
+                    runtime: 120,
+                  ),
+                  RelatedMovie(id: 8, title: '重复项', moviePart: 'cd2'),
+                ],
+                urlBuilder: (uuid) => 'http://test/$uuid.jpg',
+                onMovieTap: (movie) => tappedMovie = movie,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('分片关联'), findsOneWidget);
+    expect(find.text('[ABC-001 CD2] 第二片'), findsWidgets);
+    expect(find.text('当前影片'), findsNothing);
+    expect(find.text('重复项'), findsNothing);
+
+    await tester.tap(find.byType(MovieCard));
+    expect(tappedMovie?.id, 8);
   });
 
   testWidgets('详情顶部封面上滑先收窄再整体推出,状态栏穿透且悬浮返回可用', (tester) async {

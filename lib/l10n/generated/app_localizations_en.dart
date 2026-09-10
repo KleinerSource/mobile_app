@@ -5848,6 +5848,9 @@ class AppL10nEn extends AppL10n {
   String get detailActorRelatedMovies => 'Movies related to this actor';
 
   @override
+  String get detailPartRelatedMovies => 'Related parts';
+
+  @override
   String get detailFile => 'File';
 
   @override
@@ -6632,6 +6635,16 @@ class AppL10nEn extends AppL10n {
   @override
   String movieEditorQuickActionFailed(String error) {
     return 'Quick action failed: $error';
+  }
+
+  @override
+  String movieEditorSyncParts(int count) {
+    return 'Sync to $count other parts';
+  }
+
+  @override
+  String movieEditorSyncPartsHint(String parts) {
+    return 'Parts: $parts';
   }
 
   @override

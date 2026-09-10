@@ -71,6 +71,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   String _subtitleMode = '';  String _crackMode = '';
   String _resolutionMode = '';
   bool _flagUpdating = false;
+  bool _syncParts = false;
 
   bool get _anyFlagSelected =>
       _subtitleMode.isNotEmpty ||
@@ -105,6 +106,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     _genres = m.genres.map((e) => (id: e.id, name: e.name)).toList();
     _tags = m.tags.map((e) => (id: e.id, name: e.name)).toList();
     _actors = m.actors.map((e) => (id: e.id, name: e.name)).toList();
+    _syncParts = m.partMovies.isNotEmpty;
   }
 
   @override
@@ -138,6 +140,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       'genre_ids': _genres.map((e) => e.id).toList(),
       'tag_ids': _tags.map((e) => e.id).toList(),
       'actor_ids': _actors.map((e) => e.id).toList(),
+      'sync_parts': _syncParts && widget.movie.partMovies.isNotEmpty,
     };
     final year = int.tryParse(_year.text.trim());
     if (year != null) body['year'] = year;
@@ -165,6 +168,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
           exsub: _subtitleMode.isEmpty ? null : _subtitleMode == 'exsub',
           crack: _crackMode.isEmpty ? null : _crackMode == 'crack',
           resolution: _resolutionMode.isEmpty ? null : _resolutionMode,
+          syncParts: _syncParts && widget.movie.partMovies.isNotEmpty,
         );
       }
       // 触发详情 provider 刷新
@@ -414,6 +418,11 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final partNames = widget.movie.partMovies
+        .map((movie) => movie.moviePart?.trim().toUpperCase())
+        .whereType<String>()
+        .where((part) => part.isNotEmpty)
+        .join('、');
     return Padding(
       padding: const EdgeInsets.only(left: 0, right: 0, top: 4, bottom: 22),
       child: Column(
@@ -444,6 +453,21 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (widget.movie.partMovies.isNotEmpty) ...[
+                    SheetSwitchTile(
+                      title: l.movieEditorSyncParts(
+                        widget.movie.partMovies.length,
+                      ),
+                      subtitle: partNames.isEmpty
+                          ? null
+                          : l.movieEditorSyncPartsHint(partNames),
+                      value: _syncParts,
+                      onChanged: _saving || _flagUpdating
+                          ? null
+                          : (value) => setState(() => _syncParts = value),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   // ===== 海报裁剪 + 快捷操作 =====
                   if (_fanartUrl != null) ...[
                     _label(

@@ -277,6 +277,7 @@ class MediaRepository {
     bool? exsub,
     bool? crack,
     String? resolution,
+    bool syncParts = false,
   }) async {
     await _operations.applyPosterCrop(
       _movieRef(id),
@@ -285,6 +286,7 @@ class MediaRepository {
       exsub: exsub,
       crack: crack,
       resolution: resolution,
+      syncParts: syncParts,
     );
     MovieDataChanges.bumpImages(movieId: id);
   }

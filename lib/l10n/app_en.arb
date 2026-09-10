@@ -2003,6 +2003,7 @@
   "batchEditSeriesEmpty": "No series yet",
   "batchEditClearSeries": "Clear selection",
   "detailActorRelatedMovies": "Movies related to this actor",
+  "detailPartRelatedMovies": "Related parts",
   "detailFile": "File",
   "detailMovieFile": "Movie file",
   "detailFilePath": "File path",
@@ -2272,6 +2273,10 @@
   ,"@movieEditorUntitledEntity": {"placeholders":{"entity":{"type":"String"}}}
   ,"movieEditorQuickActionFailed": "Quick action failed: {error}"
   ,"@movieEditorQuickActionFailed": {"placeholders":{"error":{"type":"String"}}}
+  ,"movieEditorSyncParts": "Sync to {count} other parts"
+  ,"@movieEditorSyncParts": {"placeholders":{"count":{"type":"int"}}}
+  ,"movieEditorSyncPartsHint": "Parts: {parts}"
+  ,"@movieEditorSyncPartsHint": {"placeholders":{"parts":{"type":"String"}}}
   ,"movieEditorBatchTranslating": "Translating all fields"
   ,"movieEditorBatchTranslate": "Translate all"
   ,"movieEditorFieldEmpty": "{label} is empty; nothing to translate"

@@ -10578,6 +10578,12 @@ abstract class AppL10n {
   /// **'演员相关影片'**
   String get detailActorRelatedMovies;
 
+  /// No description provided for @detailPartRelatedMovies.
+  ///
+  /// In zh, this message translates to:
+  /// **'分片关联'**
+  String get detailPartRelatedMovies;
+
   /// No description provided for @detailFile.
   ///
   /// In zh, this message translates to:
@@ -11987,6 +11993,18 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'快捷操作失败：{error}'**
   String movieEditorQuickActionFailed(String error);
+
+  /// No description provided for @movieEditorSyncParts.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步到 {count} 个分卷'**
+  String movieEditorSyncParts(int count);
+
+  /// No description provided for @movieEditorSyncPartsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'分卷：{parts}'**
+  String movieEditorSyncPartsHint(String parts);
 
   /// No description provided for @movieEditorBatchTranslating.
   ///
