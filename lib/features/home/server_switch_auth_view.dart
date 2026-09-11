@@ -45,7 +45,9 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
     final rawError =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
-    final error = rawError == null ? null : localizedErrorMessage(l, rawError);
+    final error = rawError == null
+        ? null
+        : localizedErrorMessage(l, rawError, translateEmbeddedErrorCodes: true);
     // 头像由外层转场统一绘制在屏幕中心，表单从头像下方淡入，避免
     // 飞行头像交接到另一套纵向布局时发生跳变。
     return Column(
@@ -169,7 +171,9 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
     final rawError =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
-    final error = rawError == null ? null : localizedErrorMessage(l, rawError);
+    final error = rawError == null
+        ? null
+        : localizedErrorMessage(l, rawError, translateEmbeddedErrorCodes: true);
     return Column(
       key: const ValueKey('server-switch-api-key'),
       children: [
@@ -233,14 +237,25 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
     return switch (transition.messageKind) {
       ServerSwitchMessageKind.restoreFailed =>
         transition.message?.trim().isNotEmpty == true
-            ? l.homeSwitchRestoreFailed(transition.message!.trim())
+            ? l.homeSwitchRestoreFailed(
+                localizedErrorMessage(
+                  l,
+                  transition.message!.trim(),
+                  translateEmbeddedErrorCodes: true,
+                ),
+              )
             : l.homeSwitchAuthFailed,
       ServerSwitchMessageKind.connectionFailed => l.homeSwitchConnectionFailed,
       ServerSwitchMessageKind.invalidTarget => l.homeSwitchInvalidTarget,
       ServerSwitchMessageKind.authCheckTimeout => l.homeSwitchAuthTimeout,
-      null => transition.message == null
-          ? null
-          : localizedErrorMessage(l, transition.message!),
+      null =>
+        transition.message == null
+            ? null
+            : localizedErrorMessage(
+                l,
+                transition.message!,
+                translateEmbeddedErrorCodes: true,
+              ),
     };
   }
 

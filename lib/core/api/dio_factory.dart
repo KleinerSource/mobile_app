@@ -313,7 +313,20 @@ ApiException toApiException(Object error) {
   // Riverpod 3 会把 provider 抛出的异常包装成 ProviderException，其 toString()
   // 带完整堆栈，直接展示会撑爆错误页。先剥回原始异常再归一化。
   if (error is ProviderException) return toApiException(error.exception);
-  if (error is ApiException) return error;
+  if (error is ApiException) {
+    // 部分后端会把客户端错误码放在 message 而不是 code 中；补回已知
+    // 错误码后，界面才能按当前语言显示对应文案。未知业务消息保持原样。
+    final code = error.code ?? _knownErrorCode(error.message);
+    if (code == null || code == error.code) return error;
+    return ApiException(
+      error.message,
+      code: code,
+      status: error.status,
+      requestId: error.requestId,
+      data: error.data,
+      details: error.details,
+    );
+  }
   if (error is String) {
     final code = _knownErrorCode(error);
     return ApiException(error, code: code);
