@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'resources_providers.dart';
@@ -53,7 +53,7 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
     if (_saving || widget.items.length < 2) return;
     setState(() => _saving = true);
     try {
-      await ref
+      final message = await ref
           .read(resourcesRepositoryProvider)
           .merge(
             widget.kind,
@@ -62,15 +62,20 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
           );
       if (!mounted) return;
       AppHaptics.medium();
+      if (message != null && message.isNotEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).resourceMergeFailed(toApiException(error).message),
+            AppL10n.of(context).resourceMergeFailed(
+              localizedErrorMessage(AppL10n.of(context), error),
+            ),
           ),
         ),
       );

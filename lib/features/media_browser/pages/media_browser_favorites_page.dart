@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
@@ -19,6 +18,7 @@ import 'package:omm/features/media_browser/widgets/media_browser_selection.dart'
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
@@ -193,7 +193,7 @@ class _MediaBrowserFavoritesPageState
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
       if (startIndex == 0) _completeRefresh();
     } finally {
       pageRequest.finish();
@@ -317,7 +317,9 @@ class _MediaBrowserFavoritesPageState
           content: Text(
             AppL10n.of(
               context,
-            ).mediaBrowserRemoveFavoriteFailed(toApiException(error).message),
+            ).mediaBrowserRemoveFavoriteFailed(
+              localizedErrorMessage(AppL10n.of(context), error),
+            ),
           ),
         ),
       );
@@ -386,7 +388,9 @@ class _MediaBrowserFavoritesPageState
           content: Text(
             AppL10n.of(
               context,
-            ).mediaBrowserBatchRemoveFailed(toApiException(error).message),
+            ).mediaBrowserBatchRemoveFailed(
+              localizedErrorMessage(AppL10n.of(context), error),
+            ),
           ),
         ),
       );

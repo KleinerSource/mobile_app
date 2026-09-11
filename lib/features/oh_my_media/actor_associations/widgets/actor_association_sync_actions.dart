@@ -29,7 +29,7 @@ extension _ActorAssociationSyncActions on _ActorAssociationSyncSheetState {
             ? preview.mappedValue
             : widget.actor.mappedValue ?? '',
       );
-      await ref
+      final message = await ref
           .read(actorAssociationsRepositoryProvider)
           .applySource(
             mappedValue: preview.mappedValue.isNotEmpty
@@ -56,7 +56,9 @@ extension _ActorAssociationSyncActions on _ActorAssociationSyncSheetState {
         widget.onAvatarApplied?.call();
       }
       messenger.showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).actorAssocSyncDone)),
+        SnackBar(
+          content: Text(message ?? AppL10n.of(context).actorAssocSyncDone),
+        ),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -64,9 +66,9 @@ extension _ActorAssociationSyncActions on _ActorAssociationSyncSheetState {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).actorAssocSyncApplyFailed(toApiException(e).message),
+            AppL10n.of(context).actorAssocSyncApplyFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
           ),
         ),
       );

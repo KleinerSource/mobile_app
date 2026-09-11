@@ -4,10 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actor_detail_header.dart';
+import '../../shared/localized_error_message.dart';
 import '../../shared/movie_card.dart';
 import 'hero_backdrop.dart';
 import 'home_layout.dart';
@@ -227,7 +227,7 @@ class HomeMovieSection<D, I> extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        toApiException(error).message,
+                        localizedErrorMessage(AppL10n.of(context), error),
                         style: TextStyle(color: colors.muted),
                       ),
                     ),

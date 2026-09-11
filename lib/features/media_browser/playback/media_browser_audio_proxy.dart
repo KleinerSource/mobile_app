@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/api/app_request_headers.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/platform/app_log_store.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
@@ -78,7 +79,7 @@ class MediaBrowserAudioProxy {
   Uri get _baseUri {
     final server = _server;
     if (server == null || _closed) {
-      throw StateError('MediaBrowser 音频代理已关闭');
+      throw StateError(AppErrorCode.connectionClosed);
     }
     return Uri(
       scheme: 'http',
@@ -330,7 +331,7 @@ class MediaBrowserAudioProxy {
           } else {
             await _deleteQuietly(teeFile!);
             teeClaim!.completeError(
-              StateError('流式缓存不完整: $written/$teeExpected'),
+              StateError(AppErrorCode.responseDataMissing),
             );
           }
         }
@@ -389,7 +390,7 @@ class MediaBrowserAudioProxy {
         ),
       );
       if (await file.length() == 0) {
-        throw StateError('音频下载结果为空');
+        throw StateError(AppErrorCode.responseDataMissing);
       }
       track.file = file;
       appLog(

@@ -214,7 +214,7 @@ extension _FileBrowserPreview on _FileBrowserPageState {
         (item) => item.mediaId == entry.stableKey,
       );
       if (queueIndex < 0) {
-        throw StateError('当前$logLabel未加入播放队列');
+        throw StateError(AppErrorCode.responseDataMissing);
       }
       final current = queue[queueIndex];
       appLog(
@@ -258,7 +258,7 @@ extension _FileBrowserPreview on _FileBrowserPageState {
       if (mounted) {
         _message(
           failureMessage(
-            error is SourceException ? error.message : error.toString(),
+            localizedErrorMessage(_l10n, error),
           ),
         );
       }

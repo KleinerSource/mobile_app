@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -87,6 +87,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
+    final l = AppL10n.of(context);
     try {
       final repo = ref.read(mediaRepositoryProvider);
       final page = await repo.list(_filter, limit: _pageSize, offset: offset);
@@ -102,7 +103,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
       );
     } catch (e) {
       if (!pageRequest.isCurrent) return;
-      _controller.error = toApiException(e).message;
+      _controller.error = localizedErrorMessage(l, e);
     } finally {
       pageRequest.finish();
     }
@@ -193,7 +194,9 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
                   firstPageProgressIndicatorBuilder: (_) =>
                       const Center(child: CupertinoActivityIndicator()),
                   firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                    message: _controller.error?.toString() ?? l.loadFailed,
+                    message: _controller.error == null
+                        ? l.loadFailed
+                        : localizedErrorMessage(l, _controller.error!),
                     onRetry: () => _controller.refresh(),
                   ),
                   noItemsFoundIndicatorBuilder: (_) =>

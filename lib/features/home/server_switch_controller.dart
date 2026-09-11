@@ -687,7 +687,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   void _activateServer(String serverId) {
     final config = ref.read(serverConfigProvider);
     if (config?.activeServerId != serverId) {
-      throw StateError('服务器切换结果已过期');
+      throw StateError(AppErrorCode.operationFailed);
     }
     final project = config?.activeServer?.project;
     final allowLegacyMigration =

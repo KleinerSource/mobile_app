@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -13,6 +12,7 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -151,7 +151,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
     }
@@ -227,7 +227,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
           content: Text(
             AppL10n.of(
               context,
-            ).mappingBatchDeleteFailed(toApiException(error).message),
+            ).mappingBatchDeleteFailed(localizedErrorMessage(l, error)),
           ),
         ),
       );
@@ -479,9 +479,12 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                     ),
                                 firstPageErrorIndicatorBuilder: (_) =>
                                     ErrorView(
-                                      message:
-                                          _controller.error?.toString() ??
-                                          l.loadFailed,
+                                      message: _controller.error == null
+                                          ? l.loadFailed
+                                          : localizedErrorMessage(
+                                              l,
+                                              _controller.error!,
+                                            ),
                                       onRetry: _controller.refresh,
                                     ),
                                 newPageErrorIndicatorBuilder: (_) =>
@@ -695,28 +698,32 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final repo = ref.read(mappingsRepositoryProvider);
+      String? backendMessage;
       if (rule == null) {
-        await repo.create(
+        final created = await repo.create(
           widget.type,
           originalValues: result.originals,
           mappedValue: result.mapped,
         );
+        backendMessage = created.message;
       } else {
-        await repo.update(
+        final updated = await repo.update(
           widget.type,
           rule.id,
           originalValues: result.originals,
           mappedValue: result.mapped,
         );
+        backendMessage = updated.message;
       }
       if (!mounted) return;
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            rule == null
-                ? AppL10n.of(context).mappingCreatedToast
-                : AppL10n.of(context).configSavedToast,
+            backendMessage ??
+                (rule == null
+                    ? AppL10n.of(context).mappingCreatedToast
+                    : AppL10n.of(context).configSavedToast),
           ),
           duration: const Duration(seconds: 1),
         ),
@@ -728,7 +735,9 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).operationFailed(toApiException(e).message),
+            AppL10n.of(
+              context,
+            ).operationFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );
@@ -758,11 +767,14 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(mappingsRepositoryProvider).delete(widget.type, [r.id]);
+      final message = await ref.read(mappingsRepositoryProvider).delete(
+        widget.type,
+        [r.id],
+      );
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.mappingDeletedToast),
+          content: Text(message ?? l.mappingDeletedToast),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -771,7 +783,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.mappingDeleteFailed(toApiException(e).message)),
+          content: Text(l.mappingDeleteFailed(localizedErrorMessage(l, e))),
         ),
       );
     }

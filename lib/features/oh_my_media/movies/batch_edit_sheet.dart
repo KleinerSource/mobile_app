@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/util/map_with_concurrency.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/capsule_select.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/debouncer.dart';
@@ -104,7 +104,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       if (r.name.trim().toLowerCase() == lower) return r.id;
     }
     final created = await repo.create(kind, name: name);
-    return created.id;
+    return created.item.id;
   }
 
   /// 只查找已有资源，不为批量移除创建新条目。
@@ -213,6 +213,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
           _quickSubtitleMode.isNotEmpty ||
           _quickCrackMode.isNotEmpty ||
           _quickResolution.isNotEmpty;
+      String? backendMessage;
 
       if (!mounted) return;
       if (!hasAdd && !hasRemove && !hasWatermark) {
@@ -224,7 +225,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       }
 
       if (hasAdd) {
-        await repo.batchAddAssociations(
+        backendMessage = await repo.batchAddAssociations(
           movieIds: widget.movieIds,
           tagIds: addTags.toList(),
           genreIds: addGenres.toList(),
@@ -232,7 +233,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         );
       }
       if (hasRemove) {
-        await repo.batchRemoveAssociations(
+        backendMessage = await repo.batchRemoveAssociations(
           movieIds: widget.movieIds,
           tagIds: removeTags.toList(),
           genreIds: removeGenres.toList(),
@@ -249,18 +250,18 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
               ? null
               : _quickSubtitleMode == 'exsub',
           crack: _quickCrackMode.isEmpty ? null : _quickCrackMode == 'crack',
-          resolution: _quickResolution.isEmpty
-              ? null
-              : _quickResolution,
+          resolution: _quickResolution.isEmpty ? null : _quickResolution,
         );
+        backendMessage = r.message ?? backendMessage;
         if (r.failedCount > 0) {
           if (!mounted) return;
           messenger.showSnackBar(
             SnackBar(
               content: Text(
-                AppL10n.of(
-                  context,
-                ).batchEditWatermarkResult(r.successCount, r.failedCount),
+                r.message ??
+                    AppL10n.of(
+                      context,
+                    ).batchEditWatermarkResult(r.successCount, r.failedCount),
               ),
             ),
           );
@@ -269,7 +270,9 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       if (!mounted) return;
       AppHaptics.medium();
       messenger.showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).batchEditSaved)),
+        SnackBar(
+          content: Text(backendMessage ?? AppL10n.of(context).batchEditSaved),
+        ),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -277,7 +280,9 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).batchEditFailed(toApiException(e).message),
+            AppL10n.of(
+              context,
+            ).batchEditFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );
@@ -347,7 +352,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                             (value: '4k', label: '4K'),
                             (value: '2k', label: '2K'),
                           ],
-                          onChanged: (v) => setState(() => _quickResolution = v),
+                          onChanged: (v) =>
+                              setState(() => _quickResolution = v),
                         ),
                       ],
                     ),

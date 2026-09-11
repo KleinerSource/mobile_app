@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -22,6 +21,7 @@ import 'package:omm/features/home/home_layout.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 
 /// MediaBrowser 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和区块布局。
@@ -446,7 +446,7 @@ class _MediaBrowserViewSectionsState
     } catch (error) {
       if (mounted) {
         _showRefreshError(
-          l.mediaBrowserRefreshFailed(toApiException(error).message),
+          l.mediaBrowserRefreshFailed(localizedErrorMessage(l, error)),
         );
       }
     } finally {
@@ -752,7 +752,7 @@ class _MediaBrowserHeroFallback extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    toApiException(error).message,
+                    localizedErrorMessage(AppL10n.of(context), error),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: colors.muted),
                   ),

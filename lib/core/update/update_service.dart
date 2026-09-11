@@ -4,12 +4,15 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../api/app_request_headers.dart';
+import '../api/error_codes.dart';
 import 'update_models.dart';
 
 class UpdateException implements Exception {
-  const UpdateException(this.message);
+  const UpdateException([this.message = AppErrorCode.updateFailed])
+    : code = AppErrorCode.updateFailed;
 
   final String message;
+  final String code;
 
   @override
   String toString() => message;
@@ -70,7 +73,7 @@ class GitHubUpdateService {
         includeDevelopment: includeDevelopment,
       );
       if (candidate == null) {
-        throw UpdateException('没有找到适用于 ${platform.label} 的安装包');
+        throw const UpdateException();
       }
       return UpdateCheckResult(
         repository: repository,
@@ -82,14 +85,14 @@ class GitHubUpdateService {
     } on DioException catch (error) {
       final status = error.response?.statusCode;
       if (status == 403) {
-        throw const UpdateException('GitHub 请求次数已达到限制，请稍后重试');
+        throw const UpdateException();
       }
       if (status == 404) {
-        throw const UpdateException('GitHub 仓库不存在或没有公开 Release');
+        throw const UpdateException();
       }
-      throw const UpdateException('无法连接 GitHub，请检查网络或仓库地址');
+      throw const UpdateException();
     } catch (_) {
-      throw const UpdateException('读取 GitHub Release 失败');
+      throw const UpdateException();
     }
   }
 
@@ -132,7 +135,7 @@ class GitHubUpdateService {
     final response = await _dio.get<dynamic>(repository.releasesApiUrl);
     final rawReleases = response.data;
     if (rawReleases is! List) {
-      throw const UpdateException('GitHub 返回的 Release 数据格式不正确');
+      throw const UpdateException();
     }
     return [
       ...publishedRollingReleases,
@@ -206,10 +209,10 @@ class GitHubUpdateService {
       return file;
     } on DioException {
       if (await file.exists()) await file.delete();
-      throw const UpdateException('下载安装包失败，请稍后重试');
+      throw const UpdateException();
     } catch (_) {
       if (await file.exists()) await file.delete();
-      throw const UpdateException('保存安装包失败');
+      throw const UpdateException();
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../../auth/auth_session_repository.dart';
 import '../../api/server_connection.dart';
+import '../../api/error_codes.dart';
 import '../../config/server_config_provider.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
@@ -100,8 +101,8 @@ final fileSourceRepositoryProvider = FutureProvider.autoDispose
       final source = await ref.watch(fileSourceProvider(sourceId).future);
       if (source == null) {
         throw const FileSourceException(
-          '文件来源不存在或未连接',
-          code: 'source_not_found',
+          AppErrorCode.fileSourceNotFound,
+          code: AppErrorCode.fileSourceNotFound,
         );
       }
       final repository = FileSourceRepository(source);
@@ -157,7 +158,10 @@ final fileDirectoryForceRefreshProvider = StateProvider.family<bool, String>(
 void _checkFileServerScope(Ref ref, String serverId) {
   final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
   if (serverId != activeServerId) {
-    throw const SourceException('文件请求已过期，请重新加载当前服务器');
+    throw const SourceException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
 }
 
@@ -168,7 +172,10 @@ class FileSourceConnector {
 
   Future<FileSource> connect(FileSourceConfig config) async {
     if (!config.isValid) {
-      throw const FileSourceException('文件来源配置无效', code: 'invalid_config');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     final reference = config.credentialRef.trim();
     final secret =
@@ -220,7 +227,11 @@ class FileSourceConnector {
     } on SourceException {
       rethrow;
     } catch (error) {
-      throw FileSourceException('文件来源连接失败', cause: error);
+      throw FileSourceException(
+        AppErrorCode.networkUnavailable,
+        code: AppErrorCode.networkUnavailable,
+        cause: error,
+      );
     }
   }
 }

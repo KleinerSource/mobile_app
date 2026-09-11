@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/server_config.dart';
 import '../config/server_config_provider.dart';
+import 'error_codes.dart';
 
 typedef ServerConnectionCancelCallback = void Function();
 
@@ -75,7 +76,9 @@ class ServerConnectionState {
 }
 
 class ServerConnectionClosedException implements Exception {
-  const ServerConnectionClosedException([this.message = '服务器正在切换，请稍后重试']);
+  const ServerConnectionClosedException([
+    this.message = AppErrorCode.connectionClosed,
+  ]);
 
   final String message;
 
@@ -130,7 +133,7 @@ class ServerConnectionController extends Notifier<ServerConnectionState> {
     final normalized = serverId?.trim() ?? '';
     if (normalized.isEmpty) {
       suspend();
-      throw const ServerConnectionClosedException('服务器 ID 无效，无法建立连接');
+      throw const ServerConnectionClosedException();
     }
     state.lease?.cancel();
     final lease = ServerConnectionLease(

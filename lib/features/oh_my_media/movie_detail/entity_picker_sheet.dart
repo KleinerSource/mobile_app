@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/pinyin_search.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/taxonomy_search_policy.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -299,7 +303,10 @@ ResourceKind _resourceKindOf(EntityPickerKind k) {
     case EntityPickerKind.series:
       return ResourceKind.series;
     case EntityPickerKind.actor:
-      throw StateError('actor uses _ActorList');
+      throw ApiException(
+        AppErrorCode.operationFailed,
+        code: AppErrorCode.operationFailed,
+      );
   }
 }
 
@@ -511,9 +518,9 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            AppL10n.of(
-              context,
-            ).loadFailedWithError(toApiException(_error!).message),
+            AppL10n.of(context).loadFailedWithError(
+              localizedErrorMessage(AppL10n.of(context), _error!),
+            ),
             style: AppText.meta(context),
           ),
         ),
@@ -662,7 +669,12 @@ class _ActorListState extends ConsumerState<_ActorList> {
     });
     try {
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw StateError('当前服务器不是 OMM');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final q = <String, dynamic>{
         'limit': _pageSize,
         'offset': offset,
@@ -737,9 +749,9 @@ class _ActorListState extends ConsumerState<_ActorList> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            AppL10n.of(
-              context,
-            ).loadFailedWithError(toApiException(_error!).message),
+            AppL10n.of(context).loadFailedWithError(
+              localizedErrorMessage(AppL10n.of(context), _error!),
+            ),
             style: AppText.meta(context),
           ),
         ),

@@ -7,15 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
@@ -187,6 +186,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
+    final l = AppL10n.of(context);
     try {
       final repo = ref.read(favoritesRepositoryProvider);
       final result = await repo.list(
@@ -213,7 +213,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       _scheduleAutoPreviewUpdate();
     } catch (e) {
       if (!pageRequest.isCurrent) return;
-      _controller.error = toApiException(e).message;
+      _controller.error = localizedErrorMessage(l, e);
     } finally {
       pageRequest.finish();
     }
@@ -343,10 +343,13 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       final skippedText = result.skippedCount > 0
           ? l.favoritesScanSkippedSuffix(result.skippedCount)
           : '';
+      final message = result.message?.trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${l.favoritesScanSubmitted(result.acceptedCount)}$skippedText',
+            message != null && message.isNotEmpty
+                ? message
+                : '${l.favoritesScanSubmitted(result.acceptedCount)}$skippedText',
           ),
         ),
       );
@@ -363,9 +366,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).favoritesScanCreateFailed(sourceErrorMessage(e)),
+            AppL10n.of(context).favoritesScanCreateFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
           ),
         ),
       );
@@ -408,7 +411,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Future<void> _removeOne(MovieListItem m) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(favoritesRepositoryProvider).removeBatch([m.id]);
+      final message = await ref.read(favoritesRepositoryProvider).removeBatch([
+        m.id,
+      ]);
       if (!mounted) return;
       ref.read(favoriteStatusProvider.notifier).seed(m.id, false);
       // 直接从当前 list 移除,避免整页 refresh
@@ -419,7 +424,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       setState(() {});
       messenger.showSnackBar(
         SnackBar(
-          content: Text(AppL10n.of(context).favoritesRemovedOne(m.title)),
+          content: Text(
+            message ?? AppL10n.of(context).favoritesRemovedOne(m.title),
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -427,7 +434,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(AppL10n.of(context).favoritesRemoveFailed('$e')),
+          content: Text(
+            AppL10n.of(context).favoritesRemoveFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
+          ),
         ),
       );
     }
@@ -457,7 +468,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     );
     if (confirm != true) return;
     try {
-      await ref.read(favoritesRepositoryProvider).removeBatch(ids);
+      final message = await ref
+          .read(favoritesRepositoryProvider)
+          .removeBatch(ids);
       for (final id in ids) {
         ref.read(favoriteStatusProvider.notifier).seed(id, false);
       }
@@ -468,13 +481,17 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       if (mounted) _selection.exit();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.favoritesRemovedN(ids.length)),
+          content: Text(message ?? l.favoritesRemovedN(ids.length)),
           duration: const Duration(seconds: 1),
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.favoritesRemoveBatchFailed('$e'))),
+        SnackBar(
+          content: Text(
+            l.favoritesRemoveBatchFailed(localizedErrorMessage(l, e)),
+          ),
+        ),
       );
     }
   }
@@ -866,8 +883,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message:
-            _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
+        message: _controller.error == null
+            ? AppL10n.of(context).loadFailed
+            : localizedErrorMessage(AppL10n.of(context), _controller.error!),
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
@@ -905,8 +923,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message:
-            _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
+        message: _controller.error == null
+            ? AppL10n.of(context).loadFailed
+            : localizedErrorMessage(AppL10n.of(context), _controller.error!),
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),

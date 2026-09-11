@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_providers.dart';
-import '../../core/sources/common/source_exception.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/floating_tab_bar.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/localized_error_message.dart';
 import 'file_browser_page.dart';
 import 'file_navigation.dart';
 import '../settings/server_selection_page.dart';
@@ -44,7 +44,7 @@ class FileSourcesPage extends ConsumerWidget {
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (error, _) => _FileError(
-        message: error is SourceException ? error.message : error.toString(),
+        message: localizedErrorMessage(AppL10n.of(context), error),
         onRetry: () => ref.invalidate(fileSourceDescriptorsProvider(serverId)),
         onConfigure: () => _openServerSelector(context),
       ),

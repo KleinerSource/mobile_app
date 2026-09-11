@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
@@ -11,6 +10,7 @@ import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/localized_error_message.dart';
 import '../../shared/swipe_actions.dart';
 import 'settings_common.dart';
 
@@ -422,7 +422,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         }
       }
     } catch (error) {
-      if (mounted) _showMessage(toApiException(error).message);
+      if (mounted) _showMessage(localizedErrorMessage(AppL10n.of(context), error));
     } finally {
       if (mounted) {
         setState(() {
@@ -476,7 +476,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       return _ServerLineSubmitResult(
         error: probe.message.isEmpty
             ? AppL10n.of(context).serverLineProbeFailed
-            : probe.message,
+            : localizedErrorMessageWithCode(
+                AppL10n.of(context),
+                probe.message,
+                probe.errorCode,
+              ),
       );
     }
 
@@ -511,7 +515,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             : l.serverLineSaved(probe.latencyMs),
       );
     } catch (error) {
-      return _ServerLineSubmitResult(error: toApiException(error).message);
+      return _ServerLineSubmitResult(
+        error: localizedErrorMessage(AppL10n.of(context), error),
+      );
     }
   }
 
@@ -532,7 +538,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         _showMessage(AppL10n.of(context).serverLineSwitchedTo(line.name));
       }
     } catch (error) {
-      if (mounted) _showMessage(toApiException(error).message);
+      if (mounted) _showMessage(localizedErrorMessage(AppL10n.of(context), error));
     }
   }
 
@@ -570,7 +576,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       try {
         await _persist(next, selected.line.baseUrl, validatedProbe: selected);
       } catch (error) {
-        if (mounted) _showMessage(toApiException(error).message);
+        if (mounted) _showMessage(localizedErrorMessage(AppL10n.of(context), error));
       }
       unawaited(batch.completed);
       return;
@@ -583,7 +589,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     try {
       await _persist(next, server.activeLine?.baseUrl ?? line.baseUrl);
     } catch (error) {
-      if (mounted) _showMessage(toApiException(error).message);
+        if (mounted) _showMessage(localizedErrorMessage(AppL10n.of(context), error));
     }
   }
 
@@ -642,7 +648,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       await _persist(next, activeUrl, validatedProbe: validatedProbe);
       if (mounted) _showMessage(AppL10n.of(context).serverLineDeleted);
     } catch (error) {
-      if (mounted) _showMessage(toApiException(error).message);
+        if (mounted) _showMessage(localizedErrorMessage(AppL10n.of(context), error));
     }
   }
 
@@ -668,7 +674,15 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       _testResults[line.id] = resolved;
     });
     if (!resolved.success && showFailure) {
-      _showMessage(AppL10n.of(context).serverLineTestFailed(resolved.message));
+      _showMessage(
+        AppL10n.of(context).serverLineTestFailed(
+          localizedErrorMessageWithCode(
+            AppL10n.of(context),
+            resolved.message,
+            resolved.errorCode,
+          ),
+        ),
+      );
     }
     return resolved;
   }
@@ -718,7 +732,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         throw ServerCompatibilityException(
           probe.message.isEmpty
               ? AppL10n.of(context).serverLineProbeFailedNotSaved
-              : probe.message,
+              : localizedErrorMessageWithCode(
+                  AppL10n.of(context),
+                  probe.message,
+                  probe.errorCode,
+                ),
         );
       }
       validatedProbe = probe;
@@ -909,7 +927,11 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
         Navigator.pop(context, result);
       }
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

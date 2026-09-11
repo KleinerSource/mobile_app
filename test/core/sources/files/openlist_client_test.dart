@@ -184,7 +184,7 @@ void main() {
             isA<FileSourceException>().having(
               (error) => error.message,
               'message',
-              allOf(contains('连接失败'), contains('wrong username or password')),
+              contains('wrong username or password'),
             ),
           ),
         );

@@ -103,6 +103,330 @@ abstract class AppL10n {
   /// **'Oh My Media'**
   String get appName;
 
+  /// No description provided for @errorOperationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作失败'**
+  String get errorOperationFailed;
+
+  /// No description provided for @errorResponseFormatInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'响应格式无效'**
+  String get errorResponseFormatInvalid;
+
+  /// No description provided for @errorResponseDataMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'响应缺少数据'**
+  String get errorResponseDataMissing;
+
+  /// No description provided for @errorRequestTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求超时，请稍后重试'**
+  String get errorRequestTimeout;
+
+  /// No description provided for @errorNetworkUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络连接失败，请检查网络连接'**
+  String get errorNetworkUnavailable;
+
+  /// No description provided for @errorRouteNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'接口不存在（{method} {target}）'**
+  String errorRouteNotFound(String method, String target);
+
+  /// No description provided for @errorRouteNotFoundGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求的接口不存在'**
+  String get errorRouteNotFoundGeneric;
+
+  /// No description provided for @errorValidationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求参数校验失败'**
+  String get errorValidationFailed;
+
+  /// No description provided for @errorHttpStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求失败（HTTP {status}）'**
+  String errorHttpStatus(int status);
+
+  /// No description provided for @errorAuthenticationRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先登录'**
+  String get errorAuthenticationRequired;
+
+  /// No description provided for @errorFileTransferCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件传输已取消'**
+  String get errorFileTransferCanceled;
+
+  /// No description provided for @errorFileSourceNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件来源不可用'**
+  String get errorFileSourceNotFound;
+
+  /// No description provided for @errorFileTransferFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件传输失败'**
+  String get errorFileTransferFailed;
+
+  /// No description provided for @errorFileRangeUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件来源不支持区间读取'**
+  String get errorFileRangeUnsupported;
+
+  /// No description provided for @errorUpdateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新失败'**
+  String get errorUpdateFailed;
+
+  /// No description provided for @errorConnectionClosed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器连接已关闭，请稍后重试'**
+  String get errorConnectionClosed;
+
+  /// No description provided for @errorServerCompatibility.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器与当前应用不兼容'**
+  String get errorServerCompatibility;
+
+  /// No description provided for @errorMediaSourceReferenceInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体来源引用无效'**
+  String get errorMediaSourceReferenceInvalid;
+
+  /// No description provided for @errorMediaLibraryNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体库不存在'**
+  String get errorMediaLibraryNotFound;
+
+  /// No description provided for @errorFeiniuRequestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'飞牛请求失败'**
+  String get errorFeiniuRequestFailed;
+
+  /// No description provided for @errorStashApiKeyInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'Stash API Key 无效或已失效'**
+  String get errorStashApiKeyInvalid;
+
+  /// No description provided for @errorStashRequestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'Stash 网络请求失败'**
+  String get errorStashRequestFailed;
+
+  /// No description provided for @errorStashGraphqlFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'Stash GraphQL 请求失败'**
+  String get errorStashGraphqlFailed;
+
+  /// No description provided for @errorUnsupportedSourceCapability.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前媒体来源不支持此操作'**
+  String get errorUnsupportedSourceCapability;
+
+  /// No description provided for @errorPreviewSegmentsInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'片段数量必须在 1-60 之间'**
+  String get errorPreviewSegmentsInvalid;
+
+  /// No description provided for @errorPreviewSegmentDurationInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'每段时长必须大于 0 且不超过 30 秒'**
+  String get errorPreviewSegmentDurationInvalid;
+
+  /// No description provided for @errorPreviewExcludeInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'首尾排除比例需在 0-99，且合计小于 100'**
+  String get errorPreviewExcludeInvalid;
+
+  /// No description provided for @errorPreviewPresetInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'编码 preset 无效'**
+  String get errorPreviewPresetInvalid;
+
+  /// No description provided for @errorPreviewSpriteIntervalInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite 间隔必须在 0-3600 秒之间'**
+  String get errorPreviewSpriteIntervalInvalid;
+
+  /// No description provided for @errorPreviewSpriteMinimumInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite 最小张数必须在 1-400 之间'**
+  String get errorPreviewSpriteMinimumInvalid;
+
+  /// No description provided for @errorPreviewSpriteMaximumInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite 最大张数不能小于最小张数，且不能超过 400'**
+  String get errorPreviewSpriteMaximumInvalid;
+
+  /// No description provided for @errorPreviewSpriteSizeInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'Sprite 尺寸必须在 32-512 像素之间'**
+  String get errorPreviewSpriteSizeInvalid;
+
+  /// No description provided for @errorOmmRequestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 请求失败'**
+  String get errorOmmRequestFailed;
+
+  /// No description provided for @errorOmmTranscodeStatusFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 转码状态请求失败'**
+  String get errorOmmTranscodeStatusFailed;
+
+  /// No description provided for @errorOmmSubtitleInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕内容无效或为空'**
+  String get errorOmmSubtitleInvalid;
+
+  /// No description provided for @errorOmmSubtitleFetchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕内容获取失败'**
+  String get errorOmmSubtitleFetchFailed;
+
+  /// No description provided for @errorOmmResponseInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 响应格式无效'**
+  String get errorOmmResponseInvalid;
+
+  /// No description provided for @errorOmmLibraryResponseInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 媒体库响应格式无效'**
+  String get errorOmmLibraryResponseInvalid;
+
+  /// No description provided for @errorOmmFolderResponseInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 目录响应格式无效'**
+  String get errorOmmFolderResponseInvalid;
+
+  /// No description provided for @errorOmmPathValidationResponseInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 路径校验响应格式无效'**
+  String get errorOmmPathValidationResponseInvalid;
+
+  /// No description provided for @errorOmmScanTaskIdMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 扫描响应缺少任务 ID'**
+  String get errorOmmScanTaskIdMissing;
+
+  /// No description provided for @errorOmmBatchScanResponseInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 批量扫描响应格式无效'**
+  String get errorOmmBatchScanResponseInvalid;
+
+  /// No description provided for @errorOmmLibraryIdMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 媒体库响应缺少有效 ID'**
+  String get errorOmmLibraryIdMissing;
+
+  /// No description provided for @errorOmmFolderIdMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 目录响应缺少有效 ID'**
+  String get errorOmmFolderIdMissing;
+
+  /// No description provided for @errorOmmSourceIdInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体来源不是 OMM'**
+  String get errorOmmSourceIdInvalid;
+
+  /// No description provided for @errorOmmIdInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'OMM 媒体 ID 无效'**
+  String get errorOmmIdInvalid;
+
+  /// No description provided for @errorUnsupportedResourceType.
+  ///
+  /// In zh, this message translates to:
+  /// **'不支持的资源类型'**
+  String get errorUnsupportedResourceType;
+
+  /// No description provided for @errorTaskResponseInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务响应格式无效'**
+  String get errorTaskResponseInvalid;
+
+  /// No description provided for @errorTaskIdMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务响应缺少任务 ID'**
+  String get errorTaskIdMissing;
+
+  /// No description provided for @errorPreviewTaskIdRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览任务 ID 不能为空'**
+  String get errorPreviewTaskIdRequired;
+
+  /// No description provided for @errorActorMappingLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员映射规则加载失败'**
+  String get errorActorMappingLoadFailed;
+
+  /// No description provided for @errorPreviewTaskCreateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览任务创建失败'**
+  String get errorPreviewTaskCreateFailed;
+
+  /// No description provided for @errorPreviewTaskStatusInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览任务状态无效'**
+  String get errorPreviewTaskStatusInvalid;
+
+  /// No description provided for @errorAvatarContentEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'头像内容为空'**
+  String get errorAvatarContentEmpty;
+
   /// No description provided for @tabHome.
   ///
   /// In zh, this message translates to:
@@ -9414,6 +9738,54 @@ abstract class AppL10n {
   /// **'暂无进行中的任务 · 共 {total} 条记录'**
   String taskCenterSubtitleIdle(int total);
 
+  /// No description provided for @taskRecoveryReplay.
+  ///
+  /// In zh, this message translates to:
+  /// **'已自动重放'**
+  String get taskRecoveryReplay;
+
+  /// No description provided for @taskRecoveryReplayed.
+  ///
+  /// In zh, this message translates to:
+  /// **'原执行已归档'**
+  String get taskRecoveryReplayed;
+
+  /// No description provided for @taskRecoveryManualRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'已手动重试'**
+  String get taskRecoveryManualRetry;
+
+  /// No description provided for @taskRecoveryLegacyMigration.
+  ///
+  /// In zh, this message translates to:
+  /// **'旧任务已迁移'**
+  String get taskRecoveryLegacyMigration;
+
+  /// No description provided for @taskRecoveryCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启前已取消'**
+  String get taskRecoveryCanceled;
+
+  /// No description provided for @taskRecoveryFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启后已归档'**
+  String get taskRecoveryFailed;
+
+  /// No description provided for @taskRecoveryOriginalExecution.
+  ///
+  /// In zh, this message translates to:
+  /// **'原执行 {id}'**
+  String taskRecoveryOriginalExecution(String id);
+
+  /// No description provided for @taskRecoveryNewExecution.
+  ///
+  /// In zh, this message translates to:
+  /// **'新执行 {id}'**
+  String taskRecoveryNewExecution(String id);
+
   /// No description provided for @taskEmptyActive.
   ///
   /// In zh, this message translates to:
@@ -9467,6 +9839,18 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'重试转录失败'**
   String get taskErrRetryTranscribe;
+
+  /// No description provided for @taskErrPause.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停任务失败'**
+  String get taskErrPause;
+
+  /// No description provided for @taskErrResume.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复任务失败'**
+  String get taskErrResume;
 
   /// No description provided for @taskFilterActive.
   ///
@@ -11388,6 +11772,12 @@ abstract class AppL10n {
   /// **'已存在影片也重新下载'**
   String get moviesDownloadWashModeHint;
 
+  /// No description provided for @moviesDownloadSubmitted.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载请求已提交'**
+  String get moviesDownloadSubmitted;
+
   /// No description provided for @moviesDownloadFailed.
   ///
   /// In zh, this message translates to:
@@ -11597,6 +11987,12 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'已完成'**
   String get resourceScanCompleted;
+
+  /// No description provided for @resourceScanCanceling.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消中'**
+  String get resourceScanCanceling;
 
   /// No description provided for @moviesNfoFieldTitle.
   ///

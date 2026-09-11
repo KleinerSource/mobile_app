@@ -107,7 +107,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }
 
   @override
-  Future<void> downloadSubtitle(
+  Future<String?> downloadSubtitle(
     source_models.MediaRef movie, {
     required String url,
     required String ext,
@@ -115,8 +115,9 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }) async {
     overwriteValues.add(overwrite);
     if (!overwrite) {
-      throw const SourceException('同名字幕文件已存在');
+      throw const SourceException('subtitle already exists', statusCode: 409);
     }
+    return null;
   }
 
   @override
@@ -130,7 +131,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
       throw UnimplementedError();
 
   @override
-  Future<void> cancelPreviewTask(String taskId) async {}
+  Future<String?> cancelPreviewTask(String taskId) async => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {

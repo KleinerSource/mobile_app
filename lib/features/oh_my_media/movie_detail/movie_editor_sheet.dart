@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -68,7 +71,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   // （如影片已是破解，仅选择字幕时水印会自动带上破解）。
   double _cropOffset = 1.0; // frontend_new 默认 1
   bool _cropDirty = false;
-  String _subtitleMode = '';  String _crackMode = '';
+  String _subtitleMode = '';
+  String _crackMode = '';
   String _resolutionMode = '';
   bool _flagUpdating = false;
   bool _syncParts = false;
@@ -157,31 +161,37 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final repo = ref.read(mediaRepositoryProvider);
-      await repo.updateMovie(widget.movie.id, body);
+      final updateResult = await repo.updateMovie(widget.movie.id, body);
+      var backendMessage = updateResult.message;
       // 应用裁剪 · 仅在用户显式选择过任意水印标记时；未设置的参数
       // 传 null，由后端按影片现有标签推导。
       if (_shouldApplyPosterCrop) {
-        await repo.applyPosterCrop(
-          widget.movie.id,
-          cropOffset: _cropOffset,
-          subtitle: _subtitleMode.isEmpty ? null : _subtitleMode == 'sub',
-          exsub: _subtitleMode.isEmpty ? null : _subtitleMode == 'exsub',
-          crack: _crackMode.isEmpty ? null : _crackMode == 'crack',
-          resolution: _resolutionMode.isEmpty ? null : _resolutionMode,
-          syncParts: _syncParts && widget.movie.partMovies.isNotEmpty,
-        );
+        backendMessage =
+            await repo.applyPosterCrop(
+              widget.movie.id,
+              cropOffset: _cropOffset,
+              subtitle: _subtitleMode.isEmpty ? null : _subtitleMode == 'sub',
+              exsub: _subtitleMode.isEmpty ? null : _subtitleMode == 'exsub',
+              crack: _crackMode.isEmpty ? null : _crackMode == 'crack',
+              resolution: _resolutionMode.isEmpty ? null : _resolutionMode,
+              syncParts: _syncParts && widget.movie.partMovies.isNotEmpty,
+            ) ??
+            backendMessage;
       }
       // 触发详情 provider 刷新
       // ignore: unused_result
       ref.refresh(movieDetailProvider(widget.movie.id));
       AppHaptics.medium();
       messenger.showSnackBar(
-        SnackBar(content: Text(l.saved), duration: const Duration(seconds: 1)),
+        SnackBar(
+          content: Text(backendMessage ?? l.saved),
+          duration: const Duration(seconds: 1),
+        ),
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = toApiException(e).message);
+        setState(() => _error = localizedErrorMessage(l, e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -273,7 +283,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     }
 
     final created = await repository.create(kind, name: name);
-    return (id: created.id, name: created.name);
+    return (id: created.item.id, name: created.item.name);
   }
 
   Future<void> _changeResolution(String? value) async {
@@ -320,9 +330,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).movieEditorQuickActionFailed(toApiException(error).message),
+            AppL10n.of(context).movieEditorQuickActionFailed(
+              localizedErrorMessage(AppL10n.of(context), error),
+            ),
           ),
         ),
       );
@@ -351,8 +361,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       await _changeQuickFlag(MovieQuickFlag.subtitle, false);
       return;
     }
-    final flag =
-        selected == 'exsub' ? MovieQuickFlag.exsub : MovieQuickFlag.subtitle;
+    final flag = selected == 'exsub'
+        ? MovieQuickFlag.exsub
+        : MovieQuickFlag.subtitle;
     await _changeQuickFlag(flag, true);
   }
 
@@ -403,9 +414,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).movieEditorQuickActionFailed(toApiException(error).message),
+            AppL10n.of(context).movieEditorQuickActionFailed(
+              localizedErrorMessage(AppL10n.of(context), error),
+            ),
           ),
         ),
       );
@@ -904,7 +915,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       case 'plot':
         return _plot;
       default:
-        throw StateError('unknown translate field: $key');
+        throw ApiException(
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
     }
   }
 
@@ -944,7 +958,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            l.movieEditorTranslationFailed(label, toApiException(e).message),
+            l.movieEditorTranslationFailed(label, localizedErrorMessage(l, e)),
           ),
         ),
       );
@@ -994,11 +1008,12 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      final error = toApiException(e).message;
+      final exception = toApiException(e);
+      final error = localizedErrorMessage(l, e);
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            error == 'translation_batch_failed'
+            exception.code == AppErrorCode.operationFailed
                 ? l.translationBatchFailed
                 : l.movieEditorBatchFailed(error),
           ),

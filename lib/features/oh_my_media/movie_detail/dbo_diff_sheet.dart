@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/media/omm_metadata_operations_source.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -67,7 +71,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = toApiException(e).message);
+      setState(() => _error = localizedErrorMessage(AppL10n.of(context), e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -83,6 +87,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     try {
       final movies = ref.read(mediaRepositoryProvider);
       final payload = <String, dynamic>{};
+      String? backendMessage;
       for (final item in selected) {
         if (item.section != DboMetadataDiffSection.info || item.field == null) {
           continue;
@@ -97,10 +102,12 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       for (final item in selectedSeries) {
         if (item.action == DboMetadataDiffAction.remove &&
             item.localId != null) {
-          await movies.batchRemoveAssociations(
-            movieIds: [widget.movie.id],
-            seriesId: item.localId,
-          );
+          backendMessage =
+              await movies.batchRemoveAssociations(
+                movieIds: [widget.movie.id],
+                seriesId: item.localId,
+              ) ??
+              backendMessage;
           seriesRemoved = true;
         } else if (item.action != DboMetadataDiffAction.remove &&
             item.remoteName?.trim().isNotEmpty == true) {
@@ -134,7 +141,9 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       }
 
       if (payload.isNotEmpty) {
-        await movies.updateMovie(widget.movie.id, payload);
+        backendMessage =
+            (await movies.updateMovie(widget.movie.id, payload)).message ??
+            backendMessage;
       } else if (!seriesRemoved) {
         return;
       }
@@ -143,7 +152,10 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       ref.refresh(movieDetailProvider(widget.movie.id));
       messenger.showSnackBar(
         SnackBar(
-          content: Text(AppL10n.of(context).dboAppliedFields(selected.length)),
+          content: Text(
+            backendMessage ??
+                AppL10n.of(context).dboAppliedFields(selected.length),
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -153,7 +165,9 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).dboApplyFailed(toApiException(e).message),
+            AppL10n.of(
+              context,
+            ).dboApplyFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );
@@ -186,11 +200,19 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
   }) async {
     final normalizedName = name.trim();
     if (normalizedName.isEmpty) {
-      throw StateError('DB Online 返回的名称为空');
+      throw ApiException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
     }
 
     final source = ref.read(ommMediaSourceProvider);
-    if (source == null) throw StateError('当前服务器不是 OMM');
+    if (source == null) {
+      throw const SourceException(
+        AppErrorCode.ommSourceIdInvalid,
+        code: AppErrorCode.ommSourceIdInvalid,
+      );
+    }
     final candidates = switch (type) {
       'genre' =>
         (await ref
@@ -222,10 +244,18 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
       'actor' => await source.metadataOperations.createActor({
         'name': normalizedName,
       }),
-      _ => throw StateError('未知 DBO 关联类型: $type'),
+      _ => throw ApiException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      ),
     };
     final created = unwrapStd<ResourceItem>(raw, (data) {
-      if (data is! Map) throw const FormatException('实体响应格式异常');
+      if (data is! Map) {
+        throw ApiException(
+          AppErrorCode.ommResponseInvalid,
+          code: AppErrorCode.ommResponseInvalid,
+        );
+      }
       return ResourceItem.fromJson(Map<String, dynamic>.from(data));
     });
     return created.id;

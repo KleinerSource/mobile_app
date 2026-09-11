@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../api/api_exception.dart';
 import '../api/app_request_headers.dart';
 import '../api/dio_factory.dart';
+import '../api/error_codes.dart';
 import '../api/server_compatibility.dart';
 import 'server_config.dart';
 
@@ -18,7 +19,7 @@ class ServerLineProbeCancellation {
 
   void cancel() {
     if (!cancelToken.isCancelled) {
-      cancelToken.cancel('服务器线路探测已取消');
+      cancelToken.cancel(AppErrorCode.operationFailed);
     }
   }
 }
@@ -32,6 +33,7 @@ class ServerLineProbeResult {
     required this.incompatible,
     required this.requiresAuthentication,
     required this.versionInfo,
+    required this.errorCode,
   });
 
   const ServerLineProbeResult.success(
@@ -46,6 +48,7 @@ class ServerLineProbeResult {
          incompatible: false,
          requiresAuthentication: false,
          versionInfo: versionInfo,
+         errorCode: null,
        );
 
   const ServerLineProbeResult.failure(
@@ -54,6 +57,7 @@ class ServerLineProbeResult {
     bool incompatible = false,
     bool requiresAuthentication = false,
     ServerVersionInfo? versionInfo,
+    String? code,
   }) : this._(
          line: line,
          success: false,
@@ -62,6 +66,7 @@ class ServerLineProbeResult {
          incompatible: incompatible,
          requiresAuthentication: requiresAuthentication,
          versionInfo: versionInfo,
+         errorCode: code,
        );
 
   final ServerLine line;
@@ -71,6 +76,7 @@ class ServerLineProbeResult {
   final bool incompatible;
   final bool requiresAuthentication;
   final ServerVersionInfo? versionInfo;
+  final String? errorCode;
 }
 
 class ServerLineProbeBatch {
@@ -197,7 +203,11 @@ class ServerLineProbeCoordinator {
     ServerLineProbeCancellation? cancellation,
   }) async {
     if (cancellation?.isCancelled == true) {
-      return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+      return ServerLineProbeResult.failure(
+        line,
+        AppErrorCode.operationFailed,
+        code: AppErrorCode.operationFailed,
+      );
     }
     try {
       final result =
@@ -210,7 +220,11 @@ class ServerLineProbeCoordinator {
                 cancelToken: cancellation?.cancelToken,
               ));
       if (cancellation?.isCancelled == true) {
-        return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+        return ServerLineProbeResult.failure(
+          line,
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
       }
       final expected = expectedProjectName?.trim().toLowerCase();
       final actual = result.versionInfo?.projectName.trim().toLowerCase();
@@ -223,18 +237,24 @@ class ServerLineProbeCoordinator {
           '线路项目不匹配，需要 $expectedProjectName，实际为 ${result.versionInfo?.projectName ?? '未知'}',
           incompatible: true,
           versionInfo: result.versionInfo,
+          code: AppErrorCode.serverCompatibility,
         );
       }
       return result;
     } catch (error) {
       if (cancellation?.isCancelled == true ||
           (error is DioException && CancelToken.isCancel(error))) {
-        return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+        return ServerLineProbeResult.failure(
+          line,
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
       }
       final exception = toApiException(error);
       return ServerLineProbeResult.failure(
         line,
         exception.message,
+        code: exception.code,
         requiresAuthentication: _isAuthenticationFailure(exception),
       );
     }
@@ -255,7 +275,10 @@ Future<ServerLineProbeResult> probeServerLine(
         cancelToken: cancelToken,
       );
       if (mediaServerInfo == null) {
-        throw ApiException('服务器版本检测失败');
+        throw ApiException(
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
       }
       stopwatch.stop();
       return ServerLineProbeResult.success(
@@ -271,7 +294,10 @@ Future<ServerLineProbeResult> probeServerLine(
         cancelToken: cancelToken,
       );
       if (feiniuInfo == null) {
-        throw ApiException('服务器版本检测失败');
+        throw ApiException(
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
       }
       stopwatch.stop();
       return ServerLineProbeResult.success(
@@ -407,17 +433,25 @@ Future<ServerLineProbeResult> probeServerLine(
       );
     }
 
-    throw ApiException('服务器版本检测失败');
+    throw ApiException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   } catch (error) {
     stopwatch.stop();
     if (cancelToken?.isCancelled == true ||
         (error is DioException && CancelToken.isCancel(error))) {
-      return ServerLineProbeResult.failure(line, '服务器线路探测已取消');
+      return ServerLineProbeResult.failure(
+        line,
+        AppErrorCode.operationFailed,
+        code: AppErrorCode.operationFailed,
+      );
     }
     final exception = toApiException(error);
     return ServerLineProbeResult.failure(
       line,
       exception.message,
+      code: exception.code,
       incompatible:
           error is ServerCompatibilityException || exception.status == 404,
       requiresAuthentication: _isAuthenticationFailure(exception),
@@ -711,14 +745,23 @@ Future<Map<String, dynamic>?> _fetchPublicSystemInfo(
 
 void _requireHealthyServer(Object? raw) {
   if (raw is! Map) {
-    throw ApiException('服务器健康检查响应格式异常');
+    throw ApiException(
+      AppErrorCode.responseFormatInvalid,
+      code: AppErrorCode.responseFormatInvalid,
+    );
   }
   final envelope = Map<String, dynamic>.from(raw);
   if (envelope['success'] == false) {
+    final message = envelope['message']?.toString().trim();
+    final error = envelope['error']?.toString().trim();
+    final serverMessage = message?.isNotEmpty == true
+        ? message
+        : error?.isNotEmpty == true
+        ? error
+        : null;
     throw ApiException(
-      envelope['message']?.toString() ??
-          envelope['error']?.toString() ??
-          '服务器健康检查未通过',
+      serverMessage ?? AppErrorCode.operationFailed,
+      code: serverMessage == null ? AppErrorCode.operationFailed : null,
     );
   }
 
@@ -726,6 +769,9 @@ void _requireHealthyServer(Object? raw) {
       ? Map<String, dynamic>.from(envelope['data'] as Map)
       : envelope;
   if (payload['status']?.toString().trim().toLowerCase() != 'healthy') {
-    throw ApiException('服务器健康检查未通过');
+    throw ApiException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
 }

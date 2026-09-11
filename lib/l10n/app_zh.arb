@@ -3,6 +3,63 @@
 
   "appName": "Oh My Media",
 
+  "errorOperationFailed": "操作失败",
+  "errorResponseFormatInvalid": "响应格式无效",
+  "errorResponseDataMissing": "响应缺少数据",
+  "errorRequestTimeout": "请求超时，请稍后重试",
+  "errorNetworkUnavailable": "网络连接失败，请检查网络连接",
+  "errorRouteNotFound": "接口不存在（{method} {target}）",
+  "@errorRouteNotFound": {"placeholders":{"method":{"type":"String"},"target":{"type":"String"}}},
+  "errorRouteNotFoundGeneric": "请求的接口不存在",
+  "errorValidationFailed": "请求参数校验失败",
+  "errorHttpStatus": "请求失败（HTTP {status}）",
+  "@errorHttpStatus": {"placeholders":{"status":{"type":"int"}}},
+  "errorAuthenticationRequired": "请先登录",
+  "errorFileTransferCanceled": "文件传输已取消",
+  "errorFileSourceNotFound": "文件来源不可用",
+  "errorFileTransferFailed": "文件传输失败",
+  "errorFileRangeUnsupported": "文件来源不支持区间读取",
+  "errorUpdateFailed": "更新失败",
+  "errorConnectionClosed": "服务器连接已关闭，请稍后重试",
+  "errorServerCompatibility": "服务器与当前应用不兼容",
+  "errorMediaSourceReferenceInvalid": "媒体来源引用无效",
+  "errorMediaLibraryNotFound": "媒体库不存在",
+  "errorFeiniuRequestFailed": "飞牛请求失败",
+  "errorStashApiKeyInvalid": "Stash API Key 无效或已失效",
+  "errorStashRequestFailed": "Stash 网络请求失败",
+  "errorStashGraphqlFailed": "Stash GraphQL 请求失败",
+  "errorUnsupportedSourceCapability": "当前媒体来源不支持此操作",
+  "errorPreviewSegmentsInvalid": "片段数量必须在 1-60 之间",
+  "errorPreviewSegmentDurationInvalid": "每段时长必须大于 0 且不超过 30 秒",
+  "errorPreviewExcludeInvalid": "首尾排除比例需在 0-99，且合计小于 100",
+  "errorPreviewPresetInvalid": "编码 preset 无效",
+  "errorPreviewSpriteIntervalInvalid": "Sprite 间隔必须在 0-3600 秒之间",
+  "errorPreviewSpriteMinimumInvalid": "Sprite 最小张数必须在 1-400 之间",
+  "errorPreviewSpriteMaximumInvalid": "Sprite 最大张数不能小于最小张数，且不能超过 400",
+  "errorPreviewSpriteSizeInvalid": "Sprite 尺寸必须在 32-512 像素之间",
+  "errorOmmRequestFailed": "OMM 请求失败",
+  "errorOmmTranscodeStatusFailed": "OMM 转码状态请求失败",
+  "errorOmmSubtitleInvalid": "字幕内容无效或为空",
+  "errorOmmSubtitleFetchFailed": "字幕内容获取失败",
+  "errorOmmResponseInvalid": "OMM 响应格式无效",
+  "errorOmmLibraryResponseInvalid": "OMM 媒体库响应格式无效",
+  "errorOmmFolderResponseInvalid": "OMM 目录响应格式无效",
+  "errorOmmPathValidationResponseInvalid": "OMM 路径校验响应格式无效",
+  "errorOmmScanTaskIdMissing": "OMM 扫描响应缺少任务 ID",
+  "errorOmmBatchScanResponseInvalid": "OMM 批量扫描响应格式无效",
+  "errorOmmLibraryIdMissing": "OMM 媒体库响应缺少有效 ID",
+  "errorOmmFolderIdMissing": "OMM 目录响应缺少有效 ID",
+  "errorOmmSourceIdInvalid": "媒体来源不是 OMM",
+  "errorOmmIdInvalid": "OMM 媒体 ID 无效",
+  "errorUnsupportedResourceType": "不支持的资源类型",
+  "errorTaskResponseInvalid": "任务响应格式无效",
+  "errorTaskIdMissing": "任务响应缺少任务 ID",
+  "errorPreviewTaskIdRequired": "预览任务 ID 不能为空",
+  "errorActorMappingLoadFailed": "演员映射规则加载失败",
+  "errorPreviewTaskCreateFailed": "预览任务创建失败",
+  "errorPreviewTaskStatusInvalid": "预览任务状态无效",
+  "errorAvatarContentEmpty": "头像内容为空",
+
   "tabHome": "首页",
   "tabLibrary": "影片库",
   "tabSearch": "搜索",
@@ -1762,6 +1819,16 @@
   "@taskCenterSubtitleActive": {"placeholders":{"active":{"type":"int"},"total":{"type":"int"}}},
   "taskCenterSubtitleIdle": "暂无进行中的任务 · 共 {total} 条记录",
   "@taskCenterSubtitleIdle": {"placeholders":{"total":{"type":"int"}}},
+  "taskRecoveryReplay": "已自动重放",
+  "taskRecoveryReplayed": "原执行已归档",
+  "taskRecoveryManualRetry": "已手动重试",
+  "taskRecoveryLegacyMigration": "旧任务已迁移",
+  "taskRecoveryCanceled": "重启前已取消",
+  "taskRecoveryFailed": "重启后已归档",
+  "taskRecoveryOriginalExecution": "原执行 {id}",
+  "@taskRecoveryOriginalExecution": {"placeholders":{"id":{"type":"String"}}},
+  "taskRecoveryNewExecution": "新执行 {id}",
+  "@taskRecoveryNewExecution": {"placeholders":{"id":{"type":"String"}}},
   "taskEmptyActive": "没有正在执行的任务",
   "taskEmptyAll": "暂无任务",
   "taskEmptyCanceled": "没有已取消的任务",
@@ -1771,6 +1838,8 @@
   "taskErrCancelExtract": "取消音频提取失败",
   "taskErrCancelTranscribe": "取消转录失败",
   "taskErrRetryTranscribe": "重试转录失败",
+  "taskErrPause": "暂停任务失败",
+  "taskErrResume": "恢复任务失败",
   "taskFilterActive": "执行中",
   "taskFilterAll": "全部",
   "taskFilterCanceled": "已取消",
@@ -2157,6 +2226,7 @@
   ,"moviesDownloadRequireUncensored": "要求无码"
   ,"moviesDownloadWashMode": "精洗模式"
   ,"moviesDownloadWashModeHint": "已存在影片也重新下载"
+  ,"moviesDownloadSubmitted": "下载请求已提交"
   ,"moviesDownloadFailed": "下载请求失败：{error}"
   ,"@moviesDownloadFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"moviesSubmitting": "提交中…"
@@ -2197,6 +2267,7 @@
   ,"resourceScanPreparing": "准备中"
   ,"resourceScanRunning": "扫描中"
   ,"resourceScanCompleted": "已完成"
+  ,"resourceScanCanceling": "取消中"
   ,"moviesNfoFieldTitle": "标题"
   ,"moviesNfoFieldDescription": "描述"
   ,"moviesNfoFieldPlot": "简介"

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/avdb_config.dart';
 import 'package:omm/core/models/dbo_config.dart';
@@ -15,6 +15,8 @@ import 'package:omm/features/oh_my_media/configs/configs_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 
 part 'actor_association_sync_widgets.dart';
 
@@ -242,18 +244,8 @@ class _ActorAssociationSyncSheetState
   List<String> get _notFoundSources =>
       _preview?.notFoundSources ?? const <String>[];
 
-  /// 后端当前以“渠道名称 + 渠道查询失败”前缀返回混合渠道错误警告。
-  Set<String> get _failedSources {
-    final result = <String>{};
-    for (final warning in _preview?.warnings ?? const <String>[]) {
-      if (warning.startsWith('DB Online 渠道查询失败')) {
-        result.add('dbonline');
-      } else if (warning.startsWith('AVDB 渠道查询失败')) {
-        result.add('avdb');
-      }
-    }
-    return result;
-  }
+  Set<String> get _failedSources =>
+      _preview?.failedSources.toSet() ?? const <String>{};
 
   bool get _hasChannelStatuses =>
       _pendingSources.isNotEmpty ||

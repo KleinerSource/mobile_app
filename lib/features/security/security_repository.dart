@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api/error_codes.dart';
 import 'security_policy.dart';
 
 class SecuritySettings {
@@ -60,7 +61,7 @@ class SecurityRepository {
 
   Future<void> savePin(String pin) async {
     if (!isValidSecurityPin(pin)) {
-      throw const FormatException('数字密码必须为 6 位数字');
+      throw const FormatException(AppErrorCode.validationFailed);
     }
     await _storage.write(key: _pinDigestKey, value: securitySecretDigest(pin));
   }
@@ -75,7 +76,7 @@ class SecurityRepository {
 
   Future<void> saveGesture(Iterable<int> pattern) async {
     if (!isValidSecurityPattern(pattern)) {
-      throw const FormatException('手势密码至少需要连接 4 个节点');
+      throw const FormatException(AppErrorCode.validationFailed);
     }
     await _storage.write(
       key: _gestureDigestKey,

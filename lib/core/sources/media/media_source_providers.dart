@@ -17,6 +17,7 @@ import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
+import 'package:omm/core/api/error_codes.dart';
 
 /// Provides the media sources for the currently selected server.
 ///
@@ -83,7 +84,10 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
   } else if (project == ServerProject.ohMyMedia) {
     source = OmmMediaSourceAdapter(client);
   } else {
-    throw const SourceException('当前服务器没有可用的媒体来源');
+    throw const SourceException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
   registry.register(source);
   return registry;
@@ -233,7 +237,10 @@ final mediaCatalogPageProvider = FutureProvider.autoDispose
           .config
           ?.activeServerId;
       if (request.serverId != (activeServerId ?? '')) {
-        throw const SourceException('媒体请求已过期，请重新加载当前服务器');
+        throw const SourceException(
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
       }
       if (source is! CatalogSource) {
         throw const UnsupportedSourceCapabilityException('catalog');
@@ -251,7 +258,10 @@ final mediaMovieDetailProvider = FutureProvider.autoDispose
           .config
           ?.activeServerId;
       if (request.serverId != (activeServerId ?? '')) {
-        throw const SourceException('媒体请求已过期，请重新加载当前服务器');
+        throw const SourceException(
+          AppErrorCode.operationFailed,
+          code: AppErrorCode.operationFailed,
+        );
       }
       if (source is! MovieDetailSource) {
         throw const UnsupportedSourceCapabilityException('movieDetails');
@@ -317,7 +327,10 @@ final mediaLibraryFoldersProvider = FutureProvider.autoDispose
         throw const UnsupportedSourceCapabilityException('libraryManagement');
       }
       if (library == null) {
-        throw const SourceException('读取媒体库目录需要有效的媒体库 ID');
+        throw const SourceException(
+          AppErrorCode.validationFailed,
+          code: AppErrorCode.validationFailed,
+        );
       }
       return source.listFolders(library);
     });
@@ -338,7 +351,12 @@ final mediaScanProgressProvider = FutureProvider.autoDispose
       final registry = ref.watch(mediaSourceRegistryProvider);
       _checkServerScope(ref, request.serverId);
       final jobId = request.jobId?.trim() ?? '';
-      if (jobId.isEmpty) throw const SourceException('扫描任务 ID 不能为空');
+      if (jobId.isEmpty) {
+        throw const SourceException(
+          AppErrorCode.validationFailed,
+          code: AppErrorCode.validationFailed,
+        );
+      }
       final source = registry.sources.whereType<ScanSource>().firstOrNull;
       if (source == null) {
         throw const UnsupportedSourceCapabilityException('scanning');
@@ -350,6 +368,9 @@ void _checkServerScope(Ref ref, String requestServerId) {
   final activeServerId =
       ref.read(requiredApiClientProvider).config?.activeServerId ?? '';
   if (requestServerId != activeServerId) {
-    throw const SourceException('媒体请求已过期，请重新加载当前服务器');
+    throw const SourceException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
 }

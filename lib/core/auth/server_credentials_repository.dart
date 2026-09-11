@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'auth_session_repository.dart';
+import '../api/error_codes.dart';
 
 String? _optionalTrimmed(String? value) {
   final normalized = value?.trim() ?? '';
@@ -105,7 +106,7 @@ class ServerCredentialsRepository {
   Future<void> saveApiKey(String serverId, String apiKey) async {
     final normalizedKey = apiKey.trim();
     if (normalizedKey.isEmpty) {
-      throw ArgumentError.value(apiKey, 'apiKey', 'Stash API Key 不能为空');
+      throw ArgumentError.value(apiKey, 'apiKey', AppErrorCode.validationFailed);
     }
     await update(serverId, apiKey: normalizedKey);
   }
@@ -137,7 +138,7 @@ class ServerCredentialsRepository {
   String _normalizeServerId(String serverId) {
     final normalized = serverId.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(serverId, 'serverId', '服务器 ID 不能为空');
+      throw ArgumentError.value(serverId, 'serverId', AppErrorCode.validationFailed);
     }
     return normalized;
   }

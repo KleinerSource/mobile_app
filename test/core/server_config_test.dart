@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -610,9 +611,9 @@ void _main_0() {
           ),
       throwsA(
         isA<ServerCompatibilityException>().having(
-          (error) => error.message,
-          'message',
-          contains('保存前必须通过服务器版本检查'),
+          (error) => error.code,
+          'code',
+          AppErrorCode.validationFailed,
         ),
       ),
     );
@@ -1476,7 +1477,7 @@ void _main_4() {
     final result = await resultFuture.timeout(const Duration(seconds: 1));
 
     expect(result.success, isFalse);
-    expect(result.message, contains('取消'));
+    expect(result.errorCode, AppErrorCode.operationFailed);
   });
 
   test('线路探测会拒绝与服务器项目不一致的线路', () async {

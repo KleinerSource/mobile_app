@@ -74,7 +74,9 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l.serverDeleteFailed(toApiException(error).message)),
+            content: Text(
+              l.serverDeleteFailed(localizedErrorMessage(l, error)),
+            ),
           ),
         );
       }

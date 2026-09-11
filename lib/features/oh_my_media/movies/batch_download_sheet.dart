@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
 
@@ -103,14 +103,20 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
       final p = await SharedPreferences.getInstance();
       await p.setString(_kDownloadPrefsKey, jsonEncode(requirements));
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(msg)));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(msg ?? AppL10n.of(context).moviesDownloadSubmitted),
+        ),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).moviesDownloadFailed(toApiException(e).message),
+            AppL10n.of(context).moviesDownloadFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
           ),
         ),
       );

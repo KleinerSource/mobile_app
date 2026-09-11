@@ -51,15 +51,17 @@ abstract interface class OmmMediaOperationsSource {
   Future<List<String>> extraFanarts(MediaRef movie);
 
   /// 提交额外预览图下载任务，并返回统一调度任务 ID。
-  Future<String> downloadExtraFanarts(MediaRef movie);
+  Future<({String taskId, String? message})> downloadExtraFanarts(
+    MediaRef movie,
+  );
 
   Future<MediaInfoDetail?> mediaInfoDetail(MediaRef movie);
 
-  Future<bool> toggleFavorite(MediaRef movie);
+  Future<({bool value, String? message})> toggleFavorite(MediaRef movie);
 
-  Future<void> addFavoriteBatch(List<MediaRef> movies);
+  Future<String?> addFavoriteBatch(List<MediaRef> movies);
 
-  Future<void> removeFavoriteBatch(List<MediaRef> movies);
+  Future<String?> removeFavoriteBatch(List<MediaRef> movies);
 
   Future<void> markWatched(MediaRef movie, bool completed);
 
@@ -80,13 +82,16 @@ abstract interface class OmmMediaOperationsSource {
     bool? completed,
   });
 
-  Future<MovieDetail> updateMovie(MediaRef movie, Map<String, dynamic> body);
+  Future<({MovieDetail item, String? message})> updateMovie(
+    MediaRef movie,
+    Map<String, dynamic> body,
+  );
 
-  Future<void> deleteMovie(MediaRef movie, {bool force = false});
+  Future<String?> deleteMovie(MediaRef movie, {bool force = false});
 
-  Future<void> syncNfo(MediaRef movie);
+  Future<String?> syncNfo(MediaRef movie);
 
-  Future<void> refreshFromNfo(MediaRef movie);
+  Future<String?> refreshFromNfo(MediaRef movie);
 
   Future<({String keyword, List<SubtitleSearchItem> items})> searchSubtitles(
     MediaRef movie,
@@ -94,7 +99,7 @@ abstract interface class OmmMediaOperationsSource {
 
   Future<String> previewSubtitle(MediaRef movie, String url);
 
-  Future<void> downloadSubtitle(
+  Future<String?> downloadSubtitle(
     MediaRef movie, {
     required String url,
     required String ext,
@@ -136,14 +141,14 @@ abstract interface class OmmMediaOperationsSource {
     String savePath = '',
   });
 
-  Future<void> batchAddAssociations({
+  Future<String?> batchAddAssociations({
     required List<MediaRef> movies,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
     int? seriesId,
   });
 
-  Future<void> batchRemoveAssociations({
+  Future<String?> batchRemoveAssociations({
     required List<MediaRef> movies,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
@@ -151,7 +156,8 @@ abstract interface class OmmMediaOperationsSource {
   });
 
   /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
-  Future<({int successCount, int failedCount})> batchWatermark({
+  Future<({String? message, int successCount, int failedCount})>
+  batchWatermark({
     required List<MediaRef> movies,
     bool? subtitle,
     bool? exsub,
@@ -159,22 +165,22 @@ abstract interface class OmmMediaOperationsSource {
     String? resolution,
   });
 
-  Future<String?> mergeDuplicateFiles({
+  Future<({String? taskId, String? message})> mergeDuplicateFiles({
     required List<MediaRef> movies,
     required MediaRef targetMovie,
   });
 
   Future<Map<String, dynamic>> compareDuplicateNfo(List<MediaRef> movies);
 
-  Future<void> applyDuplicateNfo(Map<String, dynamic> payload);
+  Future<String?> applyDuplicateNfo(Map<String, dynamic> payload);
 
-  Future<String> requestDownload({
+  Future<String?> requestDownload({
     required List<MediaRef> movies,
     required Map<String, dynamic> requirements,
   });
 
   /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
-  Future<void> applyPosterCrop(
+  Future<String?> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,
     bool? subtitle,
@@ -203,5 +209,5 @@ abstract interface class OmmMediaOperationsSource {
   Future<PreviewStatus> previewStatus(MediaRef movie);
 
   /// 取消排队中或执行中的预览任务。
-  Future<void> cancelPreviewTask(String taskId);
+  Future<String?> cancelPreviewTask(String taskId);
 }

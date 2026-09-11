@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
@@ -14,6 +13,7 @@ import 'package:omm/features/media_browser/widgets/media_browser_cast_section.da
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 
 /// MediaBrowser 专辑详情页：专辑信息 + 曲目列表。
 ///
@@ -70,7 +70,7 @@ class _MediaBrowserAlbumDetailPageState
           .markFavorite(album.id, !album.userData.isFavorite);
       _invalidateDetail();
     } catch (error) {
-      _showError(toApiException(error).message);
+      _showError(localizedErrorMessage(AppL10n.of(context), error));
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
@@ -115,7 +115,10 @@ class _MediaBrowserAlbumDetailPageState
                 style: AppText.sectionTitle(context),
               ),
               const SizedBox(height: 8),
-              Text(toApiException(error).message, textAlign: TextAlign.center),
+              Text(
+                localizedErrorMessage(AppL10n.of(context), error),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => ref.invalidate(
@@ -318,7 +321,7 @@ class _TrackSection extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                toApiException(error).message,
+                localizedErrorMessage(AppL10n.of(context), error),
                 style: TextStyle(color: colors.muted),
               ),
             ),

@@ -196,6 +196,7 @@ void _main_0() {
         allAliases: [],
         existingAliases: [],
         newAliases: [],
+        failedSources: ['dbonline'],
         warnings: ['DB Online 渠道查询失败: 请求超时'],
       ),
     );
@@ -519,7 +520,7 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
   }
 
   @override
-  Future<bool> applySource({
+  Future<String?> applySource({
     required String mappedValue,
     required List<String> originalValues,
     ActorDataSource source = ActorDataSource.dbonline,
@@ -532,7 +533,7 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
     appliedAvatarUrls = avatarUrls;
     appliedAvatarOverwrite = avatarOverwrite;
     await applyCompletion.future;
-    return true;
+    return null;
   }
 }
 

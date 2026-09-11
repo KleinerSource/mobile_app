@@ -352,10 +352,12 @@ class _FakeConfigsRepository extends ConfigsRepository {
   Future<PreviewConfig> getPreview() async => current;
 
   @override
-  Future<PreviewConfig> savePreview(PreviewConfig config) async {
+  Future<ConfigSaveResult<PreviewConfig>> savePreview(
+    PreviewConfig config,
+  ) async {
     current = config;
     saved = config;
-    return config;
+    return (value: config, message: null);
   }
 }
 
@@ -366,10 +368,12 @@ class _FakeMediaRepository implements MediaRepository {
   int? requestedMovieId;
 
   @override
-  Future<String> downloadExtraFanarts(int id) async {
+  Future<({String taskId, String? message})> downloadExtraFanarts(
+    int id,
+  ) async {
     requestedMovieId = id;
     if (downloadError != null) throw downloadError!;
-    return 'fanart-task-7';
+    return (taskId: 'fanart-task-7', message: null);
   }
 
   @override

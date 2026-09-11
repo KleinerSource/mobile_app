@@ -8,6 +8,7 @@ import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/api/error_codes.dart';
 import '../../../core/platform/app_log_store.dart';
 import '../../../core/sources/files/file_entry.dart';
 import '../../../core/sources/files/file_source_repository.dart';
@@ -72,7 +73,7 @@ class FileAudioMetadataSession {
 
   Future<AudioTrackMetadata> load(PlayerQueueItem item) {
     if (_disposed) {
-      return Future.error(StateError('音频元数据会话已释放'));
+      return Future.error(StateError(AppErrorCode.connectionClosed));
     }
     final key = item.mediaId?.trim() ?? item.safeMediaId;
     return _cache.putIfAbsent(key, () => _loadItem(item));
@@ -312,7 +313,9 @@ class FileAudioMetadataSession {
       options: FileTransferOptions(cancellation: _cancellation),
     )) {
       length += chunk.length;
-      if (length > maxBytes) throw StateError('文件超过元数据读取限制');
+      if (length > maxBytes) {
+        throw StateError(AppErrorCode.responseDataMissing);
+      }
       builder.add(chunk);
     }
     return builder.takeBytes();

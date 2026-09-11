@@ -1,10 +1,19 @@
+import '../../api/error_codes.dart';
+
 class SourceException implements Exception {
-  const SourceException(this.message, {this.code, this.statusCode, this.cause});
+  const SourceException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.cause,
+    this.details,
+  });
 
   final String message;
   final String? code;
   final int? statusCode;
   final Object? cause;
+  final Map<String, Object?>? details;
 
   @override
   String toString() {
@@ -15,7 +24,10 @@ class SourceException implements Exception {
 
 class UnsupportedSourceCapabilityException extends SourceException {
   const UnsupportedSourceCapabilityException(String capability)
-    : super('来源不支持能力：$capability', code: 'unsupported_capability');
+    : super(
+        AppErrorCode.unsupportedSourceCapability,
+        code: AppErrorCode.unsupportedSourceCapability,
+      );
 }
 
 class FileSourceException extends SourceException {
@@ -24,10 +36,14 @@ class FileSourceException extends SourceException {
     super.code,
     super.statusCode,
     super.cause,
+    super.details,
   });
 }
 
 class UnsupportedFileOperationException extends FileSourceException {
   const UnsupportedFileOperationException(String operation)
-    : super('文件来源不支持操作：$operation', code: 'unsupported_operation');
+    : super(
+        AppErrorCode.unsupportedSourceCapability,
+        code: AppErrorCode.unsupportedSourceCapability,
+      );
 }

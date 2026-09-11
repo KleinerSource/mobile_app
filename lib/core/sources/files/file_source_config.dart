@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/auth_session_repository.dart';
+import '../../api/error_codes.dart';
 import '../../api/server_compatibility.dart';
 
 enum FileSourceProtocol { smb, webDav, openList }
@@ -126,7 +127,7 @@ class FileSourceConfig {
       'smb' => FileSourceProtocol.smb,
       'webdav' => FileSourceProtocol.webDav,
       'openlist' => FileSourceProtocol.openList,
-      _ => throw const FormatException('未知文件来源协议'),
+      _ => throw const FormatException(AppErrorCode.responseFormatInvalid),
     };
     final id = _requiredString(json['id'], 'id');
     final name = _requiredString(json['name'], 'name');
@@ -145,7 +146,7 @@ class FileSourceConfig {
     final serverId = _requiredString(json['server_id'], 'server_id');
     final enabled = json['enabled'];
     if (enabled is! bool) {
-      throw const FormatException('文件来源启用状态无效');
+      throw const FormatException(AppErrorCode.responseFormatInvalid);
     }
     final timeoutMilliseconds = _requiredPositiveInt(json['timeout_ms']);
     final smbWorkers = _requiredPositiveInt(json['smb_workers']);
@@ -163,7 +164,9 @@ class FileSourceConfig {
       timeoutMilliseconds: timeoutMilliseconds,
       smbWorkers: smbWorkers,
     );
-    if (!config.isValid) throw const FormatException('文件来源配置无效');
+    if (!config.isValid) {
+      throw const FormatException(AppErrorCode.validationFailed);
+    }
     return config;
   }
 
@@ -259,7 +262,7 @@ class FileSourceCredentialsRepository {
   String _key(String reference) {
     final normalized = reference.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(reference, 'reference', '凭据引用不能为空');
+      throw ArgumentError.value(reference, 'reference', AppErrorCode.validationFailed);
     }
     final encoded = base64Url
         .encode(utf8.encode(normalized))
@@ -309,7 +312,9 @@ class FileSourceConfigRepository {
   }
 
   Future<void> save(FileSourceConfig config) async {
-    if (!config.isValid) throw const FormatException('文件来源配置无效');
+    if (!config.isValid) {
+      throw const FormatException(AppErrorCode.validationFailed);
+    }
     final configs = loadAll().toList();
     final index = configs.indexWhere((item) => item.id == config.id);
     if (index == -1) {
@@ -342,21 +347,23 @@ String? _emptyToNull(String? value) => _optionalString(value);
 
 String _requiredString(Object? value, String field) {
   if (value is! String || value.trim().isEmpty) {
-    throw FormatException('文件来源字段无效：$field');
+    throw const FormatException(AppErrorCode.validationFailed);
   }
   return value.trim();
 }
 
 int _requiredPositiveInt(Object? value) {
   if (value is! int || value <= 0) {
-    throw const FormatException('文件来源数值字段无效');
+    throw const FormatException(AppErrorCode.validationFailed);
   }
   return value;
 }
 
 int _requiredPort(Object? value) {
   final port = _requiredPositiveInt(value);
-  if (port > 65535) throw const FormatException('文件来源端口无效');
+  if (port > 65535) {
+    throw const FormatException(AppErrorCode.validationFailed);
+  }
   return port;
 }
 

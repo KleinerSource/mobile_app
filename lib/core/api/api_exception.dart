@@ -1,11 +1,19 @@
 class ApiException implements Exception {
-  ApiException(String message, {this.status, this.requestId, this.data})
-    : message = redactSensitiveText(message);
+  ApiException(
+    String message, {
+    this.code,
+    this.status,
+    this.requestId,
+    this.data,
+    this.details,
+  }) : message = redactSensitiveText(message);
 
   final String message;
+  final String? code;
   final int? status;
   final String? requestId;
   final Object? data;
+  final Map<String, Object?>? details;
 
   @override
   String toString() => 'ApiException($status): $message';

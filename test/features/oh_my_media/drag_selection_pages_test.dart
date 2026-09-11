@@ -453,13 +453,17 @@ class _RecordingFavoritesSource implements OmmMediaOperationsSource {
   List<int>? removedMovieIds;
 
   @override
-  Future<void> addFavoriteBatch(List<source_models.MediaRef> movies) async {
+  Future<String?> addFavoriteBatch(List<source_models.MediaRef> movies) async {
     addedMovieIds = movies.map((movie) => int.parse(movie.value)).toList();
+    return null;
   }
 
   @override
-  Future<void> removeFavoriteBatch(List<source_models.MediaRef> movies) async {
+  Future<String?> removeFavoriteBatch(
+    List<source_models.MediaRef> movies,
+  ) async {
     removedMovieIds = movies.map((movie) => int.parse(movie.value)).toList();
+    return null;
   }
 
   @override
@@ -473,7 +477,7 @@ class _RecordingFavoritesSource implements OmmMediaOperationsSource {
       throw UnimplementedError();
 
   @override
-  Future<void> cancelPreviewTask(String taskId) async {}
+  Future<String?> cancelPreviewTask(String taskId) async => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -541,7 +545,9 @@ class _DefaultTestMediaSource
   }
 
   @override
-  Future<void> removeFavoriteBatch(List<source_models.MediaRef> movies) async {}
+  Future<String?> removeFavoriteBatch(
+    List<source_models.MediaRef> movies,
+  ) async => null;
 
   @override
   Future<PreviewStartResult> generatePreview(
@@ -554,7 +560,7 @@ class _DefaultTestMediaSource
       throw UnimplementedError();
 
   @override
-  Future<void> cancelPreviewTask(String taskId) async {}
+  Future<String?> cancelPreviewTask(String taskId) async => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>

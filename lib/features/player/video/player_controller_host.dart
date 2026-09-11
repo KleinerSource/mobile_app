@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/api/error_codes.dart';
 import '../../../core/platform/app_log_store.dart';
 import '../common/playback_engine.dart';
 import 'player_subtitle_track_resolver.dart';
@@ -633,7 +634,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   }) async {
     final track = await _findSubtitleTrack(id, fallbackIndex);
     if (track == null) {
-      throw StateError('未找到内嵌字幕轨道: $id');
+      throw StateError(AppErrorCode.responseDataMissing);
     }
     await player.setSubtitleTrack(track);
     await _setNativeSubtitleVisibility(nativeRendering);

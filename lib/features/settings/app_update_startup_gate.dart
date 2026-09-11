@@ -12,6 +12,7 @@ import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/localized_error_message.dart';
 
 /// 检查已经配置的更新源，并在有新版本时直接展示更新引导。
 ///
@@ -117,8 +118,9 @@ void _showUpdateMessage(BuildContext context, String message) {
 }
 
 String _updateErrorMessage(Object error, AppL10n l) {
-  if (error is FormatException) return error.message.toString();
-  if (error is UpdateException) return error.message;
+  if (error is FormatException || error is UpdateException) {
+    return localizedErrorMessage(l, error);
+  }
   return l.settingsCheckUpdateFailed;
 }
 

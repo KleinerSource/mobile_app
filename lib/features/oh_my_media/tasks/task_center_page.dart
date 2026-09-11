@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -254,7 +254,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        taskNameLabel(l, task.name),
+                        taskNameLabel(l, task.name, taskType: task.taskType),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -341,7 +341,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
             if (task.recoveryDecision.isNotEmpty) ...[
               const SizedBox(height: 5),
               Text(
-                _recoverySummary(task),
+                _recoverySummary(l, task),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -359,23 +359,25 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     );
   }
 
-  String _recoverySummary(TaskItem task) {
+  String _recoverySummary(AppL10n l, TaskItem task) {
     final decision = switch (task.recoveryDecision) {
-      'replay' => '已自动重放',
-      'replayed' => '原执行已归档',
-      'manual_retry' => '已手动重试',
-      'legacy_migration' => '旧任务已迁移',
-      'canceled' => '重启前已取消',
-      'failed' => '重启后已归档',
+      'replay' => l.taskRecoveryReplay,
+      'replayed' => l.taskRecoveryReplayed,
+      'manual_retry' => l.taskRecoveryManualRetry,
+      'legacy_migration' => l.taskRecoveryLegacyMigration,
+      'canceled' => l.taskRecoveryCanceled,
+      'failed' => l.taskRecoveryFailed,
       final value => value,
     };
     final parts = <String>[decision];
     if (task.recoveryReason.isNotEmpty) parts.add(task.recoveryReason);
     if (task.previousRecordId.isNotEmpty) {
-      parts.add('原执行 ${_shortRecordId(task.previousRecordId)}');
+      parts.add(
+        l.taskRecoveryOriginalExecution(_shortRecordId(task.previousRecordId)),
+      );
     }
     if (task.nextRecordId.isNotEmpty) {
-      parts.add('新执行 ${_shortRecordId(task.nextRecordId)}');
+      parts.add(l.taskRecoveryNewExecution(_shortRecordId(task.nextRecordId)));
     }
     return parts.join(' · ');
   }
@@ -462,16 +464,18 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     if (confirmed != true || !mounted) return;
     final notifier = ref.read(taskCenterProvider.notifier);
     try {
-      await notifier.remove(task);
+      final message = await notifier.remove(task);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(l.taskRecordRemoved)));
+      ).showSnackBar(SnackBar(content: Text(message ?? l.taskRecordRemoved)));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(localizedErrorMessage(AppL10n.of(context), error)),
+        ),
+      );
     }
   }
 
@@ -519,37 +523,38 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     setState(() {});
     try {
       final notifier = ref.read(taskCenterProvider.notifier);
+      String? backendMessage;
       switch (action) {
         case 'cancel':
-          await notifier.cancel(task);
+          backendMessage = await notifier.cancel(task);
           break;
         case 'pause':
-          await notifier.pause(task);
+          backendMessage = await notifier.pause(task);
           break;
         case 'resume':
-          await notifier.resume(task);
+          backendMessage = await notifier.resume(task);
           break;
         default:
-          await notifier.retry(task);
+          backendMessage = await notifier.retry(task);
           break;
       }
       if (mounted) {
         final l = AppL10n.of(context);
-        final message = switch (action) {
-          'cancel' => l.taskCancelSubmitted,
-          'pause' => l.scanPause,
-          'resume' => l.scanResume,
-          _ => l.taskMsgRequeued,
-        };
+        final message =
+            backendMessage ??
+            switch (action) {
+              'cancel' => l.taskCancelSubmitted,
+              'pause' => l.scanPause,
+              'resume' => l.scanResume,
+              _ => l.taskMsgRequeued,
+            };
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (error) {
       if (mounted) {
-        final message = error is StateError
-            ? error.message.toString()
-            : toApiException(error).message;
+        final message = localizedErrorMessage(AppL10n.of(context), error);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(taskErrorLabel(AppL10n.of(context), message))),
         );

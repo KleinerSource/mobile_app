@@ -9,6 +9,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/avdb_config.dart';
@@ -303,7 +304,7 @@ void _main_1() {
           isA<FormatException>().having(
             (error) => error.message,
             'message',
-            contains('服务器版本不兼容'),
+            AppErrorCode.responseFormatInvalid,
           ),
         ),
       );

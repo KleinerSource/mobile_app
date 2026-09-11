@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movies/media_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -228,7 +228,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     } catch (e) {
       if (!mounted || !_isCurrentLoad(generation)) return;
       final message =
-          '${_sourceLabel(AppL10n.of(context), source)}: ${toApiException(e).message}';
+          '${_sourceLabel(AppL10n.of(context), source)}: ${localizedErrorMessage(AppL10n.of(context), e)}';
       setState(() {
         _sourceErrors[source] = message;
         _warnings = [..._warnings, message];
@@ -390,7 +390,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.resourcePushFailed(toApiException(e).message)),
+          content: Text(l.resourcePushFailed(localizedErrorMessage(l, e))),
           duration: const Duration(seconds: 2),
         ),
       );

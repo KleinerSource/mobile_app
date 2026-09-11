@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -13,6 +12,7 @@ import 'package:omm/features/media_browser/repositories/media_browser_media_repo
 import 'package:omm/features/media_browser/widgets/media_browser_library_refresh_indicator.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/shared/single_flight_gate.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -72,7 +72,7 @@ class _MediaBrowserLibrarySettingsPageState
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => _errorState(
                 context,
-                message: _errorMessage(error),
+                message: _errorMessage(context, error),
                 onRetry: () => ref.invalidate(mediaBrowserCurrentUserProvider),
               ),
               data: (currentUser) {
@@ -124,7 +124,7 @@ class _MediaBrowserLibrarySettingsPageState
               _scrollableMessage(context, const CircularProgressIndicator()),
           error: (error, _) => _errorState(
             context,
-            message: _errorMessage(error),
+                message: _errorMessage(context, error),
             onRetry: () => ref.invalidate(mediaBrowserVirtualFoldersProvider),
           ),
           data: (libraries) {
@@ -283,7 +283,7 @@ class _MediaBrowserLibrarySettingsPageState
       await ref.refresh(mediaBrowserVirtualFoldersProvider.future);
     } catch (error) {
       if (mounted) {
-        _showError(_errorMessage(error));
+        _showError(_errorMessage(context, error));
       }
     } finally {
       if (mounted) setState(() => _refreshing = false);
@@ -322,7 +322,7 @@ class _MediaBrowserLibrarySettingsPageState
         _invalidateLibraryData(library);
       }
     } catch (error) {
-      _showError(l.mediaBrowserRefreshFailed(_errorMessage(error)));
+      _showError(l.mediaBrowserRefreshFailed(_errorMessage(context, error)));
     } finally {
       if (mounted) {
         setState(() {
@@ -352,7 +352,7 @@ class _MediaBrowserLibrarySettingsPageState
         enabled ? l.mediaBrowserLibraryEnabled : l.mediaBrowserLibraryDisabled,
       );
     } catch (error) {
-      _showError(l.mediaBrowserActionFailed(_errorMessage(error)));
+      _showError(l.mediaBrowserActionFailed(_errorMessage(context, error)));
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }
@@ -408,7 +408,7 @@ class _MediaBrowserLibrarySettingsPageState
       _invalidateMediaBrowserCaches();
       _showMessage(l.mediaBrowserLibraryDeleted);
     } catch (error) {
-      _showError(l.mediaBrowserDeleteFailed(_errorMessage(error)));
+      _showError(l.mediaBrowserDeleteFailed(_errorMessage(context, error)));
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }
@@ -453,8 +453,10 @@ class _MediaBrowserLibrarySettingsPageState
   }
 }
 
-String _errorMessage(Object error) =>
-    error is SourceException ? error.message : toApiException(error).message;
+String _errorMessage(BuildContext context, Object error) =>
+    error is SourceException
+        ? localizedErrorMessage(AppL10n.of(context), error)
+        : localizedErrorMessage(AppL10n.of(context), error);
 
 class _AdminRequiredState extends StatelessWidget {
   const _AdminRequiredState();
@@ -971,7 +973,7 @@ class _MediaBrowserLibraryEditorPageState
         setState(() {
           _error = AppL10n.of(
             context,
-          ).mediaBrowserSaveFailed(_errorMessage(error));
+          ).mediaBrowserSaveFailed(_errorMessage(context, error));
         });
       }
     } finally {

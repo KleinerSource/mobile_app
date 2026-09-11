@@ -409,7 +409,7 @@ extension _FileBrowserOperations on _FileBrowserPageState {
     } catch (error) {
       if (mounted) {
         _message(
-          '$errorPrefix：${error is SourceException ? error.message : error}',
+          '$errorPrefix：${localizedErrorMessage(_l10n, error)}',
         );
       }
     } finally {

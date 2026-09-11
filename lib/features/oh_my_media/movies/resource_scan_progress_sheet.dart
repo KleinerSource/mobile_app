@@ -183,7 +183,7 @@ class _ResourceScanStatusPill extends StatelessWidget {
       'running' => (l.resourceScanRunning, c.accent),
       'completed' => (l.resourceScanCompleted, c.accent),
       'failed' => (l.resourceScanFailed, c.danger),
-      'canceling' => ('取消中', c.warning),
+      'canceling' => (l.resourceScanCanceling, c.warning),
       'canceled' => (l.audioStatusCanceled, c.muted),
       _ => (l.resourceScanPreparing, c.muted),
     };

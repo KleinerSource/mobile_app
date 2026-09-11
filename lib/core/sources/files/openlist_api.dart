@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import '../../api/app_request_headers.dart';
+import '../../api/error_codes.dart';
 
 /// OpenList（AList v3 兼容）连接参数。
 ///
@@ -31,7 +32,12 @@ class OpenListConnectionOptions {
 
 /// OpenList 业务错误（信封 code != 200）或网络层错误。
 class OpenListException implements Exception {
-  const OpenListException(this.message, {this.code, this.statusCode});
+  const OpenListException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.errorCode,
+  });
 
   final String message;
 
@@ -40,6 +46,9 @@ class OpenListException implements Exception {
 
   /// HTTP 层状态码（网络层失败时可用）。
   final int? statusCode;
+
+  /// 客户端没有服务端文案时使用的本地化错误码。
+  final String? errorCode;
 
   @override
   String toString() => 'OpenListException: $message (code: $code)';
@@ -107,21 +116,21 @@ class OpenListClient {
         },
       );
     } on DioException catch (error) {
-      throw _networkError('OpenList 登录失败', error);
+      throw _networkError(error);
     }
     final payload = response.data ?? const <String, dynamic>{};
     final code = payload['code'];
-    final message = payload['message']?.toString() ?? '未知错误';
+    final message = payload['message']?.toString() ?? AppErrorCode.operationFailed;
     if (code != 200) {
-      throw OpenListException(
-        'OpenList 登录失败：$message',
-        code: code is int ? code : null,
-      );
+      throw OpenListException(message, code: code is int ? code : null);
     }
     final data = payload['data'];
     final token = data is Map ? data['token']?.toString() : null;
     if (token == null || token.isEmpty) {
-      throw const OpenListException('OpenList 登录响应缺少令牌');
+      throw const OpenListException(
+        AppErrorCode.responseDataMissing,
+        errorCode: AppErrorCode.responseDataMissing,
+      );
     }
     _token = token;
   }
@@ -150,22 +159,19 @@ class OpenListClient {
           ),
         );
       } on DioException catch (error) {
-        throw _networkError('OpenList 刷新请求失败', error);
+        throw _networkError(error);
       }
       final payload = response.data ?? const <String, dynamic>{};
       final code = payload['code'];
       if (code == 200) return;
-      final message = payload['message']?.toString() ?? '未知错误';
+      final message = payload['message']?.toString() ?? AppErrorCode.operationFailed;
       if (code == 401 && attempt == 1 && _hasCredentials) {
         // 令牌过期：重新登录后重试一次。
         _token = null;
         await _login();
         continue;
       }
-      throw OpenListException(
-        'OpenList 强制刷新失败：$message',
-        code: code is int ? code : null,
-      );
+      throw OpenListException(message, code: code is int ? code : null);
     }
   }
 
@@ -178,7 +184,7 @@ class OpenListClient {
     return _baseUri.replace(path: '$prefix/$relative');
   }
 
-  OpenListException _networkError(String context, DioException error) {
+  OpenListException _networkError(DioException error) {
     final response = error.response;
     if (response?.data is Map) {
       final payload = Map<String, dynamic>.from(response!.data as Map);
@@ -186,23 +192,24 @@ class OpenListClient {
       final message = payload['message']?.toString();
       if (message != null && message.isNotEmpty) {
         return OpenListException(
-          '$context：$message',
+          message,
           code: code is int ? code : null,
           statusCode: response.statusCode,
         );
       }
     }
-    final detail = switch (error.type) {
+    final errorCode = switch (error.type) {
       DioExceptionType.connectionTimeout ||
       DioExceptionType.sendTimeout ||
-      DioExceptionType.receiveTimeout => '服务器响应超时',
-      DioExceptionType.connectionError => '无法连接服务器',
-      DioExceptionType.cancel => '请求已取消',
-      _ => error.message ?? error.type.name,
+      DioExceptionType.receiveTimeout => AppErrorCode.requestTimeout,
+      DioExceptionType.connectionError => AppErrorCode.networkUnavailable,
+      DioExceptionType.cancel => AppErrorCode.fileTransferCanceled,
+      _ => AppErrorCode.operationFailed,
     };
     return OpenListException(
-      '$context：$detail',
+      errorCode,
       statusCode: response?.statusCode,
+      errorCode: errorCode,
     );
   }
 }

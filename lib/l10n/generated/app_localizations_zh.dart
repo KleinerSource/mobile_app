@@ -12,6 +12,173 @@ class AppL10nZh extends AppL10n {
   String get appName => 'Oh My Media';
 
   @override
+  String get errorOperationFailed => '操作失败';
+
+  @override
+  String get errorResponseFormatInvalid => '响应格式无效';
+
+  @override
+  String get errorResponseDataMissing => '响应缺少数据';
+
+  @override
+  String get errorRequestTimeout => '请求超时，请稍后重试';
+
+  @override
+  String get errorNetworkUnavailable => '网络连接失败，请检查网络连接';
+
+  @override
+  String errorRouteNotFound(String method, String target) {
+    return '接口不存在（$method $target）';
+  }
+
+  @override
+  String get errorRouteNotFoundGeneric => '请求的接口不存在';
+
+  @override
+  String get errorValidationFailed => '请求参数校验失败';
+
+  @override
+  String errorHttpStatus(int status) {
+    return '请求失败（HTTP $status）';
+  }
+
+  @override
+  String get errorAuthenticationRequired => '请先登录';
+
+  @override
+  String get errorFileTransferCanceled => '文件传输已取消';
+
+  @override
+  String get errorFileSourceNotFound => '文件来源不可用';
+
+  @override
+  String get errorFileTransferFailed => '文件传输失败';
+
+  @override
+  String get errorFileRangeUnsupported => '文件来源不支持区间读取';
+
+  @override
+  String get errorUpdateFailed => '更新失败';
+
+  @override
+  String get errorConnectionClosed => '服务器连接已关闭，请稍后重试';
+
+  @override
+  String get errorServerCompatibility => '服务器与当前应用不兼容';
+
+  @override
+  String get errorMediaSourceReferenceInvalid => '媒体来源引用无效';
+
+  @override
+  String get errorMediaLibraryNotFound => '媒体库不存在';
+
+  @override
+  String get errorFeiniuRequestFailed => '飞牛请求失败';
+
+  @override
+  String get errorStashApiKeyInvalid => 'Stash API Key 无效或已失效';
+
+  @override
+  String get errorStashRequestFailed => 'Stash 网络请求失败';
+
+  @override
+  String get errorStashGraphqlFailed => 'Stash GraphQL 请求失败';
+
+  @override
+  String get errorUnsupportedSourceCapability => '当前媒体来源不支持此操作';
+
+  @override
+  String get errorPreviewSegmentsInvalid => '片段数量必须在 1-60 之间';
+
+  @override
+  String get errorPreviewSegmentDurationInvalid => '每段时长必须大于 0 且不超过 30 秒';
+
+  @override
+  String get errorPreviewExcludeInvalid => '首尾排除比例需在 0-99，且合计小于 100';
+
+  @override
+  String get errorPreviewPresetInvalid => '编码 preset 无效';
+
+  @override
+  String get errorPreviewSpriteIntervalInvalid => 'Sprite 间隔必须在 0-3600 秒之间';
+
+  @override
+  String get errorPreviewSpriteMinimumInvalid => 'Sprite 最小张数必须在 1-400 之间';
+
+  @override
+  String get errorPreviewSpriteMaximumInvalid =>
+      'Sprite 最大张数不能小于最小张数，且不能超过 400';
+
+  @override
+  String get errorPreviewSpriteSizeInvalid => 'Sprite 尺寸必须在 32-512 像素之间';
+
+  @override
+  String get errorOmmRequestFailed => 'OMM 请求失败';
+
+  @override
+  String get errorOmmTranscodeStatusFailed => 'OMM 转码状态请求失败';
+
+  @override
+  String get errorOmmSubtitleInvalid => '字幕内容无效或为空';
+
+  @override
+  String get errorOmmSubtitleFetchFailed => '字幕内容获取失败';
+
+  @override
+  String get errorOmmResponseInvalid => 'OMM 响应格式无效';
+
+  @override
+  String get errorOmmLibraryResponseInvalid => 'OMM 媒体库响应格式无效';
+
+  @override
+  String get errorOmmFolderResponseInvalid => 'OMM 目录响应格式无效';
+
+  @override
+  String get errorOmmPathValidationResponseInvalid => 'OMM 路径校验响应格式无效';
+
+  @override
+  String get errorOmmScanTaskIdMissing => 'OMM 扫描响应缺少任务 ID';
+
+  @override
+  String get errorOmmBatchScanResponseInvalid => 'OMM 批量扫描响应格式无效';
+
+  @override
+  String get errorOmmLibraryIdMissing => 'OMM 媒体库响应缺少有效 ID';
+
+  @override
+  String get errorOmmFolderIdMissing => 'OMM 目录响应缺少有效 ID';
+
+  @override
+  String get errorOmmSourceIdInvalid => '媒体来源不是 OMM';
+
+  @override
+  String get errorOmmIdInvalid => 'OMM 媒体 ID 无效';
+
+  @override
+  String get errorUnsupportedResourceType => '不支持的资源类型';
+
+  @override
+  String get errorTaskResponseInvalid => '任务响应格式无效';
+
+  @override
+  String get errorTaskIdMissing => '任务响应缺少任务 ID';
+
+  @override
+  String get errorPreviewTaskIdRequired => '预览任务 ID 不能为空';
+
+  @override
+  String get errorActorMappingLoadFailed => '演员映射规则加载失败';
+
+  @override
+  String get errorPreviewTaskCreateFailed => '预览任务创建失败';
+
+  @override
+  String get errorPreviewTaskStatusInvalid => '预览任务状态无效';
+
+  @override
+  String get errorAvatarContentEmpty => '头像内容为空';
+
+  @override
   String get tabHome => '首页';
 
   @override
@@ -5068,6 +5235,34 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get taskRecoveryReplay => '已自动重放';
+
+  @override
+  String get taskRecoveryReplayed => '原执行已归档';
+
+  @override
+  String get taskRecoveryManualRetry => '已手动重试';
+
+  @override
+  String get taskRecoveryLegacyMigration => '旧任务已迁移';
+
+  @override
+  String get taskRecoveryCanceled => '重启前已取消';
+
+  @override
+  String get taskRecoveryFailed => '重启后已归档';
+
+  @override
+  String taskRecoveryOriginalExecution(String id) {
+    return '原执行 $id';
+  }
+
+  @override
+  String taskRecoveryNewExecution(String id) {
+    return '新执行 $id';
+  }
+
+  @override
   String get taskEmptyActive => '没有正在执行的任务';
 
   @override
@@ -5093,6 +5288,12 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get taskErrRetryTranscribe => '重试转录失败';
+
+  @override
+  String get taskErrPause => '暂停任务失败';
+
+  @override
+  String get taskErrResume => '恢复任务失败';
 
   @override
   String get taskFilterActive => '执行中';
@@ -6189,6 +6390,9 @@ class AppL10nZh extends AppL10n {
   String get moviesDownloadWashModeHint => '已存在影片也重新下载';
 
   @override
+  String get moviesDownloadSubmitted => '下载请求已提交';
+
+  @override
   String moviesDownloadFailed(String error) {
     return '下载请求失败：$error';
   }
@@ -6302,6 +6506,9 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get resourceScanCompleted => '已完成';
+
+  @override
+  String get resourceScanCanceling => '取消中';
 
   @override
   String get moviesNfoFieldTitle => '标题';

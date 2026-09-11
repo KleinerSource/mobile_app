@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/platform/app_haptics.dart';
@@ -19,6 +19,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -26,6 +27,7 @@ import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_repository.dart';
 import 'package:omm/features/oh_my_media/person_detail/person_detail_page.dart';
@@ -121,7 +123,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           ?.metadataOperations
           .listActors(query);
       if (!pageRequest.isCurrent) return;
-      if (raw == null) throw StateError('当前服务器不是 OMM');
+      if (raw == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
       if (!mounted || requestSerial != _requestSerial) return;
 
@@ -143,7 +150,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
     }
@@ -247,16 +254,22 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     try {
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw StateError('当前服务器不是 OMM');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final raw = await source.metadataOperations.deleteActors({
         'ids': actors.map((actor) => actor.id).toList(),
         'force': force,
       });
       unwrapStd<void>(raw, (_) {});
+      final message = envelopeMessageOrNull(raw);
       if (!mounted) return;
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.actorBatchDeleted(actors.length))),
+        SnackBar(content: Text(message ?? l.actorBatchDeleted(actors.length))),
       );
       _exitSelection();
       _reload(preserveScroll: true);
@@ -265,7 +278,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l.actorBatchDeleteFailed(toApiException(error).message),
+            l.actorBatchDeleteFailed(localizedErrorMessage(l, error)),
           ),
         ),
       );
@@ -575,9 +588,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                   child: CircularProgressIndicator(),
                                 ),
                             firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                              message:
-                                  _controller.error?.toString() ??
-                                  l.commonReadFailed,
+                              message: _controller.error == null
+                                  ? l.commonReadFailed
+                                  : localizedErrorMessage(
+                                      l,
+                                      _controller.error!,
+                                    ),
                               onRetry: _controller.refresh,
                             ),
                             newPageErrorIndicatorBuilder: (_) =>
@@ -718,7 +734,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw StateError('当前服务器不是 OMM');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final body = <String, dynamic>{'name': draft.name};
       if (isEdit) {
         body['biography'] = draft.biography;
@@ -732,6 +753,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         raw,
         (data) => ActorItem.fromJson(Map<String, dynamic>.from(data as Map)),
       );
+      final message = envelopeMessageOrNull(raw);
 
       if (associationData.loaded &&
           (isEdit || draft.associationText.trim().isNotEmpty)) {
@@ -744,13 +766,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       }
       AppHaptics.medium();
       messenger.showSnackBar(
-        SnackBar(content: Text(isEdit ? l.actorSaved : l.actorCreated)),
+        SnackBar(
+          content: Text(message ?? (isEdit ? l.actorSaved : l.actorCreated)),
+        ),
       );
       await _refresh(preserveScroll: isEdit);
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.actorActionFailed(toApiException(error).message)),
+          content: Text(l.actorActionFailed(localizedErrorMessage(l, error))),
         ),
       );
     }
@@ -863,20 +887,28 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw StateError('当前服务器不是 OMM');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final raw = await source.metadataOperations.deleteActors({
         'ids': [actor.id],
         'force': willForce,
       });
       unwrapStd<void>(raw, (_) {});
+      final message = envelopeMessageOrNull(raw);
       _removeDeletedActor(actor.id);
       AppHaptics.medium();
-      messenger.showSnackBar(SnackBar(content: Text(l.actorDeleted)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(message ?? l.actorDeleted)),
+      );
       await _refresh(preserveScroll: true);
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.actorDeleteFailed(toApiException(error).message)),
+          content: Text(l.actorDeleteFailed(localizedErrorMessage(l, error))),
         ),
       );
     }

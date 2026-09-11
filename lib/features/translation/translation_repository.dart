@@ -1,5 +1,6 @@
 import '../../core/api/api_exception.dart';
 import '../../core/api/envelope.dart';
+import '../../core/api/error_codes.dart';
 import '../../core/api/services/translation_api.dart';
 import '../../core/models/translation_config.dart';
 
@@ -89,9 +90,10 @@ class TranslationRepository {
   Future<Map<String, String>> translateBatch(Map<String, String> fields) async {
     final raw = await _api.translateBatch({'fields': fields});
     if (raw is! Map || raw['success'] != true) {
+      final message = envelopeMessageOrNull(raw);
       throw ApiException(
-        (raw is Map ? raw['message'] as String? : null) ??
-            'translation_batch_failed',
+        message ?? AppErrorCode.operationFailed,
+        code: message == null ? AppErrorCode.operationFailed : null,
       );
     }
     final results = (raw['data'] as Map?)?['results'];

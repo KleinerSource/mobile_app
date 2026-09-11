@@ -1,12 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/error_codes.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'media_favorites_repository.dart';
 
 final favoritesRepositoryProvider = Provider<MediaFavoritesRepository>((ref) {
   final source = ref.watch(ommMediaSourceProvider);
   if (source == null) {
-    throw StateError('当前服务器不是 OMM，无法访问收藏夹');
+    throw const SourceException(
+      AppErrorCode.ommSourceIdInvalid,
+      code: AppErrorCode.ommSourceIdInvalid,
+    );
   }
   return MediaFavoritesRepository(source.operations);
 });
@@ -21,11 +26,11 @@ class FavoriteStatusNotifier extends Notifier<Map<int, bool>> {
     state = {...state, id: isFavorited};
   }
 
-  Future<bool> toggle(int id) async {
+  Future<({bool value, String? message})> toggle(int id) async {
     final repo = ref.read(favoritesRepositoryProvider);
-    final newValue = await repo.toggle(id);
-    state = {...state, id: newValue};
-    return newValue;
+    final result = await repo.toggle(id);
+    state = {...state, id: result.value};
+    return result;
   }
 
   bool? get(int id) => state[id];

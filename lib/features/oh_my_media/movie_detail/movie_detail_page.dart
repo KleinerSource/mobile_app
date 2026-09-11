@@ -4,15 +4,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/related_movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/watch_record.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass_menu.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -106,7 +105,7 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
                 Text(l.loadFailed, style: AppText.sectionTitle(context)),
                 const SizedBox(height: 8),
                 Text(
-                  toApiException(e).message,
+                  localizedErrorMessage(l, e),
                   style: AppText.body(context),
                   textAlign: TextAlign.center,
                 ),
@@ -360,20 +359,25 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             final messenger = ScaffoldMessenger.of(context);
             final l = AppL10n.of(context);
             try {
-              final value = await ref
+              final result = await ref
                   .read(favoriteStatusProvider.notifier)
                   .toggle(movie.id);
               messenger.showSnackBar(
                 SnackBar(
                   content: Text(
-                    value ? l.detailFavorited : l.detailUnfavorited,
+                    result.message ??
+                        (result.value
+                            ? l.detailFavorited
+                            : l.detailUnfavorited),
                   ),
                   duration: const Duration(seconds: 1),
                 ),
               );
             } catch (e) {
               messenger.showSnackBar(
-                SnackBar(content: Text(l.operationFailed('$e'))),
+                SnackBar(
+                  content: Text(l.operationFailed(localizedErrorMessage(l, e))),
+                ),
               );
             }
           },
@@ -1203,20 +1207,22 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
             if (_submittingPreview) break;
             setState(() => _submittingPreview = true);
             try {
-              await ref
+              final result = await ref
                   .read(mediaRepositoryProvider)
                   .generatePreview(movie.id, overwrite: false);
               if (!context.mounted) return;
               ref.invalidate(previewStatusProvider(movie.id));
               ref.invalidate(previewVideoUrlProvider(movie.id));
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(l.previewGenerating)));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result.message ?? l.previewGenerating)),
+              );
             } catch (error) {
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(l.operationFailed(sourceErrorMessage(error))),
+                  content: Text(
+                    l.operationFailed(localizedErrorMessage(l, error)),
+                  ),
                 ),
               );
             } finally {
@@ -1386,7 +1392,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
     WidgetRef ref, {
     required String title,
     required String message,
-    required Future<void> Function() run,
+    required Future<String?> Function() run,
     required String successMsg,
     bool refreshDetail = false,
   }) async {
@@ -1411,10 +1417,10 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
     if (confirm != true || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await run();
+      final backendMessage = await run();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(successMsg),
+          content: Text(backendMessage ?? successMsg),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -1424,7 +1430,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.operationFailed(sourceErrorMessage(e)))),
+        SnackBar(content: Text(l.operationFailed(localizedErrorMessage(l, e)))),
       );
     }
   }
@@ -1456,10 +1462,12 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     try {
-      await ref.read(mediaRepositoryProvider).deleteMovie(movie.id);
+      final message = await ref
+          .read(mediaRepositoryProvider)
+          .deleteMovie(movie.id);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.deleted),
+          content: Text(message ?? l.deleted),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -1467,7 +1475,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
       nav.pop();
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.deleteFailed(toApiException(e).message))),
+        SnackBar(content: Text(l.deleteFailed(localizedErrorMessage(l, e)))),
       );
     }
   }

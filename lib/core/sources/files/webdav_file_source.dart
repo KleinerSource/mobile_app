@@ -7,6 +7,7 @@ import 'package:webdav_client/webdav_client.dart' as webdav;
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
+import '../../api/error_codes.dart';
 import '../common/source_lifecycle.dart';
 import '../../platform/app_version.dart';
 import 'file_capabilities.dart';
@@ -130,7 +131,7 @@ class WebDavFileSource
             .toList(growable: false),
       );
     } catch (error) {
-      throw _error('WebDAV 目录读取失败', error);
+      throw _error(error);
     }
   }
 
@@ -141,7 +142,7 @@ class WebDavFileSource
       final file = await client.readProps(value);
       return _entry(value, file.name ?? _webDavName(value), file);
     } catch (error) {
-      throw _error('WebDAV 文件信息读取失败', error);
+      throw _error(error);
     }
   }
 
@@ -168,7 +169,10 @@ class WebDavFileSource
   }) async* {
     final value = _checkPath(path);
     if (options.cancellation?.isCancelled == true) {
-      throw const FileSourceException('下载已取消', code: 'canceled');
+      throw const FileSourceException(
+        AppErrorCode.fileTransferCanceled,
+        code: AppErrorCode.fileTransferCanceled,
+      );
     }
     final cancelToken = CancelToken();
     final cancellation = options.cancellation;
@@ -196,7 +200,8 @@ class WebDavFileSource
       if ((response.statusCode ?? 500) >= 400) {
         await _cancelResponseStream(response.data);
         throw FileSourceException(
-          'WebDAV 下载失败',
+          AppErrorCode.fileTransferFailed,
+          code: AppErrorCode.fileTransferFailed,
           statusCode: response.statusCode,
         );
       }
@@ -205,10 +210,13 @@ class WebDavFileSource
       yield* _streamResponseBody(body);
     } catch (error) {
       if (cancelToken.isCancelled) {
-        throw const FileSourceException('下载已取消', code: 'canceled');
+        throw const FileSourceException(
+          AppErrorCode.fileTransferCanceled,
+          code: AppErrorCode.fileTransferCanceled,
+        );
       }
       if (error is FileSourceException) rethrow;
-      throw _error('WebDAV 文件下载失败', error);
+      throw _error(error);
     }
   }
 
@@ -220,12 +228,18 @@ class WebDavFileSource
     FileTransferOptions options = const FileTransferOptions(),
   }) async {
     if (offset < 0 || length < 0) {
-      throw ArgumentError('WebDAV 区间读取参数无效');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     if (length == 0) return const Stream<List<int>>.empty();
     final value = _checkPath(path);
     if (options.cancellation?.isCancelled == true) {
-      throw const FileSourceException('下载已取消', code: 'canceled');
+      throw const FileSourceException(
+        AppErrorCode.fileTransferCanceled,
+        code: AppErrorCode.fileTransferCanceled,
+      );
     }
     final cancelToken = CancelToken();
     final cancellation = options.cancellation;
@@ -259,38 +273,49 @@ class WebDavFileSource
         // Some WebDAV servers ignore Range. Let the playback proxy spool a
         // complete local copy instead of silently returning the wrong bytes.
         await _cancelResponseStream(response.data);
-        throw UnsupportedError('WebDAV 服务不支持 Range');
+        throw UnsupportedError(AppErrorCode.fileRangeUnsupported);
       }
       if (status == 416) {
         await _cancelResponseStream(response.data);
-        throw const FileSourceException('WebDAV 区间超出文件范围', statusCode: 416);
+        throw const FileSourceException(
+          AppErrorCode.httpError,
+          code: AppErrorCode.httpError,
+          statusCode: 416,
+        );
       }
       if (status != 206 || status >= 400) {
         await _cancelResponseStream(response.data);
-        throw FileSourceException('WebDAV 区间读取失败', statusCode: status);
+        throw FileSourceException(
+          AppErrorCode.httpError,
+          code: AppErrorCode.httpError,
+          statusCode: status,
+        );
       }
       final body = response.data;
       if (body == null) {
-        throw UnsupportedError('WebDAV 区间响应缺少数据');
+        throw UnsupportedError(AppErrorCode.responseDataMissing);
       }
       final contentRange = response.headers.value('content-range');
       if (!_matchesRange(contentRange, offset: offset, end: end)) {
         await _cancelResponseStream(body);
-        throw UnsupportedError('WebDAV 未返回可靠的 Content-Range');
+        throw UnsupportedError(AppErrorCode.responseDataMissing);
       }
       final contentLength = response.headers.value('content-length');
       final declaredLength = int.tryParse(contentLength ?? '');
       if (declaredLength != null && declaredLength != length) {
         await _cancelResponseStream(body);
-        throw UnsupportedError('WebDAV Content-Length 与区间不一致');
+        throw UnsupportedError(AppErrorCode.responseDataMissing);
       }
       return _streamResponseBody(body, expectedLength: length);
     } catch (error) {
       if (cancelToken.isCancelled) {
-        throw const FileSourceException('下载已取消', code: 'canceled');
+        throw const FileSourceException(
+          AppErrorCode.fileTransferCanceled,
+          code: AppErrorCode.fileTransferCanceled,
+        );
       }
       if (error is UnsupportedError || error is FileSourceException) rethrow;
-      throw _error('WebDAV 区间读取失败', error);
+      throw _error(error);
     }
   }
 
@@ -299,10 +324,16 @@ class WebDavFileSource
     final path = _checkPath(request.destination);
     final options = request.options;
     if (!options.overwrite && await exists(request.destination)) {
-      throw const FileSourceException('目标文件已存在', code: 'already_exists');
+      throw const FileSourceException(
+        AppErrorCode.fileTargetExists,
+        code: AppErrorCode.fileTargetExists,
+      );
     }
     if (options.cancellation?.isCancelled == true) {
-      throw const FileSourceException('上传已取消', code: 'canceled');
+      throw const FileSourceException(
+        AppErrorCode.fileTransferCanceled,
+        code: AppErrorCode.fileTransferCanceled,
+      );
     }
     final cancelToken = CancelToken();
     if (options.cancellation != null) {
@@ -328,9 +359,12 @@ class WebDavFileSource
       );
     } catch (error) {
       if (cancelToken.isCancelled) {
-        throw const FileSourceException('上传已取消', code: 'canceled');
+        throw const FileSourceException(
+          AppErrorCode.fileTransferCanceled,
+          code: AppErrorCode.fileTransferCanceled,
+        );
       }
-      throw _error('WebDAV 文件上传失败', error);
+      throw _error(error);
     }
   }
 
@@ -342,7 +376,7 @@ class WebDavFileSource
       await client.mkdir(destination);
       return FilePath(sourceId: _sourceId, value: destination);
     } catch (error) {
-      throw _error('WebDAV 创建目录失败', error);
+      throw _error(error);
     }
   }
 
@@ -362,7 +396,7 @@ class WebDavFileSource
       }
       await client.remove(entry.isDirectory ? '$value/' : value);
     } catch (error) {
-      throw _error('WebDAV 删除失败', error);
+      throw _error(error);
     }
   }
 
@@ -376,12 +410,15 @@ class WebDavFileSource
     final newPath = _checkPath(destination);
     try {
       if (!overwrite && await exists(destination)) {
-        throw const FileSourceException('目标路径已存在', code: 'already_exists');
+      throw const FileSourceException(
+        AppErrorCode.fileTargetExists,
+        code: AppErrorCode.fileTargetExists,
+      );
       }
       await client.rename(oldPath, newPath, overwrite);
     } catch (error) {
       if (error is FileSourceException) rethrow;
-      throw _error('WebDAV 移动失败', error);
+      throw _error(error);
     }
   }
 
@@ -408,7 +445,10 @@ class WebDavFileSource
   Future<FileAccess> resolveAccess(FilePath path) async {
     final entry = await stat(path);
     if (!entry.isFile) {
-      throw const FileSourceException('目录不能作为文件访问');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     return FileAccess(
       uri: _directUri(path),
@@ -444,7 +484,11 @@ class WebDavFileSource
 
   String _checkPath(FilePath path) {
     if (path.sourceId != _sourceId) {
-      throw FileSourceException('路径不属于当前 WebDAV 来源：${path.sourceId.value}');
+      throw FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+        details: {'sourceId': path.sourceId.value},
+      );
     }
     return normalizeWebDavPath(path.value);
   }
@@ -460,16 +504,21 @@ class WebDavFileSource
     attributes: {'etag': file.eTag},
   );
 
-  FileSourceException _error(String message, Object error) {
+  FileSourceException _error(Object error) {
     if (error is FileSourceException) return error;
+    final statusCode = error is DioException ? error.response?.statusCode : null;
+    final code = statusCode == null
+        ? AppErrorCode.networkUnavailable
+        : AppErrorCode.httpError;
     if (error is DioException) {
       return FileSourceException(
-        message,
-        statusCode: error.response?.statusCode,
+        code,
+        code: code,
+        statusCode: statusCode,
         cause: error,
       );
     }
-    return FileSourceException(message, cause: error);
+    return FileSourceException(code, code: code, cause: error);
   }
 
   Stream<List<int>> _streamResponseBody(
@@ -480,12 +529,18 @@ class WebDavFileSource
     await for (final chunk in body.stream) {
       received += chunk.length;
       if (expectedLength != null && received > expectedLength) {
-        throw const FileSourceException('WebDAV 返回的区间数据过长');
+        throw const FileSourceException(
+          AppErrorCode.responseDataMissing,
+          code: AppErrorCode.responseDataMissing,
+        );
       }
       yield chunk;
     }
     if (expectedLength != null && received != expectedLength) {
-      throw const FileSourceException('WebDAV 返回的区间数据不完整');
+      throw const FileSourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
   }
 

@@ -8,6 +8,7 @@ import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
+import '../api/error_codes.dart';
 import '../api/dio_factory.dart';
 import '../api/providers.dart';
 import '../api/server_compatibility.dart';
@@ -112,7 +113,7 @@ class AuthController extends AsyncNotifier<AuthState> {
             .join('\n');
         return AuthState(
           phase: incompatible ? AuthPhase.incompatible : AuthPhase.unavailable,
-          message: detail.isEmpty ? '没有可用的服务器线路' : detail,
+          message: detail.isEmpty ? AppErrorCode.operationFailed : detail,
         );
       }
       selectedConfig = _withSelectedLine(config, selected);
@@ -588,7 +589,10 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<bool> setStashApiKey(String value) async {
     final config = ref.read(serverConfigProvider);
     if (config?.activeServer?.project != ServerProject.stash) {
-      throw ApiException('当前服务器不是 Stash');
+      throw ApiException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     final key = value.trim();
     if (key.isEmpty) {
@@ -601,7 +605,10 @@ class AuthController extends AsyncNotifier<AuthState> {
       client.ensureActive();
       final serverId = config!.activeServerId;
       if (serverId == null || serverId.trim().isEmpty) {
-        throw ApiException('当前 Stash 服务器缺少服务器 ID');
+        throw ApiException(
+          AppErrorCode.responseDataMissing,
+          code: AppErrorCode.responseDataMissing,
+        );
       }
       await ref
           .read(serverCredentialsRepositoryProvider)
@@ -638,7 +645,12 @@ class AuthController extends AsyncNotifier<AuthState> {
     try {
       final user = await client.feiniu.userInfo(skipSessionExpiry: true);
       client.ensureActive();
-      if (user.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
+      if (user.id.isEmpty) {
+        throw ApiException(
+          AppErrorCode.responseDataMissing,
+          code: AppErrorCode.responseDataMissing,
+        );
+      }
       if (session.userId != user.id) {
         await sessionRepository.save(
           AuthSession(
@@ -830,7 +842,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         AuthState(
           phase: AuthPhase.needsLogin,
           status: current?.status,
-          message: '请输入用户名',
+          message: AppErrorCode.validationFailed,
         ),
       );
       return false;
@@ -880,7 +892,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         AuthState(
           phase: AuthPhase.needsLogin,
           status: current?.status,
-          message: '请输入用户名',
+          message: AppErrorCode.validationFailed,
         ),
       );
       return false;
@@ -930,14 +942,22 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? apiKey,
   }) async {
     final project = server.project;
-    if (project == null) throw ApiException('服务器类型无效');
+    if (project == null) {
+      throw ApiException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
+    }
     final line = server.activeLine ?? server.lines.first;
     final rawSecret = totpSecret?.trim() ?? '';
     final normalizedSecret = rawSecret.isEmpty
         ? null
         : normalizeTotpSecret(rawSecret);
     if (rawSecret.isNotEmpty && normalizedSecret == null) {
-      throw ApiException('TOTP 密钥格式无效（应为 base32 字符串）');
+      throw ApiException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
 
     final sessionRepository = ref
@@ -957,14 +977,24 @@ class AuthController extends AsyncNotifier<AuthState> {
       final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
       if (project == ServerProject.stash) {
         final key = apiKey?.trim() ?? '';
-        if (key.isEmpty) throw ApiException('请输入 Stash API Key');
+        if (key.isEmpty) {
+          throw ApiException(
+            AppErrorCode.validationFailed,
+            code: AppErrorCode.validationFailed,
+          );
+        }
         await client.stash.validateApiKey(key);
         await _saveServerCredentials(server.id, apiKey: key);
         return;
       }
       if (project == ServerProject.feiniu) {
         final user = username?.trim() ?? '';
-        if (user.isEmpty) throw ApiException('请输入用户名');
+        if (user.isEmpty) {
+          throw ApiException(
+            AppErrorCode.validationFailed,
+            code: AppErrorCode.validationFailed,
+          );
+        }
         await _completeFeiniuLogin(
           client,
           sessionRepository: sessionRepository,
@@ -980,7 +1010,12 @@ class AuthController extends AsyncNotifier<AuthState> {
       }
       if (mediaBrowserConfig != null) {
         final user = username?.trim() ?? '';
-        if (user.isEmpty) throw ApiException('请输入用户名');
+        if (user.isEmpty) {
+          throw ApiException(
+            AppErrorCode.validationFailed,
+            code: AppErrorCode.validationFailed,
+          );
+        }
         await _completeMediaBrowserLogin(
           client,
           sessionRepository: sessionRepository,
@@ -1042,13 +1077,19 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
     client.ensureActive();
     if (isDbOnline ? !session.hasAccessToken : !session.isUsable) {
-      throw ApiException('登录响应缺少有效会话');
+      throw ApiException(
+        AppErrorCode.authenticationRequired,
+        code: AppErrorCode.authenticationRequired,
+      );
     }
     await sessionRepository.save(session);
     if (isDbOnline) {
       try {
         if (!await client.auth.verify()) {
-          throw ApiException('登录响应令牌无效');
+          throw ApiException(
+            AppErrorCode.authenticationRequired,
+            code: AppErrorCode.authenticationRequired,
+          );
         }
         client.ensureActive();
       } catch (_) {
@@ -1081,7 +1122,12 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
     final profile = await client.feiniu.userInfo(skipSessionExpiry: true);
     client.ensureActive();
-    if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
+    if (profile.id.isEmpty) {
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     await sessionRepository.save(
       AuthSession(
         accessToken: token,
@@ -1113,7 +1159,10 @@ class AuthController extends AsyncNotifier<AuthState> {
         );
     client.ensureActive();
     if (result.accessToken.isEmpty || result.user.id.isEmpty) {
-      throw ApiException('登录响应缺少有效会话');
+      throw ApiException(
+        AppErrorCode.authenticationRequired,
+        code: AppErrorCode.authenticationRequired,
+      );
     }
     await sessionRepository.save(
       AuthSession(

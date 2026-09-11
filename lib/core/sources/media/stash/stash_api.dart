@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/app_request_headers.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/auth/server_credentials_repository.dart';
@@ -121,7 +122,12 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
       notifyApiKeyInvalid: notifyApiKeyInvalid,
     );
     final result = data['findScenes'];
-    if (result is! Map) throw ApiException('Stash Scene 列表响应格式异常');
+    if (result is! Map) {
+      throw ApiException(
+        AppErrorCode.responseFormatInvalid,
+        code: AppErrorCode.responseFormatInvalid,
+      );
+    }
     final rawScenes = result['scenes'];
     return StashScenePage(
       scenes: rawScenes is List
@@ -136,14 +142,24 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
 
   Future<StashScene> findScene(String id, {String? apiKeyOverride}) async {
     final normalized = id.trim();
-    if (normalized.isEmpty) throw ApiException('Stash Scene ID 不能为空');
+    if (normalized.isEmpty) {
+      throw ApiException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
+    }
     final data = await _graphql(
       'query FindScene(\$id: ID!) { findScene(id: \$id) { $_sceneFields } }',
       variables: {'id': normalized},
       apiKeyOverride: apiKeyOverride,
     );
     final scene = StashScene.fromJson(data['findScene']);
-    if (scene.id.isEmpty) throw ApiException('Stash Scene 不存在');
+    if (scene.id.isEmpty) {
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     return scene;
   }
 
@@ -152,7 +168,12 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
     String? apiKeyOverride,
   }) async {
     final normalized = id.trim();
-    if (normalized.isEmpty) throw ApiException('Stash Scene ID 不能为空');
+    if (normalized.isEmpty) {
+      throw ApiException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
+    }
     final data = await _graphql(
       r'''query SceneStreams($id: ID!) {
   sceneStreams(id: $id) { url mime_type label }
@@ -235,14 +256,22 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
       }
       throw ApiException(
         status == 401 || status == 403
-            ? 'Stash API Key 无效或已失效'
-            : 'Stash 网络请求失败',
+            ? AppErrorCode.stashApiKeyInvalid
+            : AppErrorCode.stashRequestFailed,
+        code: status == 401 || status == 403
+            ? AppErrorCode.stashApiKeyInvalid
+            : AppErrorCode.stashRequestFailed,
         status: status,
         data: error.response?.data,
       );
     }
     final body = response.data;
-    if (body is! Map) throw ApiException('Stash GraphQL 响应格式异常');
+    if (body is! Map) {
+      throw ApiException(
+        AppErrorCode.responseFormatInvalid,
+        code: AppErrorCode.responseFormatInvalid,
+      );
+    }
     final errors = body['errors'];
     if (errors is List && errors.isNotEmpty) {
       final messages = errors
@@ -251,7 +280,8 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
           .where((message) => message.isNotEmpty)
           .join('\n');
       final exception = ApiException(
-        messages.isEmpty ? 'Stash GraphQL 请求失败' : messages,
+        messages.isEmpty ? AppErrorCode.stashGraphqlFailed : messages,
+        code: messages.isEmpty ? AppErrorCode.stashGraphqlFailed : null,
         status: response.statusCode,
         data: errors,
       );
@@ -262,7 +292,12 @@ query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType) {
       throw exception;
     }
     final data = body['data'];
-    if (data is! Map) throw ApiException('Stash GraphQL 数据为空');
+    if (data is! Map) {
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     return Map<String, dynamic>.from(data);
   }
 

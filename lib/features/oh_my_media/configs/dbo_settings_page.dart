@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/dbo_config.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
@@ -87,21 +87,21 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           .read(configsRepositoryProvider)
           .saveDbo(cfg, keepApiKey: keep);
       if (!mounted) return;
-      if (saved.apiKey.trim().isNotEmpty) {
-        _apiKey.text = saved.apiKey;
+      if (saved.value.apiKey.trim().isNotEmpty) {
+        _apiKey.text = saved.value.apiKey;
         _hasKey = true;
       }
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(AppL10n.of(context).configSavedToast),
+          content: Text(saved.message ?? AppL10n.of(context).configSavedToast),
           duration: const Duration(seconds: 1),
         ),
       );
       // ignore: unused_result
       ref.refresh(dboConfigProvider);
     } catch (e) {
-      setState(() => _error = toApiException(e).message);
+      setState(() => _error = localizedErrorMessage(AppL10n.of(context), e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -122,7 +122,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  '${AppL10n.of(context).loadFailed}: $e',
+                  localizedErrorMessage(AppL10n.of(context), e),
                   style: AppText.body(context),
                 ),
               ),

@@ -11,7 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../../../core/api/dio_factory.dart';
+import '../../../core/api/error_codes.dart';
 import '../../../core/api/server_connection.dart';
 import '../../../core/api/url_resolver.dart';
 import '../../../core/auth/auth_session_provider.dart';
@@ -28,6 +28,7 @@ import '../../../core/sources/files/file_playback_progress.dart';
 import '../../../core/sources/media/media_models.dart' as source_models;
 import '../../../core/sources/media/media_source_providers.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/localized_error_message.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import '../common/engine_playback_route.dart';
 import '../common/playback_engine.dart';
@@ -630,7 +631,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         directSubtitleTracks = resolved.subtitleTracks;
         directProgressReporter = resolved.progressReporter;
         directStartPositionSec = resolved.startPositionSec;
-        if (trailerUrl.isEmpty) throw StateError('懒加载播放信息未返回地址');
+        if (trailerUrl.isEmpty) throw StateError(AppErrorCode.responseDataMissing);
       }
       if (trailerUrl != null && trailerUrl.isNotEmpty) {
         if (ref.read(playerSettingsProvider).resumeFromLastPosition) {
@@ -693,11 +694,16 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       }
 
       final cfg = ref.read(serverConfigProvider);
-      if (cfg == null) throw StateError('未配置服务器');
+      if (cfg == null) throw StateError(AppErrorCode.responseDataMissing);
       final movieId = widget.movieId;
-      if (movieId == null) throw StateError('播放影片 ID 缺失');
+      if (movieId == null) throw StateError(AppErrorCode.responseDataMissing);
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw const SourceException('OMM 播放来源未就绪');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.responseDataMissing,
+          code: AppErrorCode.responseDataMissing,
+        );
+      }
       final lease = _connectionLease;
       if (lease == null ||
           !lease.isActive ||
@@ -751,7 +757,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       if (useBackendStream) {
         final rawDecisionUrl = decision.streamUrl.trim();
         if (rawDecisionUrl.isEmpty) {
-          throw StateError('播放决策未返回 stream_url');
+          throw StateError(AppErrorCode.responseDataMissing);
         }
         // 受限原生内核不使用非公开 header 注入。站内地址统一转换为 token query，
         // 外部 header-only 地址由后端 remux/direct-stream/transcode 适配。
@@ -759,7 +765,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       } else {
         final rawDirectUrl = decision.directUrl.trim();
         if (rawDirectUrl.isEmpty) {
-          throw StateError('服务器版本不兼容：播放决策缺少 direct_url');
+          throw StateError(AppErrorCode.responseFormatInvalid);
         }
         if (decision.strmUserAgent.isNotEmpty) {
           directUrl = rawDirectUrl;
@@ -850,7 +856,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       _playbackErrorReported = true;
       _loadGeneration++;
       setState(() {
-        _error = toApiException(error).message;
+        _error = localizedErrorMessage(AppL10n.of(context), error);
         _loading = false;
       });
       unawaited(_stopAfterPlaybackError());
@@ -927,7 +933,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       }
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
-    throw TimeoutException('视频首帧加载超时');
+    throw TimeoutException(AppErrorCode.requestTimeout);
   }
 
   void _playerLog(String message) {
@@ -983,14 +989,14 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       }
     }
     if (selected == null) {
-      throw FormatException('服务器版本不兼容：播放决策未提供清晰度 $normalized');
+      throw const FormatException(AppErrorCode.responseFormatInvalid);
     }
     final hasHls = decisionHasHlsUrl(decision);
     if (selected.kind == 'transcode' && !hasHls) {
-      throw const FormatException('服务器版本不兼容：转码清晰度未返回 HLS 地址');
+      throw const FormatException(AppErrorCode.responseFormatInvalid);
     }
     if (requireHls && !hasHls) {
-      throw StateError('服务器转码回退未返回 HLS 地址');
+      throw StateError(AppErrorCode.responseDataMissing);
     }
   }
 
@@ -1110,7 +1116,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       _showError(
         AppL10n.of(
           context,
-        ).playerSubtitleLoadFailedContinue(toApiException(message).message),
+        ).playerSubtitleLoadFailedContinue(
+          localizedErrorMessage(AppL10n.of(context), message),
+        ),
       );
       return;
     }
@@ -1137,7 +1145,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     // 让当前加载/播放任务失效，避免停止播放器后旧请求又把页面改回播放状态。
     _loadGeneration++;
     setState(() {
-      _error = toApiException(message).message;
+      _error = localizedErrorMessage(AppL10n.of(context), message);
       _loading = false;
     });
     unawaited(_stopAfterPlaybackError());
@@ -1201,7 +1209,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           // HLS 转码流不包含字幕轨道（位图字幕由服务端烧录），按轨道 ID
           // 选择必然失败；文字轨道直接走后端的 VTT 转换端点。
           if (track.url.trim().isEmpty) {
-            throw StateError('该字幕在转码画质下不可用，请改用原画画质');
+            throw StateError(AppErrorCode.responseDataMissing);
           }
           await _loadSubtitleTrack(cfg, token, track);
         } else {
@@ -1221,7 +1229,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         return true;
       }
       if (!track.canLoad || track.url.trim().isEmpty) {
-        throw StateError('字幕地址不可用');
+        throw StateError(AppErrorCode.responseDataMissing);
       }
       await _loadSubtitleTrack(cfg, token, track);
       _setSelectedSubtitle(track);
@@ -1231,7 +1239,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         _showError(
           AppL10n.of(
             context,
-          ).playerSubtitleLoadFailed(toApiException(error).message),
+        ).playerSubtitleLoadFailed(
+          localizedErrorMessage(AppL10n.of(context), error),
+        ),
         );
       }
       return false;
@@ -1262,7 +1272,12 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
 
   Future<String> _fetchManagedSubtitle(String url) async {
     final source = ref.read(ommMediaSourceProvider);
-    if (source == null) throw const SourceException('OMM 播放来源未就绪');
+    if (source == null) {
+      throw const SourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     return source.fetchSubtitleContent(url);
   }
 
@@ -1352,7 +1367,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         _showError(
           AppL10n.of(
             context,
-          ).playerSubtitleLoadFailed(toApiException(error).message),
+        ).playerSubtitleLoadFailed(
+          localizedErrorMessage(AppL10n.of(context), error),
+        ),
         );
       }
     }

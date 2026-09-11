@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:omm/core/api/server_connection.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -70,7 +71,10 @@ String imageUrlWithCacheRevision(String url, int revision) {
 final mediaRepositoryProvider = Provider<MediaRepository>((ref) {
   final source = ref.watch(ommMediaSourceProvider);
   if (source == null) {
-    throw const SourceException('当前服务器不是 OMM，不能使用本地媒体库影片操作');
+    throw const SourceException(
+      AppErrorCode.ommSourceIdInvalid,
+      code: AppErrorCode.ommSourceIdInvalid,
+    );
   }
   return MediaRepository(
     catalog: source,

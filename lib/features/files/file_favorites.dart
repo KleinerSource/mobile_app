@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api/error_codes.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/sources/common/source_id.dart';
 import '../../core/sources/files/file_entry.dart';
@@ -141,7 +142,11 @@ class FileFavoritesRepository {
   String _encodedId(String serverId) {
     final normalized = serverId.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(serverId, 'serverId', '服务器 ID 不能为空');
+      throw ArgumentError.value(
+        serverId,
+        'serverId',
+        AppErrorCode.validationFailed,
+      );
     }
     return base64Url.encode(utf8.encode(normalized)).replaceAll('=', '');
   }

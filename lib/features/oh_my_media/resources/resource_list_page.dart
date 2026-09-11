@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -15,6 +14,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/paged_selection.dart';
@@ -118,9 +118,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   /// 列表开始滚动时收起已展开的左滑操作。
   void _handleScroll() {
     if (_openSwipe.value != null) _openSwipe.value = null;
-    if (!_lastPageComplete ||
-        _hasReachedEnd ||
-        !_scrollController.hasClients) {
+    if (!_lastPageComplete || _hasReachedEnd || !_scrollController.hasClients) {
       return;
     }
     final position = _scrollController.position;
@@ -192,7 +190,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
     }
@@ -266,7 +264,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await ref
+      final message = await ref
           .read(resourcesRepositoryProvider)
           .deleteBatch(
             widget.kind,
@@ -277,7 +275,9 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l.resourceBatchDeleted(items.length, kindLabel)),
+          content: Text(
+            message ?? l.resourceBatchDeleted(items.length, kindLabel),
+          ),
         ),
       );
       _exitSelection();
@@ -287,7 +287,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l.resourceBatchDeleteFailed(toApiException(error).message),
+            l.resourceBatchDeleteFailed(localizedErrorMessage(l, error)),
           ),
         ),
       );
@@ -550,9 +550,12 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     ),
                                 firstPageErrorIndicatorBuilder: (_) =>
                                     ErrorView(
-                                      message:
-                                          _controller.error?.toString() ??
-                                          l.loadFailed,
+                                      message: _controller.error == null
+                                          ? l.loadFailed
+                                          : localizedErrorMessage(
+                                              l,
+                                              _controller.error!,
+                                            ),
                                       onRetry: _controller.refresh,
                                     ),
                                 newPageErrorIndicatorBuilder: (_) =>
@@ -668,7 +671,9 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l.resourceTranslateFailed(toApiException(e).message)),
+            content: Text(
+              l.resourceTranslateFailed(localizedErrorMessage(l, e)),
+            ),
           ),
         );
       } finally {
@@ -840,20 +845,23 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final repo = ref.read(resourcesRepositoryProvider);
+      String? backendMessage;
       if (isEdit) {
-        await repo.update(
+        final updated = await repo.update(
           widget.kind,
           edit.id,
           name: result.name,
           autoMapping: result.autoMapping,
         );
+        backendMessage = updated.message;
       } else {
-        await repo.create(widget.kind, name: result.name);
+        final created = await repo.create(widget.kind, name: result.name);
+        backendMessage = created.message;
       }
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isEdit ? l.saved : l.created),
+          content: Text(backendMessage ?? (isEdit ? l.saved : l.created)),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -861,7 +869,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       _reload(preserveScroll: isEdit);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.operationFailed(toApiException(e).message))),
+        SnackBar(content: Text(l.operationFailed(localizedErrorMessage(l, e)))),
       );
     }
   }
@@ -898,13 +906,15 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(resourcesRepositoryProvider).deleteBatch(widget.kind, [
-        r.id,
-      ], force: hasMovies);
+      final message = await ref.read(resourcesRepositoryProvider).deleteBatch(
+        widget.kind,
+        [r.id],
+        force: hasMovies,
+      );
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.deleted),
+          content: Text(message ?? l.deleted),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -912,7 +922,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.deleteFailed(toApiException(e).message))),
+        SnackBar(content: Text(l.deleteFailed(localizedErrorMessage(l, e)))),
       );
     }
   }

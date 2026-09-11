@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/models/playback.dart' as playback_models;
 import 'package:omm/core/sources/common/source_id.dart';
@@ -20,6 +19,8 @@ import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
 import 'package:omm/shared/single_flight_gate.dart';
+import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 final _mediaBrowserVideoLaunchGate = SingleFlightGate();
 
@@ -130,7 +131,11 @@ Future<void> _openMediaBrowserPlayback(
         context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(localizedErrorMessage(AppL10n.of(context), error)),
+        ),
+      );
     }
   }
 }

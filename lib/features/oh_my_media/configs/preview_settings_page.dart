@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/preview_config.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'configs_providers.dart';
 
 class PreviewSettingsPage extends ConsumerStatefulWidget {
@@ -73,7 +73,9 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
     if (config == null) return;
     final error = config.validationError;
     if (error != null) {
-      setState(() => _error = error);
+      setState(
+        () => _error = localizedErrorMessage(AppL10n.of(context), error),
+      );
       return;
     }
     setState(() {
@@ -81,15 +83,23 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
       _error = null;
     });
     try {
-      await ref.read(configsRepositoryProvider).savePreview(config);
+      final saved = await ref
+          .read(configsRepositoryProvider)
+          .savePreview(config);
       if (!mounted) return;
       ref.invalidate(previewConfigProvider);
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).previewSavedToast)),
+        SnackBar(
+          content: Text(saved.message ?? AppL10n.of(context).previewSavedToast),
+        ),
       );
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -144,7 +154,7 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
               child: Text(
-                '${AppL10n.of(context).loadFailed}: ${toApiException(error).message}',
+                '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
               ),
             ),
             data: (config) {

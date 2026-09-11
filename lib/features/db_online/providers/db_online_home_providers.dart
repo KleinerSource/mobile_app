@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:omm/core/api/error_codes.dart';
 
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
@@ -10,7 +11,10 @@ import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 final dboMediaRepositoryProvider = Provider<DboMediaRepository>((ref) {
   final source = ref.watch(dboMediaSourceProvider);
   if (source == null) {
-    throw const SourceException('当前服务器不是 DBO，无法访问在线媒体目录');
+    throw const SourceException(
+      AppErrorCode.validationFailed,
+      code: AppErrorCode.validationFailed,
+    );
   }
   return DboMediaRepository(source);
 });
@@ -276,6 +280,9 @@ class DbOnlinePlayRequest {
 void _checkServerScope(Ref ref, String requestServerId) {
   final activeServerId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
   if (requestServerId != activeServerId) {
-    throw const SourceException('DBO 请求已过期，请重新加载当前服务器');
+    throw const SourceException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
 }

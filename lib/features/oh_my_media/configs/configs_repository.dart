@@ -6,6 +6,8 @@ import 'package:omm/core/models/dbo_config.dart';
 import 'package:omm/core/models/ffmpeg_config.dart';
 import 'package:omm/core/models/preview_config.dart';
 
+typedef ConfigSaveResult<T> = ({T value, String? message});
+
 class ConfigsRepository {
   ConfigsRepository(this._api, this._extendedApi);
   final ConfigsApi _api;
@@ -21,15 +23,19 @@ class ConfigsRepository {
     });
   }
 
-  Future<DboConfig> saveDbo(DboConfig cfg, {bool keepApiKey = false}) async {
+  Future<ConfigSaveResult<DboConfig>> saveDbo(
+    DboConfig cfg, {
+    bool keepApiKey = false,
+  }) async {
     final body = cfg.toJson();
     // 密钥输入框留空表示沿用服务端配置；不要用空字符串覆盖已有密钥。
     if (keepApiKey || cfg.apiKey.trim().isEmpty) body.remove('api_key');
     final raw = await _api.saveDbo(body);
-    return unwrapStd<DboConfig>(raw, (d) {
+    final value = unwrapStd<DboConfig>(raw, (d) {
       if (d is Map) return DboConfig.fromJson(Map<String, dynamic>.from(d));
       return cfg;
     });
+    return (value: value, message: envelopeMessageOrNull(raw));
   }
 
   // ===== AVDB 数据源 =====
@@ -42,15 +48,19 @@ class ConfigsRepository {
     });
   }
 
-  Future<AvdbConfig> saveAvdb(AvdbConfig cfg, {bool keepApiKey = false}) async {
+  Future<ConfigSaveResult<AvdbConfig>> saveAvdb(
+    AvdbConfig cfg, {
+    bool keepApiKey = false,
+  }) async {
     final body = cfg.toJson();
     // AVDB 密钥同样由服务端数据源配置保存，留空时只更新其它字段。
     if (keepApiKey || cfg.apiKey.trim().isEmpty) body.remove('api_key');
     final raw = await _extendedApi.saveAvdb(body);
-    return unwrapStd<AvdbConfig>(raw, (d) {
+    final value = unwrapStd<AvdbConfig>(raw, (d) {
       if (d is Map) return AvdbConfig.fromJson(Map<String, dynamic>.from(d));
       return cfg;
     });
+    return (value: value, message: envelopeMessageOrNull(raw));
   }
 
   // ===== FFmpeg / 硬解 =====
@@ -63,12 +73,13 @@ class ConfigsRepository {
     });
   }
 
-  Future<FfmpegConfig> saveFfmpeg(FfmpegConfig cfg) async {
+  Future<ConfigSaveResult<FfmpegConfig>> saveFfmpeg(FfmpegConfig cfg) async {
     final raw = await _extendedApi.saveFfmpeg(cfg.toJson());
-    return unwrapStd<FfmpegConfig>(raw, (d) {
+    final value = unwrapStd<FfmpegConfig>(raw, (d) {
       if (d is Map) return FfmpegConfig.fromJson(Map<String, dynamic>.from(d));
       return cfg;
     });
+    return (value: value, message: envelopeMessageOrNull(raw));
   }
 
   // ===== 预览视频 / Sprite =====
@@ -81,12 +92,13 @@ class ConfigsRepository {
     });
   }
 
-  Future<PreviewConfig> savePreview(PreviewConfig cfg) async {
+  Future<ConfigSaveResult<PreviewConfig>> savePreview(PreviewConfig cfg) async {
     final raw = await _extendedApi.savePreview(cfg.toJson());
-    return unwrapStd<PreviewConfig>(raw, (d) {
+    final value = unwrapStd<PreviewConfig>(raw, (d) {
       if (d is Map) return PreviewConfig.fromJson(Map<String, dynamic>.from(d));
       return cfg;
     });
+    return (value: value, message: envelopeMessageOrNull(raw));
   }
 
   // ===== 视频扩展名 =====
@@ -102,13 +114,16 @@ class ConfigsRepository {
     });
   }
 
-  Future<List<String>> updateVideoExtensions(List<String> extensions) async {
+  Future<ConfigSaveResult<List<String>>> updateVideoExtensions(
+    List<String> extensions,
+  ) async {
     final raw = await _api.updateVideoExtensions({'extensions': extensions});
-    return unwrapStd<List<String>>(raw, (d) {
+    final value = unwrapStd<List<String>>(raw, (d) {
       if (d is Map && d['extensions'] is List) {
         return (d['extensions'] as List).whereType<String>().toList();
       }
       return extensions;
     });
+    return (value: value, message: envelopeMessageOrNull(raw));
   }
 }

@@ -1,5 +1,6 @@
 import 'package:omm/core/sources/media/stash/stash_api.dart';
 import 'package:omm/core/sources/media/stash/stash_models.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 
@@ -99,7 +100,12 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     _checkRef(ref);
     final scene = await _loadScene(ref.value);
     final streams = await _call(() => api.sceneStreams(ref.value));
-    if (streams.isEmpty) throw const SourceException('Stash Scene 没有可用的视频流');
+    if (streams.isEmpty) {
+      throw const SourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     final stream = streams.first;
     final url = _absoluteUrl(stream.url);
     final file = _primaryFile(scene);
@@ -127,40 +133,38 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     required String name,
     required String collectionType,
     required List<String> paths,
-  }) => _unsupported('Stash 不支持在应用内管理媒体库');
+  }) => _unsupported();
 
   @override
-  Future<void> removeVirtualFolder(String name) =>
-      _unsupported('Stash 不支持在应用内管理媒体库');
+  Future<void> removeVirtualFolder(String name) => _unsupported();
 
   @override
   Future<void> renameVirtualFolder({
     required String name,
     required String newName,
-  }) => _unsupported('Stash 不支持在应用内管理媒体库');
+  }) => _unsupported();
 
   @override
   Future<void> addMediaPath({
     required String libraryName,
     required String path,
-  }) => _unsupported('Stash 不支持在应用内管理媒体库');
+  }) => _unsupported();
 
   @override
   Future<void> removeMediaPath({
     required String libraryName,
     required String path,
-  }) => _unsupported('Stash 不支持在应用内管理媒体库');
+  }) => _unsupported();
 
   @override
   Future<void> updateVirtualFolderOptions({
     required String id,
     required bool enabled,
     Map<String, dynamic> options = const <String, dynamic>{},
-  }) => _unsupported('Stash 不支持在应用内管理媒体库');
+  }) => _unsupported();
 
   @override
-  Future<void> refreshLibrary({String? libraryId}) =>
-      _unsupported('Stash 不支持在应用内管理媒体库');
+  Future<void> refreshLibrary({String? libraryId}) => _unsupported();
 
   @override
   Future<MediaBrowserLibraryRefreshProgress> libraryRefreshProgress(
@@ -284,11 +288,11 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
 
   @override
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
-      _unsupported('Stash 暂不支持收藏');
+      _unsupported();
 
   @override
   Future<MediaBrowserItem> markPlayed(String itemId, bool played) =>
-      _unsupported('Stash 暂不支持手动标记已看');
+      _unsupported();
 
   @override
   Future<void> reportPlaybackStart({
@@ -478,10 +482,17 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
 
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
-      throw SourceException('来源 ID 不属于 Stash：${ref.sourceId.value}');
+      throw SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+        details: {'sourceId': ref.sourceId.value},
+      );
     }
     if (ref.value.trim().isEmpty) {
-      throw const SourceException('Stash Scene ID 不能为空');
+      throw const SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
   }
 
@@ -495,8 +506,8 @@ class StashMediaSourceAdapter implements MediaBrowserMediaSource {
     }
   }
 
-  Future<T> _unsupported<T>(String message) =>
-      Future<T>.error(SourceException(message));
+  Future<T> _unsupported<T>() =>
+      Future<T>.error(const UnsupportedSourceCapabilityException(''));
 
   String _stashSortBy(String? sortBy) => switch (sortBy?.trim()) {
     'SortName' => 'title',

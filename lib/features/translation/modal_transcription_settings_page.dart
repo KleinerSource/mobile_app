@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/dio_factory.dart';
 import '../../core/models/modal_transcription_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/localized_error_message.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
@@ -227,7 +227,11 @@ class _ModalTranscriptionSettingsPageState
       AppHaptics.medium();
       messenger.showSnackBar(SnackBar(content: Text(l.transcriptionSaved)));
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -247,7 +251,7 @@ class _ModalTranscriptionSettingsPageState
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  '${AppL10n.of(context).loadFailed}: $error',
+                  '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
                   style: AppText.body(context),
                 ),
               ),

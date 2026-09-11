@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
+import '../../../core/api/error_codes.dart';
 import '../../../core/platform/app_log_store.dart';
 import '../../../core/api/app_request_headers.dart';
 import 'audio_metadata.dart';
@@ -300,7 +301,7 @@ class AudioPlaybackEngine
           sourceGeneration != _scratchSourceGeneration ||
           !nativeState.ready ||
           nativeState.sourceId != sourceId) {
-        throw StateError('首次精确 seek 的 PCM 音轨失效');
+        throw StateError(AppErrorCode.responseDataMissing);
       }
       await _handler.customAction(audioSetScratchModeAction, {
         'active': true,

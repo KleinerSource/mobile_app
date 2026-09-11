@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/api/error_codes.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/api/server_connection.dart';
 import '../../core/auth/auth_provider.dart';
@@ -19,6 +20,7 @@ import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/server_avatar.dart';
+import '../../shared/localized_error_message.dart';
 import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';

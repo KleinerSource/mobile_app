@@ -1,5 +1,6 @@
 import '../../api/api_client.dart';
 import '../../api/envelope.dart';
+import '../../api/error_codes.dart';
 import '../../models/media_streams.dart';
 import '../../models/movie.dart';
 import '../../models/preview.dart';
@@ -43,7 +44,13 @@ class OmmMediaOperationsAdapter
   Future<List<int>> previewActorAvatar(Map<String, dynamic> body) =>
       _call(() async {
         final response = await client.actors.previewAvatar(body);
-        if (response.data.isEmpty) throw const SourceException('头像内容为空');
+        _throwIfBinaryError(response.data);
+        if (response.data.isEmpty) {
+          throw const SourceException(
+            AppErrorCode.avatarContentEmpty,
+            code: AppErrorCode.avatarContentEmpty,
+          );
+        }
         return response.data;
       });
 
@@ -74,7 +81,10 @@ class OmmMediaOperationsAdapter
         'genres' => client.genres.list(query),
         'tags' => client.tags.list(query),
         'series' => client.series.list(query),
-        _ => throw ArgumentError.value(type, 'type', '不支持的资源类型'),
+        _ => throw const SourceException(
+          AppErrorCode.unsupportedResourceType,
+          code: AppErrorCode.unsupportedResourceType,
+        ),
       };
     });
   }
@@ -86,7 +96,10 @@ class OmmMediaOperationsAdapter
         'genres' => client.genres.options(query),
         'tags' => client.tags.options(query),
         'series' => client.series.options(query),
-        _ => throw ArgumentError.value(type, 'type', '不支持的资源类型'),
+        _ => throw const SourceException(
+          AppErrorCode.unsupportedResourceType,
+          code: AppErrorCode.unsupportedResourceType,
+        ),
       };
     });
   }
@@ -98,7 +111,10 @@ class OmmMediaOperationsAdapter
         'genres' => client.genres.create(body),
         'tags' => client.tags.create(body),
         'series' => client.series.create(body),
-        _ => throw ArgumentError.value(type, 'type', '不支持的资源类型'),
+        _ => throw const SourceException(
+          AppErrorCode.unsupportedResourceType,
+          code: AppErrorCode.unsupportedResourceType,
+        ),
       };
     });
   }
@@ -114,7 +130,10 @@ class OmmMediaOperationsAdapter
         'genres' => client.genres.update(id, body),
         'tags' => client.tags.update(id, body),
         'series' => client.series.update(id, body),
-        _ => throw ArgumentError.value(type, 'type', '不支持的资源类型'),
+        _ => throw const SourceException(
+          AppErrorCode.unsupportedResourceType,
+          code: AppErrorCode.unsupportedResourceType,
+        ),
       };
     });
   }
@@ -126,7 +145,10 @@ class OmmMediaOperationsAdapter
         'genres' => client.genres.batchDelete(body),
         'tags' => client.tags.batchDelete(body),
         'series' => client.series.batchDelete(body),
-        _ => throw ArgumentError.value(type, 'type', '不支持的资源类型'),
+        _ => throw const SourceException(
+          AppErrorCode.unsupportedResourceType,
+          code: AppErrorCode.unsupportedResourceType,
+        ),
       };
     });
   }
@@ -276,13 +298,19 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<String> downloadExtraFanarts(MediaRef movie) async {
+  Future<({String taskId, String? message})> downloadExtraFanarts(
+    MediaRef movie,
+  ) async {
     final raw = await _call(
       () => client.tasks.submit('extra_fanart_download', {
         'movie_ids': [_ommId(movie)],
       }),
     );
-    return _taskId(_taskSnapshot(raw));
+    final task = _taskSnapshot(raw);
+    return (
+      taskId: _taskId(task),
+      message: envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task),
+    );
   }
 
   @override
@@ -302,40 +330,43 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<bool> toggleFavorite(MediaRef movie) async {
+  Future<({bool value, String? message})> toggleFavorite(MediaRef movie) async {
     final raw = await _call(() => client.favorites.toggle(_ommId(movie)));
     final value = unwrapStd<bool>(raw, (data) {
       return data is Map && data['is_favorited'] == true;
     });
-    return value;
+    return (value: value, message: envelopeMessageOrNull(raw));
   }
 
   @override
-  Future<void> addFavoriteBatch(List<MediaRef> movies) async {
+  Future<String?> addFavoriteBatch(List<MediaRef> movies) async {
     final raw = await _call(
       () => client.favorites.addBatch({
         'movie_ids': movies.map(_ommId).toList(growable: false),
       }),
     );
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<void> removeFavoriteBatch(List<MediaRef> movies) async {
+  Future<String?> removeFavoriteBatch(List<MediaRef> movies) async {
     final raw = await _call(
       () => client.favorites.removeBatch({
         'movie_ids': movies.map(_ommId).toList(growable: false),
       }),
     );
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   @override
   Future<void> markWatched(MediaRef movie, bool completed) async {
-    await _call(
+    final raw = await _call(
       () =>
           client.movies.upsertWatchRecord(_ommId(movie), {'ended': completed}),
     );
+    unwrapStd<void>(raw, (_) {});
   }
 
   @override
@@ -382,11 +413,33 @@ class OmmMediaOperationsAdapter
           };
     final raw = await _call(() => client.tasks.submit('resource_scan', body));
     final task = _taskSnapshot(raw);
+    final data = raw is Map && raw['data'] is Map
+        ? Map<String, dynamic>.from(raw['data'] as Map)
+        : const <String, dynamic>{};
+    final rejectedIds = _resourceScanRejectedIds(data['rejected']);
+    final skippedIds = <int>{
+      ..._intList(data['skipped_ids']),
+      ...rejectedIds,
+    }.toList(growable: false);
+    final explicitMovieCount = ids?.length ?? 0;
+    final hasAcceptedCount = data.containsKey('accepted_count');
+    final hasSkippedCount = data.containsKey('skipped_count');
+    final skippedCount = hasSkippedCount
+        ? _intValue(data['skipped_count'])
+        : skippedIds.length;
+    final acceptedCount = hasAcceptedCount
+        ? _intValue(data['accepted_count'])
+        : (ids == null
+              ? 0
+              : (explicitMovieCount - skippedCount)
+                    .clamp(0, explicitMovieCount)
+                    .toInt());
     return ResourceScanStartResult(
       taskId: _taskId(task),
-      acceptedCount: ids?.length ?? 1,
-      skippedCount: 0,
-      skippedIds: const <int>[],
+      acceptedCount: acceptedCount,
+      skippedCount: skippedCount,
+      skippedIds: skippedIds,
+      message: envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task),
     );
   }
 
@@ -402,25 +455,29 @@ class OmmMediaOperationsAdapter
       'duration_sec': durationSec,
       if (completed != null) 'ended': completed,
     };
-    await _call(() => client.movies.upsertWatchRecord(_ommId(movie), body));
+    final raw = await _call(
+      () => client.movies.upsertWatchRecord(_ommId(movie), body),
+    );
+    unwrapStd<void>(raw, (_) {});
   }
 
   @override
-  Future<MovieDetail> updateMovie(
+  Future<({MovieDetail item, String? message})> updateMovie(
     MediaRef movie,
     Map<String, dynamic> body,
   ) async {
     final raw = await _call(
       () => client.movies.updateMovie(_ommId(movie), body),
     );
-    return unwrapStd<MovieDetail>(
+    final item = unwrapStd<MovieDetail>(
       raw,
       (data) => MovieDetail.fromJson(Map<String, dynamic>.from(data as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
   @override
-  Future<void> deleteMovie(MediaRef movie, {bool force = false}) async {
+  Future<String?> deleteMovie(MediaRef movie, {bool force = false}) async {
     final raw = await _call(
       () => client.movies.deleteMovies({
         'movie_ids': [_ommId(movie)],
@@ -428,22 +485,25 @@ class OmmMediaOperationsAdapter
       }),
     );
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<void> syncNfo(MediaRef movie) async {
+  Future<String?> syncNfo(MediaRef movie) async {
     final raw = await _call(
       () => client.tasks.submit('nfo_sync', {
         'movie_ids': [_ommId(movie)],
       }),
     );
-    _taskSnapshot(raw);
+    final task = _taskSnapshot(raw);
+    return envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task);
   }
 
   @override
-  Future<void> refreshFromNfo(MediaRef movie) async {
+  Future<String?> refreshFromNfo(MediaRef movie) async {
     final raw = await _call(() => client.movies.refreshFromNfo(_ommId(movie)));
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   @override
@@ -487,7 +547,7 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<void> downloadSubtitle(
+  Future<String?> downloadSubtitle(
     MediaRef movie, {
     required String url,
     required String ext,
@@ -501,6 +561,7 @@ class OmmMediaOperationsAdapter
       }),
     );
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   @override
@@ -642,12 +703,8 @@ class OmmMediaOperationsAdapter
         'movie_id': _ommId(movie),
       }),
     );
-    if (raw is Map && raw['success'] == false) {
-      throw SourceException((raw['message'] as String?) ?? '推送失败');
-    }
-    final message = raw is Map
-        ? (raw['message']?.toString() ?? '下载任务已添加')
-        : '下载任务已添加';
+    _throwIfUnsuccessful(raw);
+    final message = envelopeMessageOrNull(raw) ?? '';
     final lastDownloadedAt = raw is Map && raw['data'] is Map
         ? ((raw['data'] as Map)['last_downloaded_at'] ?? '').toString()
         : '';
@@ -655,7 +712,7 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<void> batchAddAssociations({
+  Future<String?> batchAddAssociations({
     required List<MediaRef> movies,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
@@ -671,11 +728,12 @@ class OmmMediaOperationsAdapter
         ),
       ),
     );
-    _throwIfUnsuccessful(raw, '批量编辑失败');
+    _throwIfUnsuccessful(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<void> batchRemoveAssociations({
+  Future<String?> batchRemoveAssociations({
     required List<MediaRef> movies,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
@@ -691,11 +749,13 @@ class OmmMediaOperationsAdapter
         ),
       ),
     );
-    _throwIfUnsuccessful(raw, '批量编辑失败');
+    _throwIfUnsuccessful(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<({int successCount, int failedCount})> batchWatermark({
+  Future<({String? message, int successCount, int failedCount})>
+  batchWatermark({
     required List<MediaRef> movies,
     bool? subtitle,
     bool? exsub,
@@ -712,19 +772,24 @@ class OmmMediaOperationsAdapter
         if (resolution != null) 'resolution': resolution,
       }),
     );
-    _throwIfUnsuccessful(raw, '海报裁剪失败');
+    _throwIfUnsuccessful(raw);
     if (raw is Map && raw['data'] is Map) {
       final data = raw['data'] as Map;
       return (
+        message: envelopeMessageOrNull(raw),
         successCount: _intValue(data['success_count']),
         failedCount: _intValue(data['failed_count']),
       );
     }
-    return (successCount: 0, failedCount: 0);
+    return (
+      message: envelopeMessageOrNull(raw),
+      successCount: 0,
+      failedCount: 0,
+    );
   }
 
   @override
-  Future<String?> mergeDuplicateFiles({
+  Future<({String? taskId, String? message})> mergeDuplicateFiles({
     required List<MediaRef> movies,
     required MediaRef targetMovie,
   }) async {
@@ -734,8 +799,12 @@ class OmmMediaOperationsAdapter
         'target_movie_id': _ommId(targetMovie),
       }),
     );
-    _throwIfUnsuccessful(raw, '合并失败');
-    return _taskId(_taskSnapshot(raw));
+    _throwIfUnsuccessful(raw);
+    final task = _taskSnapshot(raw);
+    return (
+      taskId: _taskId(task),
+      message: envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task),
+    );
   }
 
   @override
@@ -754,13 +823,14 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<void> applyDuplicateNfo(Map<String, dynamic> payload) async {
+  Future<String?> applyDuplicateNfo(Map<String, dynamic> payload) async {
     final raw = await _call(() => client.movies.applyDuplicateNfo(payload));
-    _throwIfUnsuccessful(raw, '应用失败');
+    _throwIfUnsuccessful(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<String> requestDownload({
+  Future<String?> requestDownload({
     required List<MediaRef> movies,
     required Map<String, dynamic> requirements,
   }) async {
@@ -770,12 +840,12 @@ class OmmMediaOperationsAdapter
         'requirements': requirements,
       }),
     );
-    _throwIfUnsuccessful(raw, '下载请求失败');
-    return raw is Map ? (raw['message']?.toString() ?? '下载请求已提交') : '下载请求已提交';
+    _throwIfUnsuccessful(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<void> applyPosterCrop(
+  Future<String?> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,
     bool? subtitle,
@@ -794,7 +864,8 @@ class OmmMediaOperationsAdapter
         'sync_parts': syncParts,
       }),
     );
-    _throwIfUnsuccessful(raw, '裁剪失败');
+    _throwIfUnsuccessful(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
@@ -815,6 +886,13 @@ class OmmMediaOperationsAdapter
         'crop_offset': cropOffset,
       }),
     );
+    _throwIfBinaryError(response.data);
+    if (response.data.isEmpty) {
+      throw const SourceException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
+    }
     return response.data;
   }
 
@@ -843,6 +921,7 @@ class OmmMediaOperationsAdapter
         totalCount: 1,
         message: (task['message'] ?? '').toString(),
       ),
+      message: envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task),
     );
   }
 
@@ -858,18 +937,32 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<void> cancelPreviewTask(String taskId) async {
-    if (taskId.trim().isEmpty) throw const SourceException('预览任务 ID 不能为空');
+  Future<String?> cancelPreviewTask(String taskId) async {
+    if (taskId.trim().isEmpty) {
+      throw const SourceException(
+        AppErrorCode.previewTaskIdRequired,
+        code: AppErrorCode.previewTaskIdRequired,
+      );
+    }
     final raw = await _call(() => client.tasks.control(taskId, 'cancel'));
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   int _ommId(MediaRef ref) {
     if (ref.sourceId.value != 'omm') {
-      throw SourceException('来源 ID 不属于 OMM：${ref.sourceId.value}');
+      throw const SourceException(
+        AppErrorCode.ommSourceIdInvalid,
+        code: AppErrorCode.ommSourceIdInvalid,
+      );
     }
     final id = int.tryParse(ref.value);
-    if (id == null || id <= 0) throw SourceException('OMM ID 无效：${ref.value}');
+    if (id == null || id <= 0) {
+      throw const SourceException(
+        AppErrorCode.ommIdInvalid,
+        code: AppErrorCode.ommIdInvalid,
+      );
+    }
     return id;
   }
 
@@ -923,10 +1016,32 @@ class OmmMediaOperationsAdapter
     });
   }
 
-  void _throwIfUnsuccessful(Object? raw, String fallback) {
-    if (raw is Map && raw['success'] == false) {
-      throw SourceException((raw['message'] as String?) ?? fallback);
+  void _throwIfUnsuccessful(Object? raw) {
+    if (raw is! Map || raw['success'] != true) {
+      final message = envelopeMessageOrNull(raw);
+      final code = envelopeCodeOrNull(raw);
+      throw SourceException(
+        message ?? code ?? AppErrorCode.ommRequestFailed,
+        code: code ?? (message == null ? AppErrorCode.ommRequestFailed : null),
+      );
     }
+  }
+
+  void _throwIfBinaryError(Object? raw) {
+    final envelope = decodeJsonMap(raw);
+    if (envelope == null) return;
+    final message = envelopeMessageOrNull(envelope);
+    final code = envelopeCodeOrNull(envelope);
+    if (envelope['success'] != true) {
+      throw SourceException(
+        message ?? code ?? AppErrorCode.ommRequestFailed,
+        code: code ?? (message == null ? AppErrorCode.ommRequestFailed : null),
+      );
+    }
+    throw const SourceException(
+      AppErrorCode.ommResponseInvalid,
+      code: AppErrorCode.ommResponseInvalid,
+    );
   }
 
   MediaSummary _summaryFromMovie(MovieListItem movie) => MediaSummary(
@@ -958,7 +1073,7 @@ class OmmMediaOperationsAdapter
     } on SourceException {
       rethrow;
     } catch (error) {
-      throw mapSourceError(error, fallback: 'OMM 请求失败');
+      throw mapSourceError(error, fallbackCode: AppErrorCode.ommRequestFailed);
     }
   }
 
@@ -967,17 +1082,46 @@ class OmmMediaOperationsAdapter
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  List<int> _intList(Object? value) {
+    if (value is! List) return <int>[];
+    return value.map(_intValue).where((id) => id > 0).toSet().toList();
+  }
+
+  List<int> _resourceScanRejectedIds(Object? value) {
+    if (value is! List) return <int>[];
+    return value
+        .map((item) {
+          if (item is Map) {
+            return _intValue(item['movie_id'] ?? item['movieId'] ?? item['id']);
+          }
+          return _intValue(item);
+        })
+        .where((id) => id > 0)
+        .toSet()
+        .toList();
+  }
+
   Map<String, dynamic> _taskSnapshot(Object? raw) {
     return unwrapStd<Map<String, dynamic>>(raw, (data) {
       final value = data is Map && data['task'] is Map ? data['task'] : data;
-      if (value is! Map) throw const SourceException('统一任务响应格式错误');
+      if (value is! Map) {
+        throw const SourceException(
+          AppErrorCode.taskResponseInvalid,
+          code: AppErrorCode.taskResponseInvalid,
+        );
+      }
       return Map<String, dynamic>.from(value);
     });
   }
 
   String _taskId(Map<String, dynamic> task) {
     final taskId = (task['taskId'] ?? task['task_id'] ?? '').toString().trim();
-    if (taskId.isEmpty) throw const SourceException('统一任务响应缺少任务 ID');
+    if (taskId.isEmpty) {
+      throw const SourceException(
+        AppErrorCode.taskIdMissing,
+        code: AppErrorCode.taskIdMissing,
+      );
+    }
     return taskId;
   }
 }

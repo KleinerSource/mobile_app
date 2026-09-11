@@ -1,4 +1,5 @@
 import 'package:omm/core/api/server_compatibility.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
@@ -44,7 +45,11 @@ class MediaBrowserMediaSourceAdapter
     kind: switch (config.project) {
       ServerProject.emby => SourceKind.emby,
       ServerProject.jellyfin => SourceKind.jellyfin,
-      _ => throw ArgumentError('非 MediaBrowser 项目：${config.project}'),
+      _ => throw SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+        details: {'project': config.project.name},
+      ),
     },
     name: config.displayName,
     serverId: serverId,
@@ -228,7 +233,10 @@ class MediaBrowserMediaSourceAdapter
       _normalizedMediaSourceId(request.mediaSourceId),
     );
     if (mediaSource == null || mediaSource.id.isEmpty) {
-      throw SourceException('${config.displayName} 条目没有可用的媒体源');
+      throw const SourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     final transcodingUrl = mediaSource.transcodingUrl?.trim();
     final wantTranscode =
@@ -580,7 +588,10 @@ class MediaBrowserMediaSourceAdapter
       for (final source in sources) {
         if (source.id.trim() == requestedId) return source;
       }
-      throw const SourceException('所选片源已失效，请重新选择');
+      throw const SourceException(
+        AppErrorCode.operationFailed,
+        code: AppErrorCode.operationFailed,
+      );
     }
     for (final source in sources) {
       if (source.id.trim().isNotEmpty) return source;
@@ -803,7 +814,10 @@ class MediaBrowserMediaSourceAdapter
   Future<String> _requireUserId() async {
     final uid = (await sessionRepository.load())?.userId;
     if (uid == null || uid.trim().isEmpty) {
-      throw SourceException('${config.displayName} 用户信息缺失，请重新登录');
+      throw const SourceException(
+        AppErrorCode.authenticationRequired,
+        code: AppErrorCode.authenticationRequired,
+      );
     }
     return uid;
   }
@@ -811,11 +825,15 @@ class MediaBrowserMediaSourceAdapter
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
       throw SourceException(
-        '来源 ID 不属于 ${config.displayName}：${ref.sourceId.value}',
+        AppErrorCode.mediaSourceReferenceInvalid,
+        code: AppErrorCode.mediaSourceReferenceInvalid,
       );
     }
     if (ref.value.trim().isEmpty) {
-      throw SourceException('${config.displayName} 条目 ID 不能为空');
+      throw const SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
   }
 
@@ -825,7 +843,7 @@ class MediaBrowserMediaSourceAdapter
     } on SourceException {
       rethrow;
     } catch (error) {
-      throw mapSourceError(error, fallback: '${config.displayName} 请求失败');
+      throw mapSourceError(error, fallbackCode: AppErrorCode.operationFailed);
     }
   }
 }

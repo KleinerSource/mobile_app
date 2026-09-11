@@ -6,18 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/media_view_mode.dart';
@@ -131,7 +133,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Future<void> _searchActors(String query, int requestId) async {
     try {
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw StateError('当前服务器不是 OMM');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final raw = await source.metadataOperations.searchActors({
         'search': query,
         'limit': 8,
@@ -156,7 +163,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (!mounted || requestId != _actorRequestId) return;
       setState(() {
         _actorSuggestions = const [];
-        _actorSearchError = toApiException(error).message;
+        _actorSearchError = localizedErrorMessage(AppL10n.of(context), error);
         _actorSearchLoading = false;
       });
     }
@@ -618,7 +625,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
     }
@@ -656,9 +663,12 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                     firstPageProgressIndicatorBuilder: (_) =>
                         const Center(child: CircularProgressIndicator()),
                     firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message:
-                          _controller.error?.toString() ??
-                          AppL10n.of(context).loadFailed,
+                      message: _controller.error == null
+                          ? AppL10n.of(context).loadFailed
+                          : localizedErrorMessage(
+                              AppL10n.of(context),
+                              _controller.error!,
+                            ),
                       onRetry: _controller.refresh,
                     ),
                     newPageErrorIndicatorBuilder: (_) => PaginationRetry(
@@ -701,9 +711,12 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                     firstPageProgressIndicatorBuilder: (_) =>
                         const Center(child: CircularProgressIndicator()),
                     firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message:
-                          _controller.error?.toString() ??
-                          AppL10n.of(context).loadFailed,
+                      message: _controller.error == null
+                          ? AppL10n.of(context).loadFailed
+                          : localizedErrorMessage(
+                              AppL10n.of(context),
+                              _controller.error!,
+                            ),
                       onRetry: _controller.refresh,
                     ),
                     newPageErrorIndicatorBuilder: (_) => PaginationRetry(

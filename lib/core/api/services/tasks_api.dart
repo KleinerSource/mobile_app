@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../error_codes.dart';
+
 /// 服务端统一任务调度接口。
 class TasksApi {
   TasksApi(this._dio);
@@ -44,7 +46,7 @@ class TasksApi {
   Future<dynamic> control(String taskId, String action) async {
     const supported = <String>{'cancel', 'pause', 'resume', 'retry'};
     if (!supported.contains(action)) {
-      throw ArgumentError.value(action, 'action', '不支持的任务操作');
+      throw ArgumentError.value(action, 'action', AppErrorCode.validationFailed);
     }
     final response = await _dio.post<dynamic>(
       '/tasks/${Uri.encodeComponent(taskId)}/$action',

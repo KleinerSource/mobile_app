@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -35,7 +36,7 @@ class MediaBrowserApi {
   }) async {
     final normalizedUser = username.trim();
     if (normalizedUser.isEmpty) {
-      throw ArgumentError.value(username, 'username', '用户名不能为空');
+      throw ArgumentError.value(username, 'username', AppErrorCode.validationFailed);
     }
     final requestOptions = Options(
       headers: {
@@ -70,7 +71,10 @@ class MediaBrowserApi {
     }
     final data = response.data;
     if (data == null) {
-      throw ApiException('登录响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserAuthResult.fromJson(data);
   }
@@ -86,11 +90,11 @@ class MediaBrowserApi {
     }
     final normalized = persistedUserId?.trim() ?? '';
     if (normalized.isEmpty) {
-      throw ArgumentError.value(
-        persistedUserId,
-        'persistedUserId',
-        '用户 ID 不能为空',
-      );
+        throw ArgumentError.value(
+          persistedUserId,
+          'persistedUserId',
+          AppErrorCode.validationFailed,
+        );
     }
     return _userFromWithEmbyFallback(
       '/Users/${Uri.encodeComponent(normalized)}',
@@ -158,13 +162,13 @@ class MediaBrowserApi {
         .where((path) => path.isNotEmpty)
         .toList(growable: false);
     if (normalizedName.isEmpty) {
-      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+      throw ArgumentError.value(name, 'name', AppErrorCode.validationFailed);
     }
     if (normalizedType.isEmpty) {
-      throw ArgumentError.value(collectionType, 'collectionType', '媒体库类型不能为空');
+      throw ArgumentError.value(collectionType, 'collectionType', AppErrorCode.validationFailed);
     }
     if (normalizedPaths.isEmpty) {
-      throw ArgumentError.value(paths, 'paths', '至少需要一个媒体路径');
+      throw ArgumentError.value(paths, 'paths', AppErrorCode.validationFailed);
     }
     await _dio.post<void>(
       _p('/Library/VirtualFolders'),
@@ -181,7 +185,7 @@ class MediaBrowserApi {
   Future<void> removeVirtualFolder(String name) async {
     final normalized = name.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+      throw ArgumentError.value(name, 'name', AppErrorCode.validationFailed);
     }
     await _dio.delete<void>(
       _p('/Library/VirtualFolders'),
@@ -197,10 +201,10 @@ class MediaBrowserApi {
     final normalizedName = name.trim();
     final normalizedNewName = newName.trim();
     if (normalizedName.isEmpty) {
-      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+      throw ArgumentError.value(name, 'name', AppErrorCode.validationFailed);
     }
     if (normalizedNewName.isEmpty) {
-      throw ArgumentError.value(newName, 'newName', '媒体库名称不能为空');
+      throw ArgumentError.value(newName, 'newName', AppErrorCode.validationFailed);
     }
     await _dio.post<void>(
       _p('/Library/VirtualFolders/Name'),
@@ -220,10 +224,10 @@ class MediaBrowserApi {
     final normalizedName = libraryName.trim();
     final normalizedPath = path.trim();
     if (normalizedName.isEmpty) {
-      throw ArgumentError.value(libraryName, 'libraryName', '媒体库名称不能为空');
+      throw ArgumentError.value(libraryName, 'libraryName', AppErrorCode.validationFailed);
     }
     if (normalizedPath.isEmpty) {
-      throw ArgumentError.value(path, 'path', '媒体路径不能为空');
+      throw ArgumentError.value(path, 'path', AppErrorCode.validationFailed);
     }
     await _dio.post<void>(
       _p('/Library/VirtualFolders/Paths'),
@@ -240,10 +244,10 @@ class MediaBrowserApi {
     final normalizedName = libraryName.trim();
     final normalizedPath = path.trim();
     if (normalizedName.isEmpty) {
-      throw ArgumentError.value(libraryName, 'libraryName', '媒体库名称不能为空');
+      throw ArgumentError.value(libraryName, 'libraryName', AppErrorCode.validationFailed);
     }
     if (normalizedPath.isEmpty) {
-      throw ArgumentError.value(path, 'path', '媒体路径不能为空');
+      throw ArgumentError.value(path, 'path', AppErrorCode.validationFailed);
     }
     await _dio.delete<void>(
       _p('/Library/VirtualFolders/Paths'),
@@ -263,7 +267,7 @@ class MediaBrowserApi {
   }) async {
     final normalizedId = id.trim();
     if (normalizedId.isEmpty) {
-      throw ArgumentError.value(id, 'id', '媒体库 ID 不能为空');
+      throw ArgumentError.value(id, 'id', AppErrorCode.validationFailed);
     }
     final updatedOptions = <String, dynamic>{...options, 'Enabled': enabled};
     await _dio.post<void>(
@@ -362,14 +366,17 @@ class MediaBrowserApi {
   Future<MediaBrowserItem> item(String userId, String itemId) async {
     final normalized = itemId.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(itemId, 'itemId', '条目 ID 不能为空');
+      throw ArgumentError.value(itemId, 'itemId', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<Map<String, dynamic>>(
       _p('/Users/${_segment(userId)}/Items/${_segment(normalized)}'),
     );
     final data = response.data;
     if (data == null) {
-      throw ApiException('条目详情响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserItem.fromJson(data);
   }
@@ -384,7 +391,7 @@ class MediaBrowserApi {
   ) async {
     final normalized = itemId.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(itemId, 'itemId', '条目 ID 不能为空');
+      throw ArgumentError.value(itemId, 'itemId', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<Object?>(
       _p('/Videos/${_segment(normalized)}/AdditionalParts'),
@@ -400,7 +407,11 @@ class MediaBrowserApi {
       return const <MediaBrowserItem>[];
     }
     if (status >= 400) {
-      throw ApiException('分集信息请求失败（HTTP $status）');
+      throw ApiException(
+        AppErrorCode.httpError,
+        code: AppErrorCode.httpError,
+        status: status,
+      );
     }
     final data = response.data;
     final rawItems = data is Map ? (data['Items'] ?? data['items']) : data;
@@ -536,7 +547,10 @@ class MediaBrowserApi {
     );
     final data = response.data;
     if (data == null) {
-      throw ApiException('播放信息响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserPlaybackInfo.fromJson(data);
   }
@@ -556,7 +570,10 @@ class MediaBrowserApi {
           );
     final data = response.data;
     if (data == null) {
-      throw ApiException('收藏状态响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserItem.fromJson(data);
   }
@@ -576,7 +593,10 @@ class MediaBrowserApi {
           );
     final data = response.data;
     if (data == null) {
-      throw ApiException('观看状态响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserItem.fromJson(data);
   }
@@ -807,7 +827,10 @@ class MediaBrowserApi {
     );
     final data = response.data;
     if (data == null) {
-      throw ApiException('用户信息响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserUser.fromJson(data);
   }
@@ -869,7 +892,10 @@ class MediaBrowserApi {
     );
     final data = response.data;
     if (data == null) {
-      throw ApiException('条目列表响应为空');
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return MediaBrowserItemPage.fromJson(data);
   }

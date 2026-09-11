@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/library.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/single_flight_gate.dart';
 import 'libraries_providers.dart';
@@ -129,9 +129,11 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       }
 
       // 保存 library
-      final LibraryItem savedLib = _isEdit
+      final libraryResult = _isEdit
           ? await repo.update(widget.library!.id, name: name, enabled: _enabled)
           : await repo.create(name: name, enabled: _enabled);
+      final LibraryItem savedLib = libraryResult.item;
+      var backendMessage = libraryResult.message;
       final libId = savedLib.id;
 
       // 同步目录
@@ -144,7 +146,8 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
         // 删除原 list 中不在 form 的目录
         for (final old in existing) {
           if (!keepIds.contains(old.id)) {
-            await repo.deleteDirectory(libId, old.id);
+            backendMessage =
+                await repo.deleteDirectory(libId, old.id) ?? backendMessage;
           }
         }
       }
@@ -153,26 +156,31 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
         final d = dirs[i];
         final path = d.controller.text.trim();
         if (d.id == null) {
-          await repo.createDirectory(
+          final result = await repo.createDirectory(
             libId,
             path: path,
             name: l.libraryDefaultDirName(i + 1),
             enabled: d.enabled,
           );
+          backendMessage = result.message ?? backendMessage;
         } else {
-          await repo.updateDirectory(
+          final result = await repo.updateDirectory(
             libId,
             d.id!,
             path: path,
             enabled: d.enabled,
           );
+          backendMessage = result.message ?? backendMessage;
         }
       }
 
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(_isEdit ? l.configSavedToast : l.libraryCreatedToast),
+          content: Text(
+            backendMessage ??
+                (_isEdit ? l.configSavedToast : l.libraryCreatedToast),
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -180,7 +188,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       ref.refresh(librariesAllProvider);
       if (mounted) await Navigator.of(context).maybePop();
     } catch (e) {
-      setState(() => _error = toApiException(e).message);
+      setState(() => _error = localizedErrorMessage(AppL10n.of(context), e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

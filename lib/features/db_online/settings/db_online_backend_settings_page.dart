@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -154,7 +154,7 @@ class _ConfigLoadError extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              toApiException(error).message,
+              localizedErrorMessage(l, error),
               style: AppText.meta(context).copyWith(color: c.danger),
             ),
             const SizedBox(height: 14),
@@ -234,7 +234,11 @@ class _DboBackendConfigDetailPageState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+        ).showSnackBar(
+          SnackBar(
+            content: Text(localizedErrorMessage(AppL10n.of(context), error)),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -264,7 +268,9 @@ class _DboBackendConfigDetailPageState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+        ).showSnackBar(
+          SnackBar(content: Text(localizedErrorMessage(l, error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _testing = false);

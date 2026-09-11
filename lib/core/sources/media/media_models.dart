@@ -383,6 +383,7 @@ class MediaLibrary {
     this.fileCount = 0,
     this.folders = const <MediaLibraryFolder>[],
     this.attributes = const <String, Object?>{},
+    this.message,
   });
 
   final MediaRef ref;
@@ -392,6 +393,7 @@ class MediaLibrary {
   final int fileCount;
   final List<MediaLibraryFolder> folders;
   final Map<String, Object?> attributes;
+  final String? message;
 }
 
 @immutable
@@ -402,6 +404,7 @@ class MediaLibraryFolder {
     this.name,
     this.enabled = true,
     this.fileCount = 0,
+    this.message,
   });
 
   final MediaRef ref;
@@ -409,6 +412,7 @@ class MediaLibraryFolder {
   final String? name;
   final bool enabled;
   final int fileCount;
+  final String? message;
 }
 
 @immutable
@@ -430,6 +434,7 @@ enum ScanJobStatus {
   queued,
   running,
   paused,
+  canceling,
   completed,
   failed,
   canceled,

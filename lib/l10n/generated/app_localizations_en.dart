@@ -12,6 +12,194 @@ class AppL10nEn extends AppL10n {
   String get appName => 'Oh My Media';
 
   @override
+  String get errorOperationFailed => 'Operation failed';
+
+  @override
+  String get errorResponseFormatInvalid => 'Invalid response format';
+
+  @override
+  String get errorResponseDataMissing => 'Response data is missing';
+
+  @override
+  String get errorRequestTimeout =>
+      'Request timed out. Please try again later.';
+
+  @override
+  String get errorNetworkUnavailable =>
+      'Network connection failed. Check your connection.';
+
+  @override
+  String errorRouteNotFound(String method, String target) {
+    return 'Endpoint not found ($method $target)';
+  }
+
+  @override
+  String get errorRouteNotFoundGeneric => 'Requested endpoint was not found';
+
+  @override
+  String get errorValidationFailed => 'Request validation failed';
+
+  @override
+  String errorHttpStatus(int status) {
+    return 'Request failed (HTTP $status)';
+  }
+
+  @override
+  String get errorAuthenticationRequired => 'Please sign in first';
+
+  @override
+  String get errorFileTransferCanceled => 'File transfer canceled';
+
+  @override
+  String get errorFileSourceNotFound => 'The file source is unavailable';
+
+  @override
+  String get errorFileTransferFailed => 'File transfer failed';
+
+  @override
+  String get errorFileRangeUnsupported =>
+      'The file source does not support range requests';
+
+  @override
+  String get errorUpdateFailed => 'Update failed';
+
+  @override
+  String get errorConnectionClosed =>
+      'The server connection was closed. Please try again.';
+
+  @override
+  String get errorServerCompatibility =>
+      'The server is not compatible with this app';
+
+  @override
+  String get errorMediaSourceReferenceInvalid =>
+      'Invalid media source reference';
+
+  @override
+  String get errorMediaLibraryNotFound => 'Media library not found';
+
+  @override
+  String get errorFeiniuRequestFailed => 'FNOS request failed';
+
+  @override
+  String get errorStashApiKeyInvalid =>
+      'The Stash API key is invalid or expired';
+
+  @override
+  String get errorStashRequestFailed => 'Stash network request failed';
+
+  @override
+  String get errorStashGraphqlFailed => 'Stash GraphQL request failed';
+
+  @override
+  String get errorUnsupportedSourceCapability =>
+      'This action is not supported by the media source';
+
+  @override
+  String get errorPreviewSegmentsInvalid =>
+      'The segment count must be between 1 and 60';
+
+  @override
+  String get errorPreviewSegmentDurationInvalid =>
+      'Each segment duration must be greater than 0 and no more than 30 seconds';
+
+  @override
+  String get errorPreviewExcludeInvalid =>
+      'The start/end exclusion percentages must be 0-99 and total less than 100';
+
+  @override
+  String get errorPreviewPresetInvalid => 'The encoding preset is invalid';
+
+  @override
+  String get errorPreviewSpriteIntervalInvalid =>
+      'The Sprite interval must be between 0 and 3600 seconds';
+
+  @override
+  String get errorPreviewSpriteMinimumInvalid =>
+      'The minimum Sprite count must be between 1 and 400';
+
+  @override
+  String get errorPreviewSpriteMaximumInvalid =>
+      'The maximum Sprite count must not be less than the minimum and must not exceed 400';
+
+  @override
+  String get errorPreviewSpriteSizeInvalid =>
+      'The Sprite size must be between 32 and 512 pixels';
+
+  @override
+  String get errorOmmRequestFailed => 'OMM request failed';
+
+  @override
+  String get errorOmmTranscodeStatusFailed =>
+      'Failed to request OMM transcoding status';
+
+  @override
+  String get errorOmmSubtitleInvalid => 'Subtitle content is invalid or empty';
+
+  @override
+  String get errorOmmSubtitleFetchFailed => 'Failed to fetch subtitle content';
+
+  @override
+  String get errorOmmResponseInvalid => 'Invalid OMM response format';
+
+  @override
+  String get errorOmmLibraryResponseInvalid => 'Invalid OMM library response';
+
+  @override
+  String get errorOmmFolderResponseInvalid => 'Invalid OMM directory response';
+
+  @override
+  String get errorOmmPathValidationResponseInvalid =>
+      'Invalid OMM path validation response';
+
+  @override
+  String get errorOmmScanTaskIdMissing =>
+      'OMM scan response did not include a task ID';
+
+  @override
+  String get errorOmmBatchScanResponseInvalid =>
+      'Invalid OMM batch scan response';
+
+  @override
+  String get errorOmmLibraryIdMissing =>
+      'OMM library response did not include a valid ID';
+
+  @override
+  String get errorOmmFolderIdMissing =>
+      'OMM directory response did not include a valid ID';
+
+  @override
+  String get errorOmmSourceIdInvalid => 'The media source is not OMM';
+
+  @override
+  String get errorOmmIdInvalid => 'Invalid OMM media ID';
+
+  @override
+  String get errorUnsupportedResourceType => 'Unsupported resource type';
+
+  @override
+  String get errorTaskResponseInvalid => 'Invalid task response';
+
+  @override
+  String get errorTaskIdMissing => 'Task response did not include a task ID';
+
+  @override
+  String get errorPreviewTaskIdRequired => 'Preview task ID is required';
+
+  @override
+  String get errorActorMappingLoadFailed =>
+      'Failed to load actor mapping rules';
+
+  @override
+  String get errorPreviewTaskCreateFailed => 'Failed to create preview task';
+
+  @override
+  String get errorPreviewTaskStatusInvalid => 'Invalid preview task status';
+
+  @override
+  String get errorAvatarContentEmpty => 'Avatar content is empty';
+
+  @override
   String get tabHome => 'Home';
 
   @override
@@ -5158,6 +5346,34 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get taskRecoveryReplay => 'Automatically replayed';
+
+  @override
+  String get taskRecoveryReplayed => 'Original execution archived';
+
+  @override
+  String get taskRecoveryManualRetry => 'Manually retried';
+
+  @override
+  String get taskRecoveryLegacyMigration => 'Legacy task migrated';
+
+  @override
+  String get taskRecoveryCanceled => 'Canceled before restart';
+
+  @override
+  String get taskRecoveryFailed => 'Archived after restart';
+
+  @override
+  String taskRecoveryOriginalExecution(String id) {
+    return 'Original execution $id';
+  }
+
+  @override
+  String taskRecoveryNewExecution(String id) {
+    return 'New execution $id';
+  }
+
+  @override
   String get taskEmptyActive => 'No active tasks';
 
   @override
@@ -5184,6 +5400,12 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get taskErrRetryTranscribe => 'Failed to retry transcription';
+
+  @override
+  String get taskErrPause => 'Failed to pause task';
+
+  @override
+  String get taskErrResume => 'Failed to resume task';
 
   @override
   String get taskFilterActive => 'Active';
@@ -6300,6 +6522,9 @@ class AppL10nEn extends AppL10n {
       'Redownload movies that already exist';
 
   @override
+  String get moviesDownloadSubmitted => 'Download request submitted';
+
+  @override
   String moviesDownloadFailed(String error) {
     return 'Download request failed: $error';
   }
@@ -6417,6 +6642,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get resourceScanCompleted => 'Completed';
+
+  @override
+  String get resourceScanCanceling => 'Canceling';
 
   @override
   String get moviesNfoFieldTitle => 'Title';

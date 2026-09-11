@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/models/library.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/features/oh_my_media/tasks/task_name_labels.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'libraries_providers.dart';
 
 /// 扫描进度 sheet · 启动扫描后弹出,轮询任务进度,可暂停/恢复/取消
@@ -104,21 +104,32 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = sourceErrorMessage(e));
+      setState(() => _error = localizedErrorMessage(AppL10n.of(context), e));
     }
   }
 
-  Future<void> _act(Future<void> Function() action, {String? errPrefix}) async {
+  Future<void> _act(
+    Future<String?> Function() action, {
+    String? errPrefix,
+  }) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await action();
+      final message = await action();
       await _poll();
+      if (mounted && message != null && message.trim().isNotEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
     } catch (e) {
       if (mounted) {
         setState(
-          () => _error =
-              '${errPrefix ?? AppL10n.of(context).scanActionFailed}: ${sourceErrorMessage(e)}',
+          () => _error = localizedErrorMessage(
+            AppL10n.of(context),
+            e,
+            fallback: errPrefix ?? AppL10n.of(context).scanActionFailed,
+          ),
         );
       }
     } finally {
@@ -136,10 +147,12 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
         !t.isActive &&
         t.status != 'failed' &&
         t.status != 'error' &&
+        t.status != 'canceled' &&
         t.status != 'cancelled';
     final isFailed =
         t?.status == 'failed' ||
         t?.status == 'error' ||
+        t?.status == 'canceled' ||
         t?.status == 'cancelled';
     final ratio = t?.progressRatio ?? 0.0;
     final processed = t?.processedFiles ?? 0;
@@ -287,7 +300,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
             // 操作按钮
             Row(
               children: [
-                if (t?.isActive == true) ...[
+                if (t?.isActive == true && t?.status != 'canceling') ...[
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _busy
@@ -345,7 +358,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                       ),
                     ),
                   ),
-                  if (t!.status != 'queued') ...[
+                  if (t!.status == 'running' || t.isPaused) ...[
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton.icon(

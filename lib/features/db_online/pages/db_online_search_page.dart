@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/glow_background.dart';
@@ -343,7 +343,7 @@ class _DbOnlineSearchResultsState
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted) return;
-      _pagingController.error = toApiException(error).message;
+      _pagingController.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
     }
@@ -431,7 +431,7 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
     return result.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => ErrorView(
-        message: toApiException(error).message,
+        message: localizedErrorMessage(AppL10n.of(context), error),
         onRetry: () => ref.invalidate(dbOnlineActorSearchProvider(query)),
       ),
       data: (value) {
@@ -527,7 +527,7 @@ class _DbOnlineSeriesSearchResultsState
       }
     } catch (error) {
       if (!mounted) return;
-      _pagingController.error = toApiException(error).message;
+      _pagingController.error = localizedErrorMessage(AppL10n.of(context), error);
     }
   }
 

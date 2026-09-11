@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/error_codes.dart';
 import '../api/server_compatibility.dart';
 import 'server_config.dart';
 import 'server_line_probe.dart';
@@ -9,7 +10,7 @@ import 'server_config_repository.dart';
 import 'server_profile_cache_repository.dart';
 
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('在 main.dart 用 overrideWithValue 注入');
+  throw UnimplementedError(AppErrorCode.operationFailed);
 });
 
 final serverConfigRepoProvider = Provider<ServerConfigRepository>((ref) {
@@ -76,7 +77,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         .toList();
 
     if (servers.isEmpty) {
-      throw StateError('服务器配置缺少明确的服务器类型');
+      throw StateError(AppErrorCode.validationFailed);
     }
 
     final activeServerId =
@@ -148,7 +149,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     if (current == null) return;
     final server = current.servers.firstWhere(
       (item) => item.id == serverId,
-      orElse: () => throw StateError('服务器不存在'),
+      orElse: () => throw StateError(AppErrorCode.responseDataMissing),
     );
 
     if (server.project?.isFileSource == true) {
@@ -163,7 +164,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
 
     final candidates = server.lines.where((line) => line.enabled).toList();
     if (candidates.isEmpty) {
-      throw StateError('目标服务器没有启用线路');
+      throw StateError(AppErrorCode.validationFailed);
     }
     final preferred = server.activeLine;
     final currentLine = preferred != null && preferred.enabled
@@ -223,7 +224,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       if (current == null) return;
       final server = current.servers.firstWhere(
         (item) => item.id == serverId,
-        orElse: () => throw StateError('原服务器不存在，无法恢复'),
+        orElse: () => throw StateError(AppErrorCode.responseDataMissing),
       );
       await _saveServerNow(server, select: true, validatedProbe: null);
       _requireCurrentServerSelection(ticket);
@@ -455,7 +456,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         nextProject != null &&
         nextProject.isNotEmpty &&
         previousProject != nextProject) {
-      throw StateError('同一服务器的线路必须属于同一项目，请新建服务器配置');
+      throw StateError(AppErrorCode.validationFailed);
     }
     final updatedServerBaseUrl = server.activeLine?.baseUrl;
     final servers = current.servers
@@ -495,11 +496,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     if (server.project?.isFileSource == true) return;
     final project = server.project;
     if (project == null) {
-      throw ServerCompatibilityException('服务器类型无效，请选择正确的服务器类型');
+      throw ServerCompatibilityException(AppErrorCode.validationFailed);
     }
     final line = server.activeLine;
     if (line == null) {
-      throw ServerCompatibilityException('服务器没有可用线路，无法保存');
+      throw ServerCompatibilityException(AppErrorCode.validationFailed);
     }
     if (probe == null ||
         !probe.success ||
@@ -510,7 +511,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       throw ServerCompatibilityException(
         message.isNotEmpty
             ? message
-            : '保存前必须通过服务器版本检查，需要 ${project.projectName} >= ${project.minimumVersion}',
+            : AppErrorCode.validationFailed,
       );
     }
 
@@ -552,7 +553,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
           .where((line) => line.enabled)
           .toList();
       if (candidates.isEmpty) {
-        throw StateError('目标服务器没有启用线路，无法切换');
+      throw StateError(AppErrorCode.validationFailed);
       }
       final preferred = nextActive.activeLine;
       final currentLine = preferred != null && preferred.enabled
@@ -728,7 +729,7 @@ ServerLine _lineForUrl(
   ServerProject? project,
 }) {
   if (lines.isEmpty) {
-    throw StateError('至少需要配置一条服务器线路');
+    throw StateError(AppErrorCode.validationFailed);
   }
   final normalized = _normalizeServerUrl(baseUrl, project);
   return lines.firstWhere(

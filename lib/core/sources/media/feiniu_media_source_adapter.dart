@@ -3,6 +3,7 @@ import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
 import 'package:omm/core/sources/media/feiniu/feiniu_models.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
+import 'package:omm/core/api/error_codes.dart';
 
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
@@ -448,7 +449,10 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         file == null &&
         (validFiles.isNotEmpty ||
             normalizedRequestedMediaGuid != item.mediaGuid)) {
-      throw const SourceException('所选片源已失效，请重新选择');
+      throw const SourceException(
+        AppErrorCode.operationFailed,
+        code: AppErrorCode.operationFailed,
+      );
     }
     final itemMediaGuid =
         normalizedRequestedMediaGuid ??
@@ -487,7 +491,12 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
       subtitleGuid: subtitle.guid.isEmpty ? item.subtitleGuid : subtitle.guid,
     );
     final mediaGuid = info.mediaGuid.isEmpty ? itemMediaGuid : info.mediaGuid;
-    if (mediaGuid.isEmpty) throw const SourceException('飞牛条目没有可用的媒体文件');
+    if (mediaGuid.isEmpty) {
+      throw const SourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     final url = info.playLink.trim().isEmpty
         ? FeiniuApi.mediaRangeUrl(endpoint ?? '', mediaGuid)
         : FeiniuApi.resolveUrl(endpoint ?? '', info.playLink);
@@ -811,10 +820,16 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
       throw SourceException(
-        '来源 ID 不属于 ${_config.displayName}：${ref.sourceId.value}',
+        AppErrorCode.mediaSourceReferenceInvalid,
+        code: AppErrorCode.mediaSourceReferenceInvalid,
       );
     }
-    if (ref.value.trim().isEmpty) throw const SourceException('飞牛条目 ID 不能为空');
+    if (ref.value.trim().isEmpty) {
+      throw const SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
+    }
   }
 
   Future<T> _call<T>(Future<T> Function() action) async {
@@ -857,10 +872,9 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         return library;
       }
     }
-    throw SourceException(
-      normalizedGuid.isNotEmpty
-          ? '找不到飞牛媒体库：$normalizedGuid'
-          : '找不到飞牛媒体库：$normalizedName',
+    throw const SourceException(
+      AppErrorCode.mediaLibraryNotFound,
+      code: AppErrorCode.mediaLibraryNotFound,
     );
   }
 

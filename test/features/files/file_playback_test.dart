@@ -3,7 +3,6 @@
 //   - test/features/files/file_playback_proxy_test.dart
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
@@ -475,7 +474,7 @@ void _main_1() {
       final request = await client.getUrl(proxy.uri);
       final response = await request.close();
       expect(response.statusCode, HttpStatus.notFound);
-      expect(await _read(response), utf8.encode('视频流读取失败'));
+      expect(await _read(response), isEmpty);
     } finally {
       await proxy.close();
       client.close(force: true);

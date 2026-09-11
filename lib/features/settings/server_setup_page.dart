@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
-import '../../core/api/dio_factory.dart';
+import '../../core/api/error_codes.dart';
+import '../../shared/localized_error_message.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session_provider.dart';
@@ -248,7 +249,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         throw ServerCompatibilityException(
           probe.message.isEmpty
               ? AppL10n.of(context).serverLineProbeFailed
-              : probe.message,
+              : localizedErrorMessageWithCode(
+                  AppL10n.of(context),
+                  probe.message,
+                  probe.errorCode,
+                ),
         );
       }
 
@@ -298,7 +303,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -344,7 +353,13 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           .probe(line, expectedProjectName: ServerProject.stash.projectName);
       if (!probe.success || probe.versionInfo == null) {
         throw ServerCompatibilityException(
-          probe.message.isEmpty ? l.serverLineProbeFailed : probe.message,
+          probe.message.isEmpty
+              ? l.serverLineProbeFailed
+              : localizedErrorMessageWithCode(
+                  l,
+                  probe.message,
+                  probe.errorCode,
+                ),
         );
       }
       final server = editingServer == null
@@ -376,7 +391,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -544,7 +563,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           throw ServerCompatibilityException(
             probe.message.isEmpty
                 ? AppL10n.of(context).serverLineProbeFailed
-                : probe.message,
+                : localizedErrorMessageWithCode(
+                    AppL10n.of(context),
+                    probe.message,
+                    probe.errorCode,
+                  ),
           );
         }
         validatedProbe = probe;
@@ -574,7 +597,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -639,7 +666,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       case ServerProject.jellyfin:
       case ServerProject.feiniu:
       case ServerProject.stash:
-        throw StateError('当前服务器类型不是文件服务器');
+        throw StateError(AppErrorCode.validationFailed);
     }
   }
 

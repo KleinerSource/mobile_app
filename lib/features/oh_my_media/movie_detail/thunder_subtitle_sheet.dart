@@ -7,6 +7,7 @@ import 'package:omm/core/models/subtitle_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 
@@ -79,7 +80,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = toApiException(e).message);
+      setState(() => _error = localizedErrorMessage(AppL10n.of(context), e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -101,9 +102,9 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).subtitlePreviewFailed(toApiException(e).message),
+              AppL10n.of(context).subtitlePreviewFailed(
+                localizedErrorMessage(AppL10n.of(context), e),
+              ),
             ),
           ),
         );
@@ -146,7 +147,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
     try {
       while (true) {
         try {
-          await ref
+          final message = await ref
               .read(mediaRepositoryProvider)
               .downloadSubtitle(
                 widget.movieId,
@@ -161,7 +162,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           Navigator.of(context).pop();
           messenger?.showSnackBar(
             SnackBar(
-              content: Text(l.subtitleDownloaded(item.name)),
+              content: Text(message ?? l.subtitleDownloaded(item.name)),
               duration: const Duration(seconds: 1),
             ),
           );
@@ -179,9 +180,9 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           messenger?.showSnackBar(
             SnackBar(
               content: Text(
-                AppL10n.of(
-                  context,
-                ).subtitleDownloadFailed(toApiException(e).message),
+                AppL10n.of(context).subtitleDownloadFailed(
+                  localizedErrorMessage(AppL10n.of(context), e),
+                ),
               ),
             ),
           );
@@ -214,9 +215,14 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
   }
 
   bool _isSubtitleAlreadyExistsError(Object error) {
-    final message = toApiException(error).message;
-    return message.contains('已存在') ||
-        RegExp(r'SUBTITLE_EXISTS', caseSensitive: false).hasMatch(message);
+    final exception = toApiException(error);
+    final data = exception.data;
+    if (data is Map &&
+        data['code']?.toString().trim().toUpperCase() == 'SUBTITLE_EXISTS') {
+      return true;
+    }
+    return exception.status == 409 ||
+        exception.message.trim().toLowerCase().contains('subtitle already exists');
   }
 
   int? _resolveDurationMs(SubtitleSearchItem item) {

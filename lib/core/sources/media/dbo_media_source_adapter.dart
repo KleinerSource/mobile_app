@@ -1,6 +1,7 @@
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/api/error_codes.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';
@@ -157,7 +158,10 @@ class DboMediaSourceAdapter implements DboMediaSource {
     _checkRef(ref);
     final sourceId = request.playSourceId;
     if (sourceId == null || sourceId <= 0) {
-      throw const SourceException('DBO 播放需要有效的播放源 ID');
+      throw const SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     final code = ref.alternateValue?.trim() ?? ref.value;
     final episodes = await api.onlinePlayEpisodes(
@@ -166,7 +170,10 @@ class DboMediaSourceAdapter implements DboMediaSource {
       videoId: ref.alternateValue == null ? null : ref.value,
     );
     if (episodes.episodes.isEmpty) {
-      throw const SourceException('DBO 播放源没有可用剧集');
+      throw const SourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     final requestedIndex = request.episodeIndex ?? 0;
     final episode = episodes.episodes.firstWhere(
@@ -176,7 +183,10 @@ class DboMediaSourceAdapter implements DboMediaSource {
     final rawUrl = episode.urlForQuality(request.quality);
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null || !uri.hasScheme) {
-      throw const SourceException('DBO 播放源未返回有效地址');
+      throw const SourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     return PlaybackDescriptor(uri: uri, startAt: 0, payload: episode);
   });
@@ -276,10 +286,17 @@ class DboMediaSourceAdapter implements DboMediaSource {
 
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
-      throw SourceException('来源 ID 不属于 DBO：${ref.sourceId.value}');
+      throw SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+        details: {'sourceId': ref.sourceId.value},
+      );
     }
     if (ref.value.trim().isEmpty) {
-      throw const SourceException('DBO 媒体 ID 不能为空');
+      throw const SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
   }
 
@@ -289,7 +306,7 @@ class DboMediaSourceAdapter implements DboMediaSource {
     } on SourceException {
       rethrow;
     } catch (error) {
-      throw mapSourceError(error, fallback: 'DBO 请求失败');
+      throw mapSourceError(error, fallbackCode: AppErrorCode.operationFailed);
     }
   }
 }

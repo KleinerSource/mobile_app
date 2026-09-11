@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 
@@ -41,7 +42,12 @@ class FeiniuApi {
     );
     final data = _unwrap(response.data, (value) => _map(value));
     final token = _string(data['token'] ?? data['access_token']);
-    if (token.isEmpty) throw ApiException('飞牛登录响应缺少访问令牌');
+    if (token.isEmpty) {
+      throw ApiException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
+    }
     _lastLoginCookie = _cookieHeader(response.headers);
     return token;
   }
@@ -106,7 +112,7 @@ class FeiniuApi {
   Future<FeiniuMediaDb> mdbDetails(String guid) async {
     final normalizedGuid = guid.trim();
     if (normalizedGuid.isEmpty) {
-      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+      throw ArgumentError.value(guid, 'guid', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<dynamic>(
       '/mdb/${Uri.encodeComponent(normalizedGuid)}',
@@ -153,7 +159,7 @@ class FeiniuApi {
   }) async {
     final normalizedGuid = guid.trim();
     if (normalizedGuid.isEmpty) {
-      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+      throw ArgumentError.value(guid, 'guid', AppErrorCode.validationFailed);
     }
     final body = _mdbBody(
       name: name,
@@ -171,7 +177,7 @@ class FeiniuApi {
   Future<void> mdbDelete(String guid) async {
     final normalizedGuid = guid.trim();
     if (normalizedGuid.isEmpty) {
-      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+      throw ArgumentError.value(guid, 'guid', AppErrorCode.validationFailed);
     }
     final response = await _dio.delete<dynamic>(
       '/mdb/${Uri.encodeComponent(normalizedGuid)}',
@@ -183,7 +189,7 @@ class FeiniuApi {
   Future<void> mdbRefresh(String guid) async {
     final normalizedGuid = guid.trim();
     if (normalizedGuid.isEmpty) {
-      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+      throw ArgumentError.value(guid, 'guid', AppErrorCode.validationFailed);
     }
     try {
       final response = await _dio.post<dynamic>(
@@ -269,7 +275,7 @@ class FeiniuApi {
   Future<List<FeiniuItem>> searchList(String query) async {
     final normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) {
-      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+      throw ArgumentError.value(query, 'query', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<dynamic>(
       '/search/list',
@@ -549,12 +555,22 @@ class FeiniuApi {
   };
 
   T _unwrap<T>(Object? raw, T Function(Object? data) parser) {
-    if (raw is! Map) throw ApiException('飞牛响应格式无效');
+    if (raw is! Map) {
+      throw ApiException(
+        AppErrorCode.responseFormatInvalid,
+        code: AppErrorCode.responseFormatInvalid,
+      );
+    }
     final map = Map<String, dynamic>.from(raw);
     final code = _int(map['code']);
     if (code != 0) {
       throw ApiException(
-        _string(map['msg']).isEmpty ? '飞牛请求失败（$code）' : _string(map['msg']),
+        _string(map['msg']).isEmpty
+            ? AppErrorCode.feiniuRequestFailed
+            : _string(map['msg']),
+        code: _string(map['msg']).isEmpty
+            ? AppErrorCode.feiniuRequestFailed
+            : null,
         data: map['data'],
       );
     }
@@ -574,13 +590,13 @@ class FeiniuApi {
         .where((path) => path.isNotEmpty)
         .toList(growable: false);
     if (normalizedName.isEmpty) {
-      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+      throw ArgumentError.value(name, 'name', AppErrorCode.validationFailed);
     }
     if (normalizedCategory.isEmpty) {
-      throw ArgumentError.value(category, 'category', '媒体库类型不能为空');
+      throw ArgumentError.value(category, 'category', AppErrorCode.validationFailed);
     }
     if (normalizedPaths.isEmpty) {
-      throw ArgumentError.value(paths, 'paths', '至少需要一个媒体路径');
+      throw ArgumentError.value(paths, 'paths', AppErrorCode.validationFailed);
     }
     return <String, dynamic>{
       'name': normalizedName,

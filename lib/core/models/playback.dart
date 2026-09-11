@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../api/error_codes.dart';
+
 @immutable
 class VideoCodecCapability {
   const VideoCodecCapability({
@@ -368,7 +370,7 @@ class PlaybackDecision {
     final subtitles = json['subtitle_tracks'];
     final directUrl = _asString(json['direct_url']).trim();
     if (directUrl.isEmpty) {
-      throw const FormatException('服务器版本不兼容：播放决策缺少 direct_url');
+      throw const FormatException(AppErrorCode.responseFormatInvalid);
     }
     final qualityOptions = _parseQualityOptions(json['quality_options']);
     return PlaybackDecision(
@@ -446,26 +448,26 @@ List<Map<String, dynamic>> _asMapList(Object? value) => value is List
 
 List<QualityOption> _parseQualityOptions(Object? value) {
   if (value is! List || value.isEmpty) {
-    throw const FormatException('服务器版本不兼容：播放决策缺少有效的 quality_options');
+    throw const FormatException(AppErrorCode.responseFormatInvalid);
   }
   const kinds = {'auto', 'original', 'transcode'};
   final result = <QualityOption>[];
   final ids = <String>{};
   for (final raw in value) {
     if (raw is! Map) {
-      throw const FormatException('服务器版本不兼容：quality_options 格式错误');
+      throw const FormatException(AppErrorCode.responseFormatInvalid);
     }
     final option = QualityOption.fromJson(Map<String, dynamic>.from(raw));
     if (option.id.isEmpty ||
         option.label.isEmpty ||
         !kinds.contains(option.kind) ||
         !ids.add(option.id)) {
-      throw const FormatException('服务器版本不兼容：quality_options 格式错误');
+      throw const FormatException(AppErrorCode.responseFormatInvalid);
     }
     result.add(option);
   }
   if (result.first.id != 'auto' || result.first.kind != 'auto') {
-    throw const FormatException('服务器版本不兼容：quality_options 缺少自动档');
+    throw const FormatException(AppErrorCode.responseFormatInvalid);
   }
   return List.unmodifiable(result);
 }

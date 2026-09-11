@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
@@ -83,10 +83,17 @@ class _MovieExtraFanartSectionState
     if (_fetching || !widget.canFetch) return;
     setState(() => _fetching = true);
     try {
-      final taskId = await ref
+      final result = await ref
           .read(mediaRepositoryProvider)
           .downloadExtraFanarts(widget.movieId);
       if (!mounted) return;
+      final message = result.message?.trim();
+      if (message != null && message.isNotEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+      final taskId = result.taskId;
       _fanartTaskId = taskId;
       _consumeFanartTask(ref.read(taskCenterProvider));
       unawaited(
@@ -101,7 +108,7 @@ class _MovieExtraFanartSectionState
     } catch (error) {
       if (!mounted) return;
       setState(() => _fetching = false);
-      final message = sourceErrorMessage(error);
+      final message = localizedErrorMessage(AppL10n.of(context), error);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(message))),
       );
@@ -134,11 +141,12 @@ class _MovieExtraFanartSectionState
       return;
     }
 
+    final l = AppL10n.of(context);
     final reason = current.message.trim().isNotEmpty
         ? current.message.trim()
         : current.isCanceled
-        ? '任务已取消'
-        : '任务执行失败';
+        ? l.taskMsgCanceled
+        : l.previewFailed;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
   }
 
@@ -294,7 +302,7 @@ class _MovieExtraFanartSectionState
           ? _videoOnlyPreview(context)
           : _placeholderState(
               context,
-              message: l.fanartLoadFailed(sourceErrorMessage(error)),
+              message: l.fanartLoadFailed(localizedErrorMessage(l, error)),
               icon: Icons.broken_image_outlined,
             ),
       data: (urls) {

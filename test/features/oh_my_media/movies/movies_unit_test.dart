@@ -131,9 +131,10 @@ void _main_1() {
   });
 
   test('额外预览图下载返回统一调度任务 ID', () async {
-    final taskId = await repository.downloadExtraFanarts(9);
+    final result = await repository.downloadExtraFanarts(9);
 
-    expect(taskId, 'extra-fanart-task');
+    expect(result.taskId, 'extra-fanart-task');
+    expect(result.message, isNull);
     expect(operations.lastRef?.value, '9');
   });
 
@@ -210,18 +211,23 @@ class _FakeOperations implements OmmMediaOperationsSource {
   Future<bool> favoriteStatus(source_models.MediaRef movie) async => false;
 
   @override
-  Future<void> addFavoriteBatch(List<source_models.MediaRef> movies) async {}
+  Future<String?> addFavoriteBatch(List<source_models.MediaRef> movies) async =>
+      null;
 
   @override
-  Future<void> removeFavoriteBatch(List<source_models.MediaRef> movies) async {}
+  Future<String?> removeFavoriteBatch(
+    List<source_models.MediaRef> movies,
+  ) async => null;
 
   @override
   Future<List<String>> extraFanarts(source_models.MediaRef movie) async => [];
 
   @override
-  Future<String> downloadExtraFanarts(source_models.MediaRef movie) async {
+  Future<({String taskId, String? message})> downloadExtraFanarts(
+    source_models.MediaRef movie,
+  ) async {
     lastRef = movie;
-    return 'extra-fanart-task';
+    return (taskId: 'extra-fanart-task', message: null);
   }
 
   @override
@@ -230,9 +236,11 @@ class _FakeOperations implements OmmMediaOperationsSource {
   ) async => null;
 
   @override
-  Future<bool> toggleFavorite(source_models.MediaRef movie) async {
+  Future<({bool value, String? message})> toggleFavorite(
+    source_models.MediaRef movie,
+  ) async {
     lastRef = movie;
-    return true;
+    return (value: true, message: null);
   }
 
   @override
@@ -275,16 +283,16 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }
 
   @override
-  Future<MovieDetail> updateMovie(
+  Future<({MovieDetail item, String? message})> updateMovie(
     source_models.MediaRef movie,
     Map<String, dynamic> body,
   ) => throw UnimplementedError();
 
   @override
-  Future<void> deleteMovie(
+  Future<String?> deleteMovie(
     source_models.MediaRef movie, {
     bool force = false,
-  }) async {}
+  }) async => null;
 
   @override
   Future<PreviewStartResult> generatePreview(
@@ -297,13 +305,13 @@ class _FakeOperations implements OmmMediaOperationsSource {
       throw UnimplementedError();
 
   @override
-  Future<void> cancelPreviewTask(String taskId) async {}
+  Future<String?> cancelPreviewTask(String taskId) async => null;
 
   @override
-  Future<void> syncNfo(source_models.MediaRef movie) async {}
+  Future<String?> syncNfo(source_models.MediaRef movie) async => null;
 
   @override
-  Future<void> refreshFromNfo(source_models.MediaRef movie) async {}
+  Future<String?> refreshFromNfo(source_models.MediaRef movie) async => null;
 
   @override
   Future<({String keyword, List<SubtitleSearchItem> items})> searchSubtitles(
@@ -315,12 +323,12 @@ class _FakeOperations implements OmmMediaOperationsSource {
       throw UnimplementedError();
 
   @override
-  Future<void> downloadSubtitle(
+  Future<String?> downloadSubtitle(
     source_models.MediaRef movie, {
     required String url,
     required String ext,
     bool overwrite = false,
-  }) async {}
+  }) async => null;
 
   @override
   Future<Map<String, dynamic>> getDbonlineMetadata(
@@ -368,23 +376,24 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }) => throw UnimplementedError();
 
   @override
-  Future<void> batchAddAssociations({
+  Future<String?> batchAddAssociations({
     required List<source_models.MediaRef> movies,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
     int? seriesId,
-  }) async {}
+  }) async => null;
 
   @override
-  Future<void> batchRemoveAssociations({
+  Future<String?> batchRemoveAssociations({
     required List<source_models.MediaRef> movies,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
     int? seriesId,
-  }) async {}
+  }) async => null;
 
   @override
-  Future<({int successCount, int failedCount})> batchWatermark({
+  Future<({String? message, int successCount, int failedCount})>
+  batchWatermark({
     required List<source_models.MediaRef> movies,
     bool? subtitle,
     bool? exsub,
@@ -393,7 +402,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }) => throw UnimplementedError();
 
   @override
-  Future<String?> mergeDuplicateFiles({
+  Future<({String? taskId, String? message})> mergeDuplicateFiles({
     required List<source_models.MediaRef> movies,
     required source_models.MediaRef targetMovie,
   }) => throw UnimplementedError();
@@ -404,7 +413,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   ) => throw UnimplementedError();
 
   @override
-  Future<void> applyDuplicateNfo(Map<String, dynamic> payload) async {}
+  Future<String?> applyDuplicateNfo(Map<String, dynamic> payload) async => null;
 
   @override
   Future<String> requestDownload({
@@ -413,7 +422,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }) => throw UnimplementedError();
 
   @override
-  Future<void> applyPosterCrop(
+  Future<String?> applyPosterCrop(
     source_models.MediaRef movie, {
     required double cropOffset,
     bool? subtitle,
@@ -424,6 +433,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   }) async {
     lastRef = movie;
     lastSyncParts = syncParts;
+    return null;
   }
 
   @override

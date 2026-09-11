@@ -2,7 +2,33 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'task_model.dart';
 
 /// 任务名和客户端消息的展示层翻译。
-String taskNameLabel(AppL10n l, String name) {
+String taskNameLabel(AppL10n l, String name, {String? taskType}) {
+  switch (taskType) {
+    case 'subtitle_transcription':
+      return l.taskNameTranscribe;
+    case 'library_scan':
+      return l.taskNameScan;
+    case 'incremental_scan':
+      return l.taskNameIncrementalScan;
+    case 'full_scan':
+      return l.taskNameFullScan;
+    case 'scheduled_incremental_scan':
+      return l.taskNameScheduledScan;
+    case 'audio_extract':
+      return l.taskNameAudioExtract;
+    case 'nfo_sync':
+      return l.taskNameNfoSync;
+    case 'resource_scan':
+      return l.taskNameResourceScan;
+    case 'actor_sync':
+      return l.taskNameActorSync;
+    case 'preview_generation':
+      return l.taskNamePreview;
+    case 'preview_download':
+      return l.taskNamePreviewDownload;
+    case 'duplicate_movie_merge':
+      return l.taskNameDuplicateMerge;
+  }
   switch (name) {
     case '字幕转译':
       return l.taskNameTranscribe;
@@ -64,6 +90,10 @@ String taskErrorLabel(AppL10n l, String message) {
       return l.taskErrCancelExtract;
     case kTaskErrRetryTranscribe:
       return l.taskErrRetryTranscribe;
+    case kTaskErrPause:
+      return l.taskErrPause;
+    case kTaskErrResume:
+      return l.taskErrResume;
     default:
       return message;
   }

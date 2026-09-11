@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -9,6 +9,7 @@ import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/poster.dart';
@@ -66,7 +67,7 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
       body: value.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorBody(
-          message: toApiException(error).message,
+          message: localizedErrorMessage(AppL10n.of(context), error),
           onRetry: () {
             if (code?.trim().isNotEmpty == true) {
               ref.invalidate(
@@ -100,7 +101,7 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
             }
             final videoId = movie.videoId?.trim() ?? '';
             if (videoId.isEmpty) {
-              throw StateError('影片缺少番号和 video_id');
+              throw StateError(AppErrorCode.responseDataMissing);
             }
             return ref
                 .read(dboMediaRepositoryProvider)
@@ -536,7 +537,11 @@ Future<void> _openDbOnlinePlayback(
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+        ).showSnackBar(
+          SnackBar(
+            content: Text(localizedErrorMessage(AppL10n.of(context), error)),
+          ),
+        );
       }
       return;
     }
@@ -739,7 +744,7 @@ class _DbOnlinePlaybackSheetState
                   error: (error, _) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: _ErrorBody(
-                      message: toApiException(error).message,
+                      message: localizedErrorMessage(AppL10n.of(context), error),
                       onRetry: _refreshEpisodes,
                     ),
                   ),

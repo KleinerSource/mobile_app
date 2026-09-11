@@ -27,7 +27,9 @@ class AudioRepository {
   Future<AudioAssetDeleteResult> deleteAssets(List<int> ids) async {
     final raw = await _api.deleteAssets(ids);
     return unwrapStd<AudioAssetDeleteResult>(raw, (data) {
-      if (data is! Map) return const AudioAssetDeleteResult();
+      if (data is! Map) {
+        return AudioAssetDeleteResult(message: envelopeMessageOrNull(raw));
+      }
       return AudioAssetDeleteResult(
         deleted: [
           for (final value
@@ -46,6 +48,7 @@ class AudioRepository {
                 message: value['message']?.toString() ?? '',
               ),
         ],
+        message: envelopeMessageOrNull(raw),
       );
     });
   }
@@ -59,7 +62,9 @@ class AudioRepository {
       overwrite: overwrite,
     );
     return unwrapStd<TranscriptionEnqueueResult>(raw, (data) {
-      if (data is! Map) return const TranscriptionEnqueueResult();
+      if (data is! Map) {
+        return TranscriptionEnqueueResult(message: envelopeMessageOrNull(raw));
+      }
       final items = data['items'] is List ? data['items'] as List : const [];
       final rejected = data['rejected'] is List
           ? data['rejected'] as List
@@ -76,23 +81,27 @@ class AudioRepository {
                 message: value['message']?.toString() ?? '',
               ),
         ],
+        message: envelopeMessageOrNull(raw),
       );
     });
   }
 
-  Future<void> cancelTranscription(String taskId) async {
+  Future<String?> cancelTranscription(String taskId) async {
     final raw = await _api.cancelSubtitleTranscription(taskId);
     unwrapStd<Object?>(raw, (_) => null);
+    return envelopeMessageOrNull(raw);
   }
 
-  Future<void> retryTranscription(String taskId) async {
+  Future<String?> retryTranscription(String taskId) async {
     final raw = await _api.retrySubtitleTranscription(taskId);
     unwrapStd<Object?>(raw, (_) => null);
+    return envelopeMessageOrNull(raw);
   }
 
-  Future<void> cancelExtraction(String taskId) async {
+  Future<String?> cancelExtraction(String taskId) async {
     final raw = await _api.cancelAudioExtraction(taskId);
     unwrapStd<Object?>(raw, (_) => null);
+    return envelopeMessageOrNull(raw);
   }
 
   Future<Object?> listTranscriptions({

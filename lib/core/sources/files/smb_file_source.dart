@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../../api/server_compatibility.dart';
+import '../../api/error_codes.dart';
 import '../../platform/app_log_store.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
@@ -31,7 +32,10 @@ class SmbPath {
 SmbPath parseSmbPath(String value) {
   final raw = value.trim();
   if (raw.isEmpty) {
-    throw ArgumentError.value(value, 'value', 'SMB 路径不能为空');
+    throw const SourceException(
+      AppErrorCode.validationFailed,
+      code: AppErrorCode.validationFailed,
+    );
   }
 
   final uri = Uri.tryParse(raw);
@@ -58,7 +62,10 @@ SmbPath parseSmbPath(String value) {
   for (final part in parts) {
     if (part.isEmpty || part == '.') continue;
     if (part == '..') {
-      throw ArgumentError.value(value, 'value', 'SMB 路径不能包含 ..');
+      throw const SourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     normalizedParts.add(part);
   }
@@ -253,7 +260,7 @@ class SmbFileSource
             .toList(growable: false),
       );
     } catch (error) {
-      throw _error('SMB 目录读取失败', error);
+      throw _error(error);
     }
   }
 
@@ -272,7 +279,7 @@ class SmbFileSource
       final stat = await target.pool.stat(target.path);
       return _entry(value, _fileName(value), stat);
     } catch (error) {
-      throw _error('SMB 文件信息读取失败', error);
+      throw _error(error);
     }
   }
 
@@ -284,7 +291,7 @@ class SmbFileSource
       final target = await _target(value);
       return await target.pool.exists(target.path);
     } catch (error) {
-      throw _error('SMB 路径检查失败', error);
+      throw _error(error);
     }
   }
 
@@ -324,7 +331,10 @@ class SmbFileSource
     FileTransferOptions options = const FileTransferOptions(),
   }) async {
     if (offset < 0 || length < 0) {
-      throw ArgumentError('SMB 区间读取参数无效');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     if (length == 0) return const Stream<List<int>>.empty();
     final value = _checkPath(path);
@@ -362,7 +372,10 @@ class SmbFileSource
       var transferred = 0;
       while (remaining > 0) {
         if (cancellation?.isCancelled == true) {
-          throw const FileSourceException('下载已取消', code: 'canceled');
+          throw const FileSourceException(
+            AppErrorCode.fileTransferCanceled,
+            code: AppErrorCode.fileTransferCanceled,
+          );
         }
         final requested = remaining < chunkSize ? remaining : chunkSize;
         final chunk = await pool.readFromHandle(
@@ -371,7 +384,10 @@ class SmbFileSource
           length: requested,
         );
         if (chunk.isEmpty) {
-          throw const FileSourceException('SMB 区间读取返回空数据');
+      throw const FileSourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
         }
         current += chunk.length;
         remaining -= chunk.length;
@@ -392,12 +408,18 @@ class SmbFileSource
     final path = _checkPath(request.destination);
     final options = request.options;
     if (!options.overwrite && await exists(request.destination)) {
-      throw const FileSourceException('目标文件已存在', code: 'already_exists');
+      throw const FileSourceException(
+        AppErrorCode.fileTargetExists,
+        code: AppErrorCode.fileTargetExists,
+      );
     }
     var transferred = 0;
     final chunks = request.data.map((chunk) {
       if (options.cancellation?.isCancelled == true) {
-        throw const FileSourceException('上传已取消', code: 'canceled');
+      throw const FileSourceException(
+        AppErrorCode.fileTransferCanceled,
+        code: AppErrorCode.fileTransferCanceled,
+      );
       }
       final bytes = Uint8List.fromList(chunk);
       transferred += bytes.length;
@@ -410,7 +432,7 @@ class SmbFileSource
       final target = await _target(path);
       await target.pool.streamWrite(target.path, chunks);
     } catch (error) {
-      throw _error('SMB 文件上传失败', error);
+      throw _error(error);
     }
   }
 
@@ -418,7 +440,10 @@ class SmbFileSource
   Future<FilePath> createDirectory(FilePath parent, String name) async {
     final parentPath = _checkPath(parent);
     if (_share == null && parentPath.isEmpty) {
-      throw const FileSourceException('不能在 SMB 服务器根目录创建共享');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     final destination = joinRelativeFilePath(
       parentPath,
@@ -429,7 +454,7 @@ class SmbFileSource
       await target.pool.mkdir(target.path);
       return FilePath(sourceId: _sourceId, value: destination);
     } catch (error) {
-      throw _error('SMB 创建目录失败', error);
+      throw _error(error);
     }
   }
 
@@ -441,7 +466,10 @@ class SmbFileSource
     final value = _checkPath(path);
     try {
       if (_share == null && value.isEmpty) {
-        throw const FileSourceException('不能删除 SMB 服务器根目录');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
       }
       final target = await _target(value);
       final info = await target.pool.stat(target.path);
@@ -462,7 +490,7 @@ class SmbFileSource
       }
       await target.pool.rmdir(target.path);
     } catch (error) {
-      throw _error('SMB 删除失败', error);
+      throw _error(error);
     }
   }
 
@@ -478,10 +506,16 @@ class SmbFileSource
       final oldTarget = await _target(oldPath);
       final newTarget = await _target(newPath);
       if (oldTarget.share != newTarget.share) {
-        throw const FileSourceException('SMB 不支持跨共享移动文件');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
       }
       if (!overwrite && await exists(destination)) {
-        throw const FileSourceException('目标路径已存在', code: 'already_exists');
+      throw const FileSourceException(
+        AppErrorCode.fileTargetExists,
+        code: AppErrorCode.fileTargetExists,
+      );
       }
       if (overwrite && await exists(destination)) {
         await delete(
@@ -492,7 +526,7 @@ class SmbFileSource
       await oldTarget.pool.rename(oldTarget.path, newTarget.path);
     } catch (error) {
       if (error is FileSourceException) rethrow;
-      throw _error('SMB 移动失败', error);
+      throw _error(error);
     }
   }
 
@@ -520,7 +554,10 @@ class SmbFileSource
   Future<FileAccess> resolveAccess(FilePath path) async {
     final entry = await stat(path);
     if (!entry.isFile) {
-      throw const FileSourceException('目录不能作为文件访问');
+      throw const FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+      );
     }
     return FileAccess(
       size: entry.size,
@@ -598,7 +635,10 @@ class SmbFileSource
       );
     }
     if (normalized.isEmpty) {
-      throw const FileSourceException('SMB 服务器根目录没有对应的共享');
+      throw const FileSourceException(
+        AppErrorCode.responseDataMissing,
+        code: AppErrorCode.responseDataMissing,
+      );
     }
     final parts = normalized.split('/');
     final shareName = parts.first;
@@ -611,7 +651,11 @@ class SmbFileSource
 
   String _checkPath(FilePath path) {
     if (path.sourceId != _sourceId) {
-      throw FileSourceException('路径不属于当前 SMB 来源：${path.sourceId.value}');
+      throw FileSourceException(
+        AppErrorCode.validationFailed,
+        code: AppErrorCode.validationFailed,
+        details: {'sourceId': path.sourceId.value},
+      );
     }
     return normalizeRelativeFilePath(path.value);
   }
@@ -639,9 +683,13 @@ class SmbFileSource
     createdAt: stat.created,
   );
 
-  FileSourceException _error(String message, Object error) {
+  FileSourceException _error(Object error) {
     if (error is FileSourceException) return error;
-    return FileSourceException(message, cause: error);
+    return FileSourceException(
+      AppErrorCode.networkUnavailable,
+      code: AppErrorCode.networkUnavailable,
+      cause: error,
+    );
   }
 }
 

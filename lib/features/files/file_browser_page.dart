@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/error_codes.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_log_store.dart';
@@ -32,6 +33,7 @@ import '../../shared/selection_controller.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../../shared/single_flight_gate.dart';
+import '../../shared/localized_error_message.dart';
 import '../player/common/playback_engine.dart';
 import '../player/audio/audio_player_page.dart';
 import '../player/video/player_engine_picker.dart';
@@ -389,9 +391,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                           bottom: floatingTabBarContentBottomInset(context),
                         ),
                         child: _BrowserError(
-                          message: error is SourceException
-                              ? error.message
-                              : error.toString(),
+                          message: localizedErrorMessage(_l10n, error),
                           onRetry: () => unawaited(_refresh()),
                         ),
                       ),

@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config_provider.dart'
     show sharedPrefsProvider;
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/audio/audio_providers.dart';
@@ -104,13 +105,18 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
           ? (task['task_id'] ?? task['taskId'])?.toString().trim() ?? ''
           : '';
       if (taskId.isEmpty) {
-        throw ApiException(AppL10n.of(context).audioExtractFailed);
+        throw ApiException(
+          AppErrorCode.taskIdMissing,
+          code: AppErrorCode.taskIdMissing,
+        );
       }
       await _rememberSelection();
       if (mounted) Navigator.of(context).pop(taskId);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = sourceErrorMessage(error));
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

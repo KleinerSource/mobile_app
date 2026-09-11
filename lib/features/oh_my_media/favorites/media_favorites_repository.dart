@@ -1,4 +1,6 @@
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/api/error_codes.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_models.dart' as source_models;
@@ -85,29 +87,33 @@ class MediaFavoritesRepository {
     );
   }
 
-  Future<bool> toggle(int movieId) async {
-    final value = await _source.toggleFavorite(_ref(movieId));
+  Future<({bool value, String? message})> toggle(int movieId) async {
+    final result = await _source.toggleFavorite(_ref(movieId));
     MovieDataChanges.bumpMetadata(movieId: movieId);
-    return value;
+    return result;
   }
 
   Future<bool> status(int movieId) => _source.favoriteStatus(_ref(movieId));
 
-  Future<void> addBatch(List<int> movieIds) async {
+  Future<String?> addBatch(List<int> movieIds) async {
     // 收藏批量接口是 OMM 专属操作，由 Source adapter 复用同一协议边界。
-    await _source.addFavoriteBatch(movieIds.map(_ref).toList(growable: false));
-    for (final movieId in movieIds) {
-      MovieDataChanges.bumpMetadata(movieId: movieId);
-    }
-  }
-
-  Future<void> removeBatch(List<int> movieIds) async {
-    await _source.removeFavoriteBatch(
+    final message = await _source.addFavoriteBatch(
       movieIds.map(_ref).toList(growable: false),
     );
     for (final movieId in movieIds) {
       MovieDataChanges.bumpMetadata(movieId: movieId);
     }
+    return message;
+  }
+
+  Future<String?> removeBatch(List<int> movieIds) async {
+    final message = await _source.removeFavoriteBatch(
+      movieIds.map(_ref).toList(growable: false),
+    );
+    for (final movieId in movieIds) {
+      MovieDataChanges.bumpMetadata(movieId: movieId);
+    }
+    return message;
   }
 
   source_models.MediaRef _ref(int id) =>
@@ -117,7 +123,12 @@ class MediaFavoritesRepository {
     final payload = item.payload;
     if (payload is MovieListItem) return payload;
     final id = int.tryParse(item.ref.value);
-    if (id == null || id <= 0) throw StateError('收藏 Source 返回了无效影片 ID');
+    if (id == null || id <= 0) {
+      throw const SourceException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
+    }
     return MovieListItem(
       id: id,
       title: item.title,

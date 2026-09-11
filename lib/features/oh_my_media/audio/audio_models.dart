@@ -161,10 +161,12 @@ class AudioAssetDeleteResult {
   const AudioAssetDeleteResult({
     this.deleted = const [],
     this.rejected = const [],
+    this.message,
   });
 
   final List<int> deleted;
   final List<AudioAssetDeleteRejection> rejected;
+  final String? message;
 }
 
 /// 字幕转译入队被拒的单条原因。
@@ -181,10 +183,12 @@ class TranscriptionEnqueueResult {
   const TranscriptionEnqueueResult({
     this.accepted = 0,
     this.rejected = const [],
+    this.message,
   });
 
   final int accepted;
   final List<TranscriptionEnqueueRejection> rejected;
+  final String? message;
 }
 
 String _asString(Object? value) {

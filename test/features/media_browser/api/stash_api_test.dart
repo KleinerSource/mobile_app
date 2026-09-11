@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/auth/server_credentials_repository.dart';
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/sources/media/stash/stash_api.dart';
 
 class _MemoryTokenStore implements AuthTokenStore {
@@ -245,7 +246,11 @@ void main() {
       throwsA(
         isA<ApiException>()
             .having((error) => error.status, 'status', 401)
-            .having((error) => error.message, 'message', contains('API Key')),
+            .having(
+              (error) => error.code,
+              'code',
+              AppErrorCode.stashApiKeyInvalid,
+            ),
       ),
     );
     expect(await credentials.read('server-1'), isNull);

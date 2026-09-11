@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/library.dart';
 import 'package:omm/core/platform/app_action_sheet.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -118,7 +117,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Text(
-                              '${AppL10n.of(context).loadFailed}: $e',
+                              localizedErrorMessage(AppL10n.of(context), e),
                               style: AppText.body(context),
                             ),
                           ),
@@ -226,20 +225,25 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
   ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final taskId = await ref
+      final result = await ref
           .read(librariesRepositoryProvider)
           .scan(lib.id, incremental: incremental);
       if (!context.mounted) return;
       // 注册到常驻 dock, 不再弹模态 sheet
       ref
           .read(scanTasksProvider.notifier)
-          .register(libraryId: lib.id, libraryName: lib.name, taskId: taskId);
+          .register(
+            libraryId: lib.id,
+            libraryName: lib.name,
+            taskId: result.taskId,
+          );
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            incremental
-                ? AppL10n.of(context).libraryScanIncrementalStarted
-                : AppL10n.of(context).libraryScanFullStarted,
+            result.message ??
+                (incremental
+                    ? AppL10n.of(context).libraryScanIncrementalStarted
+                    : AppL10n.of(context).libraryScanFullStarted),
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -248,7 +252,9 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).libraryScanFailed(sourceErrorMessage(e)),
+            AppL10n.of(
+              context,
+            ).libraryScanFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );
@@ -262,16 +268,17 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
   ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref
+      final result = await ref
           .read(librariesRepositoryProvider)
           .update(lib.id, enabled: !lib.enabled);
       if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            lib.enabled
-                ? AppL10n.of(context).libraryDisabledToast
-                : AppL10n.of(context).libraryEnabledToast,
+            result.message ??
+                (lib.enabled
+                    ? AppL10n.of(context).libraryDisabledToast
+                    : AppL10n.of(context).libraryEnabledToast),
           ),
           duration: const Duration(seconds: 1),
         ),
@@ -283,7 +290,9 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).operationFailed(toApiException(e).message),
+            AppL10n.of(
+              context,
+            ).operationFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );
@@ -316,11 +325,13 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(librariesRepositoryProvider).delete(lib.id);
+      final message = await ref
+          .read(librariesRepositoryProvider)
+          .delete(lib.id);
       if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(AppL10n.of(context).libraryDeletedToast),
+          content: Text(message ?? AppL10n.of(context).libraryDeletedToast),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -331,7 +342,9 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).libraryDeleteFailed(toApiException(e).message),
+            AppL10n.of(context).libraryDeleteFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
           ),
         ),
       );
@@ -390,6 +403,9 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       }
 
       final l = AppL10n.of(context);
+      final scanType = result.scanType == 'incremental'
+          ? l.libraryScanIncremental
+          : l.libraryScanFull;
       String message;
       if (result.acceptedCount == 0) {
         if (result.enabledCount == 0) {
@@ -399,14 +415,16 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
         } else {
           message = result.message.isNotEmpty
               ? result.message
-              : l.libraryBatchNoTasks(result.scanType);
+              : l.libraryBatchNoTasks(scanType);
           if (result.failedCount > 0) {
             message +=
                 '，${l.libraryBatchSubmitFailedCount(result.failedCount)}';
           }
         }
       } else {
-        message = l.libraryBatchAccepted(result.acceptedCount, result.scanType);
+        message = result.message.isNotEmpty
+            ? result.message
+            : l.libraryBatchAccepted(result.acceptedCount, scanType);
         if (result.reusedCount > 0) {
           message += ' · ${l.libraryBatchReused(result.reusedCount)}';
         }
@@ -424,7 +442,9 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(context).libraryBatchScanFailed(sourceErrorMessage(e)),
+              AppL10n.of(context).libraryBatchScanFailed(
+                localizedErrorMessage(AppL10n.of(context), e),
+              ),
             ),
           ),
         );

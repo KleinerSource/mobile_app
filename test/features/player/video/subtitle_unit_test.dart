@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/playback.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
@@ -245,16 +246,37 @@ void _main_1() {
     );
   });
 
-  test('错误响应体不是 JSON 时退回通用 HTTP 文案', () async {
+  test('HTTP 200 的 JSON 业务失败也保留后端字幕错误文案和错误码', () async {
+    final source = _sourceWith(
+      () => ResponseBody.fromString(
+        '{"success":false,"message":"字幕服务暂不可用",'
+        '"error_code":"SUBTITLE_UNAVAILABLE"}',
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['text/plain; charset=utf-8'],
+        },
+      ),
+    );
+    await expectLater(
+      source.fetchSubtitleContent('http://server/subtitles/100?format=vtt'),
+      throwsA(
+        isA<SourceException>()
+            .having((e) => e.message, 'message', '字幕服务暂不可用')
+            .having((e) => e.code, 'code', 'SUBTITLE_UNAVAILABLE')
+            .having((e) => e.statusCode, 'statusCode', 200),
+      ),
+    );
+  });
+
+  test('错误响应体不是 JSON 时退回 HTTP 错误码', () async {
     final source = _sourceWith(() => ResponseBody.fromString('Not Found', 404));
     await expectLater(
       source.fetchSubtitleContent('http://server/subtitles/99?format=vtt'),
       throwsA(
-        isA<SourceException>().having(
-          (e) => e.message,
-          'message',
-          contains('404'),
-        ),
+        isA<SourceException>()
+            .having((e) => e.message, 'message', AppErrorCode.httpError)
+            .having((e) => e.code, 'code', AppErrorCode.httpError)
+            .having((e) => e.statusCode, 'statusCode', 404),
       ),
     );
   });
@@ -264,12 +286,18 @@ void _main_1() {
     await expectLater(
       source.fetchSubtitleContent('http://server/subtitles/1?format=vtt'),
       throwsA(
-        isA<SourceException>().having((e) => e.message, 'message', '字幕内容无效或为空'),
+        isA<SourceException>()
+            .having(
+              (e) => e.message,
+              'message',
+              AppErrorCode.ommSubtitleInvalid,
+            )
+            .having((e) => e.code, 'code', AppErrorCode.ommSubtitleInvalid),
       ),
     );
   });
 
-  test('连接失败映射为网络异常文案', () async {
+  test('连接失败映射为本地化错误码', () async {
     final dio = Dio(BaseOptions(responseType: ResponseType.plain));
     dio.httpClientAdapter = _FakeAdapter((_) async {
       throw DioException.connectionTimeout(
@@ -281,11 +309,9 @@ void _main_1() {
     await expectLater(
       source.fetchSubtitleContent('http://server/subtitles/1?format=vtt'),
       throwsA(
-        isA<SourceException>().having(
-          (e) => e.message,
-          'message',
-          '请求超时，请稍后重试',
-        ),
+        isA<SourceException>()
+            .having((e) => e.message, 'message', AppErrorCode.requestTimeout)
+            .having((e) => e.code, 'code', AppErrorCode.requestTimeout),
       ),
     );
   });

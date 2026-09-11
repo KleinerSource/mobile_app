@@ -16,6 +16,8 @@ const String kTaskMsgScanQueuedAtPrefix = '@task/msg/scan-queued-at:';
 const String kTaskErrCancelTranscribe = '@task/err/cancel-transcribe';
 const String kTaskErrCancelExtract = '@task/err/cancel-extract';
 const String kTaskErrRetryTranscribe = '@task/err/retry-transcribe';
+const String kTaskErrPause = '@task/err/pause';
+const String kTaskErrResume = '@task/err/resume';
 
 @immutable
 class TaskProgress {
@@ -100,7 +102,10 @@ class TaskItem {
     return TaskItem(
       id: _asString(json['taskId'] ?? json['task_id']),
       taskType: _asString(json['taskType'] ?? json['task_type']),
-      name: _asString(json['taskName'] ?? json['task_name'], fallback: '后台任务'),
+      name: _asString(
+        json['taskName'] ?? json['task_name'],
+        fallback: _asString(json['taskType'] ?? json['task_type']),
+      ),
       status: status,
       isRunning: _isActiveStatus(status),
       progress: TaskProgress.fromJson(json['progress']),
@@ -154,7 +159,10 @@ class TaskItem {
     return TaskItem(
       id: _asString(json['task_id'] ?? json['taskId']),
       taskType: 'subtitle_transcription',
-      name: '字幕转译',
+      name: _asString(
+        json['task_name'] ?? json['taskName'],
+        fallback: 'subtitle_transcription',
+      ),
       status: status,
       isRunning: _isActiveStatus(status),
       progress: TaskProgress(
@@ -189,7 +197,10 @@ class TaskItem {
     return TaskItem(
       id: _asString(json['task_id'] ?? json['taskId']),
       taskType: _asString(json['task_type'] ?? json['taskType']),
-      name: _asString(json['task_name'] ?? json['taskName'], fallback: '后台任务'),
+      name: _asString(
+        json['task_name'] ?? json['taskName'],
+        fallback: _asString(json['task_type'] ?? json['taskType']),
+      ),
       status: status,
       isRunning: _isActiveStatus(status),
       progress: TaskProgress(
@@ -254,7 +265,7 @@ class TaskItem {
     return TaskItem(
       id: taskId.isEmpty ? 'scan-placeholder-$libraryId' : taskId,
       taskType: 'library_scan',
-      name: '目录扫描',
+      name: 'library_scan',
       status: status,
       isRunning: _isActiveStatus(status),
       progress: TaskProgress(

@@ -42,9 +42,10 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
     final name = _displayNameFor(server, profile);
-    final error =
+    final rawError =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
+    final error = rawError == null ? null : localizedErrorMessage(l, rawError);
     // 头像由外层转场统一绘制在屏幕中心，表单从头像下方淡入，避免
     // 飞行头像交接到另一套纵向布局时发生跳变。
     return Column(
@@ -165,9 +166,10 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
     final l = AppL10n.of(context);
     final profile = _cachedProfileFor(server);
     final name = _displayNameFor(server, profile);
-    final error =
+    final rawError =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
+    final error = rawError == null ? null : localizedErrorMessage(l, rawError);
     return Column(
       key: const ValueKey('server-switch-api-key'),
       children: [
@@ -236,7 +238,9 @@ extension _ServerSwitchAuthView on _ServerSwitchTransitionOverlayState {
       ServerSwitchMessageKind.connectionFailed => l.homeSwitchConnectionFailed,
       ServerSwitchMessageKind.invalidTarget => l.homeSwitchInvalidTarget,
       ServerSwitchMessageKind.authCheckTimeout => l.homeSwitchAuthTimeout,
-      null => transition.message,
+      null => transition.message == null
+          ? null
+          : localizedErrorMessage(l, transition.message!),
     };
   }
 

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
+import '../../../core/api/error_codes.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../l10n/generated/app_localizations_en.dart';
 import '../../../l10n/generated/app_localizations_zh.dart';
@@ -225,7 +226,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     await _cancelAndDrainPendingSeek();
 
     final sourceId = payload['sourceId']?.toString() ?? '';
-    if (sourceId.isEmpty) throw StateError('Scratch 音轨身份为空');
+    if (sourceId.isEmpty) throw StateError(AppErrorCode.responseDataMissing);
     final scratching = payload['scratching'] == true;
     if (scratching &&
         _scratchModeActive &&
@@ -236,13 +237,13 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     final generation = ++_scratchModeGeneration;
     final state = await OmmScratchAudio.state();
     if (!state.ready || state.sourceId != sourceId) {
-      throw StateError('Scratch 音轨身份不匹配');
+      throw StateError(AppErrorCode.validationFailed);
     }
     final index = _player.currentIndex;
     final currentId = index != null && index >= 0 && index < _items.length
         ? _items[index].id
         : null;
-    if (currentId != sourceId) throw StateError('Scratch 不是当前播放音轨');
+    if (currentId != sourceId) throw StateError(AppErrorCode.validationFailed);
     if (generation != _scratchModeGeneration) return;
     _scratchModeActive = true;
     _scratchPlaybackIntent = payload['playbackIntent'] == true;
@@ -282,7 +283,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   ) async {
     final rawQueue = extras['queue'];
     if (rawQueue is! List || rawQueue.isEmpty) {
-      throw StateError('音频播放队列为空');
+      throw StateError(AppErrorCode.responseDataMissing);
     }
     final nextItems = <audio_service.MediaItem>[];
     for (final raw in rawQueue) {
@@ -291,7 +292,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       final url = _urlFor(item);
       if (url.isNotEmpty) nextItems.add(item);
     }
-    if (nextItems.isEmpty) throw StateError('音频播放地址为空');
+    if (nextItems.isEmpty) throw StateError(AppErrorCode.responseDataMissing);
 
     await _stopScratchOutput();
     await _releaseQueueResources('replaced');

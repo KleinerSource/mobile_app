@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:omm/core/api/error_codes.dart';
 
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_provider.dart';
@@ -29,7 +30,10 @@ final mediaBrowserConfigProvider = Provider<MediaBrowserConfig?>((ref) {
 });
 
 SourceException _notMediaBrowserException() =>
-    const SourceException('当前服务器不是可用的媒体服务器，无法访问媒体目录');
+    const SourceException(
+      AppErrorCode.validationFailed,
+      code: AppErrorCode.validationFailed,
+    );
 
 final mediaBrowserMediaRepositoryProvider =
     Provider<MediaBrowserMediaRepository>((ref) {
@@ -106,7 +110,10 @@ final mediaBrowserVirtualFoldersProvider =
     FutureProvider.autoDispose<List<MediaBrowserLibrary>>((ref) async {
       final user = await ref.watch(mediaBrowserCurrentUserProvider.future);
       if (!user.isAdmin) {
-        throw const SourceException('媒体库配置需要管理员账号');
+        throw const SourceException(
+          AppErrorCode.authenticationRequired,
+          code: AppErrorCode.authenticationRequired,
+        );
       }
       return ref.watch(mediaBrowserMediaRepositoryProvider).virtualFolders();
     });
@@ -269,7 +276,10 @@ Future<MediaBrowserItemPage> readMediaBrowserItemPage(
 ) {
   final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
   if (request.serverId != activeServerId) {
-    throw const SourceException('媒体请求已过期，请重新加载当前服务器');
+    throw const SourceException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
   return ref.read(mediaBrowserMediaRepositoryProvider).itemPage(request.query);
 }
@@ -458,6 +468,9 @@ class MediaBrowserEpisodesRequest {
 void _checkServerScope(Ref ref, String requestServerId) {
   final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
   if (requestServerId != activeServerId) {
-    throw const SourceException('媒体请求已过期，请重新加载当前服务器');
+    throw const SourceException(
+      AppErrorCode.operationFailed,
+      code: AppErrorCode.operationFailed,
+    );
   }
 }

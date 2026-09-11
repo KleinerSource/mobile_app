@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../api/error_codes.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'file_entry.dart';
@@ -157,7 +158,7 @@ class FileOperationTracker {
       source: current.source,
       destination: current.destination,
       progress: current.progress,
-      message: canceled ? '操作已取消' : current.message,
+      message: canceled ? AppErrorCode.fileTransferCanceled : current.message,
     );
     _operations[id] = operation;
     _emit(operation);

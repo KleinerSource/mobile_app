@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
@@ -54,7 +54,14 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(configsRepositoryProvider).updateVideoExtensions(next);
+      final saved = await ref
+          .read(configsRepositoryProvider)
+          .updateVideoExtensions(next);
+      if (mounted &&
+          saved.message != null &&
+          saved.message!.trim().isNotEmpty) {
+        messenger.showSnackBar(SnackBar(content: Text(saved.message!)));
+      }
       // ignore: unused_result
       ref.refresh(videoExtensionsProvider);
     } catch (e) {
@@ -62,7 +69,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            '${AppL10n.of(context).videoExtensionsSaveFailed}: ${toApiException(e).message}',
+            '${AppL10n.of(context).videoExtensionsSaveFailed}: ${localizedErrorMessage(AppL10n.of(context), e)}',
           ),
         ),
       );
@@ -92,7 +99,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    '${AppL10n.of(context).loadFailed}: $e',
+                    localizedErrorMessage(AppL10n.of(context), e),
                     style: AppText.body(context),
                   ),
                 ),

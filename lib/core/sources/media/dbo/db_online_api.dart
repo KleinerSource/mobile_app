@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 
 class DbOnlineApi {
   DbOnlineApi(this._dio);
@@ -97,15 +98,15 @@ class DbOnlineApi {
   }) {
     final normalizedFilter = filterBy.trim();
     if (normalizedFilter.isEmpty) {
-      throw ArgumentError.value(filterBy, 'filterBy', '筛选参数不能为空');
+      throw ArgumentError.value(filterBy, 'filterBy', AppErrorCode.validationFailed);
     }
     final normalizedSort = sortBy.trim();
     if (normalizedSort != 'update' && normalizedSort != 'release') {
-      throw ArgumentError.value(sortBy, 'sortBy', '排序方式必须是 update 或 release');
+      throw ArgumentError.value(sortBy, 'sortBy', AppErrorCode.validationFailed);
     }
     final normalizedOrder = orderBy.trim();
     if (normalizedOrder != 'asc' && normalizedOrder != 'desc') {
-      throw ArgumentError.value(orderBy, 'orderBy', '排序顺序必须是 asc 或 desc');
+      throw ArgumentError.value(orderBy, 'orderBy', AppErrorCode.validationFailed);
     }
     return _moviesPage('/subs/tags', {
       'filter_by': normalizedFilter,
@@ -128,7 +129,7 @@ class DbOnlineApi {
   }) {
     final normalized = query.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+      throw ArgumentError.value(query, 'query', AppErrorCode.validationFailed);
     }
     return _moviesPage('/search', {
       'q': normalized,
@@ -147,7 +148,7 @@ class DbOnlineApi {
   }) async {
     final normalized = query.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+      throw ArgumentError.value(query, 'query', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<dynamic>(
       '/search/actors',
@@ -181,7 +182,7 @@ class DbOnlineApi {
   }) {
     final normalized = query.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+      throw ArgumentError.value(query, 'query', AppErrorCode.validationFailed);
     }
     return _searchEntitiesPage('/search', {
       'q': normalized,
@@ -203,7 +204,7 @@ class DbOnlineApi {
   }) async {
     final normalized = code.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(code, 'code', '番号不能为空');
+      throw ArgumentError.value(code, 'code', AppErrorCode.validationFailed);
     }
     final query = <String, dynamic>{
       'refresh': true,
@@ -228,7 +229,7 @@ class DbOnlineApi {
   }) async {
     final normalized = videoId.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(videoId, 'videoId', '影片 ID 不能为空');
+      throw ArgumentError.value(videoId, 'videoId', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<dynamic>(
       '/video/id/${Uri.encodeComponent(normalized)}',
@@ -250,10 +251,10 @@ class DbOnlineApi {
   }) async {
     final normalized = code.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(code, 'code', '番号不能为空');
+      throw ArgumentError.value(code, 'code', AppErrorCode.validationFailed);
     }
     if (sourceId <= 0) {
-      throw ArgumentError.value(sourceId, 'sourceId', '播放源 ID 必须为正整数');
+      throw ArgumentError.value(sourceId, 'sourceId', AppErrorCode.validationFailed);
     }
     final response = await _dio.get<dynamic>(
       '/video/${Uri.encodeComponent(normalized)}/online-play/episodes',

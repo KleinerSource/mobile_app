@@ -1,5 +1,7 @@
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/api/error_codes.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/models/resource_scan.dart';
@@ -63,13 +65,16 @@ class MediaRepository {
     final result = await _details.getMovie(_movieRef(id));
     final payload = result.payload;
     if (payload is MovieDetail) return payload;
-    throw StateError('OMM Source 未返回完整影片详情');
+    throw const SourceException(
+      AppErrorCode.ommResponseInvalid,
+      code: AppErrorCode.ommResponseInvalid,
+    );
   }
 
   Future<List<String>> extraFanarts(int id) =>
       _operations.extraFanarts(_movieRef(id));
 
-  Future<String> downloadExtraFanarts(int id) =>
+  Future<({String taskId, String? message})> downloadExtraFanarts(int id) =>
       _operations.downloadExtraFanarts(_movieRef(id));
 
   Future<MediaInfoDetail?> mediaInfoDetail(int id) async {
@@ -84,7 +89,7 @@ class MediaRepository {
   Future<bool> toggleFavorite(int id) async {
     final result = await _operations.toggleFavorite(_movieRef(id));
     MovieDataChanges.bumpMetadata(movieId: id);
-    return result;
+    return result.value;
   }
 
   Future<void> markWatched(int id, bool completed) async {
@@ -125,23 +130,28 @@ class MediaRepository {
     MovieDataChanges.bumpProgress(movieId: id);
   }
 
-  Future<MovieDetail> updateMovie(int id, Map<String, dynamic> body) async {
+  Future<({MovieDetail item, String? message})> updateMovie(
+    int id,
+    Map<String, dynamic> body,
+  ) async {
     final result = await _operations.updateMovie(_movieRef(id), body);
     MovieDataChanges.bumpMetadata(movieId: id);
     return result;
   }
 
-  Future<void> deleteMovie(int id, {bool force = false}) async {
-    await _operations.deleteMovie(_movieRef(id), force: force);
+  Future<String?> deleteMovie(int id, {bool force = false}) async {
+    final message = await _operations.deleteMovie(_movieRef(id), force: force);
     MovieDataChanges.bumpMetadata(movieId: id);
+    return message;
   }
 
-  Future<void> syncNfo(int id) => _operations.syncNfo(_movieRef(id));
+  Future<String?> syncNfo(int id) => _operations.syncNfo(_movieRef(id));
 
-  Future<void> refreshFromNfo(int id) async {
-    await _operations.refreshFromNfo(_movieRef(id));
+  Future<String?> refreshFromNfo(int id) async {
+    final message = await _operations.refreshFromNfo(_movieRef(id));
     MovieDataChanges.bumpMetadata(movieId: id);
     MovieDataChanges.bumpImages(movieId: id);
+    return message;
   }
 
   Future<({String keyword, List<SubtitleSearchItem> items})> searchSubtitles(
@@ -151,7 +161,7 @@ class MediaRepository {
   Future<String> previewSubtitle(int id, String url) =>
       _operations.previewSubtitle(_movieRef(id), url);
 
-  Future<void> downloadSubtitle(
+  Future<String?> downloadSubtitle(
     int id, {
     required String url,
     required String ext,
@@ -207,7 +217,7 @@ class MediaRepository {
     savePath: savePath,
   );
 
-  Future<void> batchAddAssociations({
+  Future<String?> batchAddAssociations({
     required List<int> movieIds,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
@@ -219,7 +229,7 @@ class MediaRepository {
     seriesId: seriesId,
   );
 
-  Future<void> batchRemoveAssociations({
+  Future<String?> batchRemoveAssociations({
     required List<int> movieIds,
     List<int> tagIds = const [],
     List<int> genreIds = const [],
@@ -232,7 +242,8 @@ class MediaRepository {
   );
 
   /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
-  Future<({int successCount, int failedCount})> batchWatermark({
+  Future<({String? message, int successCount, int failedCount})>
+  batchWatermark({
     required List<int> movieIds,
     bool? subtitle,
     bool? exsub,
@@ -246,7 +257,7 @@ class MediaRepository {
     resolution: resolution,
   );
 
-  Future<String?> mergeDuplicateFiles({
+  Future<({String? taskId, String? message})> mergeDuplicateFiles({
     required List<int> movieIds,
     required int targetMovieId,
   }) => _operations.mergeDuplicateFiles(
@@ -259,10 +270,10 @@ class MediaRepository {
         movieIds.map(_movieRef).toList(growable: false),
       );
 
-  Future<void> applyDuplicateNfo(Map<String, dynamic> payload) =>
+  Future<String?> applyDuplicateNfo(Map<String, dynamic> payload) =>
       _operations.applyDuplicateNfo(payload);
 
-  Future<String> requestDownload({
+  Future<String?> requestDownload({
     required List<int> movieIds,
     required Map<String, dynamic> requirements,
   }) => _operations.requestDownload(
@@ -270,7 +281,7 @@ class MediaRepository {
     requirements: requirements,
   );
 
-  Future<void> applyPosterCrop(
+  Future<String?> applyPosterCrop(
     int id, {
     required double cropOffset,
     bool? subtitle,
@@ -279,7 +290,7 @@ class MediaRepository {
     String? resolution,
     bool syncParts = false,
   }) async {
-    await _operations.applyPosterCrop(
+    final message = await _operations.applyPosterCrop(
       _movieRef(id),
       cropOffset: cropOffset,
       subtitle: subtitle,
@@ -289,6 +300,7 @@ class MediaRepository {
       syncParts: syncParts,
     );
     MovieDataChanges.bumpImages(movieId: id);
+    return message;
   }
 
   Future<List<int>> previewPosterCrop(
@@ -315,11 +327,16 @@ class MediaRepository {
   Future<PreviewStatus> previewStatus(int id) =>
       _operations.previewStatus(_movieRef(id));
 
-  Future<void> cancelPreviewTask(String taskId) =>
+  Future<String?> cancelPreviewTask(String taskId) =>
       _operations.cancelPreviewTask(taskId);
 
   source_models.MediaRef _movieRef(int id) {
-    if (id <= 0) throw ArgumentError.value(id, 'id', '影片 ID 必须为正数');
+    if (id <= 0) {
+      throw const SourceException(
+        AppErrorCode.ommIdInvalid,
+        code: AppErrorCode.ommIdInvalid,
+      );
+    }
     return source_models.MediaRef(sourceId: _ommSourceId, value: '$id');
   }
 
@@ -327,7 +344,12 @@ class MediaRepository {
     final payload = item.payload;
     if (payload is MovieListItem) return payload;
     final id = int.tryParse(item.ref.value);
-    if (id == null || id <= 0) throw StateError('Source 返回了无效的 OMM 影片 ID');
+    if (id == null || id <= 0) {
+      throw const SourceException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
+    }
     final attributes = item.attributes;
     return MovieListItem(
       id: id,

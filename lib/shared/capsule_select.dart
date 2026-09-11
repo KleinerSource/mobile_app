@@ -44,10 +44,7 @@ class CapsuleSelect extends StatelessWidget {
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         box.localToGlobal(Offset.zero, ancestor: overlay),
-        box.localToGlobal(
-          box.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -80,8 +77,9 @@ class CapsuleSelect extends StatelessWidget {
                   style: TextStyle(
                     color: option.value == value ? c.accent : c.text,
                     fontFamily: 'Inter',
-                    fontWeight:
-                        option.value == value ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: option.value == value
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     fontSize: 13,
                   ),
                 ),
@@ -111,9 +109,7 @@ class CapsuleSelect extends StatelessWidget {
             color: _active ? c.accent.withValues(alpha: 0.14) : c.chipBg,
             borderRadius: BorderRadius.circular(100),
             border: Border.all(
-              color: _active
-                  ? c.accent.withValues(alpha: 0.55)
-                  : c.cardBorder,
+              color: _active ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
               width: 1,
             ),
           ),

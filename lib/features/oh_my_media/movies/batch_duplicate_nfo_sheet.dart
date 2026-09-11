@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
 
@@ -117,7 +117,7 @@ class _BatchDuplicateNfoCompareSheetState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = toApiException(e).message;
+        _error = localizedErrorMessage(AppL10n.of(context), e);
         _loading = false;
       });
     }
@@ -162,14 +162,16 @@ class _BatchDuplicateNfoCompareSheetState
         movieLists.add(entry);
       }
 
-      await ref.read(mediaRepositoryProvider).applyDuplicateNfo({
-        'movie_ids': widget.movieIds,
-        'scalars': _selections,
-        'movie_lists': movieLists,
-      });
+      final message = await ref
+          .read(mediaRepositoryProvider)
+          .applyDuplicateNfo({
+            'movie_ids': widget.movieIds,
+            'scalars': _selections,
+            'movie_lists': movieLists,
+          });
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).moviesNfoSynced)),
+        SnackBar(content: Text(message ?? AppL10n.of(context).moviesNfoSynced)),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -177,7 +179,9 @@ class _BatchDuplicateNfoCompareSheetState
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).moviesApplyFailed(toApiException(e).message),
+            AppL10n.of(
+              context,
+            ).moviesApplyFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );

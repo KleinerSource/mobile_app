@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
@@ -19,6 +20,7 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/files/file_playback_progress.dart';
 import 'package:omm/core/sources/sources.dart';
+import 'package:omm/core/sources/media/omm_media_operations_adapter.dart';
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
@@ -282,6 +284,31 @@ void _main_0() {
       () => joinRelativeFilePath('Movies', '2024/A.mkv'),
       throwsArgumentError,
     );
+  });
+
+  test('OMM 二进制预览响应中的 JSON 业务失败保留后端 message 和 code', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/api'))
+      ..httpClientAdapter = _BinaryJsonAdapter(
+        '{"success":false,"message":"预览处理失败",'
+        '"code":"PREVIEW_FAILED"}',
+      );
+    final source = OmmMediaSourceAdapter(ApiClient(dio));
+    final operations = OmmMediaOperationsAdapter(ApiClient(dio));
+    final movie = const MediaRef(sourceId: SourceId('omm'), value: '7');
+
+    for (final operation in <Future<List<int>> Function()>[
+      () => operations.previewActorAvatar({'avatar_url': 'avatar'}),
+      () => source.operations.previewPosterCrop(movie, cropOffset: 0.2),
+    ]) {
+      await expectLater(
+        operation(),
+        throwsA(
+          isA<SourceException>()
+              .having((error) => error.message, 'message', '预览处理失败')
+              .having((error) => error.code, 'code', 'PREVIEW_FAILED'),
+        ),
+      );
+    }
   });
 
   test(
@@ -724,6 +751,30 @@ class _JsonAdapter implements HttpClientAdapter {
   }
 }
 
+class _BinaryJsonAdapter implements HttpClientAdapter {
+  _BinaryJsonAdapter(this.body);
+
+  final String body;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromBytes(
+      utf8.encode(body),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/octet-stream'],
+      },
+    );
+  }
+}
+
 class _MemoryTokenStore implements AuthTokenStore {
   final values = <String, String>{};
 
@@ -867,10 +918,10 @@ void _main_1() {
       await expectLater(
         source.openRange(path, offset: bytes.length, length: 1),
         throwsA(
-          isA<Exception>().having(
-            (error) => error.toString(),
-            'message',
-            contains('区间超出文件范围'),
+          isA<FileSourceException>().having(
+            (error) => error.code,
+            'code',
+            AppErrorCode.httpError,
           ),
         ),
       );

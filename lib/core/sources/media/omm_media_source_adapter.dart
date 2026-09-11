@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../api/api_client.dart';
 import '../../api/envelope.dart';
+import '../../api/error_codes.dart';
 import '../../models/movie.dart';
 import '../../models/paged_result.dart';
 import '../../models/playback.dart';
@@ -156,7 +157,10 @@ class OmmMediaSourceAdapter
         : decision.directUrl.trim();
     final uri = Uri.tryParse(rawUrl);
     if (uri == null || !uri.hasScheme) {
-      throw const SourceException('OMM 播放决策未返回有效地址');
+      throw const SourceException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
     }
     return PlaybackDescriptor(
       uri: uri,
@@ -226,7 +230,10 @@ class OmmMediaSourceAdapter
         subtitleTrackId: subtitleTrackId,
       );
     } catch (error) {
-      throw mapSourceError(error, fallback: 'OMM 转码状态请求失败');
+      throw mapSourceError(
+        error,
+        fallbackCode: AppErrorCode.ommTranscodeStatusFailed,
+      );
     }
   }
 
@@ -245,8 +252,23 @@ class OmmMediaSourceAdapter
         ),
       );
       final content = (response.data ?? '').trim();
+      final envelope = decodeJsonMap(content);
+      if (envelope != null) {
+        final message = envelopeMessageOrNull(envelope);
+        final code = envelopeCodeOrNull(envelope);
+        throw SourceException(
+          message ?? code ?? AppErrorCode.ommSubtitleFetchFailed,
+          code:
+              code ??
+              (message == null ? AppErrorCode.ommSubtitleFetchFailed : null),
+          statusCode: response.statusCode,
+        );
+      }
       if (!content.contains('-->')) {
-        throw const SourceException('字幕内容无效或为空');
+        throw const SourceException(
+          AppErrorCode.ommSubtitleInvalid,
+          code: AppErrorCode.ommSubtitleInvalid,
+        );
       }
       return content;
     } catch (error) {
@@ -313,8 +335,13 @@ class OmmMediaSourceAdapter
   Future<MediaLibrary> getLibrary(MediaRef ref) async {
     final raw = await _call(() => client.libraries.detail(_ommId(ref)));
     final data = _unwrapData(raw);
-    if (data is! Map) throw const SourceException('OMM 媒体库响应格式错误');
-    return _libraryFromJson(data);
+    if (data is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommLibraryResponseInvalid,
+        code: AppErrorCode.ommLibraryResponseInvalid,
+      );
+    }
+    return _libraryFromJson(data, message: envelopeMessageOrNull(raw));
   }
 
   @override
@@ -326,8 +353,13 @@ class OmmMediaSourceAdapter
       () => client.libraries.create({'name': name, 'enabled': enabled}),
     );
     final data = _unwrapData(raw);
-    if (data is! Map) throw const SourceException('OMM 媒体库响应格式错误');
-    return _libraryFromJson(data);
+    if (data is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommLibraryResponseInvalid,
+        code: AppErrorCode.ommLibraryResponseInvalid,
+      );
+    }
+    return _libraryFromJson(data, message: envelopeMessageOrNull(raw));
   }
 
   @override
@@ -341,18 +373,24 @@ class OmmMediaSourceAdapter
     };
     final raw = await _call(() => client.libraries.update(_ommId(ref), body));
     final data = _unwrapData(raw);
-    if (data is! Map) throw const SourceException('OMM 媒体库响应格式错误');
-    return _libraryFromJson(data);
+    if (data is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommLibraryResponseInvalid,
+        code: AppErrorCode.ommLibraryResponseInvalid,
+      );
+    }
+    return _libraryFromJson(data, message: envelopeMessageOrNull(raw));
   }
 
   @override
-  Future<void> deleteLibrary(MediaRef ref) async {
+  Future<String?> deleteLibrary(MediaRef ref) async {
     final raw = await _call(
       () => client.libraries.delete({
         'libraries_ids': [_ommId(ref)],
       }),
     );
     _unwrapData(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
@@ -389,8 +427,16 @@ class OmmMediaSourceAdapter
       }),
     );
     final data = _unwrapData(raw);
-    if (data is! Map) throw const SourceException('OMM 目录响应格式错误');
-    return _folderFromJson(Map<String, dynamic>.from(data));
+    if (data is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommFolderResponseInvalid,
+        code: AppErrorCode.ommFolderResponseInvalid,
+      );
+    }
+    return _folderFromJson(
+      Map<String, dynamic>.from(data),
+      message: envelopeMessageOrNull(raw),
+    );
   }
 
   @override
@@ -412,18 +458,27 @@ class OmmMediaSourceAdapter
       ),
     );
     final data = _unwrapData(raw);
-    if (data is! Map) throw const SourceException('OMM 目录响应格式错误');
-    return _folderFromJson(Map<String, dynamic>.from(data));
+    if (data is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommFolderResponseInvalid,
+        code: AppErrorCode.ommFolderResponseInvalid,
+      );
+    }
+    return _folderFromJson(
+      Map<String, dynamic>.from(data),
+      message: envelopeMessageOrNull(raw),
+    );
   }
 
   @override
-  Future<void> deleteFolder(MediaRef library, MediaRef folder) async {
+  Future<String?> deleteFolder(MediaRef library, MediaRef folder) async {
     final raw = await _call(
       () => client.libraries.deleteDirectory(_ommId(library), {
         'directories_ids': [_ommId(folder)],
       }),
     );
     _unwrapData(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
@@ -438,7 +493,12 @@ class OmmMediaSourceAdapter
       }),
     );
     final json = _unwrapData(raw);
-    if (json is! Map) throw const SourceException('OMM 路径校验响应格式错误');
+    if (json is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommPathValidationResponseInvalid,
+        code: AppErrorCode.ommPathValidationResponseInvalid,
+      );
+    }
     return PathValidationResult(
       exists: json['exists'] == true,
       isDirectory: json['is_directory'] == true,
@@ -463,9 +523,17 @@ class OmmMediaSourceAdapter
         ? (task['task_id'] ?? task['id'] ?? task['taskId'])?.toString()
         : data?.toString();
     if (jobId == null || jobId.isEmpty) {
-      throw const SourceException('OMM 扫描响应缺少任务 ID');
+      throw const SourceException(
+        AppErrorCode.ommScanTaskIdMissing,
+        code: AppErrorCode.ommScanTaskIdMissing,
+      );
     }
-    return ScanJob(id: jobId, library: library, status: ScanJobStatus.queued);
+    return ScanJob(
+      id: jobId,
+      library: library,
+      status: ScanJobStatus.queued,
+      message: envelopeMessageOrNull(raw),
+    );
   }
 
   @override
@@ -480,13 +548,15 @@ class OmmMediaSourceAdapter
     return items
         .whereType<Map>()
         .where((item) {
-          final status = (item['status'] ?? '').toString();
+          final status = (item['status'] ?? '').toString().trim().toLowerCase();
           final ids = item['libraryIds'] ?? item['library_ids'];
           return const {
                 'queued',
                 'running',
+                'processing',
                 'paused',
                 'canceling',
+                'cancelling',
               }.contains(status) &&
               (ids is! List ||
                   ids.isEmpty ||
@@ -504,23 +574,34 @@ class OmmMediaSourceAdapter
   Future<ScanJob> scanProgress(MediaRef library, String jobId) async {
     final raw = await _call(() => client.tasks.get(jobId));
     final data = _unwrapData(raw);
-    if (data is! Map) throw const SourceException('OMM 扫描进度响应格式错误');
+    if (data is! Map) {
+      throw const SourceException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
+    }
     return _scanFromJson(Map<String, dynamic>.from(data), library);
   }
 
   @override
-  Future<void> pauseScan(MediaRef library, String jobId) async {
-    await _call(() => client.tasks.control(jobId, 'pause'));
+  Future<String?> pauseScan(MediaRef library, String jobId) async {
+    final raw = await _call(() => client.tasks.control(jobId, 'pause'));
+    _unwrapData(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<void> resumeScan(MediaRef library, String jobId) async {
-    await _call(() => client.tasks.control(jobId, 'resume'));
+  Future<String?> resumeScan(MediaRef library, String jobId) async {
+    final raw = await _call(() => client.tasks.control(jobId, 'resume'));
+    _unwrapData(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
-  Future<void> cancelScan(MediaRef library, String jobId) async {
-    await _call(() => client.tasks.control(jobId, 'cancel'));
+  Future<String?> cancelScan(MediaRef library, String jobId) async {
+    final raw = await _call(() => client.tasks.control(jobId, 'cancel'));
+    _unwrapData(raw);
+    return envelopeMessageOrNull(raw);
   }
 
   @override
@@ -531,20 +612,26 @@ class OmmMediaSourceAdapter
         'incremental': incremental,
       }),
     );
-    final message = raw is Map ? (raw['message'] ?? '').toString() : '';
+    final message = envelopeMessage(raw, fallback: '');
     final data = _unwrapData(raw);
     if (data is! Map) {
-      throw const SourceException('OMM 批量扫描响应格式错误');
+      throw const SourceException(
+        AppErrorCode.ommBatchScanResponseInvalid,
+        code: AppErrorCode.ommBatchScanResponseInvalid,
+      );
     }
+    final json = Map<String, dynamic>.from(data);
+    final tasks = _batchScanTasks(json['tasks']);
     return BatchScanResult(
       message: message,
-      scanType: incremental ? '增量扫描' : '全量扫描',
-      enabledCount: 1,
-      acceptedCount: 1,
-      reusedCount: 0,
-      failedCount: 0,
-      skippedDisabledCount: 0,
-      tasks: const <BatchScanTask>[],
+      scanType: (json['scan_type'] ?? (incremental ? 'incremental' : 'full'))
+          .toString(),
+      enabledCount: _intValue(json['enabled_count']) ?? 0,
+      acceptedCount: _intValue(json['accepted_count']) ?? 0,
+      reusedCount: _intValue(json['reused_count']) ?? 0,
+      failedCount: _intValue(json['failed_count']) ?? 0,
+      skippedDisabledCount: _intValue(json['skipped_disabled_count']) ?? 0,
+      tasks: tasks,
     );
   }
 
@@ -608,10 +695,15 @@ class OmmMediaSourceAdapter
     );
   }
 
-  MediaLibrary _libraryFromJson(Map raw) {
+  MediaLibrary _libraryFromJson(Map raw, {String? message}) {
     final json = Map<String, dynamic>.from(raw);
     final id = _intValue(json['id']);
-    if (id == null) throw const SourceException('OMM 媒体库缺少有效 ID');
+    if (id == null) {
+      throw const SourceException(
+        AppErrorCode.ommLibraryIdMissing,
+        code: AppErrorCode.ommLibraryIdMissing,
+      );
+    }
     final rawFolders = json['directories'];
     final folders = rawFolders is List
         ? rawFolders
@@ -627,18 +719,28 @@ class OmmMediaSourceAdapter
       fileCount: _intValue(json['file_count']) ?? 0,
       folders: folders,
       attributes: json,
+      message: message,
     );
   }
 
-  MediaLibraryFolder _folderFromJson(Map<String, dynamic> json) {
+  MediaLibraryFolder _folderFromJson(
+    Map<String, dynamic> json, {
+    String? message,
+  }) {
     final id = _intValue(json['id']);
-    if (id == null) throw const SourceException('OMM 目录缺少有效 ID');
+    if (id == null) {
+      throw const SourceException(
+        AppErrorCode.ommFolderIdMissing,
+        code: AppErrorCode.ommFolderIdMissing,
+      );
+    }
     return MediaLibraryFolder(
       ref: MediaRef(sourceId: _sourceId, value: '$id'),
       path: json['path']?.toString() ?? '',
       name: _stringOrNull(json['name']),
       enabled: json['enabled'] != false,
       fileCount: _intValue(json['file_count']) ?? 0,
+      message: message,
     );
   }
 
@@ -668,11 +770,17 @@ class OmmMediaSourceAdapter
 
   int _ommId(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
-      throw SourceException('来源 ID 不属于 OMM：${ref.sourceId.value}');
+      throw const SourceException(
+        AppErrorCode.ommSourceIdInvalid,
+        code: AppErrorCode.ommSourceIdInvalid,
+      );
     }
     final id = int.tryParse(ref.value);
     if (id == null || id <= 0) {
-      throw SourceException('OMM ID 无效：${ref.value}');
+      throw const SourceException(
+        AppErrorCode.ommIdInvalid,
+        code: AppErrorCode.ommIdInvalid,
+      );
     }
     return id;
   }
@@ -683,7 +791,7 @@ class OmmMediaSourceAdapter
     } on SourceException {
       rethrow;
     } catch (error) {
-      throw mapSourceError(error, fallback: 'OMM 请求失败');
+      throw mapSourceError(error, fallbackCode: AppErrorCode.ommRequestFailed);
     }
   }
 }
@@ -695,29 +803,60 @@ bool _isNoResultMessage(String message) {
 
 SourceException _mapSubtitleError(Object error) {
   if (error is DioException) {
-    final data = error.response?.data;
+    Object? data = error.response?.data;
     if (data is String) {
       try {
-        final decoded = jsonDecode(data);
-        if (decoded is Map && decoded['message'] is String) {
-          return SourceException(
-            decoded['message'] as String,
-            statusCode: error.response?.statusCode,
-            cause: error,
-          );
-        }
+        data = jsonDecode(data);
       } catch (_) {}
     }
+    final message = envelopeMessageOrNull(data);
+    if (message != null) {
+      return SourceException(
+        message,
+        code: envelopeCodeOrNull(data),
+        statusCode: error.response?.statusCode,
+        cause: error,
+      );
+    }
   }
-  return mapSourceError(error, fallback: '字幕内容获取失败');
+  return mapSourceError(
+    error,
+    fallbackCode: AppErrorCode.ommSubtitleFetchFailed,
+  );
 }
 
 Object? _unwrapData(Object? raw) {
-  if (raw is Map && raw['success'] == false) {
-    throw SourceException(raw['message']?.toString() ?? '服务端请求失败');
+  if (raw is! Map || raw['success'] != true) {
+    final message = envelopeMessageOrNull(raw);
+    final code = envelopeCodeOrNull(raw);
+    throw SourceException(
+      message ?? code ?? AppErrorCode.ommRequestFailed,
+      code: code ?? (message == null ? AppErrorCode.ommRequestFailed : null),
+    );
   }
-  if (raw is Map && raw.containsKey('data')) return raw['data'];
+  if (raw.containsKey('data')) return raw['data'];
   return raw;
+}
+
+List<BatchScanTask> _batchScanTasks(Object? value) {
+  if (value is! List) return const <BatchScanTask>[];
+  return value
+      .whereType<Map>()
+      .map((item) {
+        final json = Map<String, dynamic>.from(item);
+        return BatchScanTask(
+          libraryId: _intValue(json['library_id'] ?? json['libraryId']) ?? 0,
+          libraryName: (json['library_name'] ?? json['libraryName'] ?? '')
+              .toString(),
+          taskId: (json['task_id'] ?? json['taskId'] ?? json['id'] ?? '')
+              .toString(),
+          status: (json['status'] ?? '').toString(),
+          queuePosition:
+              _intValue(json['queue_position'] ?? json['queuePosition']) ?? 0,
+          reused: json['reused'] == true,
+        );
+      })
+      .toList(growable: false);
 }
 
 MediaResourceKind _resourceKind(String? category) => switch (category?.trim()) {
@@ -729,15 +868,17 @@ MediaResourceKind _resourceKind(String? category) => switch (category?.trim()) {
   _ => MediaResourceKind.other,
 };
 
-ScanJobStatus _scanStatus(Object? value) => switch (value?.toString()) {
-  'queued' || 'pending' => ScanJobStatus.queued,
-  'running' => ScanJobStatus.running,
-  'paused' => ScanJobStatus.paused,
-  'completed' || 'success' || 'finished' => ScanJobStatus.completed,
-  'failed' || 'error' => ScanJobStatus.failed,
-  'canceled' || 'cancelled' => ScanJobStatus.canceled,
-  _ => ScanJobStatus.unknown,
-};
+ScanJobStatus _scanStatus(Object? value) =>
+    switch (value?.toString().trim().toLowerCase()) {
+      'queued' || 'pending' => ScanJobStatus.queued,
+      'running' || 'processing' => ScanJobStatus.running,
+      'paused' => ScanJobStatus.paused,
+      'completed' || 'success' || 'finished' => ScanJobStatus.completed,
+      'failed' || 'error' => ScanJobStatus.failed,
+      'canceling' || 'cancelling' => ScanJobStatus.canceling,
+      'canceled' || 'cancelled' => ScanJobStatus.canceled,
+      _ => ScanJobStatus.unknown,
+    };
 
 String? _stringOrNull(Object? value) {
   final text = value?.toString().trim() ?? '';

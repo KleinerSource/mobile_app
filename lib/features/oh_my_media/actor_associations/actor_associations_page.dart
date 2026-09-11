@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/debouncer.dart';
@@ -74,6 +74,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
+    final l = AppL10n.of(context);
     try {
       final repo = ref.read(actorAssociationsRepositoryProvider);
       final r = await repo.list(
@@ -94,7 +95,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       if (mounted) setState(() => _lastPageComplete = !hasMore);
     } catch (e) {
       if (!pageRequest.isCurrent) return;
-      _controller.error = toApiException(e).message;
+      _controller.error = localizedErrorMessage(l, e);
     } finally {
       pageRequest.finish();
     }
@@ -184,13 +185,17 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(actorAssociationsRepositoryProvider).deleteById(r.id);
-      messenger.showSnackBar(SnackBar(content: Text(l.actorAssocDeletedToast)));
+      final message = await ref
+          .read(actorAssociationsRepositoryProvider)
+          .deleteById(r.id);
+      messenger.showSnackBar(
+        SnackBar(content: Text(message ?? l.actorAssocDeletedToast)),
+      );
       _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l.actorAssocDeleteFailed(toApiException(e).message)),
+          content: Text(l.actorAssocDeleteFailed(localizedErrorMessage(l, e))),
         ),
       );
     }
@@ -287,10 +292,8 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
                       firstPageProgressIndicatorBuilder: (_) =>
                           const Center(child: CupertinoActivityIndicator()),
                       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message:
-                            _controller.error?.toString().trim().isNotEmpty ==
-                                true
-                            ? _controller.error!.toString()
+                        message: _controller.error?.trim().isNotEmpty == true
+                            ? localizedErrorMessage(l, _controller.error!)
                             : l.loadFailed,
                         onRetry: () => _controller.refresh(),
                       ),

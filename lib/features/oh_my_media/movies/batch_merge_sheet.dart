@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/movie.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/core/util/map_with_concurrency.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'movies_providers.dart';
@@ -59,7 +58,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = toApiException(e).message;
+        _error = localizedErrorMessage(AppL10n.of(context), e);
         _loading = false;
       });
     }
@@ -84,7 +83,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
     setState(() => _merging = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref
+      final result = await ref
           .read(mediaRepositoryProvider)
           .mergeDuplicateFiles(
             movieIds: widget.movieIds,
@@ -92,7 +91,11 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
           );
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).moviesMergeStarted)),
+        SnackBar(
+          content: Text(
+            result.message ?? AppL10n.of(context).moviesMergeStarted,
+          ),
+        ),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -100,7 +103,9 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).moviesMergeFailed(sourceErrorMessage(e)),
+            AppL10n.of(
+              context,
+            ).moviesMergeFailed(localizedErrorMessage(AppL10n.of(context), e)),
           ),
         ),
       );

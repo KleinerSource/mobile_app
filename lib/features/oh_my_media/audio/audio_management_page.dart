@@ -6,10 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/drag_selection.dart';
@@ -29,6 +27,7 @@ import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'package:omm/features/oh_my_media/tasks/task_name_labels.dart';
 import 'package:omm/features/translation/modal_transcription_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'audio_models.dart';
 import 'audio_providers.dart';
 
@@ -162,7 +161,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
       _refreshing = false;
     } finally {
       pageRequest.finish();
@@ -441,11 +440,15 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     setState(() {});
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(audioRepositoryProvider).cancelExtraction(task.id);
+      final message = await ref
+          .read(audioRepositoryProvider)
+          .cancelExtraction(task.id);
       if (mounted) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text(AppL10n.of(context).audioCancelExtractionSubmitted),
+            content: Text(
+              message ?? AppL10n.of(context).audioCancelExtractionSubmitted,
+            ),
           ),
         );
       }
@@ -454,9 +457,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).audioCancelExtractionFailed(sourceErrorMessage(error)),
+              AppL10n.of(context).audioCancelExtractionFailed(
+                localizedErrorMessage(AppL10n.of(context), error),
+              ),
             ),
           ),
         );
@@ -474,10 +477,14 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     setState(() {});
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(audioRepositoryProvider).cancelTranscription(taskId);
+      final message = await ref
+          .read(audioRepositoryProvider)
+          .cancelTranscription(taskId);
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).audioCancelSubmitted)),
+          SnackBar(
+            content: Text(message ?? AppL10n.of(context).audioCancelSubmitted),
+          ),
         );
         _reload(preserveScroll: true);
       }
@@ -486,9 +493,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).audioCancelTranscriptionFailed(sourceErrorMessage(error)),
+              AppL10n.of(context).audioCancelTranscriptionFailed(
+                localizedErrorMessage(AppL10n.of(context), error),
+              ),
             ),
           ),
         );
@@ -530,12 +537,16 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       if (rejected.isNotEmpty) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text(l.audioEnqueuedMixed(result.accepted, rejected)),
+            content: Text(
+              result.message ?? l.audioEnqueuedMixed(result.accepted, rejected),
+            ),
           ),
         );
       } else {
         messenger.showSnackBar(
-          SnackBar(content: Text(l.audioEnqueued(result.accepted))),
+          SnackBar(
+            content: Text(result.message ?? l.audioEnqueued(result.accepted)),
+          ),
         );
       }
       _exitSelection();
@@ -545,7 +556,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(context).audioEnqueueFailed(sourceErrorMessage(error)),
+              AppL10n.of(context).audioEnqueueFailed(
+                localizedErrorMessage(AppL10n.of(context), error),
+              ),
             ),
           ),
         );
@@ -563,10 +576,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     setState(() {});
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(audioRepositoryProvider).retryTranscription(taskId);
+      final message = await ref
+          .read(audioRepositoryProvider)
+          .retryTranscription(taskId);
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text(AppL10n.of(context).audioRequeued)),
+          SnackBar(content: Text(message ?? AppL10n.of(context).audioRequeued)),
         );
         _reload(preserveScroll: true);
       }
@@ -575,7 +590,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(context).audioRetryFailed(sourceErrorMessage(error)),
+              AppL10n.of(context).audioRetryFailed(
+                localizedErrorMessage(AppL10n.of(context), error),
+              ),
             ),
           ),
         );
@@ -635,12 +652,19 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       if (rejected.isNotEmpty) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text(l.audioDeleteResult(result.deleted.length, rejected)),
+            content: Text(
+              result.message ??
+                  l.audioDeleteResult(result.deleted.length, rejected),
+            ),
           ),
         );
       } else {
         messenger.showSnackBar(
-          SnackBar(content: Text(l.audioDeleted(result.deleted.length))),
+          SnackBar(
+            content: Text(
+              result.message ?? l.audioDeleted(result.deleted.length),
+            ),
+          ),
         );
       }
       _exitSelection();
@@ -650,9 +674,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              AppL10n.of(
-                context,
-              ).audioDeleteFailed(toApiException(error).message),
+              AppL10n.of(context).audioDeleteFailed(
+                localizedErrorMessage(AppL10n.of(context), error),
+              ),
             ),
           ),
         );
@@ -1024,9 +1048,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                         ),
                                     firstPageErrorIndicatorBuilder: (_) =>
                                         ErrorView(
-                                          message:
-                                              _controller.error?.toString() ??
-                                              l.loadFailed,
+                                          message: _controller.error == null
+                                              ? l.loadFailed
+                                              : localizedErrorMessage(
+                                                  l,
+                                                  _controller.error!,
+                                                ),
                                           onRetry: () => _controller.refresh(),
                                         ),
                                     noItemsFoundIndicatorBuilder: (_) =>
@@ -1186,7 +1213,11 @@ class _ExtractionTaskCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title.isEmpty
-                              ? taskNameLabel(AppL10n.of(context), task.name)
+                              ? taskNameLabel(
+                                  AppL10n.of(context),
+                                  task.name,
+                                  taskType: task.taskType,
+                                )
                               : title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

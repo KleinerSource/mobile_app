@@ -89,7 +89,8 @@ String? resolutionTierToApi(ResolutionTier tier) {
 }
 
 /// resolution_tier 字段与 ResolutionTier 枚举的 JSON 转换。
-class ResolutionTierConverter implements JsonConverter<ResolutionTier, String?> {
+class ResolutionTierConverter
+    implements JsonConverter<ResolutionTier, String?> {
   const ResolutionTierConverter();
 
   @override

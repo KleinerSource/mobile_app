@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/api/error_codes.dart';
 import '../../core/platform/app_log_store.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_source_repository.dart';
@@ -179,10 +180,10 @@ class MusicCacheService {
       await sink.close();
       sink = null;
       if (task.cancellation.isCancelled) {
-        throw StateError('音乐缓存下载已取消');
+        throw StateError(AppErrorCode.fileTransferCanceled);
       }
       if (expectedSize != null && await partialFile.length() != expectedSize) {
-        throw StateError('音乐缓存大小校验失败');
+        throw StateError(AppErrorCode.responseDataMissing);
       }
       await partialFile.rename(finalFile.path);
       _log('音乐缓存完成: ${path.stableKey}');

@@ -7,12 +7,14 @@ class ResourceScanStartResult {
     required this.acceptedCount,
     required this.skippedCount,
     required this.skippedIds,
+    this.message,
   });
 
   final String taskId;
   final int acceptedCount;
   final int skippedCount;
   final List<int> skippedIds;
+  final String? message;
 
   factory ResourceScanStartResult.fromJson(Map<String, dynamic> json) {
     return ResourceScanStartResult(
@@ -20,6 +22,7 @@ class ResourceScanStartResult {
       acceptedCount: _intValue(json['accepted_count']),
       skippedCount: _intValue(json['skipped_count']),
       skippedIds: _intList(json['skipped_ids']),
+      message: json['message']?.toString(),
     );
   }
 }

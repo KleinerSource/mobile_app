@@ -7,12 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/core/sources/common/source_error_mapper.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -25,6 +23,7 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -182,6 +181,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
+    final l = AppL10n.of(context);
     try {
       final maxItems = widget.maxItems;
       if (maxItems != null && offset >= maxItems) {
@@ -216,7 +216,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       _scheduleAutoPreviewUpdate();
     } catch (e) {
       if (!pageRequest.isCurrent) return;
-      _controller.error = toApiException(e).message;
+      _controller.error = localizedErrorMessage(l, e);
     } finally {
       pageRequest.finish();
     }
@@ -658,7 +658,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
             : card;
       },
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message: _controller.error?.toString() ?? l.loadFailed,
+        message: _controller.error == null
+            ? l.loadFailed
+            : localizedErrorMessage(l, _controller.error!),
         onRetry: () => _controller.refresh(),
       ),
       newPageErrorIndicatorBuilder: (_) => Padding(
@@ -700,7 +702,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message: _controller.error?.toString() ?? l.loadFailed,
+        message: _controller.error == null
+            ? l.loadFailed
+            : localizedErrorMessage(l, _controller.error!),
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
@@ -735,19 +739,21 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final nextValue = !isFavorited;
     try {
       final repository = ref.read(favoritesRepositoryProvider);
+      String? message;
       if (isFavorited) {
-        await repository.removeBatch([movie.id]);
+        message = await repository.removeBatch([movie.id]);
       } else {
-        await repository.addBatch([movie.id]);
+        message = await repository.addBatch([movie.id]);
       }
       ref.read(favoriteStatusProvider.notifier).seed(movie.id, nextValue);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            nextValue
-                ? AppL10n.of(context).moviesFavoriteAdded(movie.title)
-                : AppL10n.of(context).moviesFavoriteRemoved(movie.title),
+            message ??
+                (nextValue
+                    ? AppL10n.of(context).moviesFavoriteAdded(movie.title)
+                    : AppL10n.of(context).moviesFavoriteRemoved(movie.title)),
           ),
           duration: const Duration(seconds: 1),
         ),
@@ -757,9 +763,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).moviesOperationFailed(toApiException(e).message),
+            AppL10n.of(context).moviesOperationFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
           ),
         ),
       );
@@ -857,12 +863,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       final skippedText = result.skippedCount > 0
           ? AppL10n.of(context).moviesScanSkipped(result.skippedCount)
           : '';
+      final message = result.message?.trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).moviesScanSubmitted(result.acceptedCount, skippedText),
+            message != null && message.isNotEmpty
+                ? message
+                : AppL10n.of(
+                    context,
+                  ).moviesScanSubmitted(result.acceptedCount, skippedText),
           ),
         ),
       );
@@ -879,7 +888,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(context).moviesScanCreateFailed(sourceErrorMessage(e)),
+            AppL10n.of(context).moviesScanCreateFailed(
+              localizedErrorMessage(AppL10n.of(context), e),
+            ),
           ),
         ),
       );

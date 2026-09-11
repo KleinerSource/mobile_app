@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/avdb_config.dart';
 import 'package:omm/core/models/dbo_config.dart';
 import 'package:omm/core/models/mapping_rule.dart';
@@ -88,6 +89,7 @@ class ActorAssocPreview {
     this.externalId,
     this.externalIds = const {},
     this.notFoundSources = const [],
+    this.failedSources = const [],
     this.biography = '',
     this.biographyChanged,
     this.avatarUrl = '',
@@ -109,6 +111,9 @@ class ActorAssocPreview {
 
   /// 混合渠道：请求成功但未命中演员的渠道（在补齐横幅位置展示，不占警告卡片）
   final List<String> notFoundSources;
+
+  /// 混合渠道：请求失败的渠道；状态判断不依赖 warning 文案。
+  final List<String> failedSources;
   final String biography;
   final bool? biographyChanged;
   final String avatarUrl;
@@ -149,6 +154,7 @@ class ActorAssocPreview {
           : j['external_id']?.toString(),
       externalIds: externalIds,
       notFoundSources: arr(j['not_found_sources']),
+      failedSources: arr(j['failed_sources']),
       biography: (j['biography'] ?? '').toString().trim(),
       biographyChanged: j['biography_changed'] is bool
           ? j['biography_changed'] as bool
@@ -285,7 +291,15 @@ class ActorAssociationsRepository {
     if (s != null && s.isNotEmpty) q['search'] = s;
     final raw = await _source.mappingList(_type, q);
     if (raw is! Map || raw['success'] != true) {
-      throw ApiException((raw is Map ? raw['message'] as String? : null) ?? '');
+      final message = envelopeMessageOrNull(raw);
+      final code = envelopeCodeOrNull(raw);
+      throw ApiException(
+        message ?? code ?? AppErrorCode.actorMappingLoadFailed,
+        code:
+            code ??
+            (message == null ? AppErrorCode.actorMappingLoadFailed : null),
+        data: raw is Map ? raw['data'] : null,
+      );
     }
     final data = raw['data'];
     final list = data is List
@@ -303,7 +317,7 @@ class ActorAssociationsRepository {
     return (items: items, totalCount: total);
   }
 
-  Future<MappingRule> create({
+  Future<({MappingRule item, String? message})> create({
     required String mappedValue,
     required List<String> originalValues,
   }) async {
@@ -312,13 +326,14 @@ class ActorAssociationsRepository {
       'original_values': originalValues,
       'scope': _scope,
     });
-    return unwrapStd<MappingRule>(
+    final item = unwrapStd<MappingRule>(
       raw,
       (d) => MappingRule.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
-  Future<MappingRule> update({
+  Future<({MappingRule item, String? message})> update({
     required int id,
     required String mappedValue,
     required List<String> originalValues,
@@ -328,17 +343,19 @@ class ActorAssociationsRepository {
       'original_values': originalValues,
       'scope': _scope,
     });
-    return unwrapStd<MappingRule>(
+    final item = unwrapStd<MappingRule>(
       raw,
       (d) => MappingRule.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
-  Future<void> deleteById(int id) async {
+  Future<String?> deleteById(int id) async {
     final raw = await _source.mappingDelete(_type, {
       'mappings_ids': [id],
     });
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   // ===== 同步演员关联 =====
@@ -379,7 +396,10 @@ class ActorAssociationsRepository {
         final taskId = d['task_id']?.toString() ?? '';
         if (taskId.isNotEmpty) return taskId;
       }
-      throw ApiException('预览任务创建失败');
+      throw ApiException(
+        AppErrorCode.previewTaskCreateFailed,
+        code: AppErrorCode.previewTaskCreateFailed,
+      );
     });
   }
 
@@ -390,7 +410,10 @@ class ActorAssociationsRepository {
       if (d is Map) {
         return MixedActorPreviewSession.fromJson(Map<String, dynamic>.from(d));
       }
-      throw ApiException('预览任务状态无效');
+      throw ApiException(
+        AppErrorCode.previewTaskStatusInvalid,
+        code: AppErrorCode.previewTaskStatusInvalid,
+      );
     });
   }
 
@@ -399,7 +422,7 @@ class ActorAssociationsRepository {
   /// 混合渠道：avatarSources 为所选各头像候选的 地址 → 来源 映射（决定下载方式），
   /// externalIds 为预览返回的 source → ID 映射（一次事务保存多来源身份）。
   /// 头像按候选顺序提交数组，后端依次下载保存为多张可轮播封面。
-  Future<void> applySource({
+  Future<String?> applySource({
     required String mappedValue,
     required List<String> originalValues,
     ActorDataSource source = ActorDataSource.dbonline,
@@ -444,6 +467,7 @@ class ActorAssociationsRepository {
     }
     final raw = await _source.actorExternalSyncApply(body);
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   /// 获取外部头像的二进制预览。失败时由调用方决定是否继续同步其他字段。
@@ -453,7 +477,10 @@ class ActorAssociationsRepository {
   }) async {
     final url = avatarUrl.trim();
     if (url.isEmpty) {
-      throw ApiException('头像地址为空');
+      throw ApiException(
+        AppErrorCode.avatarContentEmpty,
+        code: AppErrorCode.avatarContentEmpty,
+      );
     }
     return _source.previewActorAvatar({
       'avatar_url': url,

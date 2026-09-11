@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/ffmpeg_config.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
@@ -54,7 +54,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       _error = null;
     });
     try {
-      await ref
+      final saved = await ref
           .read(configsRepositoryProvider)
           .saveFfmpeg(
             FfmpegConfig(
@@ -71,10 +71,14 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       ref.invalidate(ffmpegConfigProvider);
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).ffmpegSavedToast)),
+        SnackBar(
+          content: Text(saved.message ?? AppL10n.of(context).ffmpegSavedToast),
+        ),
       );
     } catch (e) {
-      if (mounted) setState(() => _error = toApiException(e).message);
+      if (mounted) {
+        setState(() => _error = localizedErrorMessage(AppL10n.of(context), e));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -92,7 +96,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
               child: Text(
-                '${AppL10n.of(context).loadFailed}: ${toApiException(error).message}',
+                '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
               ),
             ),
             data: (cfg) {

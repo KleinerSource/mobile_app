@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'api_exception.dart';
+import 'error_codes.dart';
 
 const requiredServerProjectName = 'oh-my-media';
 const defaultOmmPort = 8001;
@@ -162,7 +163,18 @@ class ServerVersionInfo {
 }
 
 class ServerCompatibilityException extends ApiException {
-  ServerCompatibilityException(super.message);
+  ServerCompatibilityException(
+    String message, {
+    String? code,
+    Map<String, Object?>? details,
+  }) : super(
+         message,
+         code: code ??
+             (message.startsWith('error.')
+                 ? message
+                 : AppErrorCode.serverCompatibility),
+         details: details,
+       );
 }
 
 ServerVersionInfo requireCompatibleServerVersion(Object? raw) {

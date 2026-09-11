@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../api/error_codes.dart';
 import '../common/source_id.dart';
 
 enum FileEntryType { file, directory, link }
@@ -91,7 +92,7 @@ class FileAccess {
   Future<Stream<List<int>>> open() async {
     final streamFactory = openStream;
     if (streamFactory == null) {
-      throw StateError('文件访问句柄不包含可读取的流');
+      throw StateError(AppErrorCode.responseDataMissing);
     }
     return streamFactory();
   }
@@ -146,7 +147,7 @@ String normalizeRelativeFilePath(String value) {
     if (part.isEmpty || part == '.') continue;
     if (part == '..') {
       if (parts.isEmpty) {
-        throw ArgumentError.value(value, 'value', '路径不能越过来源根目录');
+      throw ArgumentError.value(value, 'value', AppErrorCode.validationFailed);
       }
       parts.removeLast();
       continue;
@@ -170,7 +171,7 @@ String normalizeRelativeFilePath(String value) {
 String normalizeFileName(String value) {
   final name = value.trim().replaceAll('\\', '/');
   if (name.isEmpty || name == '.' || name == '..' || name.contains('/')) {
-    throw ArgumentError.value(value, 'value', '文件名必须是单个路径片段');
+    throw ArgumentError.value(value, 'value', AppErrorCode.validationFailed);
   }
   return name;
 }

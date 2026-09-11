@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/dio_factory.dart';
 import '../../core/api/providers.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
@@ -13,6 +12,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/localized_error_message.dart';
 import 'settings_common.dart';
 
 /// 服务器访问控制 · 登录凭据、会话策略和 TOTP
@@ -67,7 +67,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       setState(() {
         _loading = false;
         _loadFailed = true;
-        _error = toApiException(error).message;
+        _error = localizedErrorMessage(AppL10n.of(context), error);
       });
     }
   }
@@ -140,7 +140,11 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         ),
       );
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -191,7 +195,11 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         ),
       );
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _totpBusy = false);
     }
@@ -235,7 +243,11 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         ),
       );
     } catch (error) {
-      if (mounted) setState(() => _error = toApiException(error).message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _totpBusy = false);
     }

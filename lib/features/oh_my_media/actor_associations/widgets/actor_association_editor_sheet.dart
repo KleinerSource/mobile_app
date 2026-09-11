@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_providers.dart';
 import 'package:omm/features/oh_my_media/actor_associations/actor_associations_repository.dart';
@@ -118,14 +118,20 @@ class _ActorAssociationEditorSheetState
     final messenger = ScaffoldMessenger.of(context);
     try {
       final repo = ref.read(actorAssociationsRepositoryProvider);
+      String? backendMessage;
       if (_isCreate) {
-        await repo.create(mappedValue: mapped, originalValues: inputAliases);
+        final created = await repo.create(
+          mappedValue: mapped,
+          originalValues: inputAliases,
+        );
+        backendMessage = created.message;
       } else if (_isEdit) {
-        await repo.update(
+        final updated = await repo.update(
           id: widget.existing!.id,
           mappedValue: mapped,
           originalValues: inputAliases,
         );
+        backendMessage = updated.message;
       } else {
         // append
         final merged = ActorAssociationsRepository.mergeAliases(
@@ -140,22 +146,25 @@ class _ActorAssociationEditorSheetState
           setState(() => _saving = false);
           return;
         }
-        await repo.update(
+        final updated = await repo.update(
           id: widget.existing!.id,
           mappedValue: mapped,
           originalValues: merged,
         );
+        backendMessage = updated.message;
       }
       if (!mounted) return;
       AppHaptics.medium();
-      messenger.showSnackBar(SnackBar(content: Text(l.actorAssocSaved(title))));
+      messenger.showSnackBar(
+        SnackBar(content: Text(backendMessage ?? l.actorAssocSaved(title))),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            l.actorAssocSaveFailed(title, toApiException(e).message),
+            l.actorAssocSaveFailed(title, localizedErrorMessage(l, e)),
           ),
         ),
       );

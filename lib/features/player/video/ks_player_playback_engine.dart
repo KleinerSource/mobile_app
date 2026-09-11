@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:omm_ksplayer/omm_ksplayer.dart';
 
+import '../../../core/api/error_codes.dart';
 import '../../../core/platform/app_log_store.dart';
 import 'ks_player_seek_recovery.dart';
 import '../common/playback_engine.dart';
@@ -78,7 +79,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
     final player = await _playerFuture;
     if (_disposed) {
       await player.dispose();
-      throw StateError('播放器已释放');
+      throw StateError(AppErrorCode.connectionClosed);
     }
     _player = player;
     appLog('[KsPlayer] 原生播放器已创建: id=${player.playerId}');
@@ -153,7 +154,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
         _update(
           (state) => state.copyWith(
             lifecycle: PlaybackLifecycle.failed,
-            error: event.stringValue ?? 'KSPlayer 播放失败',
+            error: event.stringValue ?? AppErrorCode.operationFailed,
           ),
         );
       case KsPlayerEventType.firstFrame:
@@ -336,7 +337,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       _update(
         (current) => current.copyWith(
           lifecycle: PlaybackLifecycle.failed,
-          error: '定位后播放长时间未恢复，请重试或切换画质',
+          error: AppErrorCode.operationFailed,
         ),
       );
       return;
@@ -360,7 +361,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       _update(
         (current) => current.copyWith(
           lifecycle: PlaybackLifecycle.failed,
-          error: '定位后播放长时间未恢复，请重试或切换画质',
+          error: AppErrorCode.operationFailed,
         ),
       );
       return;

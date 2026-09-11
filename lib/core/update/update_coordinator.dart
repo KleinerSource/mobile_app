@@ -40,7 +40,7 @@ class AppUpdateCoordinator {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        throw const UpdateException('无法打开 iOS 安装器，请确认已安装 TrollStore');
+        throw const UpdateException();
       }
       return UpdateInstallAction.iosInstallerOpened;
     }
@@ -52,12 +52,12 @@ class AppUpdateCoordinator {
       );
       final installed = await AndroidUpdateInstaller.install(file);
       if (!installed) {
-        throw const UpdateException('无法打开系统安装器，请重新下载');
+        throw const UpdateException();
       }
       return UpdateInstallAction.androidInstallerOpened;
     }
 
-    throw const UpdateException('当前平台不支持安装此更新');
+    throw const UpdateException();
   }
 }
 

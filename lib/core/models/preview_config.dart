@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../api/error_codes.dart';
+
 /// OMM 预览视频与 Sprite/VTT 生成配置。
 @immutable
 class PreviewConfig {
@@ -96,26 +98,28 @@ class PreviewConfig {
   /// 返回保存前的校验错误；返回 null 表示可以提交。
   String? get validationError {
     if (segments < minSegments || segments > maxSegments) {
-      return 'segments 必须在 1-60 之间';
+      return AppErrorCode.previewSegmentsInvalid;
     }
     if (segmentDuration <= 0 || segmentDuration > maxSegmentDuration) {
-      return '每段时长必须大于 0 且不超过 30 秒';
+      return AppErrorCode.previewSegmentDurationInvalid;
     }
     if (!_validExclude(excludeStart, excludeEnd)) {
-      return '首尾排除比例需在 0-99，且合计小于 100';
+      return AppErrorCode.previewExcludeInvalid;
     }
-    if (!supportedPresets.contains(preset)) return '编码 preset 无效';
+    if (!supportedPresets.contains(preset)) {
+      return AppErrorCode.previewPresetInvalid;
+    }
     if (spriteInterval < 0 || spriteInterval > maxSpriteInterval) {
-      return 'Sprite 间隔必须在 0-3600 秒之间';
+      return AppErrorCode.previewSpriteIntervalInvalid;
     }
     if (spriteMinimum < minSpriteCount || spriteMinimum > maxSpriteCount) {
-      return 'Sprite 最小张数必须在 1-400 之间';
+      return AppErrorCode.previewSpriteMinimumInvalid;
     }
     if (spriteMaximum < spriteMinimum || spriteMaximum > maxSpriteCount) {
-      return 'Sprite 最大张数不能小于最小张数，且不能超过 400';
+      return AppErrorCode.previewSpriteMaximumInvalid;
     }
     if (spriteSize < minSpriteSize || spriteSize > maxSpriteSize) {
-      return 'Sprite 尺寸必须在 32-512 像素之间';
+      return AppErrorCode.previewSpriteSizeInvalid;
     }
     return null;
   }

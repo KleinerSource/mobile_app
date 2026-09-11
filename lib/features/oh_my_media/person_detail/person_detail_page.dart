@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/actor.dart';
@@ -19,11 +19,13 @@ import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/actor_detail_header.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/features/oh_my_media/actor_associations/widgets/actor_association_sync_sheet.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
@@ -144,7 +146,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
     }
@@ -182,7 +184,12 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   Future<void> _refreshActorProfile() async {
     try {
       final source = ref.read(ommMediaSourceProvider);
-      if (source == null) throw StateError('当前服务器不是 OMM');
+      if (source == null) {
+        throw const SourceException(
+          AppErrorCode.ommSourceIdInvalid,
+          code: AppErrorCode.ommSourceIdInvalid,
+        );
+      }
       final raw = await source.metadataOperations.actorDetail(widget.actor.id);
       final actor = unwrapStd<ActorItem>(
         raw,
@@ -355,7 +362,9 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                       firstPageProgressIndicatorBuilder: (_) =>
                           const Center(child: CupertinoActivityIndicator()),
                       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message: _controller.error?.toString() ?? l.loadFailed,
+                        message: _controller.error == null
+                            ? l.loadFailed
+                            : localizedErrorMessage(l, _controller.error!),
                         onRetry: () => _controller.refresh,
                       ),
                       newPageErrorIndicatorBuilder: (_) => PaginationRetry(

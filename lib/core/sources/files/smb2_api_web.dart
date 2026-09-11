@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../../api/error_codes.dart';
+
 enum Smb2Version { any, any2, any3, v202, v210, v300, v302, v311 }
 
 class Smb2Stat {
@@ -53,7 +55,7 @@ class Smb2Pool {
     bool seal = false,
     bool signing = false,
     Smb2Version version = Smb2Version.any,
-  }) => throw UnsupportedError('SMB 在 Web 调试目标中不可用');
+  }) => throw UnsupportedError(AppErrorCode.operationFailed);
 
   static Future<List<Smb2ShareInfo>> listSharesOn({
     required String host,
@@ -109,7 +111,7 @@ class Smb2Pool {
 }
 
 Future<T> _unsupported<T>() =>
-    Future<T>.error(UnsupportedError('SMB 在 Web 调试目标中不可用'));
+    Future<T>.error(UnsupportedError(AppErrorCode.operationFailed));
 
 Stream<T> _unsupportedStream<T>() =>
-    Stream<T>.error(UnsupportedError('SMB 在 Web 调试目标中不可用'));
+    Stream<T>.error(UnsupportedError(AppErrorCode.operationFailed));

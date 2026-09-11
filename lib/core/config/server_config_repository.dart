@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/error_codes.dart';
 import '../api/server_compatibility.dart';
 import 'server_config.dart';
 
@@ -57,7 +58,7 @@ class ServerConfigRepository {
   Future<void> save(ServerConfig config) async {
     final servers = _normalizeServers(config.servers);
     if (servers.isEmpty) {
-      throw StateError('至少需要配置一条服务器线路');
+      throw StateError(AppErrorCode.validationFailed);
     }
     final activeServer = servers.firstWhere(
       (server) => server.id == config.activeServerId,
@@ -65,7 +66,7 @@ class ServerConfigRepository {
     );
     final activeLine = activeServer.activeLine;
     if (activeLine == null) {
-      throw StateError('当前服务器没有可用线路');
+      throw StateError(AppErrorCode.validationFailed);
     }
 
     await _prefs.setString(

@@ -90,13 +90,15 @@ class _StubFavoritesSource implements OmmMediaOperationsSource {
   }
 
   @override
-  Future<void> addFavoriteBatch(List<MediaRef> movies) async {
+  Future<String?> addFavoriteBatch(List<MediaRef> movies) async {
     added = List<MediaRef>.from(movies);
+    return null;
   }
 
   @override
-  Future<void> removeFavoriteBatch(List<MediaRef> movies) async {
+  Future<String?> removeFavoriteBatch(List<MediaRef> movies) async {
     removed = List<MediaRef>.from(movies);
+    return null;
   }
 
   @override
@@ -110,7 +112,7 @@ class _StubFavoritesSource implements OmmMediaOperationsSource {
       throw UnimplementedError();
 
   @override
-  Future<void> cancelPreviewTask(String taskId) async {}
+  Future<String?> cancelPreviewTask(String taskId) async => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>

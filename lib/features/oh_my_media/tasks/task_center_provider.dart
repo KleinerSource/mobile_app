@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/api/server_connection.dart';
@@ -238,32 +240,36 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     }
   }
 
-  Future<void> cancel(TaskItem task) async {
-    if (!task.canCancel) return;
-    await _control(task, 'cancel', kTaskErrCancelExtract);
+  Future<String?> cancel(TaskItem task) async {
+    if (!task.canCancel) return null;
+    return _control(task, 'cancel', kTaskErrCancelExtract);
   }
 
-  Future<void> retry(TaskItem task) async {
-    if (!task.canRetry) return;
-    await _control(task, 'retry', kTaskErrRetryTranscribe);
+  Future<String?> retry(TaskItem task) async {
+    if (!task.canRetry) return null;
+    return _control(task, 'retry', kTaskErrRetryTranscribe);
   }
 
-  Future<void> pause(TaskItem task) async {
-    if (!task.canPause) return;
-    await _control(task, 'pause', '暂停任务失败');
+  Future<String?> pause(TaskItem task) async {
+    if (!task.canPause) return null;
+    return _control(task, 'pause', kTaskErrPause);
   }
 
-  Future<void> resume(TaskItem task) async {
-    if (!task.canResume) return;
-    await _control(task, 'resume', '恢复任务失败');
+  Future<String?> resume(TaskItem task) async {
+    if (!task.canResume) return null;
+    return _control(task, 'resume', kTaskErrResume);
   }
 
   /// 删除服务端终态任务记录。运行中的任务由服务端拒绝删除。
-  Future<void> remove(TaskItem task) async {
-    if (!task.isTerminal || task.recordId.isEmpty) return;
+  Future<String?> remove(TaskItem task) async {
+    if (!task.isTerminal || task.recordId.isEmpty) return null;
     final lease = _connectionLease;
-    await ref.read(requiredApiClientProvider).tasks.deleteRecord(task.recordId);
-    if (!_requestStillCurrent(lease)) return;
+    final raw = await ref
+        .read(requiredApiClientProvider)
+        .tasks
+        .deleteRecord(task.recordId);
+    if (!_requestStillCurrent(lease)) return envelopeMessageOrNull(raw);
+    _ensureSuccess(raw, AppErrorCode.operationFailed);
     final index = state.indexWhere((item) => item.key == task.key);
     if (index >= 0) {
       final removed = state[index];
@@ -271,6 +277,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       state = next;
       _syncMetaForTaskChange(removed, null);
     }
+    return envelopeMessageOrNull(raw);
   }
 
   void restore(TaskItem task) => _upsert(task);
@@ -543,26 +550,35 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
           ? data['items'] as List
           : const <dynamic>[];
       for (final rawItem in items.whereType<Map>()) {
-        updateFromSchedulerMessage(Map<String, dynamic>.from(rawItem));
+        final snapshot = Map<String, dynamic>.from(rawItem);
+        snapshot.putIfAbsent('type', () => 'scheduler_status');
+        updateFromSchedulerMessage(snapshot);
       }
     } catch (_) {
       // WS 与 HTTP 校准互为补充；单次校准失败交给后续重连或刷新。
     }
   }
 
-  Future<void> _control(TaskItem task, String action, String fallback) async {
-    if (_disposed || !ref.mounted) return;
+  Future<String?> _control(
+    TaskItem task,
+    String action,
+    String fallback,
+  ) async {
+    if (_disposed || !ref.mounted) return null;
     final lease = _connectionLease;
     final raw = await ref
         .read(requiredApiClientProvider)
         .tasks
         .control(task.id, action);
-    if (!_requestStillCurrent(lease) || !ref.mounted) return;
-    _ensureSuccess(raw, fallback);
+    if (!_requestStillCurrent(lease) || !ref.mounted) return null;
+    final message = _ensureSuccess(raw, fallback);
     final data = raw is Map ? raw['data'] : null;
     if (data is Map) {
-      updateFromSchedulerMessage(Map<String, dynamic>.from(data));
+      final snapshot = Map<String, dynamic>.from(data);
+      snapshot.putIfAbsent('type', () => 'scheduler_status');
+      updateFromSchedulerMessage(snapshot);
     }
+    return message;
   }
 
   bool _ownsLease(ServerConnectionLease? lease) =>
@@ -593,11 +609,11 @@ int _asInt(Object? value) {
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
-void _ensureSuccess(Object? raw, String fallback) {
-  if (raw is Map && raw['success'] == false) {
-    final message = raw['message']?.toString().trim();
-    throw StateError(message == null || message.isEmpty ? fallback : message);
+String? _ensureSuccess(Object? raw, String fallback) {
+  if (raw is! Map || raw['success'] != true) {
+    throw StateError(envelopeMessage(raw, fallback: fallback));
   }
+  return envelopeMessageOrNull(raw);
 }
 
 final taskCenterProvider = NotifierProvider<TaskCenterNotifier, List<TaskItem>>(

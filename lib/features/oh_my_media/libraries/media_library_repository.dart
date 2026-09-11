@@ -1,4 +1,6 @@
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/models/library.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_models.dart' as source_models;
 import 'package:omm/core/sources/media/media_source.dart';
@@ -62,32 +64,40 @@ class MediaLibraryRepository {
     return _toLibraryItem(library, folders: folders);
   }
 
-  Future<LibraryItem> create({
+  Future<({LibraryItem item, String? message})> create({
     required String name,
     bool enabled = true,
   }) async {
-    return _toLibraryItem(
-      await _management.createLibrary(name: name, enabled: enabled),
+    final library = await _management.createLibrary(
+      name: name,
+      enabled: enabled,
     );
+    return (item: _toLibraryItem(library), message: library.message);
   }
 
-  Future<LibraryItem> update(int id, {String? name, bool? enabled}) async {
-    return _toLibraryItem(
-      await _management.updateLibrary(
-        _ommRef(id),
-        source_models.MediaLibraryPatch(name: name, enabled: enabled),
-      ),
+  Future<({LibraryItem item, String? message})> update(
+    int id, {
+    String? name,
+    bool? enabled,
+  }) async {
+    final library = await _management.updateLibrary(
+      _ommRef(id),
+      source_models.MediaLibraryPatch(name: name, enabled: enabled),
     );
+    return (item: _toLibraryItem(library), message: library.message);
   }
 
-  Future<void> delete(int id) => _management.deleteLibrary(_ommRef(id));
+  Future<String?> delete(int id) => _management.deleteLibrary(_ommRef(id));
 
-  Future<String> scan(int id, {bool incremental = true}) async {
+  Future<({String taskId, String? message})> scan(
+    int id, {
+    bool incremental = true,
+  }) async {
     final task = await _scanning.startScan(
       _ommRef(id),
       incremental: incremental,
     );
-    return task.id;
+    return (taskId: task.id, message: task.message);
   }
 
   Future<BatchLibraryScanResult> batchScan({required bool incremental}) async {
@@ -126,13 +136,13 @@ class MediaLibraryRepository {
     return _toScanTask(await _scanning.scanProgress(_ommRef(id), taskId));
   }
 
-  Future<void> pauseScan(int id, String taskId) =>
+  Future<String?> pauseScan(int id, String taskId) =>
       _scanning.pauseScan(_ommRef(id), taskId);
 
-  Future<void> resumeScan(int id, String taskId) =>
+  Future<String?> resumeScan(int id, String taskId) =>
       _scanning.resumeScan(_ommRef(id), taskId);
 
-  Future<void> cancelScan(int id, String taskId) =>
+  Future<String?> cancelScan(int id, String taskId) =>
       _scanning.cancelScan(_ommRef(id), taskId);
 
   Future<List<DirectoryItem>> listDirectories(int libraryId) async {
@@ -142,7 +152,7 @@ class MediaLibraryRepository {
         .toList(growable: false);
   }
 
-  Future<DirectoryItem> createDirectory(
+  Future<({DirectoryItem item, String? message})> createDirectory(
     int libraryId, {
     required String path,
     String? name,
@@ -154,10 +164,13 @@ class MediaLibraryRepository {
       name: name,
       enabled: enabled,
     );
-    return _toDirectoryItem(folder, libraryId: libraryId);
+    return (
+      item: _toDirectoryItem(folder, libraryId: libraryId),
+      message: folder.message,
+    );
   }
 
-  Future<DirectoryItem> updateDirectory(
+  Future<({DirectoryItem item, String? message})> updateDirectory(
     int libraryId,
     int dirId, {
     String? path,
@@ -169,10 +182,13 @@ class MediaLibraryRepository {
       _ommRef(dirId),
       source_models.MediaFolderPatch(path: path, name: name, enabled: enabled),
     );
-    return _toDirectoryItem(folder, libraryId: libraryId);
+    return (
+      item: _toDirectoryItem(folder, libraryId: libraryId),
+      message: folder.message,
+    );
   }
 
-  Future<void> deleteDirectory(int libraryId, int dirId) =>
+  Future<String?> deleteDirectory(int libraryId, int dirId) =>
       _management.deleteFolder(_ommRef(libraryId), _ommRef(dirId));
 
   Future<Map<String, dynamic>> validatePath(
@@ -193,7 +209,10 @@ class MediaLibraryRepository {
 
   source_models.MediaRef _ommRef(int id) {
     if (id <= 0) {
-      throw ArgumentError.value(id, 'id', '媒体库 ID 必须为正数');
+      throw const SourceException(
+        AppErrorCode.ommIdInvalid,
+        code: AppErrorCode.ommIdInvalid,
+      );
     }
     return source_models.MediaRef(sourceId: _ommSourceId, value: '$id');
   }
@@ -204,7 +223,10 @@ class MediaLibraryRepository {
   }) {
     final id = int.tryParse(library.ref.value);
     if (id == null || id <= 0) {
-      throw StateError('Source 返回了无效的 OMM 媒体库 ID：${library.ref.value}');
+      throw const SourceException(
+        AppErrorCode.ommLibraryIdMissing,
+        code: AppErrorCode.ommLibraryIdMissing,
+      );
     }
     final selectedFolders = folders ?? library.folders;
     return LibraryItem(
@@ -226,7 +248,10 @@ class MediaLibraryRepository {
   }) {
     final id = int.tryParse(folder.ref.value);
     if (id == null || id <= 0) {
-      throw StateError('Source 返回了无效的 OMM 目录 ID：${folder.ref.value}');
+      throw const SourceException(
+        AppErrorCode.ommFolderIdMissing,
+        code: AppErrorCode.ommFolderIdMissing,
+      );
     }
     return DirectoryItem(
       id: id,
@@ -245,6 +270,7 @@ class MediaLibraryRepository {
       source_models.ScanJobStatus.queued => 'queued',
       source_models.ScanJobStatus.running => 'running',
       source_models.ScanJobStatus.paused => 'paused',
+      source_models.ScanJobStatus.canceling => 'canceling',
       source_models.ScanJobStatus.completed => 'completed',
       source_models.ScanJobStatus.failed => 'failed',
       source_models.ScanJobStatus.canceled => 'canceled',

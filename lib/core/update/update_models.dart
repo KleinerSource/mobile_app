@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../api/error_codes.dart';
+
 enum UpdatePlatform { ios, android }
 
 extension UpdatePlatformX on UpdatePlatform {
@@ -36,7 +38,7 @@ class AppReleaseVersion implements Comparable<AppReleaseVersion> {
   factory AppReleaseVersion.parse(String raw) {
     final match = _pattern.firstMatch(raw.trim());
     if (match == null) {
-      throw FormatException('版本号格式不正确', raw);
+      throw FormatException(AppErrorCode.validationFailed, raw);
     }
     return AppReleaseVersion(
       major: int.parse(match.group(1)!),
@@ -108,29 +110,29 @@ class GitHubRepository {
 
   factory GitHubRepository.parse(String raw) {
     var value = raw.trim();
-    if (value.isEmpty) throw const FormatException('请输入 GitHub 仓库地址');
+    if (value.isEmpty) throw const FormatException(AppErrorCode.validationFailed);
     if (!value.contains('://')) value = 'https://$value';
 
     final uri = Uri.tryParse(value);
     if (uri == null || uri.scheme.toLowerCase() != 'https') {
-      throw const FormatException('GitHub 地址必须使用 HTTPS');
+      throw const FormatException(AppErrorCode.validationFailed);
     }
     final host = uri.host.toLowerCase();
     if (host != 'github.com' && host != 'www.github.com') {
-      throw const FormatException('请输入 github.com 仓库地址');
+      throw const FormatException(AppErrorCode.validationFailed);
     }
 
     final segments = uri.pathSegments
         .where((segment) => segment.isNotEmpty)
         .toList();
     if (segments.length < 2) {
-      throw const FormatException('GitHub 地址应包含 owner 和 repository');
+      throw const FormatException(AppErrorCode.validationFailed);
     }
     final owner = segments[0];
     final name = segments[1].replaceFirst(RegExp(r'\.git$'), '');
     final validSegment = RegExp(r'^[A-Za-z0-9_.-]+$');
     if (!validSegment.hasMatch(owner) || !validSegment.hasMatch(name)) {
-      throw const FormatException('GitHub 仓库地址格式不正确');
+      throw const FormatException(AppErrorCode.validationFailed);
     }
     return GitHubRepository(owner: owner, name: name);
   }

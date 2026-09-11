@@ -13,6 +13,7 @@ import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/error_mapper.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/api/services/actors_api.dart';
@@ -242,7 +243,7 @@ void _main_0() {
         'task_type': 'library_scan',
         'input': {'library_ids': <int>[], 'incremental': incremental},
       });
-      expect(result.acceptedCount, 1);
+      expect(result.acceptedCount, 0);
       expect(result.skippedDisabledCount, 0);
       expect(result.tasks, isEmpty);
     }
@@ -566,6 +567,22 @@ void _main_1() {
     }
   });
 
+  test('错误拦截器保留嵌套业务 message 和 code', () async {
+    final dio = buildDio(const ServerConfig(baseUrl: 'http://h:8001'));
+    dio.httpClientAdapter = _StubAdapter({
+      'success': false,
+      'data': {'message': '字幕已存在', 'code': 'SUBTITLE_EXISTS'},
+    });
+    try {
+      await dio.get<dynamic>('/x');
+      fail('期望抛错');
+    } catch (e) {
+      final ex = toApiException(e);
+      expect(ex.message, '字幕已存在');
+      expect(ex.code, 'SUBTITLE_EXISTS');
+    }
+  });
+
   test('二进制响应中的 JSON 业务失败也会统一解包', () async {
     final dio = buildDio(const ServerConfig(baseUrl: 'http://h:8001'));
     dio.httpClientAdapter = _BinaryBusinessErrorAdapter();
@@ -818,6 +835,18 @@ class _MemoryTokenStore implements AuthTokenStore {
 // ==================== 原 test/core/envelope_test.dart ====================
 void _main_3() {
   group('unwrapStd', () {
+    test('二进制或纯文本中的 JSON 对象可以被识别为业务 envelope', () {
+      expect(decodeJsonMap('{"success":false,"message":"失败"}'), {
+        'success': false,
+        'message': '失败',
+      });
+      expect(decodeJsonMap(utf8.encode('{"success":false,"code":"FAILED"}')), {
+        'success': false,
+        'code': 'FAILED',
+      });
+      expect(decodeJsonMap(<int>[0, 1, 2]), isNull);
+    });
+
     test('success=true 返回 data', () {
       final out = unwrapStd<Map<String, dynamic>>({
         'success': true,
@@ -847,6 +876,20 @@ void _main_3() {
         }, (_) {}),
         throwsA(
           isA<ApiException>().having((e) => e.message, 'message', '密码错误'),
+        ),
+      );
+    });
+
+    test('success=false 支持 data 内的 message 和 code', () {
+      expect(
+        () => unwrapStd<void>({
+          'success': false,
+          'data': {'message': '字幕已存在', 'code': 'SUBTITLE_EXISTS'},
+        }, (_) {}),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.message, 'message', '字幕已存在')
+              .having((e) => e.code, 'code', 'SUBTITLE_EXISTS'),
         ),
       );
     });
@@ -918,23 +961,25 @@ void _main_3() {
 // ==================== 原 test/core/error_mapper_test.dart ====================
 void _main_4() {
   group('mapDioError', () {
-    test('timeout 映射为友好文案', () {
+    test('timeout 映射为本地化错误码', () {
       final e = DioException(
         requestOptions: RequestOptions(path: '/x'),
         type: DioExceptionType.connectionTimeout,
       );
       final ex = mapDioError(e);
-      expect(ex.message, '请求超时，请稍后重试');
+      expect(ex.message, AppErrorCode.requestTimeout);
+      expect(ex.code, AppErrorCode.requestTimeout);
       expect(ex.status, isNull);
     });
 
-    test('无 response 映射为网络失败', () {
+    test('无 response 映射为网络错误码', () {
       final e = DioException(
         requestOptions: RequestOptions(path: '/x'),
         type: DioExceptionType.connectionError,
       );
       final ex = mapDioError(e);
-      expect(ex.message, '网络连接失败，请检查网络连接');
+      expect(ex.message, AppErrorCode.networkUnavailable);
+      expect(ex.code, AppErrorCode.networkUnavailable);
     });
 
     test('detail 为字符串', () {
@@ -962,12 +1007,23 @@ void _main_4() {
           ],
         }),
       );
-      expect(ex.message, 'a 不能为空; b 不合法; 验证错误');
+      expect(ex.message, 'a 不能为空; b 不合法');
     });
 
     test('回落 message 字段', () {
       final ex = mapDioError(_resp(409, {'message': '已存在'}));
       expect(ex.message, '已存在');
+    });
+
+    test('嵌套 data message 和 code 会被保留', () {
+      final ex = mapDioError(
+        _resp(409, {
+          'success': false,
+          'data': {'message': '字幕已存在', 'code': 'SUBTITLE_EXISTS'},
+        }),
+      );
+      expect(ex.message, '字幕已存在');
+      expect(ex.code, 'SUBTITLE_EXISTS');
     });
 
     test('通用 404 保留实际请求方法和路径', () {
@@ -980,7 +1036,12 @@ void _main_4() {
           path: '/tasks',
         ),
       );
-      expect(ex.message, '接口不存在（POST http://127.0.0.1:8001/api/tasks）');
+      expect(ex.message, AppErrorCode.routeNotFound);
+      expect(ex.code, AppErrorCode.routeNotFound);
+      expect(ex.details, {
+        'method': 'POST',
+        'target': 'http://127.0.0.1:8001/api/tasks',
+      });
       expect(ex.status, 404);
     });
 
@@ -1007,9 +1068,11 @@ void _main_4() {
       expect(ex.data, {'reason': 'expired'});
     });
 
-    test('完全无字段 → 用 HTTP 状态', () {
+    test('完全无字段 → 映射为 HTTP 错误码', () {
       final ex = mapDioError(_resp(500, {}, statusText: 'Internal'));
-      expect(ex.message, 'HTTP 500: Internal');
+      expect(ex.message, AppErrorCode.httpError);
+      expect(ex.code, AppErrorCode.httpError);
+      expect(ex.status, 500);
     });
 
     test('异常文本不会暴露 query token 或 Bearer token', () {

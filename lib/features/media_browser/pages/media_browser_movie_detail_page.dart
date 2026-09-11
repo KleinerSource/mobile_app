@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
@@ -20,6 +19,7 @@ import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -52,7 +52,7 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
       body: value.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorBody(
-          message: toApiException(error).message,
+          message: localizedErrorMessage(AppL10n.of(context), error),
           onRetry: () => ref.invalidate(
             mediaBrowserItemDetailProvider(
               MediaBrowserItemDetailRequest(serverId: serverId, itemId: itemId),
@@ -167,7 +167,7 @@ class _MediaBrowserDetailBodyState
           .markFavorite(widget.item.id, !widget.item.userData.isFavorite);
       if (mounted) _invalidateDetail();
     } catch (error) {
-      _showError(toApiException(error).message);
+      _showError(localizedErrorMessage(AppL10n.of(context), error));
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
@@ -185,7 +185,7 @@ class _MediaBrowserDetailBodyState
         ref.invalidate(mediaBrowserNextUpProvider);
       }
     } catch (error) {
-      _showError(toApiException(error).message);
+      _showError(localizedErrorMessage(AppL10n.of(context), error));
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }

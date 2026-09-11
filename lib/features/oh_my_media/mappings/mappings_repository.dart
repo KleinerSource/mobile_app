@@ -38,11 +38,7 @@ class MappingsRepository {
     /// 'active' / 'empty' for the latter two.
     String status = 'all',
   }) async {
-    try {
-      return (await listPage(type, search: search, status: status)).items;
-    } catch (_) {
-      return const [];
-    }
+    return (await listPage(type, search: search, status: status)).items;
   }
 
   Future<PagedResult<MappingRule>> listPage(
@@ -65,7 +61,7 @@ class MappingsRepository {
     return unwrapTopLevelList<MappingRule>(raw, MappingRule.fromJson);
   }
 
-  Future<MappingRule> create(
+  Future<({MappingRule item, String? message})> create(
     MappingType type, {
     required List<String> originalValues,
     String? mappedValue,
@@ -75,13 +71,14 @@ class MappingsRepository {
       if (mappedValue != null) 'mapped_value': mappedValue,
     };
     final raw = await _source.mappingCreate(type.value, body);
-    return unwrapStd<MappingRule>(
+    final item = unwrapStd<MappingRule>(
       raw,
       (d) => MappingRule.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
-  Future<MappingRule> update(
+  Future<({MappingRule item, String? message})> update(
     MappingType type,
     int id, {
     List<String>? originalValues,
@@ -91,14 +88,16 @@ class MappingsRepository {
     if (originalValues != null) body['original_values'] = originalValues;
     body['mapped_value'] = mappedValue; // 显式 null 表示删除规则
     final raw = await _source.mappingUpdate(type.value, id, body);
-    return unwrapStd<MappingRule>(
+    final item = unwrapStd<MappingRule>(
       raw,
       (d) => MappingRule.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
-  Future<void> delete(MappingType type, List<int> ids) async {
+  Future<String?> delete(MappingType type, List<int> ids) async {
     final raw = await _source.mappingDelete(type.value, {'mappings_ids': ids});
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 }

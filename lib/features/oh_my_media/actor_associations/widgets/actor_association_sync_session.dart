@@ -55,7 +55,7 @@ extension _ActorAssociationSyncSession on _ActorAssociationSyncSheetState {
     } catch (e) {
       if (!mounted || requestId != _loadRequestId) return;
       _updateViewState(() {
-        _error = toApiException(e).message;
+        _error = localizedErrorMessage(AppL10n.of(context), e);
         _loading = false;
       });
     }
@@ -170,7 +170,12 @@ extension _ActorAssociationSyncSession on _ActorAssociationSyncSheetState {
           .read(actorAssociationsRepositoryProvider)
           .previewAvatar(url, source: _avatarDownloadSource(url));
       if (!mounted || _source != source) return;
-      if (bytes.isEmpty) throw StateError('头像内容为空');
+      if (bytes.isEmpty) {
+        throw const SourceException(
+          AppErrorCode.avatarContentEmpty,
+          code: AppErrorCode.avatarContentEmpty,
+        );
+      }
       _updateViewState(() {
         _avatarChoiceBytes[url] = Uint8List.fromList(bytes);
         _avatarChoiceLoading.remove(url);

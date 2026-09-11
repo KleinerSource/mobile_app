@@ -12,6 +12,7 @@ import '../../core/update/update_coordinator.dart';
 import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
+import '../../shared/localized_error_message.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../player/common/playback_engine.dart';
@@ -581,7 +582,11 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
       AppHaptics.selection();
       _showMessage(AppL10n.of(context).settingsUpdateSourceSaved);
     } on FormatException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } catch (_) {
       if (mounted) {
         setState(
@@ -635,7 +640,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
       final repository = GitHubRepository.parse(raw);
       final platform = _currentPlatform;
       if (platform == null) {
-        throw const UpdateException('当前平台不支持在线更新');
+        throw const UpdateException();
       }
       final packageInfo = await ref.read(appPackageInfoProvider.future);
       final currentVersion = AppReleaseVersion.fromPackageInfo(
@@ -663,7 +668,11 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
     } on FormatException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } on UpdateException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _error = AppL10n.of(context).settingsCheckUpdateFailed);
@@ -710,7 +719,11 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
         );
       }
     } on UpdateException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
     } catch (_) {
       if (mounted) {
         setState(

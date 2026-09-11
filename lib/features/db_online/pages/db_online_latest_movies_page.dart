@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/movie_card.dart';
@@ -95,7 +95,7 @@ class _DbOnlineLatestMoviesPageState
       if (page == 1) _completeRefresh();
     } catch (error) {
       if (!pageRequest.isCurrent) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
       if (page == 1) _completeRefresh();
     } finally {
       pageRequest.finish();

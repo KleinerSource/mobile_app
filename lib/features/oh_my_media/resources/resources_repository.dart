@@ -135,16 +135,20 @@ class ResourcesRepository {
     }
   }
 
-  Future<ResourceItem> create(ResourceKind kind, {required String name}) async {
+  Future<({ResourceItem item, String? message})> create(
+    ResourceKind kind, {
+    required String name,
+  }) async {
     final body = <String, dynamic>{'name': name};
     final raw = await _create(kind, body);
-    return unwrapStd<ResourceItem>(
+    final item = unwrapStd<ResourceItem>(
       raw,
       (d) => ResourceItem.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
-  Future<ResourceItem> update(
+  Future<({ResourceItem item, String? message})> update(
     ResourceKind kind,
     int id, {
     String? name,
@@ -154,22 +158,24 @@ class ResourcesRepository {
     if (name != null) body['name'] = name;
     body['auto_mapping'] = autoMapping;
     final raw = await _update(kind, id, body);
-    return unwrapStd<ResourceItem>(
+    final item = unwrapStd<ResourceItem>(
       raw,
       (d) => ResourceItem.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    return (item: item, message: envelopeMessageOrNull(raw));
   }
 
-  Future<void> deleteBatch(
+  Future<String?> deleteBatch(
     ResourceKind kind,
     List<int> ids, {
     bool force = false,
   }) async {
     final raw = await _batchDelete(kind, {'ids': ids, 'force': force});
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
-  Future<void> merge(
+  Future<String?> merge(
     ResourceKind kind, {
     required List<int> sourceIds,
     required String targetName,
@@ -180,5 +186,6 @@ class ResourcesRepository {
       'target_name': targetName,
     });
     unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 }

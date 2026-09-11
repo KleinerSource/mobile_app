@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movie_detail/entity_picker_sheet.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
@@ -610,7 +611,7 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = localizedErrorMessage(AppL10n.of(context), e);
         _loading = false;
       });
     }
@@ -651,7 +652,7 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
     }
     if (_error != null) {
       return Text(
-        AppL10n.of(context).loadFailedWithError('$_error'),
+        _error!,
         style: TextStyle(color: c.danger, fontSize: 12),
       );
     }

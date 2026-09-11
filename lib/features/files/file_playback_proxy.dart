@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/api/error_codes.dart';
 import '../../core/platform/app_log_store.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/files/file_entry.dart';
@@ -90,7 +91,7 @@ class FilePlaybackProxy {
   Uri get uri {
     final server = _server;
     if (server == null || _closed) {
-      throw StateError('视频流代理已关闭');
+      throw StateError(AppErrorCode.connectionClosed);
     }
     return Uri(
       scheme: 'http',
@@ -226,7 +227,7 @@ class FilePlaybackProxy {
             try {
               _log('开始远端区间读取: offset=${range.start} length=${range.length}');
               if (!repository.supportsRange) {
-                throw UnsupportedError('文件来源不支持 Range');
+                throw UnsupportedError(AppErrorCode.fileRangeUnsupported);
               }
               stream = await repository
                   .openRange(
@@ -247,7 +248,7 @@ class FilePlaybackProxy {
               range = _parseRange(rangeHeader, total);
               if (range?.invalid == true || range == null) {
                 throw const FileSourceException(
-                  '文件区间无效',
+                  AppErrorCode.validationFailed,
                   statusCode: HttpStatus.requestedRangeNotSatisfiable,
                 );
               }
@@ -284,7 +285,7 @@ class FilePlaybackProxy {
           _operationTimeout,
           onTimeout: (sink) {
             _log('远端流读取超时，关闭播放器响应');
-            sink.addError(TimeoutException('远端视频流读取超时'));
+            sink.addError(TimeoutException(AppErrorCode.requestTimeout));
             sink.close();
           },
         ),
@@ -294,7 +295,6 @@ class FilePlaybackProxy {
       _logError(request, error, stackTrace);
       if (!responseStarted && !_closed) {
         response.statusCode = _statusCode(error);
-        response.write('视频流读取失败');
       }
     } finally {
       _responses.remove(response);
@@ -433,7 +433,7 @@ class FilePlaybackProxy {
       _log('开始完整落盘: ${path.stableKey}');
       await output.addStream(await _openFullStream());
       await output.close();
-      if (_closed) throw StateError('视频流代理已关闭');
+      if (_closed) throw StateError(AppErrorCode.connectionClosed);
       return file;
     } catch (_) {
       try {

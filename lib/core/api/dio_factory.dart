@@ -12,9 +12,11 @@ import 'app_request_headers.dart';
 import 'feiniu_signer.dart';
 import 'api_exception.dart';
 import 'envelope.dart';
+import 'error_codes.dart';
 import 'error_mapper.dart';
 import 'server_compatibility.dart';
 import 'server_connection.dart';
+import '../sources/common/source_exception.dart';
 
 Dio buildDio(
   ServerConfig config, {
@@ -153,15 +155,18 @@ Dio buildDio(
       onResponse: (resp, handler) {
         final data = _decodeBusinessData(resp);
         if (data is Map && data['success'] == false) {
+          final message = envelopeMessageOrNull(data);
+          final code = envelopeCodeOrNull(data);
           handler.reject(
             DioException(
               requestOptions: resp.requestOptions,
               response: resp,
               type: DioExceptionType.badResponse,
               error: ApiException(
-                data['message']?.toString() ??
-                    data['error']?.toString() ??
-                    '操作失败',
+                message ?? code ?? AppErrorCode.operationFailed,
+                code:
+                    code ??
+                    (message == null ? AppErrorCode.operationFailed : null),
                 status: resp.statusCode,
                 data: data['data'],
                 requestId: resp.headers.value('x-request-id'),
@@ -309,17 +314,119 @@ ApiException toApiException(Object error) {
   // 带完整堆栈，直接展示会撑爆错误页。先剥回原始异常再归一化。
   if (error is ProviderException) return toApiException(error.exception);
   if (error is ApiException) return error;
+  if (error is String) {
+    final code = _knownErrorCode(error);
+    return ApiException(error, code: code);
+  }
+  if (error is SourceException) {
+    return ApiException(
+      error.message,
+      code: error.code,
+      status: error.statusCode,
+      details: error.details,
+    );
+  }
   if (error is ServerConnectionClosedException) {
-    return ApiException(error.message);
+    return ApiException(error.message, code: error.message);
   }
   if (error is DioException) {
     if (error.error is ApiException) return error.error as ApiException;
     if (error.error is ServerConnectionClosedException) {
-      return ApiException(
-        (error.error as ServerConnectionClosedException).message,
-      );
+      final closed = error.error as ServerConnectionClosedException;
+      return ApiException(closed.message, code: closed.message);
     }
     return mapDioError(error);
   }
+  if (error is TimeoutException) {
+    return ApiException(
+      AppErrorCode.requestTimeout,
+      code: AppErrorCode.requestTimeout,
+    );
+  }
+  if (error is FormatException) {
+    return ApiException(
+      error.message,
+      code: _knownErrorCode(error.message) ?? AppErrorCode.validationFailed,
+    );
+  }
+  if (error is ArgumentError) {
+    final message = error.message?.toString() ?? error.toString();
+    return ApiException(
+      message,
+      code: _knownErrorCode(message) ?? AppErrorCode.validationFailed,
+    );
+  }
+  if (error is StateError || error is UnsupportedError) {
+    final message =
+        (error is StateError
+            ? error.message
+            : (error as UnsupportedError).message) ??
+        AppErrorCode.operationFailed;
+    final code = _knownErrorCode(message);
+    if (code != null) return ApiException(message, code: code);
+    return ApiException(message);
+  }
   return ApiException(error.toString());
+}
+
+String? _knownErrorCode(String? value) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty) return null;
+  const codes = <String>{
+    AppErrorCode.operationFailed,
+    AppErrorCode.responseFormatInvalid,
+    AppErrorCode.responseDataMissing,
+    AppErrorCode.requestTimeout,
+    AppErrorCode.networkUnavailable,
+    AppErrorCode.routeNotFound,
+    AppErrorCode.validationFailed,
+    AppErrorCode.httpError,
+    AppErrorCode.authenticationRequired,
+    AppErrorCode.fileTransferCanceled,
+    AppErrorCode.fileSourceNotFound,
+    AppErrorCode.fileTransferFailed,
+    AppErrorCode.fileTargetExists,
+    AppErrorCode.fileRangeUnsupported,
+    AppErrorCode.updateFailed,
+    AppErrorCode.connectionClosed,
+    AppErrorCode.serverCompatibility,
+    AppErrorCode.mediaSourceReferenceInvalid,
+    AppErrorCode.mediaLibraryNotFound,
+    AppErrorCode.feiniuRequestFailed,
+    AppErrorCode.stashApiKeyInvalid,
+    AppErrorCode.stashRequestFailed,
+    AppErrorCode.stashGraphqlFailed,
+    AppErrorCode.unsupportedSourceCapability,
+    AppErrorCode.previewSegmentsInvalid,
+    AppErrorCode.previewSegmentDurationInvalid,
+    AppErrorCode.previewExcludeInvalid,
+    AppErrorCode.previewPresetInvalid,
+    AppErrorCode.previewSpriteIntervalInvalid,
+    AppErrorCode.previewSpriteMinimumInvalid,
+    AppErrorCode.previewSpriteMaximumInvalid,
+    AppErrorCode.previewSpriteSizeInvalid,
+    AppErrorCode.ommRequestFailed,
+    AppErrorCode.ommTranscodeStatusFailed,
+    AppErrorCode.ommSubtitleInvalid,
+    AppErrorCode.ommSubtitleFetchFailed,
+    AppErrorCode.ommResponseInvalid,
+    AppErrorCode.ommLibraryResponseInvalid,
+    AppErrorCode.ommFolderResponseInvalid,
+    AppErrorCode.ommPathValidationResponseInvalid,
+    AppErrorCode.ommScanTaskIdMissing,
+    AppErrorCode.ommBatchScanResponseInvalid,
+    AppErrorCode.ommLibraryIdMissing,
+    AppErrorCode.ommFolderIdMissing,
+    AppErrorCode.ommSourceIdInvalid,
+    AppErrorCode.ommIdInvalid,
+    AppErrorCode.unsupportedResourceType,
+    AppErrorCode.taskResponseInvalid,
+    AppErrorCode.taskIdMissing,
+    AppErrorCode.previewTaskIdRequired,
+    AppErrorCode.actorMappingLoadFailed,
+    AppErrorCode.previewTaskCreateFailed,
+    AppErrorCode.previewTaskStatusInvalid,
+    AppErrorCode.avatarContentEmpty,
+  };
+  return codes.contains(normalized) ? normalized : null;
 }

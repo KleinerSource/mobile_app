@@ -3,6 +3,63 @@
 
   "appName": "Oh My Media",
 
+  "errorOperationFailed": "Operation failed",
+  "errorResponseFormatInvalid": "Invalid response format",
+  "errorResponseDataMissing": "Response data is missing",
+  "errorRequestTimeout": "Request timed out. Please try again later.",
+  "errorNetworkUnavailable": "Network connection failed. Check your connection.",
+  "errorRouteNotFound": "Endpoint not found ({method} {target})",
+  "@errorRouteNotFound": {"placeholders":{"method":{"type":"String"},"target":{"type":"String"}}},
+  "errorRouteNotFoundGeneric": "Requested endpoint was not found",
+  "errorValidationFailed": "Request validation failed",
+  "errorHttpStatus": "Request failed (HTTP {status})",
+  "@errorHttpStatus": {"placeholders":{"status":{"type":"int"}}},
+  "errorAuthenticationRequired": "Please sign in first",
+  "errorFileTransferCanceled": "File transfer canceled",
+  "errorFileSourceNotFound": "The file source is unavailable",
+  "errorFileTransferFailed": "File transfer failed",
+  "errorFileRangeUnsupported": "The file source does not support range requests",
+  "errorUpdateFailed": "Update failed",
+  "errorConnectionClosed": "The server connection was closed. Please try again.",
+  "errorServerCompatibility": "The server is not compatible with this app",
+  "errorMediaSourceReferenceInvalid": "Invalid media source reference",
+  "errorMediaLibraryNotFound": "Media library not found",
+  "errorFeiniuRequestFailed": "FNOS request failed",
+  "errorStashApiKeyInvalid": "The Stash API key is invalid or expired",
+  "errorStashRequestFailed": "Stash network request failed",
+  "errorStashGraphqlFailed": "Stash GraphQL request failed",
+  "errorUnsupportedSourceCapability": "This action is not supported by the media source",
+  "errorPreviewSegmentsInvalid": "The segment count must be between 1 and 60",
+  "errorPreviewSegmentDurationInvalid": "Each segment duration must be greater than 0 and no more than 30 seconds",
+  "errorPreviewExcludeInvalid": "The start/end exclusion percentages must be 0-99 and total less than 100",
+  "errorPreviewPresetInvalid": "The encoding preset is invalid",
+  "errorPreviewSpriteIntervalInvalid": "The Sprite interval must be between 0 and 3600 seconds",
+  "errorPreviewSpriteMinimumInvalid": "The minimum Sprite count must be between 1 and 400",
+  "errorPreviewSpriteMaximumInvalid": "The maximum Sprite count must not be less than the minimum and must not exceed 400",
+  "errorPreviewSpriteSizeInvalid": "The Sprite size must be between 32 and 512 pixels",
+  "errorOmmRequestFailed": "OMM request failed",
+  "errorOmmTranscodeStatusFailed": "Failed to request OMM transcoding status",
+  "errorOmmSubtitleInvalid": "Subtitle content is invalid or empty",
+  "errorOmmSubtitleFetchFailed": "Failed to fetch subtitle content",
+  "errorOmmResponseInvalid": "Invalid OMM response format",
+  "errorOmmLibraryResponseInvalid": "Invalid OMM library response",
+  "errorOmmFolderResponseInvalid": "Invalid OMM directory response",
+  "errorOmmPathValidationResponseInvalid": "Invalid OMM path validation response",
+  "errorOmmScanTaskIdMissing": "OMM scan response did not include a task ID",
+  "errorOmmBatchScanResponseInvalid": "Invalid OMM batch scan response",
+  "errorOmmLibraryIdMissing": "OMM library response did not include a valid ID",
+  "errorOmmFolderIdMissing": "OMM directory response did not include a valid ID",
+  "errorOmmSourceIdInvalid": "The media source is not OMM",
+  "errorOmmIdInvalid": "Invalid OMM media ID",
+  "errorUnsupportedResourceType": "Unsupported resource type",
+  "errorTaskResponseInvalid": "Invalid task response",
+  "errorTaskIdMissing": "Task response did not include a task ID",
+  "errorPreviewTaskIdRequired": "Preview task ID is required",
+  "errorActorMappingLoadFailed": "Failed to load actor mapping rules",
+  "errorPreviewTaskCreateFailed": "Failed to create preview task",
+  "errorPreviewTaskStatusInvalid": "Invalid preview task status",
+  "errorAvatarContentEmpty": "Avatar content is empty",
+
   "tabHome": "Home",
   "tabLibrary": "Library",
   "tabSearch": "Search",
@@ -1762,6 +1819,16 @@
   "@taskCenterSubtitleActive": {"placeholders":{"active":{"type":"int"},"total":{"type":"int"}}},
   "taskCenterSubtitleIdle": "{total} tasks",
   "@taskCenterSubtitleIdle": {"placeholders":{"total":{"type":"int"}}},
+  "taskRecoveryReplay": "Automatically replayed",
+  "taskRecoveryReplayed": "Original execution archived",
+  "taskRecoveryManualRetry": "Manually retried",
+  "taskRecoveryLegacyMigration": "Legacy task migrated",
+  "taskRecoveryCanceled": "Canceled before restart",
+  "taskRecoveryFailed": "Archived after restart",
+  "taskRecoveryOriginalExecution": "Original execution {id}",
+  "@taskRecoveryOriginalExecution": {"placeholders":{"id":{"type":"String"}}},
+  "taskRecoveryNewExecution": "New execution {id}",
+  "@taskRecoveryNewExecution": {"placeholders":{"id":{"type":"String"}}},
   "taskEmptyActive": "No active tasks",
   "taskEmptyAll": "No tasks",
   "taskEmptyCanceled": "No canceled tasks",
@@ -1771,6 +1838,8 @@
   "taskErrCancelExtract": "Failed to cancel audio extraction",
   "taskErrCancelTranscribe": "Failed to cancel transcription",
   "taskErrRetryTranscribe": "Failed to retry transcription",
+  "taskErrPause": "Failed to pause task",
+  "taskErrResume": "Failed to resume task",
   "taskFilterActive": "Active",
   "taskFilterAll": "All",
   "taskFilterCanceled": "Canceled",
@@ -2157,6 +2226,7 @@
   ,"moviesDownloadRequireUncensored": "Require uncensored"
   ,"moviesDownloadWashMode": "Wash mode"
   ,"moviesDownloadWashModeHint": "Redownload movies that already exist"
+  ,"moviesDownloadSubmitted": "Download request submitted"
   ,"moviesDownloadFailed": "Download request failed: {error}"
   ,"@moviesDownloadFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"moviesSubmitting": "Submitting…"
@@ -2197,6 +2267,7 @@
   ,"resourceScanPreparing": "Preparing"
   ,"resourceScanRunning": "Scanning"
   ,"resourceScanCompleted": "Completed"
+  ,"resourceScanCanceling": "Canceling"
   ,"moviesNfoFieldTitle": "Title"
   ,"moviesNfoFieldDescription": "Description"
   ,"moviesNfoFieldPlot": "Plot"

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/api/server_compatibility.dart';
-import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
@@ -15,6 +14,7 @@ import '../../core/sources/files/file_source_config.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/localized_error_message.dart';
 import '../../shared/reorder_slot_feedback.dart';
 import '../../shared/server_avatar.dart';
 import '../../shared/swipe_actions.dart';
@@ -307,7 +307,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
             content: Text(
               AppL10n.of(
                 context,
-              ).serverDeleteFailed(toApiException(error).message),
+              ).serverDeleteFailed(localizedErrorMessage(l, error)),
             ),
           ),
         );

@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/api/app_request_headers.dart';
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_proxy.dart';
@@ -23,6 +22,8 @@ import 'package:omm/features/player/audio/audio_player_page.dart';
 import 'package:omm/features/player/audio/lrc_parser.dart';
 import 'package:omm/features/player/common/player_queue.dart';
 import 'package:omm/shared/single_flight_gate.dart';
+import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 final _mediaBrowserAudioLaunchGate = SingleFlightGate();
 
@@ -119,7 +120,11 @@ Future<void> _openMediaBrowserAudioPlayback(
         context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(localizedErrorMessage(AppL10n.of(context), error)),
+        ),
+      );
     }
   } finally {
     unregisterConnectionLease?.call();

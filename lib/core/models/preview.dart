@@ -167,11 +167,13 @@ class PreviewStartResult {
     required this.taskId,
     required this.reused,
     required this.task,
+    this.message,
   });
 
   final String taskId;
   final bool reused;
   final PreviewTask task;
+  final String? message;
 
   factory PreviewStartResult.fromJson(Map<String, dynamic> json) {
     final rawTask = json['task'];
@@ -186,6 +188,7 @@ class PreviewStartResult {
       taskId: taskId,
       reused: json['reused'] == true,
       task: task.taskId == taskId ? task : _copyTaskId(task, taskId),
+      message: json['message']?.toString(),
     );
   }
 }

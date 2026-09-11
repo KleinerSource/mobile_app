@@ -50,7 +50,7 @@ abstract interface class LibraryManagementSource {
 
   Future<MediaLibrary> updateLibrary(MediaRef ref, MediaLibraryPatch patch);
 
-  Future<void> deleteLibrary(MediaRef ref);
+  Future<String?> deleteLibrary(MediaRef ref);
 
   Future<List<MediaLibraryFolder>> listFolders(MediaRef library);
 
@@ -67,7 +67,7 @@ abstract interface class LibraryManagementSource {
     MediaFolderPatch patch,
   );
 
-  Future<void> deleteFolder(MediaRef library, MediaRef folder);
+  Future<String?> deleteFolder(MediaRef library, MediaRef folder);
 
   Future<PathValidationResult> validatePath(String path, {MediaRef? folder});
 }
@@ -79,11 +79,11 @@ abstract interface class ScanSource {
 
   Future<ScanJob> scanProgress(MediaRef library, String jobId);
 
-  Future<void> pauseScan(MediaRef library, String jobId);
+  Future<String?> pauseScan(MediaRef library, String jobId);
 
-  Future<void> resumeScan(MediaRef library, String jobId);
+  Future<String?> resumeScan(MediaRef library, String jobId);
 
-  Future<void> cancelScan(MediaRef library, String jobId);
+  Future<String?> cancelScan(MediaRef library, String jobId);
 }
 
 /// OMM 的批量扫描是独立的能力，不要求其它媒体源实现。

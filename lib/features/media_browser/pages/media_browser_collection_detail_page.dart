@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
@@ -15,6 +14,7 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
@@ -139,7 +139,7 @@ class _MediaBrowserCollectionDetailPageState
       }
     } catch (error) {
       if (!pageRequest.isCurrent || !mounted) return;
-      _controller.error = toApiException(error).message;
+      _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
       if (startIndex == _controller.firstPageKey) _completeRefresh();
@@ -201,7 +201,7 @@ class _MediaBrowserCollectionDetailPageState
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => ErrorView(
-          message: toApiException(error).message,
+          message: localizedErrorMessage(AppL10n.of(context), error),
           onRetry: () => ref.invalidate(
             mediaBrowserItemDetailProvider(
               MediaBrowserItemDetailRequest(
@@ -399,7 +399,7 @@ class _MediaBrowserCollectionDetailPageState
       error: (error, _) => SliverFillRemaining(
         hasScrollBody: false,
         child: ErrorView.list(
-          message: toApiException(error).message,
+          message: localizedErrorMessage(AppL10n.of(context), error),
           onRetry: () => ref.invalidate(mediaBrowserServerUrlsProvider),
         ),
       ),

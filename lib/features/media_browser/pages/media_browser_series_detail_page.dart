@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
-import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
@@ -19,6 +18,7 @@ import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/localized_error_message.dart';
 
 /// MediaBrowser 剧集详情页：季切换 + 集列表。
 ///
@@ -75,7 +75,7 @@ class _MediaBrowserSeriesDetailPageState
           .markFavorite(series.id, !series.userData.isFavorite);
       _invalidateDetail();
     } catch (error) {
-      _showError(toApiException(error).message);
+      _showError(localizedErrorMessage(AppL10n.of(context), error));
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
@@ -136,7 +136,10 @@ class _MediaBrowserSeriesDetailPageState
                 style: AppText.sectionTitle(context),
               ),
               const SizedBox(height: 8),
-              Text(toApiException(error).message, textAlign: TextAlign.center),
+              Text(
+                localizedErrorMessage(AppL10n.of(context), error),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => ref.invalidate(
@@ -321,7 +324,7 @@ class _SeasonSection extends ConsumerWidget {
       error: (error, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 22),
         child: Text(
-          toApiException(error).message,
+          localizedErrorMessage(AppL10n.of(context), error),
           style: TextStyle(color: colors.muted),
         ),
       ),
@@ -462,7 +465,7 @@ class _EpisodeList extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                toApiException(error).message,
+                localizedErrorMessage(AppL10n.of(context), error),
                 style: TextStyle(color: colors.muted),
               ),
             ),

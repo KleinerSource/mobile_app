@@ -54,8 +54,9 @@ class OpenListFileSource extends WebDavFileSource {
     } on OpenListException catch (error) {
       await apiClient.dispose();
       throw FileSourceException(
-        'OpenList 连接失败：${error.message}',
-        statusCode: 401,
+        error.message,
+        code: error.errorCode,
+        statusCode: error.statusCode ?? 401,
         cause: error,
       );
     }
