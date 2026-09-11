@@ -352,7 +352,9 @@ class _MediaBrowserLibrarySettingsPageState
         enabled ? l.mediaBrowserLibraryEnabled : l.mediaBrowserLibraryDisabled,
       );
     } catch (error) {
-      _showError(l.mediaBrowserActionFailed(_errorMessage(context, error)));
+      if (mounted) {
+        _showError(l.mediaBrowserActionFailed(_errorMessage(context, error)));
+      }
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }
@@ -408,7 +410,9 @@ class _MediaBrowserLibrarySettingsPageState
       _invalidateMediaBrowserCaches();
       _showMessage(l.mediaBrowserLibraryDeleted);
     } catch (error) {
-      _showError(l.mediaBrowserDeleteFailed(_errorMessage(context, error)));
+      if (mounted) {
+        _showError(l.mediaBrowserDeleteFailed(_errorMessage(context, error)));
+      }
     } finally {
       if (mounted) setState(() => _busyLibraryId = null);
     }

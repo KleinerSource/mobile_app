@@ -824,7 +824,7 @@ class MediaBrowserMediaSourceAdapter
 
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
-      throw SourceException(
+      throw const SourceException(
         AppErrorCode.mediaSourceReferenceInvalid,
         code: AppErrorCode.mediaSourceReferenceInvalid,
       );

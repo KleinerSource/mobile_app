@@ -163,18 +163,14 @@ class ServerVersionInfo {
 }
 
 class ServerCompatibilityException extends ApiException {
-  ServerCompatibilityException(
-    String message, {
-    String? code,
-    Map<String, Object?>? details,
-  }) : super(
-         message,
-         code: code ??
-             (message.startsWith('error.')
-                 ? message
-                 : AppErrorCode.serverCompatibility),
-         details: details,
-       );
+  ServerCompatibilityException(super.message, {String? code, super.details})
+    : super(
+        code:
+            code ??
+            (message.startsWith('error.')
+                ? message
+                : AppErrorCode.serverCompatibility),
+      );
 }
 
 ServerVersionInfo requireCompatibleServerVersion(Object? raw) {

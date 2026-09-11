@@ -167,7 +167,9 @@ class _MediaBrowserDetailBodyState
           .markFavorite(widget.item.id, !widget.item.userData.isFavorite);
       if (mounted) _invalidateDetail();
     } catch (error) {
-      _showError(localizedErrorMessage(AppL10n.of(context), error));
+      if (mounted) {
+        _showError(localizedErrorMessage(AppL10n.of(context), error));
+      }
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
@@ -185,7 +187,9 @@ class _MediaBrowserDetailBodyState
         ref.invalidate(mediaBrowserNextUpProvider);
       }
     } catch (error) {
-      _showError(localizedErrorMessage(AppL10n.of(context), error));
+      if (mounted) {
+        _showError(localizedErrorMessage(AppL10n.of(context), error));
+      }
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }

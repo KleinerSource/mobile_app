@@ -70,7 +70,9 @@ class _MediaBrowserAlbumDetailPageState
           .markFavorite(album.id, !album.userData.isFavorite);
       _invalidateDetail();
     } catch (error) {
-      _showError(localizedErrorMessage(AppL10n.of(context), error));
+      if (mounted) {
+        _showError(localizedErrorMessage(AppL10n.of(context), error));
+      }
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }

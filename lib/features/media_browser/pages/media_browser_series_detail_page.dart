@@ -75,7 +75,9 @@ class _MediaBrowserSeriesDetailPageState
           .markFavorite(series.id, !series.userData.isFavorite);
       _invalidateDetail();
     } catch (error) {
-      _showError(localizedErrorMessage(AppL10n.of(context), error));
+      if (mounted) {
+        _showError(localizedErrorMessage(AppL10n.of(context), error));
+      }
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
