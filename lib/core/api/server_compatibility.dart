@@ -24,7 +24,7 @@ enum ServerProject {
   ohMyMedia(
     projectName: 'oh-my-media',
     displayName: 'Oh My Media',
-    minimumVersion: '2.3.155',
+    minimumVersion: '2.4.0',
   ),
   dbOnline(
     projectName: 'db_online',
