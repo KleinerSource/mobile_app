@@ -74,7 +74,7 @@ class TranslationRepository {
   }
 
   /// 翻译单个字段
-  /// fieldName 例: movie_title / movie_country / movie_outline / movie_plot
+  /// fieldName 例: movie_title / movie_outline / movie_plot
   Future<String> translateText(String text, {required String fieldName}) async {
     final raw = await _api.translate({'text': text, 'field_name': fieldName});
     return unwrapStd<String>(raw, (d) {

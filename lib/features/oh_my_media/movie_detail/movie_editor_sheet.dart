@@ -584,10 +584,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label(
-                              l.movieEditorFieldCountry,
-                              trailing: _translateBtn('country'),
-                            ),
+                            _label(l.movieEditorFieldCountry),
                             _input(_country, icon: Icons.public),
                           ],
                         ),
@@ -900,18 +897,12 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   }
 
   // 字段映射: key → 后端 field_name
-  static const _fieldTypeMap = {
-    'title': 'movie_title',
-    'country': 'movie_country',
-    'plot': 'movie_plot',
-  };
+  static const _fieldTypeMap = {'title': 'movie_title', 'plot': 'movie_plot'};
 
   TextEditingController _ctlOf(String key) {
     switch (key) {
       case 'title':
         return _title;
-      case 'country':
-        return _country;
       case 'plot':
         return _plot;
       default:
@@ -1065,7 +1056,6 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
 
   String _translationFieldLabel(AppL10n l, String key) => switch (key) {
     'title' => l.movieEditorFieldTitle,
-    'country' => l.movieEditorFieldCountry,
     'plot' => l.movieEditorFieldPlot,
     _ => key,
   };
