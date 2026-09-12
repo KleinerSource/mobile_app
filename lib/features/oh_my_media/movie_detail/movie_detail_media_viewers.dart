@@ -10,8 +10,6 @@ import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
-import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
-import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
@@ -45,7 +43,6 @@ class _MovieExtraFanartSectionState
     extends ConsumerState<MovieExtraFanartSection> {
   final ScrollController _previewController = ScrollController();
   bool _fetching = false;
-  String? _fanartTaskId;
 
   @override
   void dispose() {
@@ -93,18 +90,20 @@ class _MovieExtraFanartSectionState
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
       }
-      final taskId = result.taskId;
-      _fanartTaskId = taskId;
-      _consumeFanartTask(ref.read(taskCenterProvider));
-      unawaited(
-        ref.read(taskCenterProvider.notifier).syncTaskSnapshot(taskId).then((
-          _,
-        ) {
-          if (mounted && _fanartTaskId == taskId) {
-            _consumeFanartTask(ref.read(taskCenterProvider));
-          }
-        }),
-      );
+      await _refreshExtraFanartsOnly();
+      if (mounted) setState(() => _fetching = false);
+      if (mounted) {
+        final successMessage = result.message?.trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              successMessage != null && successMessage.isNotEmpty
+                  ? successMessage
+                  : AppL10n.of(context).fanartFetchDone,
+            ),
+          ),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _fetching = false);
@@ -113,41 +112,6 @@ class _MovieExtraFanartSectionState
         SnackBar(content: Text(AppL10n.of(context).fanartFetchFailed(message))),
       );
     }
-  }
-
-  void _consumeFanartTask(List<TaskItem> tasks) {
-    final taskId = _fanartTaskId;
-    if (taskId == null) return;
-
-    TaskItem? current;
-    for (final task in tasks) {
-      if (task.id != taskId) continue;
-      if (current == null ||
-          task.attempt > current.attempt ||
-          (task.attempt == current.attempt &&
-              task.revision > current.revision)) {
-        current = task;
-      }
-    }
-    if (current == null || !current.isTerminal) return;
-
-    _fanartTaskId = null;
-    if (mounted) setState(() => _fetching = false);
-    if (current.isCompleted) {
-      unawaited(_refreshExtraFanartsOnly());
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).fanartFetchDone)),
-      );
-      return;
-    }
-
-    final l = AppL10n.of(context);
-    final reason = current.message.trim().isNotEmpty
-        ? current.message.trim()
-        : current.isCanceled
-        ? l.taskMsgCanceled
-        : l.previewFailed;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
   }
 
   Future<void> _refreshExtraFanartsOnly() async {
@@ -285,9 +249,6 @@ class _MovieExtraFanartSectionState
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<List<TaskItem>>(taskCenterProvider, (_, next) {
-      _consumeFanartTask(next);
-    });
     final async = ref.watch(extraFanartsProvider(widget.movieId));
     final l = AppL10n.of(context);
     return async.when(

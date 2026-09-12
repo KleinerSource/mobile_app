@@ -50,8 +50,8 @@ abstract interface class OmmMediaOperationsSource {
 
   Future<List<String>> extraFanarts(MediaRef movie);
 
-  /// 提交额外预览图下载任务，并返回统一调度任务 ID。
-  Future<({String taskId, String? message})> downloadExtraFanarts(
+  /// 直接下载单部影片的额外预览图并返回结果。
+  Future<({int downloaded, String? message})> downloadExtraFanarts(
     MediaRef movie,
   );
 
@@ -89,7 +89,7 @@ abstract interface class OmmMediaOperationsSource {
 
   Future<String?> deleteMovie(MediaRef movie, {bool force = false});
 
-  Future<String?> syncNfo(MediaRef movie);
+  Future<String?> writeNfo(MediaRef movie);
 
   Future<String?> refreshFromNfo(MediaRef movie);
 

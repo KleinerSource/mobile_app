@@ -298,18 +298,19 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<({String taskId, String? message})> downloadExtraFanarts(
+  Future<({int downloaded, String? message})> downloadExtraFanarts(
     MediaRef movie,
   ) async {
     final raw = await _call(
-      () => client.tasks.submit('extra_fanart_download', {
-        'movie_ids': [_ommId(movie)],
-      }),
+      () => client.movies.downloadExtraFanarts(_ommId(movie)),
     );
-    final task = _taskSnapshot(raw);
+    final data = unwrapStd<Map<String, dynamic>>(raw, (value) {
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return <String, dynamic>{};
+    });
     return (
-      taskId: _taskId(task),
-      message: envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task),
+      downloaded: _intValue(data['downloaded']),
+      message: envelopeMessageOrNull(raw),
     );
   }
 
@@ -489,14 +490,10 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<String?> syncNfo(MediaRef movie) async {
-    final raw = await _call(
-      () => client.tasks.submit('nfo_sync', {
-        'movie_ids': [_ommId(movie)],
-      }),
-    );
-    final task = _taskSnapshot(raw);
-    return envelopeMessageOrNull(raw) ?? envelopeMessageOrNull(task);
+  Future<String?> writeNfo(MediaRef movie) async {
+    final raw = await _call(() => client.movies.writeNfo(_ommId(movie)));
+    unwrapStd<void>(raw, (_) {});
+    return envelopeMessageOrNull(raw);
   }
 
   @override

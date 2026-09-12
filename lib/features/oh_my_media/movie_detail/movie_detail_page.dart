@@ -1258,8 +1258,9 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
               ref,
               title: l.detailSyncNfoTitle,
               message: l.detailSyncNfoMessage,
-              run: () => ref.read(mediaRepositoryProvider).syncNfo(movie.id),
+              run: () => ref.read(mediaRepositoryProvider).writeNfo(movie.id),
               successMsg: l.detailSyncNfoSuccess,
+              refreshDetail: true,
             );
             break;
           case 'refresh_nfo':

@@ -74,7 +74,7 @@ class MediaRepository {
   Future<List<String>> extraFanarts(int id) =>
       _operations.extraFanarts(_movieRef(id));
 
-  Future<({String taskId, String? message})> downloadExtraFanarts(int id) =>
+  Future<({int downloaded, String? message})> downloadExtraFanarts(int id) =>
       _operations.downloadExtraFanarts(_movieRef(id));
 
   Future<MediaInfoDetail?> mediaInfoDetail(int id) async {
@@ -145,7 +145,11 @@ class MediaRepository {
     return message;
   }
 
-  Future<String?> syncNfo(int id) => _operations.syncNfo(_movieRef(id));
+  Future<String?> writeNfo(int id) async {
+    final message = await _operations.writeNfo(_movieRef(id));
+    MovieDataChanges.bumpMetadata(movieId: id);
+    return message;
+  }
 
   Future<String?> refreshFromNfo(int id) async {
     final message = await _operations.refreshFromNfo(_movieRef(id));

@@ -30,6 +30,9 @@ abstract class MoviesApi {
   @GET('/movies/id/{id}/extrafanart')
   Future<dynamic> getExtraFanarts(@Path('id') int id);
 
+  @POST('/movies/id/{id}/extrafanart/download')
+  Future<dynamic> downloadExtraFanarts(@Path('id') int id);
+
   /// 媒体信息 (容器/视频流/音频流) (来自 master 后端能力)
   @GET('/movies/id/{id}/media-info')
   Future<dynamic> getMediaInfo(@Path('id') int id);
@@ -51,6 +54,9 @@ abstract class MoviesApi {
 
   @POST('/movies/id/{id}/nfo/refresh')
   Future<dynamic> refreshFromNfo(@Path('id') int id);
+
+  @POST('/movies/id/{id}/nfo/write')
+  Future<dynamic> writeNfo(@Path('id') int id);
 
   @GET('/movies/id/{id}/nfo/status')
   Future<dynamic> getNfoStatus(@Path('id') int id);

@@ -130,10 +130,10 @@ void _main_1() {
     expect(operations.lastFavoriteOnly, true);
   });
 
-  test('额外预览图下载返回统一调度任务 ID', () async {
+  test('额外预览图下载返回接口结果', () async {
     final result = await repository.downloadExtraFanarts(9);
 
-    expect(result.taskId, 'extra-fanart-task');
+    expect(result.downloaded, 2);
     expect(result.message, isNull);
     expect(operations.lastRef?.value, '9');
   });
@@ -223,11 +223,11 @@ class _FakeOperations implements OmmMediaOperationsSource {
   Future<List<String>> extraFanarts(source_models.MediaRef movie) async => [];
 
   @override
-  Future<({String taskId, String? message})> downloadExtraFanarts(
+  Future<({int downloaded, String? message})> downloadExtraFanarts(
     source_models.MediaRef movie,
   ) async {
     lastRef = movie;
-    return (taskId: 'extra-fanart-task', message: null);
+    return (downloaded: 2, message: null);
   }
 
   @override
@@ -308,7 +308,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
   Future<String?> cancelPreviewTask(String taskId) async => null;
 
   @override
-  Future<String?> syncNfo(source_models.MediaRef movie) async => null;
+  Future<String?> writeNfo(source_models.MediaRef movie) async => null;
 
   @override
   Future<String?> refreshFromNfo(source_models.MediaRef movie) async => null;
