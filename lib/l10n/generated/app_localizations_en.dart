@@ -6128,14 +6128,14 @@ class AppL10nEn extends AppL10n {
       'Audio extraction task submitted';
 
   @override
-  String get detailSyncNfoTitle => 'Write NFO';
+  String get detailWriteNfoTitle => 'Write NFO';
 
   @override
-  String get detailSyncNfoMessage =>
+  String get detailWriteNfoMessage =>
       'Write this movie\'s information to the NFO file?';
 
   @override
-  String get detailSyncNfoSuccess => 'NFO written successfully';
+  String get detailWriteNfoSuccess => 'NFO written successfully';
 
   @override
   String get detailRefreshNfoTitle => 'Read NFO';

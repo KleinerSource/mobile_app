@@ -11064,23 +11064,23 @@ abstract class AppL10n {
   /// **'音频提取任务已提交'**
   String get detailAudioExtractionSubmitted;
 
-  /// No description provided for @detailSyncNfoTitle.
+  /// No description provided for @detailWriteNfoTitle.
   ///
   /// In zh, this message translates to:
   /// **'写入 NFO'**
-  String get detailSyncNfoTitle;
+  String get detailWriteNfoTitle;
 
-  /// No description provided for @detailSyncNfoMessage.
+  /// No description provided for @detailWriteNfoMessage.
   ///
   /// In zh, this message translates to:
   /// **'把当前元数据写入磁盘 NFO 文件?'**
-  String get detailSyncNfoMessage;
+  String get detailWriteNfoMessage;
 
-  /// No description provided for @detailSyncNfoSuccess.
+  /// No description provided for @detailWriteNfoSuccess.
   ///
   /// In zh, this message translates to:
   /// **'已写入 NFO'**
-  String get detailSyncNfoSuccess;
+  String get detailWriteNfoSuccess;
 
   /// No description provided for @detailRefreshNfoTitle.
   ///

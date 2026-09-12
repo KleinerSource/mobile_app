@@ -1252,14 +1252,14 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
           case 'dbo_meta':
             await DboDiffSheet.show(context, movie);
             break;
-          case 'sync_nfo':
+          case 'write_nfo':
             await _confirmAndRun(
               context,
               ref,
-              title: l.detailSyncNfoTitle,
-              message: l.detailSyncNfoMessage,
+              title: l.detailWriteNfoTitle,
+              message: l.detailWriteNfoMessage,
               run: () => ref.read(mediaRepositoryProvider).writeNfo(movie.id),
-              successMsg: l.detailSyncNfoSuccess,
+              successMsg: l.detailWriteNfoSuccess,
               refreshDetail: true,
             );
             break;
@@ -1353,10 +1353,10 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
     ),
     GlassMenuEntry<String>.divider(dividerColor: c.divider),
     GlassMenuEntry<String>.action(
-      value: 'sync_nfo',
+      value: 'write_nfo',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.upload_outlined,
-        label: l.detailSyncNfoTitle,
+        label: l.detailWriteNfoTitle,
         selected: selected,
         onTap: onTap,
       ),

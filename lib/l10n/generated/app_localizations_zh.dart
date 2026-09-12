@@ -6002,13 +6002,13 @@ class AppL10nZh extends AppL10n {
   String get detailAudioExtractionSubmitted => '音频提取任务已提交';
 
   @override
-  String get detailSyncNfoTitle => '写入 NFO';
+  String get detailWriteNfoTitle => '写入 NFO';
 
   @override
-  String get detailSyncNfoMessage => '把当前元数据写入磁盘 NFO 文件?';
+  String get detailWriteNfoMessage => '把当前元数据写入磁盘 NFO 文件?';
 
   @override
-  String get detailSyncNfoSuccess => '已写入 NFO';
+  String get detailWriteNfoSuccess => '已写入 NFO';
 
   @override
   String get detailRefreshNfoTitle => '读取 NFO';
