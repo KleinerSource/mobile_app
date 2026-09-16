@@ -146,6 +146,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Timer? _operationDismissTimer;
   FileOperation? _operation;
   bool _busy = false;
+  bool _trackedOperationRunning = false;
+  ValueNotifier<bool>? _shellOperationLock;
   final _fileOpenGate = SingleFlightGate();
   FileEntry? _pendingAutoOpen;
 
@@ -183,7 +185,18 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextLock = FileManagerNavigationScope.operationLockOf(context);
+    if (identical(nextLock, _shellOperationLock)) return;
+    if (_trackedOperationRunning) _shellOperationLock?.value = false;
+    _shellOperationLock = nextLock;
+    if (_trackedOperationRunning) _shellOperationLock?.value = true;
+  }
+
+  @override
   void dispose() {
+    if (_trackedOperationRunning) _shellOperationLock?.value = false;
     _operationDismissTimer?.cancel();
     unawaited(_operationSubscription?.cancel());
     _scrollController.removeListener(_closeSwipeOnScroll);
@@ -222,8 +235,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       }
     }
     final page = PopScope(
-      canPop: !_selectionMode,
+      canPop: !_selectionMode && !_trackedOperationRunning,
       onPopInvokedWithResult: (didPop, _) {
+        if (_trackedOperationRunning) return;
         if (!didPop && _selectionMode) _exitSelection();
       },
       child: Scaffold(
@@ -252,6 +266,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                         )
                       : _selectionMode
                       ? PopupMenuButton<int>(
+                          enabled: !_busy,
                           tooltip: l.fileBatchActions,
                           onSelected: (index) =>
                               batchActions[index].onTap?.call(),
@@ -365,7 +380,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                         : (_isAtRoot
                               ? l.fileBackToServers
                               : l.fileBackToParent),
-                    onBackPressed: _selectionMode
+                    onBackPressed: _trackedOperationRunning
+                        ? null
+                        : _selectionMode
                         ? _exitSelection
                         : widget.directoryPicker
                         ? _cancelDirectoryPicker
@@ -400,7 +417,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   if (_operation != null)
                     _FileOperationBanner(
                       operation: _operation!,
-                      onCancel: _cancelOperation,
+                      onCancel:
+                          _operation!.kind == FileOperationKind.upload &&
+                              _operation!.status == FileOperationStatus.running
+                          ? _cancelOperation
+                          : null,
                     ),
                 ],
               ),
@@ -420,11 +441,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _returnToServerSelector() async {
+    if (_trackedOperationRunning) return;
     if (FileManagerNavigationScope.requestServerSelection(context)) return;
     ServerSelectionPage.requestReturn(context);
   }
 
   void _handleBack() {
+    if (_trackedOperationRunning) return;
     if (widget.directoryPicker) {
       _cancelDirectoryPicker();
       return;
@@ -475,6 +498,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _openDirectory(String path) async {
+    if (_busy) return;
     _openSwipe.value = null;
     final selectedPath = await Navigator.of(context).push<FilePath>(
       MaterialPageRoute<FilePath>(
@@ -587,6 +611,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     _BrowserMenuAction action,
     FilePath currentPath,
   ) async {
+    if (_busy) return;
     switch (action) {
       case _BrowserMenuAction.forceRefresh:
         setState(() => _busy = true);
@@ -735,6 +760,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refresh,
+            notificationPredicate: (_) => !_busy,
             child: DragSelectionScope<String>(
               scrollController: _scrollController,
               selectionLayout: DragSelectionLayout.list,
@@ -1002,34 +1028,43 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       EntityBatchAction(
         icon: Icons.select_all,
         label: l.fileSelectAll,
-        onTap: entries.isEmpty ? null : () => _selectAllVisible(entries),
+        onTap: _busy || entries.isEmpty
+            ? null
+            : () => _selectAllVisible(entries),
       ),
       EntityBatchAction(
         icon: Icons.remove_done,
         label: l.fileClearSelection,
-        onTap: _selectedKeys.isEmpty ? null : _clearSelection,
+        onTap: _busy || _selectedKeys.isEmpty ? null : _clearSelection,
       ),
       EntityBatchAction(
         icon: Icons.drive_file_move_outlined,
         label: l.fileMove,
-        onTap: _selectedKeys.isEmpty ? null : () => _moveSelected(entries),
+        onTap: _busy || _selectedKeys.isEmpty
+            ? null
+            : () => _moveSelected(entries),
       ),
       EntityBatchAction(
         icon: Icons.drive_file_rename_outline,
         label: l.fileRename,
-        onTap: _selectedKeys.isEmpty ? null : () => _renameSelected(entries),
+        onTap: _busy || _selectedKeys.isEmpty
+            ? null
+            : () => _renameSelected(entries),
       ),
       EntityBatchAction(
         icon: Icons.delete_outline,
         label: l.delete,
         tooltip: l.fileDeleteSelected,
         color: error,
-        onTap: _selectedKeys.isEmpty ? null : () => _deleteSelected(entries),
+        onTap: _busy || _selectedKeys.isEmpty
+            ? null
+            : () => _deleteSelected(entries),
       ),
     ];
   }
 
   Future<void> _handleLegacyEdgeSwipeBack() async {
+    if (_trackedOperationRunning) return;
     if (_selectionMode) {
       _exitSelection();
       return;
@@ -1047,6 +1082,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _handleEntryAction(FileEntry entry, String action) async {
+    if (_busy) return;
     switch (action) {
       case 'favorite':
         _toggleFavorite(entry);

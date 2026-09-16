@@ -22,6 +22,8 @@ class FileOperation {
     this.source,
     this.destination,
     this.progress,
+    this.completedItems,
+    this.totalItems,
     this.message,
   });
 
@@ -31,6 +33,8 @@ class FileOperation {
   final FilePath? source;
   final FilePath? destination;
   final FileTransferProgress? progress;
+  final int? completedItems;
+  final int? totalItems;
   final String? message;
 }
 

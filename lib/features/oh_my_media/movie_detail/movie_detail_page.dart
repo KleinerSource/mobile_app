@@ -14,7 +14,7 @@ import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/actor_avatar.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
 import 'package:omm/features/oh_my_media/lists/add_to_list_sheet.dart';
@@ -392,7 +392,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
   /// 演员头像地址:与 ActorAvatar 相同的解析规则(null = 字段缺失仍尝试
   /// 加载;空数组 = 明确无头像,跳过请求),供 CastSection 同步拼 URL。
   String? _castImageUrl(ActorItem actor) {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     if (config == null) return null;
     if (actor.avatarPaths != null && actor.avatarPaths!.isEmpty) return null;
     return actorAvatarUrl(config, actor.id);
@@ -1160,7 +1160,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final isOmm = ref.watch(serverConfigProvider)?.isOmm == true;
+    final isOmm = ref.watch(mediaRuntimeConfigProvider)?.isOmm == true;
     final previewStatus = isOmm
         ? ref
               .watch(previewStatusProvider(movie.id))

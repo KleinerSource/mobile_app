@@ -15,6 +15,7 @@ import '../api/server_compatibility.dart';
 import '../api/server_connection.dart';
 import '../config/server_config.dart';
 import '../config/server_config_provider.dart';
+import '../config/server_runtime.dart';
 import '../config/server_line_probe.dart';
 import 'auth_session.dart';
 import 'auth_session_repository.dart';
@@ -45,14 +46,14 @@ class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
     final lineProbeCache = ref.read(_authLineProbeCacheProvider);
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     ref.watch(authExpiryProvider);
     if (config == null) {
       lineProbeCache.key = null;
       return const AuthState(phase: AuthPhase.unconfigured);
     }
 
-    final connection = ref.watch(serverConnectionProvider);
+    final connection = ref.watch(mediaServerConnectionProvider);
     final lease = connection.lease;
     if (!connection.accepts(config.activeServerId) || lease == null) {
       return const AuthState(phase: AuthPhase.unavailable);
@@ -333,14 +334,14 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// “检查服务器鉴权状态”。直接复用当前客户端的 bootstrap 流程，完成后
   /// 同步 Provider 状态，避免重复的线路探测和旧 Future 竞争。
   Future<AuthState> refreshCurrentServer() async {
-    final config = ref.read(serverConfigProvider);
+    final config = ref.read(mediaRuntimeConfigProvider);
     if (config == null) {
       const result = AuthState(phase: AuthPhase.unconfigured);
       state = const AsyncData(result);
       return result;
     }
 
-    final connection = ref.read(serverConnectionProvider);
+    final connection = ref.read(mediaServerConnectionProvider);
     final lease = connection.lease;
     if (!connection.accepts(config.activeServerId) || lease == null) {
       throw const ServerConnectionClosedException();
@@ -382,7 +383,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     try {
       final result = await _bootstrap(client, allowCredentialRecovery: true);
       client.ensureActive();
-      if (!ref.read(serverConnectionProvider).owns(lease)) {
+      if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
         throw const ServerConnectionClosedException();
       }
       state = AsyncData(result);
@@ -587,7 +588,7 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   /// 为当前 Stash 服务器验证并保存 API Key。
   Future<bool> setStashApiKey(String value) async {
-    final config = ref.read(serverConfigProvider);
+    final config = ref.read(mediaRuntimeConfigProvider);
     if (config?.activeServer?.project != ServerProject.stash) {
       throw ApiException(
         AppErrorCode.validationFailed,

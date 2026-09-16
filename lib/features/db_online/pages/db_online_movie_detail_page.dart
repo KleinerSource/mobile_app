@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -43,7 +43,7 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     final value = code?.trim().isNotEmpty == true
         ? ref.watch(
             dbOnlineMovieDetailProvider(
@@ -662,7 +662,7 @@ class _DbOnlinePlaybackSheetState
 
   void _refreshEpisodes() {
     final request = DbOnlinePlayRequest(
-      serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+      serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
       code: widget.code,
       sourceId: _source.id,
       videoId: widget.videoId,
@@ -674,7 +674,7 @@ class _DbOnlinePlaybackSheetState
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     final request = DbOnlinePlayRequest(
-      serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+      serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
       code: widget.code,
       sourceId: _source.id,
       videoId: widget.videoId,
@@ -868,7 +868,7 @@ class _EpisodeTile extends ConsumerWidget {
     String rawUrl, {
     PlaybackEngineKind? engineKind,
   }) {
-    final config = ref.read(serverConfigProvider);
+    final config = ref.read(mediaRuntimeConfigProvider);
     if (config == null) return;
     final url = resolveServerUrl(config, rawUrl);
     // 在线 HLS 在 AVPlayer 下无法正常播放，交给 KSMEPlayer 处理；判定与

@@ -7,6 +7,7 @@ import '../../auth/auth_session_repository.dart';
 import '../../api/server_connection.dart';
 import '../../api/error_codes.dart';
 import '../../config/server_config_provider.dart';
+import '../../config/server_runtime.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
@@ -43,9 +44,9 @@ final fileSourceRegistryProvider =
         unregisterLease?.call();
         unawaited(registry.dispose());
       });
-      final connection = ref.watch(serverConnectionProvider);
+      final connection = ref.watch(fileServerConnectionProvider);
       final lease = connection.lease;
-      final activeServerId = ref.watch(serverConfigProvider)?.activeServerId;
+      final activeServerId = ref.watch(fileRuntimeConfigProvider)?.activeServerId;
       if (!connection.accepts(activeServerId) || lease == null) {
         return registry;
       }
@@ -156,7 +157,8 @@ final fileDirectoryForceRefreshProvider = StateProvider.family<bool, String>(
 );
 
 void _checkFileServerScope(Ref ref, String serverId) {
-  final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+  final activeServerId =
+      ref.read(fileRuntimeConfigProvider)?.activeServerId ?? '';
   if (serverId != activeServerId) {
     throw const SourceException(
       AppErrorCode.operationFailed,

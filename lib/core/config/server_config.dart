@@ -281,6 +281,28 @@ class ServerConfig {
     );
   }
 
+  /// 为单个运行槽生成稳定配置，避免其它服务器的选择或线路变化让该槽重建。
+  ServerConfig? scopedTo(String? serverId) {
+    final normalized = serverId?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    ServerProfile? selected;
+    for (final server in servers) {
+      if (server.id == normalized) {
+        selected = server;
+        break;
+      }
+    }
+    final server = selected;
+    final line = server?.activeLine;
+    if (server == null || line == null) return null;
+    return ServerConfig(
+      baseUrl: line.baseUrl,
+      lines: server.lines,
+      servers: [server],
+      activeServerId: server.id,
+    );
+  }
+
   ServerConfig copyWith({
     String? baseUrl,
     List<ServerLine>? lines,

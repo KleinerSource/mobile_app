@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/common/source_id.dart';
@@ -35,36 +36,43 @@ class FileManagerShell extends ConsumerStatefulWidget {
 class _FileManagerShellState extends ConsumerState<FileManagerShell> {
   final _fileNavigatorKey = GlobalKey<NavigatorState>();
   final _moveTargetTab = ValueNotifier<int?>(null);
+  final _operationLock = ValueNotifier<bool>(false);
   var _index = 0;
 
   @override
   void dispose() {
     _moveTargetTab.dispose();
+    _operationLock.dispose();
     super.dispose();
   }
 
   void _selectTab(int index) {
-    if (index == _index) return;
+    if (_operationLock.value || index == _index) return;
     AppHaptics.selection();
     setState(() => _index = index);
   }
 
   void _switchServer(String serverId) {
-    if (ref.read(serverSwitchTransitionProvider).isActive) return;
+    if (_operationLock.value ||
+        ref.read(serverSwitchTransitionProvider).isActive) {
+      return;
+    }
     unawaited(
       ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId),
     );
   }
 
   void _returnToServerSelector() {
+    if (_operationLock.value) return;
     ServerSelectionPage.requestReturn(context);
   }
 
   /// 收藏列表跳转：目录按路径逐级压入目录栈（返回行为与逐级进入一致）；
   /// 文件压入所在目录并在首次加载后自动打开。随后切回文件 Tab。
   void _openFavorite(FileFavorite favorite) {
+    if (_operationLock.value) return;
     final navigator = _fileNavigatorKey.currentState;
-    final serverId = ref.read(serverConfigProvider)?.activeServerId;
+    final serverId = ref.read(fileRuntimeConfigProvider)?.activeServerId;
     if (navigator == null || serverId == null) return;
     final sourceId = SourceId(favorite.sourceId);
     final crumbs = buildBreadcrumbs(
@@ -107,7 +115,8 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final config = ref.watch(serverConfigProvider);
+    final catalog = ref.watch(serverConfigProvider);
+    final config = ref.watch(fileRuntimeConfigProvider);
     final transition = ref.watch(serverSwitchTransitionProvider);
     final fileNavigator = NavigatorPopHandler<void>(
       enabled: _index == 0,
@@ -129,6 +138,7 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
     return FileManagerNavigationScope(
       onRequestServerSelection: _returnToServerSelector,
       moveTargetTab: _moveTargetTab,
+      operationLock: _operationLock,
       child: Scaffold(
         extendBody: true,
         backgroundColor: c.bg,
@@ -140,58 +150,71 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
             const SettingsPage(forFileManager: true),
           ],
         ),
-        bottomNavigationBar: ValueListenableBuilder<int?>(
-          valueListenable: _moveTargetTab,
-          builder: (context, moveTab, _) {
-            final isMoveTargetPicker = moveTab != null;
-            final tabs = isMoveTargetPicker
-                ? [
-                    FloatingTabSpec<String>(
-                      label: l.tabFiles,
-                      icon: Icons.folder_rounded,
-                    ),
-                    FloatingTabSpec<String>(
-                      label: l.fileFavoritesSection,
-                      icon: Icons.star_rounded,
-                    ),
-                  ]
-                : [
-                    FloatingTabSpec<String>(
-                      label: l.tabFiles,
-                      icon: Icons.folder_rounded,
-                      quickMenuEntries: buildServerQuickSwitchEntries<String>(
-                        context: context,
-                        servers: config?.servers ?? const [],
-                        activeServerId: config?.activeServerId,
-                        selectingServerId: transition.isActive
-                            ? transition.targetServerId
-                            : null,
-                        valueFor: (serverId) => serverId,
-                      ),
-                      onQuickMenuSelected: _switchServer,
-                    ),
-                    FloatingTabSpec<String>(
-                      label: l.fileFavoritesSection,
-                      icon: Icons.star_rounded,
-                    ),
-                    FloatingTabSpec<String>(
-                      label: l.settingsTitle,
-                      icon: Icons.settings_rounded,
-                    ),
-                  ];
-            return FloatingTabBar<String>(
-              tabs: tabs,
-              active: isMoveTargetPicker ? moveTab : _index,
-              onTap: (index) {
-                if (!isMoveTargetPicker) {
-                  _selectTab(index);
-                  return;
-                }
-                if (index != moveTab) AppHaptics.selection();
-                _moveTargetTab.value = index;
-              },
-            );
-          },
+        bottomNavigationBar: ValueListenableBuilder<bool>(
+          valueListenable: _operationLock,
+          builder: (context, operationLocked, _) => IgnorePointer(
+            key: const ValueKey<String>('file-manager-operation-lock'),
+            ignoring: operationLocked,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 160),
+              opacity: operationLocked ? 0.5 : 1,
+              child: ValueListenableBuilder<int?>(
+                valueListenable: _moveTargetTab,
+                builder: (context, moveTab, _) {
+                  final isMoveTargetPicker = moveTab != null;
+                  final tabs = isMoveTargetPicker
+                      ? [
+                          FloatingTabSpec<String>(
+                            label: l.tabFiles,
+                            icon: Icons.folder_rounded,
+                          ),
+                          FloatingTabSpec<String>(
+                            label: l.fileFavoritesSection,
+                            icon: Icons.star_rounded,
+                          ),
+                        ]
+                      : [
+                          FloatingTabSpec<String>(
+                            label: l.tabFiles,
+                            icon: Icons.folder_rounded,
+                            quickMenuEntries:
+                                buildServerQuickSwitchEntries<String>(
+                                  context: context,
+                                  servers: catalog?.servers ?? const [],
+                                  activeServerId: config?.activeServerId,
+                                  selectingServerId: transition.isActive
+                                      ? transition.targetServerId
+                                      : null,
+                                  valueFor: (serverId) => serverId,
+                                ),
+                            onQuickMenuSelected: _switchServer,
+                          ),
+                          FloatingTabSpec<String>(
+                            label: l.fileFavoritesSection,
+                            icon: Icons.star_rounded,
+                          ),
+                          FloatingTabSpec<String>(
+                            label: l.settingsTitle,
+                            icon: Icons.settings_rounded,
+                          ),
+                        ];
+                  return FloatingTabBar<String>(
+                    tabs: tabs,
+                    active: isMoveTargetPicker ? moveTab : _index,
+                    onTap: (index) {
+                      if (operationLocked) return;
+                      if (!isMoveTargetPicker) {
+                        _selectTab(index);
+                        return;
+                      }
+                      if (index != moveTab) AppHaptics.selection();
+                      _moveTargetTab.value = index;
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
         ),
       ),
     );

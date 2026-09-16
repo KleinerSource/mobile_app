@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
@@ -429,7 +429,8 @@ class _MediaBrowserLibrarySettingsPageState
     ref.invalidate(mediaBrowserLatestProvider);
     ref.invalidate(mediaBrowserResumeProvider);
     ref.invalidate(mediaBrowserNextUpProvider);
-    final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+    final activeServerId =
+        ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
       mediaBrowserViewLatestProvider(
         MediaBrowserViewLatestRequest(

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -86,7 +86,8 @@ class _MediaBrowserAlbumDetailPageState
     );
   }
 
-  String get _serverId => ref.read(serverConfigProvider)?.activeServerId ?? '';
+  String get _serverId =>
+      ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
 
   void _showError(String message) {
     if (!mounted) return;
@@ -305,7 +306,8 @@ class _TrackSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final tracks = ref.watch(
       mediaBrowserAlbumTracksProvider(
         MediaBrowserAlbumTracksRequest(serverId: serverId, albumId: album.id),

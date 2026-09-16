@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../config/server_config.dart';
-import '../config/server_config_provider.dart';
+import '../config/server_runtime.dart';
 import 'error_codes.dart';
 
 typedef ServerConnectionCancelCallback = void Function();
@@ -86,30 +85,53 @@ class ServerConnectionClosedException implements Exception {
   String toString() => message;
 }
 
-final serverConnectionProvider =
+final mediaServerConnectionProvider =
     NotifierProvider<ServerConnectionController, ServerConnectionState>(
-      ServerConnectionController.new,
+      () => ServerConnectionController(ServerRuntimeLane.media),
     );
 
+final fileServerConnectionProvider =
+    NotifierProvider<ServerConnectionController, ServerConnectionState>(
+      () => ServerConnectionController(ServerRuntimeLane.files),
+    );
+
+/// 兼容仍未迁移的媒体调用点；文件调用必须使用 [fileServerConnectionProvider]。
+final serverConnectionProvider = mediaServerConnectionProvider;
+
+final visibleServerConnectionProvider = Provider<ServerConnectionState>((ref) {
+  final lane = ref.watch(
+    serverRuntimeProvider.select((runtime) => runtime.visibleLane),
+  );
+  return switch (lane) {
+    ServerRuntimeLane.media => ref.watch(mediaServerConnectionProvider),
+    ServerRuntimeLane.files => ref.watch(fileServerConnectionProvider),
+    null => const ServerConnectionState(
+      serverId: null,
+      generation: 0,
+      suspended: true,
+      lease: null,
+    ),
+  };
+});
+
 class ServerConnectionController extends Notifier<ServerConnectionState> {
+  ServerConnectionController(this.lane);
+
+  final ServerRuntimeLane lane;
   int _nextGeneration = 0;
 
   @override
   ServerConnectionState build() {
-    final initialServerId = ref.read(serverConfigProvider)?.activeServerId;
-    ref.listen<ServerConfig?>(serverConfigProvider, (previous, next) {
-      final nextServerId = next?.activeServerId;
-      if (nextServerId == null || nextServerId.trim().isEmpty) {
-        suspend();
-        return;
-      }
-      // 显式切换期间配置可能短暂提交目标服务器；只有切换控制器完成
-      // 事务后才能重新开放请求入口。
-      if (!state.suspended && state.serverId != nextServerId) {
-        activate(nextServerId);
-      }
-    });
-    return _activeState(initialServerId);
+    ref.listen<String?>(
+      serverRuntimeProvider.select((runtime) => runtime.serverIdFor(lane)),
+      (_, serverId) {
+        if (serverId == null ||
+            (!state.suspended && state.serverId != serverId)) {
+          suspend();
+        }
+      },
+    );
+    return _activeState(null);
   }
 
   void suspend({String? expectedServerId}) {

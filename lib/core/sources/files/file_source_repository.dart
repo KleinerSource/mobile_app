@@ -140,6 +140,29 @@ class FileOperationTracker {
       source: current.source,
       destination: current.destination,
       progress: progress,
+      completedItems: current.completedItems,
+      totalItems: current.totalItems,
+    );
+    _operations[id] = operation;
+    _emit(operation);
+  }
+
+  void itemsProgress(String id, {required int completed, required int total}) {
+    final current = _operations[id];
+    if (current == null || current.status != FileOperationStatus.running) {
+      return;
+    }
+    final safeTotal = total < 0 ? 0 : total;
+    final safeCompleted = completed.clamp(0, safeTotal).toInt();
+    final operation = FileOperation(
+      id: current.id,
+      kind: current.kind,
+      status: FileOperationStatus.running,
+      source: current.source,
+      destination: current.destination,
+      progress: current.progress,
+      completedItems: safeCompleted,
+      totalItems: safeTotal,
     );
     _operations[id] = operation;
     _emit(operation);
@@ -158,6 +181,8 @@ class FileOperationTracker {
       source: current.source,
       destination: current.destination,
       progress: current.progress,
+      completedItems: current.completedItems,
+      totalItems: current.totalItems,
       message: canceled ? AppErrorCode.fileTransferCanceled : current.message,
     );
     _operations[id] = operation;
@@ -177,6 +202,8 @@ class FileOperationTracker {
       source: current?.source,
       destination: current?.destination,
       progress: current?.progress,
+      completedItems: current?.completedItems,
+      totalItems: current?.totalItems,
       message: error.toString(),
     );
     _operations[id] = operation;

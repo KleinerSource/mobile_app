@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -35,7 +35,8 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final value = ref.watch(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(serverId: serverId, itemId: itemId),
@@ -196,7 +197,8 @@ class _MediaBrowserDetailBodyState
   }
 
   void _invalidateDetail() {
-    final serverId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(

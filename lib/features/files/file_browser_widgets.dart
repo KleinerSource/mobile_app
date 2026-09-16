@@ -1,10 +1,10 @@
 part of 'file_browser_page.dart';
 
 class _FileOperationBanner extends StatelessWidget {
-  const _FileOperationBanner({required this.operation, required this.onCancel});
+  const _FileOperationBanner({required this.operation, this.onCancel});
 
   final FileOperation operation;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class _FileOperationBanner extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (isRunning)
+                  if (isRunning && onCancel != null)
                     IconButton(
                       tooltip: AppL10n.of(context).cancel,
                       onPressed: onCancel,
@@ -42,12 +42,22 @@ class _FileOperationBanner extends StatelessWidget {
               ),
               if (isRunning) ...[
                 const SizedBox(height: 4),
-                LinearProgressIndicator(value: progress?.ratio),
+                LinearProgressIndicator(value: _operationProgress(operation)),
               ],
               if (progress != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(_progressText(progress)),
+                ),
+              if (progress == null && operation.totalItems != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    AppL10n.of(context).fileOperationItemsProgress(
+                      operation.completedItems ?? 0,
+                      operation.totalItems!,
+                    ),
+                  ),
                 ),
               if (!isRunning && operation.message != null)
                 Padding(
@@ -64,12 +74,20 @@ class _FileOperationBanner extends StatelessWidget {
 
 IconData _operationIcon(FileOperationKind kind) => switch (kind) {
   FileOperationKind.upload => Icons.upload_outlined,
+  FileOperationKind.delete => Icons.delete_outline,
+  FileOperationKind.move => Icons.drive_file_move_outlined,
+  FileOperationKind.rename => Icons.drive_file_rename_outline,
+  FileOperationKind.createDirectory => Icons.create_new_folder_outlined,
   _ => Icons.sync,
 };
 
 String _operationTitle(FileOperation operation, AppL10n l) {
   final action = switch (operation.kind) {
     FileOperationKind.upload => l.fileUploadAction,
+    FileOperationKind.delete => l.delete,
+    FileOperationKind.move => l.fileMove,
+    FileOperationKind.rename => l.fileRename,
+    FileOperationKind.createDirectory => l.fileCreateDirectory,
     _ => l.fileFileOperation,
   };
   return switch (operation.status) {
@@ -79,6 +97,14 @@ String _operationTitle(FileOperation operation, AppL10n l) {
     FileOperationStatus.failed => l.fileOperationFailed(action),
     FileOperationStatus.pending => l.fileOperationPending(action),
   };
+}
+
+double? _operationProgress(FileOperation operation) {
+  final transferProgress = operation.progress?.ratio;
+  if (transferProgress != null) return transferProgress;
+  final totalItems = operation.totalItems;
+  if (totalItems == null || totalItems <= 0) return null;
+  return ((operation.completedItems ?? 0) / totalItems).clamp(0.0, 1.0);
 }
 
 String _progressText(FileTransferProgress progress) {
@@ -100,7 +126,7 @@ class _FileBrowserTopBar extends StatelessWidget {
   final String title;
   final IconData backIcon;
   final String backTooltip;
-  final VoidCallback onBackPressed;
+  final VoidCallback? onBackPressed;
   final Widget trailing;
 
   @override

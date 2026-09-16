@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
@@ -180,7 +180,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
     final rawUrl = widget.movie.previewVideoUrl?.trim() ?? '';
     if (rawUrl.isEmpty) return;
 
-    final config = ref.read(serverConfigProvider);
+    final config = ref.read(mediaRuntimeConfigProvider);
     if (config?.isOmm != true) return;
     final activeConfig = config!;
 
@@ -197,7 +197,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
 
     Future<void>? openFuture;
     try {
-      final connection = ref.read(serverConnectionProvider);
+      final connection = ref.read(mediaServerConnectionProvider);
       final lease = connection.lease;
       if (lease == null || !connection.accepts(activeConfig.activeServerId)) {
         await _stopPreview();
@@ -211,7 +211,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
           .read(authSessionRepositoryProvider)
           .forServer(activeConfig.activeServerId, allowLegacyMigration: false)
           .accessToken();
-      if (!ref.read(serverConnectionProvider).owns(lease)) {
+      if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
         await _stopPreview();
         return;
       }

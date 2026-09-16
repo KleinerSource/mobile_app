@@ -8,6 +8,7 @@ import '../../core/auth/auth_session_provider.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_config.dart';
@@ -18,6 +19,7 @@ import '../../shared/localized_error_message.dart';
 import '../../shared/reorder_slot_feedback.dart';
 import '../../shared/server_avatar.dart';
 import '../../shared/swipe_actions.dart';
+import '../player/common/player_launch_gate.dart';
 import 'server_lines_page.dart';
 import 'server_setup_page.dart';
 import 'settings_common.dart';
@@ -288,6 +290,10 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     );
     if (confirmed != true || !mounted) return;
     try {
+      final runtime = ref.read(serverRuntimeProvider);
+      if (runtime.visibleServerId == server.id) {
+        await ref.read(playbackTaskCoordinatorProvider).stopAll();
+      }
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
       await ref.read(serverCredentialsRepositoryProvider).delete(server.id);
       final fileSource = _findFileSourceConfig(server.id);

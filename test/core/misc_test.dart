@@ -222,6 +222,28 @@ void _main_3() {
     await subscription.cancel();
     await tracker.dispose();
   });
+
+  test('Tracker 保留批量项目进度直到任务完成', () async {
+    final tracker = FileOperationTracker(sourceId: const SourceId('smb-main'));
+    final events = <FileOperation>[];
+    final subscription = tracker.events.listen(events.add);
+    final id = tracker.start(FileOperationKind.delete);
+
+    tracker.itemsProgress(id, completed: 0, total: 3);
+    tracker.itemsProgress(id, completed: 2, total: 3);
+    tracker.complete(id, FileOperationKind.delete);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(events[1].completedItems, 0);
+    expect(events[1].totalItems, 3);
+    expect(events[2].completedItems, 2);
+    expect(events.last.status, FileOperationStatus.completed);
+    expect(events.last.completedItems, 2);
+    expect(events.last.totalItems, 3);
+
+    await subscription.cancel();
+    await tracker.dispose();
+  });
 }
 
 // ==================== 原 test/core/resource_scan_test.dart ====================

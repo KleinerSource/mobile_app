@@ -65,7 +65,7 @@ Future<void> _openMediaBrowserPlayback(
 }) async {
   final config = ref.read(mediaBrowserConfigProvider);
   if (config == null) return;
-  final lease = ref.read(serverConnectionProvider).lease;
+  final lease = ref.read(mediaServerConnectionProvider).lease;
   if (lease == null || !lease.isActive) return;
   final source = ref
       .read(mediaSourceRegistryProvider)

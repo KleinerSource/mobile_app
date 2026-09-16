@@ -1046,6 +1046,11 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String fileOperationItemsProgress(int completed, int total) {
+    return '已处理 $completed / $total 项';
+  }
+
+  @override
   String get filePlaybackProgress => '播放进度';
 
   @override

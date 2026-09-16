@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
@@ -210,7 +211,8 @@ class _MediaBrowserLibraryPageState
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
-          serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+          serverId:
+              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           query: media_models.MediaQuery(
             offset: startIndex,
             limit: _pageSize,
@@ -446,7 +448,8 @@ class _MediaBrowserLibraryPageState
         final result = await readMediaBrowserItemPage(
           ref,
           MediaBrowserItemPageRequest(
-            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            serverId:
+                ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
             query: media_models.MediaQuery(
               limit: limit,
               offset: offset,

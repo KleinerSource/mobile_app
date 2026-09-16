@@ -5,7 +5,7 @@ import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/api/server_compatibility.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
@@ -25,7 +25,7 @@ export 'package:omm/core/sources/media/media_browser/media_browser_server_urls.d
 /// Emby 与 Jellyfin 页面共用同一套实现，项目差异（品牌标签、路径前缀
 /// 等）都从这里取。
 final mediaBrowserConfigProvider = Provider<MediaBrowserConfig?>((ref) {
-  final project = ref.watch(serverConfigProvider)?.activeServer?.project;
+  final project = ref.watch(mediaRuntimeConfigProvider)?.activeServer?.project;
   return MediaBrowserConfig.byProject[project];
 });
 
@@ -59,9 +59,9 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
   }
   // 依赖登录态：登录/登出会触发重建并刷新 token。
   ref.watch(authControllerProvider);
-  final serverConfig = ref.watch(serverConfigProvider);
+  final serverConfig = ref.watch(mediaRuntimeConfigProvider);
   final activeServerId = serverConfig?.activeServerId;
-  final connection = ref.watch(serverConnectionProvider);
+  final connection = ref.watch(mediaServerConnectionProvider);
   final lease = connection.lease;
   if (lease == null || !connection.accepts(activeServerId)) {
     throw const ServerConnectionClosedException();
@@ -70,7 +70,7 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
       .read(authSessionRepositoryProvider)
       .forServer(activeServerId, allowLegacyMigration: false)
       .current();
-  if (!ref.read(serverConnectionProvider).owns(lease)) {
+  if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
     throw const ServerConnectionClosedException();
   }
   final stashKey = config.project == ServerProject.stash
@@ -80,7 +80,7 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
                   .read(serverCredentialsRepositoryProvider)
                   .readApiKey(activeServerId)
       : null;
-  if (!ref.read(serverConnectionProvider).owns(lease)) {
+  if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
     throw const ServerConnectionClosedException();
   }
   return MediaBrowserServerUrls(
@@ -274,7 +274,8 @@ Future<MediaBrowserItemPage> readMediaBrowserItemPage(
   WidgetRef ref,
   MediaBrowserItemPageRequest request,
 ) {
-  final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+  final activeServerId =
+      ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
   if (request.serverId != activeServerId) {
     throw const SourceException(
       AppErrorCode.operationFailed,
@@ -466,7 +467,8 @@ class MediaBrowserEpisodesRequest {
 }
 
 void _checkServerScope(Ref ref, String requestServerId) {
-  final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+  final activeServerId =
+      ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
   if (requestServerId != activeServerId) {
     throw const SourceException(
       AppErrorCode.operationFailed,

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/config/server_profile_runtime_loader.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
@@ -45,13 +46,13 @@ class HomeServerSwitcher extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(serverConfigProvider);
-    final active = config?.activeServer;
+    final catalog = ref.watch(serverConfigProvider);
+    final active = ref.watch(mediaRuntimeConfigProvider)?.activeServer;
     if (active == null) return const SizedBox.shrink();
     return _HomeServerSwitcherMenu(
       key: ValueKey(active.id),
       activeServer: active,
-      servers: config!.servers,
+      servers: catalog?.servers ?? const <ServerProfile>[],
     );
   }
 }

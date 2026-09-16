@@ -67,6 +67,10 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
     );
     if (confirmed != true || !mounted) return;
     try {
+      final runtime = ref.read(serverRuntimeProvider);
+      if (runtime.visibleServerId == server.id) {
+        await ref.read(playbackTaskCoordinatorProvider).stopAll();
+      }
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
       await ref.read(serverCredentialsRepositoryProvider).delete(server.id);
       AppHaptics.medium();
@@ -114,7 +118,7 @@ extension _ServerSelectionOperations on _ServerSelectionPageState {
             ref.read(serverSwitchTransitionProvider).phase !=
                 ServerSwitchPhase.finishing) ||
         ref.read(serverSelectionReadyProvider) == false ||
-        ref.read(serverConfigProvider)?.activeServerId != serverId) {
+        ref.read(serverRuntimeProvider).visibleServerId != serverId) {
       return;
     }
     ref.read(serverConfigProvider.notifier).completeServerSelection();

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -70,7 +71,7 @@ class _DbOnlineLatestMoviesPageState
     if (pageRequest == null) return;
     try {
       final request = DbOnlineLatestPageRequest(
-        serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+        serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
         page: page,
         limit: _pageSize,
         sortBy: widget.sortBy,
@@ -138,7 +139,7 @@ class _DbOnlineLatestMoviesPageState
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     final width = MediaQuery.sizeOf(context).width;
     final crossAxisCount = width >= 1100
         ? 6

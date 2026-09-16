@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/api/services/auth_api.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
@@ -21,6 +22,7 @@ import 'package:omm/core/auth/totp_code.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ==================== 原 test/core/auth_api_test.dart ====================
@@ -419,6 +421,7 @@ void _main_2() {
       ],
     );
     addTearDown(container.dispose);
+    _activateMediaRuntime(container, server.id);
     final authSubscription = container.listen(
       authControllerProvider,
       (_, __) {},
@@ -1173,7 +1176,7 @@ class _FixedServerConfigNotifier extends ServerConfigNotifier {
 }
 
 /// 构造挂载 AuthController 的容器；默认无配置（unconfigured），
-/// loginForServer 不依赖活动服务器配置。
+/// 传入配置时显式激活媒体运行槽。loginForServer 不依赖活动服务器配置。
 Future<ProviderContainer> _authContainer(
   AuthSessionRepository sessions, {
   ServerConfig? config,
@@ -1183,7 +1186,7 @@ Future<ProviderContainer> _authContainer(
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  return ProviderContainer(
+  final container = ProviderContainer(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
       authSessionRepositoryProvider.overrideWithValue(sessions),
@@ -1201,6 +1204,20 @@ Future<ProviderContainer> _authContainer(
       if (client != null) requiredApiClientProvider.overrideWithValue(client),
     ],
   );
+  if (config?.activeServerId case final serverId?) {
+    _activateMediaRuntime(container, serverId);
+  }
+  return container;
+}
+
+void _activateMediaRuntime(ProviderContainer container, String serverId) {
+  container
+      .read(serverRuntimeProvider.notifier)
+      .beginSwitch(ServerRuntimeLane.media, serverId);
+  container.read(mediaServerConnectionProvider.notifier).activate(serverId);
+  container
+      .read(serverRuntimeProvider.notifier)
+      .commit(ServerRuntimeLane.media, serverId);
 }
 
 void _emitAuthExpiry(ProviderContainer container, String serverId) {

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -77,7 +77,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     final recommend = ref.watch(dbOnlineRecommendProvider);
     final updated = ref.watch(dbOnlineLatestUpdatedProvider);
     final released = ref.watch(dbOnlineLatestReleasedProvider);

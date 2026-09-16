@@ -1,11 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/auth/auth_provider.dart';
-import 'core/auth/auth_session.dart';
+import 'core/api/server_connection.dart';
 import 'core/config/server_config_provider.dart';
+import 'core/config/server_runtime.dart';
 import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
 import 'core/platform/performance_monitor_overlay.dart';
@@ -18,7 +20,7 @@ import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
 import 'features/files/file_manager_shell.dart';
 import 'features/player/common/player_settings.dart';
-import 'features/files/file_navigation.dart';
+import 'features/player/common/player_launch_gate.dart';
 import 'features/player/audio/audio_playback_service.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_selection_page.dart';
@@ -92,7 +94,9 @@ class OmmApp extends ConsumerWidget {
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
     final activeProject = ref.watch(
-      serverConfigProvider.select((config) => config?.activeServer?.project),
+      visibleRuntimeConfigProvider.select(
+        (config) => config?.activeServer?.project,
+      ),
     );
     final playerSettings = ref.watch(playerSettingsProvider);
     final showPerformanceMonitor =
@@ -145,8 +149,7 @@ class _AppNavigator extends ConsumerStatefulWidget {
   const _AppNavigator();
 
   static const _selectorKey = ValueKey<String>('server-selector');
-  static const _mediaKey = ValueKey<String>('server-media');
-  static const _fileKey = ValueKey<String>('server-files');
+  static const _contentKey = ValueKey<String>('server-content');
   static const _switchKey = ValueKey<String>('server-switch');
 
   @override
@@ -154,10 +157,6 @@ class _AppNavigator extends ConsumerStatefulWidget {
 }
 
 class _AppNavigatorState extends ConsumerState<_AppNavigator> {
-  bool _contentWasVisible = false;
-  String? _lastActiveServerId;
-  bool? _lastIsFileServer;
-  bool _contentRemovalBelongsToServerSwitch = false;
   late final NavigatorObserver _routeObserver;
   final Set<Route<dynamic>> _observedContentRoutes = <Route<dynamic>>{};
   final Set<Route<dynamic>> _ignoredContentRoutes = <Route<dynamic>>{};
@@ -174,60 +173,23 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
   Widget build(BuildContext context) {
     final ref = this.ref;
     final config = ref.watch(serverConfigProvider);
-    final auth = ref.watch(authControllerProvider);
     final serverSwitch = ref.watch(serverSwitchTransitionProvider);
     final selectionRequested = ref.watch(serverSelectionRequestedProvider);
-    final isAuthenticated = auth.value?.phase == AuthPhase.authenticated;
-    final isFinishingServerSwitch =
-        serverSwitch.phase == ServerSwitchPhase.finishing;
+    final runtime = ref.watch(serverRuntimeProvider);
     final showContent =
         config != null &&
-        (!selectionRequested || isFinishingServerSwitch) &&
-        isAuthenticated &&
-        (!serverSwitch.isActive || isFinishingServerSwitch);
-    final isFileServer = config?.activeServer?.project?.isFileSource == true;
-
-    // 文件服务器切换可能在同一帧内完成配置更新和转场收尾，届时
-    // serverSwitch 已经回到 idle，不能只依赖 isActive 判断旧内容页的移除。
-    // 只有媒体/文件模式发生变化时才会产生不同的内容路由，需要提前标记。
-    final activeServerChanged =
-        config != null &&
-        _lastActiveServerId != null &&
-        config.activeServerId != _lastActiveServerId;
-    final contentModeChanged =
-        config != null &&
-        _lastIsFileServer != null &&
-        isFileServer != _lastIsFileServer;
-    if (activeServerChanged && contentModeChanged) {
-      _contentRemovalBelongsToServerSwitch = true;
-    }
-    if (config != null) {
-      _lastActiveServerId = config.activeServerId;
-      _lastIsFileServer = isFileServer;
-    }
-
-    // 切换服务器会先从声明式栈移除旧首页，再挂载切换遮罩。移除回调可能
-    // 在异步切换完成后才到达，因此不能只在回调里读取 isActive 判断归属。
-    if (_contentWasVisible && !showContent && serverSwitch.isActive) {
-      _contentRemovalBelongsToServerSwitch = true;
-    }
-    _contentWasVisible = showContent;
-
+        !selectionRequested &&
+        runtime.visibleLane != null &&
+        runtime.visibleServerId != null;
     final pages = <Page<void>>[
       const MaterialPage<void>(
         key: _AppNavigator._selectorKey,
         child: ServerSelectionPage(),
       ),
-      if (showContent && !isFileServer)
+      if (showContent)
         const _ServerContentPage<void>(
-          key: _AppNavigator._mediaKey,
-          child: _AuthenticatedMediaHome(),
-        ),
-      if (showContent && isFileServer)
-        const _ServerContentPage<void>(
-          key: _AppNavigator._fileKey,
-          name: fileManagerRootRouteName,
-          child: _AuthenticatedFileHome(),
+          key: _AppNavigator._contentKey,
+          child: _AuthenticatedManagerHome(),
         ),
       if (serverSwitch.isActive)
         const _NoTransitionPage<void>(
@@ -254,9 +216,7 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
 
   void _observeRouteExit(Route<dynamic> route, {required bool didPop}) {
     final settings = route.settings;
-    if (settings is! Page<void> ||
-        (settings.key != _AppNavigator._mediaKey &&
-            settings.key != _AppNavigator._fileKey)) {
+    if (settings is! Page<void> || settings.key != _AppNavigator._contentKey) {
       return;
     }
 
@@ -268,30 +228,18 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
           _observedContentRoutes.remove(route)) {
         return;
       }
-      if (_contentRemovalBelongsToServerSwitch) {
-        _contentRemovalBelongsToServerSwitch = false;
-        return;
-      }
-      _releaseServerResources();
+      unawaited(_releaseServerResources());
       return;
     }
 
     if (_ignoredContentRoutes.remove(route)) return;
     if (!_observedContentRoutes.add(route)) return;
 
-    final belongsToServerSwitch = _contentRemovalBelongsToServerSwitch;
-    _contentRemovalBelongsToServerSwitch = false;
-    if (belongsToServerSwitch) {
-      _observedContentRoutes.remove(route);
-      _ignoredContentRoutes.add(route);
-      return;
-    }
-
     final animation = route is TransitionRoute<dynamic>
         ? route.animation
         : null;
     if (animation == null || animation.status == AnimationStatus.dismissed) {
-      _releaseServerResources();
+      unawaited(_releaseServerResources());
       return;
     }
 
@@ -302,7 +250,7 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
         _pendingExitAnimation = null;
         _pendingExitListener = null;
       }
-      _releaseServerResources();
+      unawaited(_releaseServerResources());
     }
 
     _pendingExitAnimation = animation;
@@ -310,10 +258,13 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     animation.addStatusListener(onStatusChanged);
   }
 
-  void _releaseServerResources() {
+  Future<void> _releaseServerResources() async {
     if (!mounted) return;
-    // 选择器已经在父路由中可见；此时再卸载运行态，下一次选择会重新创建
-    // 媒体客户端或 SMB/WebDAV 连接，而不会与退出动画争用旧资源。
+    await ref.read(playbackTaskCoordinatorProvider).stopAll();
+    if (!mounted) return;
+    ref.read(mediaServerConnectionProvider.notifier).suspend();
+    ref.read(fileServerConnectionProvider.notifier).suspend();
+    ref.read(serverRuntimeProvider.notifier).clearAll();
     ref.read(serverConfigProvider.notifier).showServerSelection();
   }
 
@@ -424,18 +375,27 @@ class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
   }
 }
 
-class _AuthenticatedMediaHome extends StatelessWidget {
-  const _AuthenticatedMediaHome();
+class _AuthenticatedManagerHome extends ConsumerWidget {
+  const _AuthenticatedManagerHome();
 
   @override
-  Widget build(BuildContext context) => const MediaManagerShell();
-}
-
-class _AuthenticatedFileHome extends StatelessWidget {
-  const _AuthenticatedFileHome();
-
-  @override
-  Widget build(BuildContext context) => const FileManagerShell();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final runtime = ref.watch(serverRuntimeProvider);
+    final mediaServerId = runtime.media.serverId;
+    final fileServerId = runtime.files.serverId;
+    final index = runtime.visibleLane == ServerRuntimeLane.files ? 1 : 0;
+    return IndexedStack(
+      index: index,
+      children: [
+        mediaServerId == null
+            ? const SizedBox.shrink()
+            : MediaManagerShell(key: ValueKey('media:$mediaServerId')),
+        fileServerId == null
+            ? const SizedBox.shrink()
+            : FileManagerShell(key: ValueKey('files:$fileServerId')),
+      ],
+    );
+  }
 }
 
 /// SharedPreferences 就绪前的冷启动闪屏，无法读取服务器配置，仅显示背景与

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/providers.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/avdb_config.dart';
 import 'package:omm/core/models/dbo_config.dart';
 import 'package:omm/core/models/ffmpeg_config.dart';
@@ -31,7 +31,7 @@ final ffmpegConfigProvider = FutureProvider<FfmpegConfig>((ref) async {
 });
 
 final previewConfigProvider = FutureProvider<PreviewConfig>((ref) async {
-  if (ref.watch(serverConfigProvider)?.isOmm != true) {
+  if (ref.watch(mediaRuntimeConfigProvider)?.isOmm != true) {
     throw const UnsupportedSourceCapabilityException('previewGeneration');
   }
   return ref.watch(configsRepositoryProvider).getPreview();

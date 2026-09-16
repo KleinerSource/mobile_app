@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -19,7 +19,7 @@ class FileSourcesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(fileRuntimeConfigProvider);
     final serverId = config?.activeServerId;
     final server = config?.activeServer;
     if (serverId == null || server?.project?.isFileSource != true) {

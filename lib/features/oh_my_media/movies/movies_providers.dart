@@ -8,6 +8,7 @@ import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/media_streams.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/preview.dart';
@@ -85,7 +86,7 @@ final mediaRepositoryProvider = Provider<MediaRepository>((ref) {
 
 /// 海报/图片 URL 构造器。
 final imageUrlBuilderProvider = Provider<String Function(String uuid)>((ref) {
-  final cfg = ref.watch(serverConfigProvider);
+  final cfg = ref.watch(mediaRuntimeConfigProvider);
   final revision = ref.watch(imageCacheRevisionProvider);
   return (uuid) {
     if (cfg == null) return '';
@@ -108,8 +109,8 @@ final movieWatchRecordProvider = FutureProvider.autoDispose
 
 final extraFanartsProvider = FutureProvider.autoDispose
     .family<List<String>, int>((ref, id) async {
-      final config = ref.watch(serverConfigProvider);
-      final connection = ref.watch(serverConnectionProvider);
+      final config = ref.watch(mediaRuntimeConfigProvider);
+      final connection = ref.watch(mediaServerConnectionProvider);
       final lease = connection.lease;
       final rawUrls = await ref.watch(mediaRepositoryProvider).extraFanarts(id);
       if (config == null) return rawUrls;
@@ -121,7 +122,7 @@ final extraFanartsProvider = FutureProvider.autoDispose
           .read(authSessionRepositoryProvider)
           .forServer(config.activeServerId, allowLegacyMigration: false)
           .accessToken();
-      if (!ref.read(serverConnectionProvider).owns(lease)) {
+      if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
         throw const ServerConnectionClosedException();
       }
       final revision = ref.watch(imageCacheRevisionProvider);
@@ -145,17 +146,17 @@ final previewStatusProvider = FutureProvider.autoDispose
 /// 预览是 OMM 独有能力，非 OMM 线路不应触发本地媒体库请求。
 final previewVideoUrlProvider = FutureProvider.autoDispose.family<String?, int>(
   (ref, id) async {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     if (config?.isOmm != true) return null;
     final activeConfig = config!;
-    final connection = ref.watch(serverConnectionProvider);
+    final connection = ref.watch(mediaServerConnectionProvider);
     final lease = connection.lease;
     if (lease == null || !connection.accepts(activeConfig.activeServerId)) {
       throw const ServerConnectionClosedException();
     }
 
     final status = await ref.watch(previewStatusProvider(id).future);
-    if (!ref.read(serverConnectionProvider).owns(lease)) {
+    if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
       throw const ServerConnectionClosedException();
     }
     final asset = status.assets['video'];
@@ -166,7 +167,7 @@ final previewVideoUrlProvider = FutureProvider.autoDispose.family<String?, int>(
         .read(authSessionRepositoryProvider)
         .forServer(activeConfig.activeServerId, allowLegacyMigration: false)
         .accessToken();
-    if (!ref.read(serverConnectionProvider).owns(lease)) {
+    if (!ref.read(mediaServerConnectionProvider).owns(lease)) {
       throw const ServerConnectionClosedException();
     }
     return resolveProtectedUrl(activeConfig, rawUrl, token);

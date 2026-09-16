@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -75,7 +76,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final project = ref.read(serverConfigProvider)?.activeServer?.project;
+    final project = ref.read(mediaRuntimeConfigProvider)?.activeServer?.project;
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
@@ -298,7 +299,8 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final config = ref.watch(serverConfigProvider);
+    final catalog = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     final project = config?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
     final mediaBrowser = MediaBrowserConfig.byProject[project] != null;
@@ -313,7 +315,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
       dbOnline: dbOnline,
       mediaBrowser: mediaBrowser,
       stash: stash,
-      servers: config?.servers ?? const <ServerProfile>[],
+      servers: catalog?.servers ?? const <ServerProfile>[],
       activeServerId: config?.activeServerId,
       selectingServerId: transition.isActive ? transition.targetServerId : null,
     );

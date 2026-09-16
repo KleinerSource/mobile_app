@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
@@ -109,7 +110,8 @@ class _MediaBrowserCollectionDetailPageState
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
-          serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+          serverId:
+              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           query: media_models.MediaQuery(
             offset: startIndex,
             limit: _pageSize,
@@ -170,7 +172,8 @@ class _MediaBrowserCollectionDetailPageState
     ref.invalidate(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(
-          serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+          serverId:
+              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           itemId: _collectionId,
         ),
       ),
@@ -184,7 +187,8 @@ class _MediaBrowserCollectionDetailPageState
 
   @override
   Widget build(BuildContext context) {
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final detail = ref.watch(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(

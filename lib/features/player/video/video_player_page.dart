@@ -17,6 +17,7 @@ import '../../../core/api/url_resolver.dart';
 import '../../../core/auth/auth_session_provider.dart';
 import '../../../core/config/server_config.dart';
 import '../../../core/config/server_config_provider.dart';
+import '../../../core/config/server_runtime.dart';
 import '../../../core/models/playback.dart' as playback_models;
 import '../../../core/models/watch_record.dart';
 import '../../../core/platform/app_log_store.dart';
@@ -284,6 +285,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   late final FilePlaybackProgressRepository _filePlaybackProgress;
   ServerConnectionLease? _connectionLease;
   VoidCallback? _unregisterConnectionLease;
+  VoidCallback? _unregisterPlaybackTask;
   final PlayerDeviceStatsReader _deviceStatsReader =
       const PlayerDeviceStatsReader();
 
@@ -382,10 +384,13 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
     );
-    _connectionLease = ref.read(serverConnectionProvider).lease;
+    _connectionLease = ref.read(visibleServerConnectionProvider).lease;
     _unregisterConnectionLease = _connectionLease?.register(
       _handleServerConnectionCancelled,
     );
+    _unregisterPlaybackTask = ref
+        .read(playbackTaskCoordinatorProvider)
+        .register(_exitPlayer);
     _filePlaybackProgress = FilePlaybackProgressRepository(
       ref.read(sharedPrefsProvider),
     );
@@ -470,6 +475,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     _isLeaving = true;
     _unregisterConnectionLease?.call();
     _unregisterConnectionLease = null;
+    _unregisterPlaybackTask?.call();
+    _unregisterPlaybackTask = null;
     _loadGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     if (_pictureInPictureActive || _pictureInPictureRequesting) {
@@ -631,7 +638,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         directSubtitleTracks = resolved.subtitleTracks;
         directProgressReporter = resolved.progressReporter;
         directStartPositionSec = resolved.startPositionSec;
-        if (trailerUrl.isEmpty) throw StateError(AppErrorCode.responseDataMissing);
+        if (trailerUrl.isEmpty) {
+          throw StateError(AppErrorCode.responseDataMissing);
+        }
       }
       if (trailerUrl != null && trailerUrl.isNotEmpty) {
         if (ref.read(playerSettingsProvider).resumeFromLastPosition) {
@@ -693,7 +702,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         return;
       }
 
-      final cfg = ref.read(serverConfigProvider);
+      final cfg = ref.read(visibleRuntimeConfigProvider);
       if (cfg == null) throw StateError(AppErrorCode.responseDataMissing);
       final movieId = widget.movieId;
       if (movieId == null) throw StateError(AppErrorCode.responseDataMissing);
@@ -1114,9 +1123,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       // 避免字幕菜单停留在一条实际没有加载成功的轨道上。
       _setSelectedSubtitle(null);
       _showError(
-        AppL10n.of(
-          context,
-        ).playerSubtitleLoadFailedContinue(
+        AppL10n.of(context).playerSubtitleLoadFailedContinue(
           localizedErrorMessage(AppL10n.of(context), message),
         ),
       );
@@ -1237,11 +1244,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     } catch (error) {
       if (showError && mounted) {
         _showError(
-          AppL10n.of(
-            context,
-        ).playerSubtitleLoadFailed(
-          localizedErrorMessage(AppL10n.of(context), error),
-        ),
+          AppL10n.of(context).playerSubtitleLoadFailed(
+            localizedErrorMessage(AppL10n.of(context), error),
+          ),
         );
       }
       return false;
@@ -1328,7 +1333,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       await _applyBackendSubtitleDecision(track);
       return;
     }
-    final cfg = ref.read(serverConfigProvider);
+    final cfg = ref.read(visibleRuntimeConfigProvider);
     if (cfg == null) return;
     try {
       final lease = _connectionLease;
@@ -1365,11 +1370,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     } catch (error) {
       if (mounted) {
         _showError(
-          AppL10n.of(
-            context,
-        ).playerSubtitleLoadFailed(
-          localizedErrorMessage(AppL10n.of(context), error),
-        ),
+          AppL10n.of(context).playerSubtitleLoadFailed(
+            localizedErrorMessage(AppL10n.of(context), error),
+          ),
         );
       }
     }
@@ -1978,10 +1981,14 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     _hideTimer?.cancel();
     _onRateBoostEnd();
     await _restorePortraitOrientation();
-    // 先完成进度上报,让返回页面能准确判断是否需要刷新继续观看区块。
-    await _reportProgress();
-    unawaited(_stopPlayer());
-    unawaited(_stopTranscodeSession(waitForServer: false));
+    // 停止任务与进度上报并行，确保切换服务器前本地播放、转码和队列资源
+    // 已经释放；协调器仍有统一超时兜底，网络异常不会永久阻塞切换。
+    await Future.wait([
+      _stopPlayer(),
+      _stopTranscodeSession(),
+      _disposeQueueResources(),
+      _reportProgress().timeout(const Duration(seconds: 3), onTimeout: () {}),
+    ]);
     if (mounted) {
       Navigator.of(context).pop();
     }

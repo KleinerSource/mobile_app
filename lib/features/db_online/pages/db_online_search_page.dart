@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
@@ -318,7 +319,8 @@ class _DbOnlineSearchResultsState
       final result = await ref.read(
         dbOnlineSearchPageProvider(
           DbOnlineSearchPageRequest(
-            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            serverId:
+                ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
             query: widget.query,
             page: page,
             limit: _pageSize,
@@ -357,7 +359,7 @@ class _DbOnlineSearchResultsState
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
     final isPortrait = widget.viewMode == MediaViewMode.portrait;
@@ -503,7 +505,8 @@ class _DbOnlineSeriesSearchResultsState
       final result = await ref.read(
         dbOnlineSeriesSearchPageProvider(
           DbOnlineSeriesSearchPageRequest(
-            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            serverId:
+                ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
             query: widget.query,
             page: page,
             limit: _pageSize,

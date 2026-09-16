@@ -54,7 +54,7 @@ final authExpiryTrackerProvider = Provider<AuthExpiryTracker>((ref) {
 
 /// 由 API 客户端回调标记当前服务器的会话失效。
 void markAuthExpired(Ref ref, String? serverId, {int? generation}) {
-  final connection = ref.read(serverConnectionProvider);
+  final connection = ref.read(mediaServerConnectionProvider);
   final effectiveGeneration = generation ?? connection.generation;
   final normalizedServerId = serverId?.trim();
   if (!connection.accepts(normalizedServerId) ||

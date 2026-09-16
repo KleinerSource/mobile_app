@@ -184,8 +184,12 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
 
   Future<void> _showRecoveryPromptAfterExpiry(AuthExpiryEvent event) async {
     await Future<void>.value();
-    final config = ref.read(serverConfigProvider);
-    final connection = ref.read(serverConnectionProvider);
+    if (ref.read(serverRuntimeProvider).visibleLane !=
+        ServerRuntimeLane.media) {
+      return;
+    }
+    final config = ref.read(mediaRuntimeConfigProvider);
+    final connection = ref.read(mediaServerConnectionProvider);
     if (config?.activeServerId != event.serverId ||
         (event.generation != 0 && connection.generation != event.generation) ||
         !connection.accepts(event.serverId) ||
@@ -203,7 +207,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   }
 
   void _showRecoveryPrompt(AuthState auth) {
-    final config = ref.read(serverConfigProvider);
+    final config = ref.read(mediaRuntimeConfigProvider);
     final targetServerId = config?.activeServerId;
     final project = config?.activeServer?.project;
     if (targetServerId == null || project == null || project.isFileSource) {
@@ -344,7 +348,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       // 另一个登录错误页。
       ++_operation;
       _cancelPendingSelection();
-      ref.read(serverConnectionProvider.notifier).suspend();
+      ref.read(mediaServerConnectionProvider.notifier).suspend();
+      ref.read(fileServerConnectionProvider.notifier).suspend();
+      ref.read(serverRuntimeProvider.notifier).clearAll();
       ref
           .read(serverConfigProvider.notifier)
           .showServerSelection(releaseResources: false);
@@ -363,18 +369,75 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       return;
     }
 
-    // 登录后的首页切换仍恢复原服务器，避免取消切换后丢失当前工作区。
-    ++_operation;
-    final operation = _operation;
-    if (previousServerId == null) {
+    // 登录后的首页切换只回滚目标槽，另一槽继续保持连接和页面状态。
+    final catalog =
+        ref.read(serverConfigProvider) ??
+        ref.read(serverConfigRepoProvider).load();
+    ServerProfile? target;
+    for (final server in catalog?.servers ?? const <ServerProfile>[]) {
+      if (server.id == current.targetServerId) {
+        target = server;
+        break;
+      }
+    }
+    final project = target?.project;
+    if (project == null) {
+      ++_operation;
+      _cancelPendingSelection();
       state = const ServerSwitchState.idle();
       return;
     }
+
+    final lane = runtimeLaneForProject(project);
+    final runtimeNotifier = ref.read(serverRuntimeProvider.notifier);
+    final runtime = ref.read(serverRuntimeProvider);
+    final rollbackVisibleLane = runtime.visibleLane;
+    if (previousServerId != null) {
+      if (runtime.slot(lane).serverId == previousServerId &&
+          runtime.slot(lane).phase == ServerRuntimePhase.ready &&
+          _connectionFor(lane).accepts(previousServerId)) {
+        ++_operation;
+        _cancelPendingSelection();
+        state = const ServerSwitchState.idle();
+        return;
+      }
+    }
+
+    ++_operation;
+    final operation = _operation;
     _cancelPendingSelection();
-    ref.read(serverConnectionProvider.notifier).suspend();
+    _suspendLane(lane, expectedServerId: current.targetServerId);
     final configNotifier = ref.read(serverConfigProvider.notifier);
     final selectionTicket = configNotifier.beginServerSelection();
     _selectionTicket = selectionTicket;
+
+    if (previousServerId == null) {
+      runtimeNotifier.clearLane(lane);
+      final fallbackServerId = ref.read(serverRuntimeProvider).visibleServerId;
+      try {
+        if (fallbackServerId != null) {
+          await configNotifier.restoreServer(
+            fallbackServerId,
+            ticket: selectionTicket,
+          );
+        }
+        if (_isCurrent(operation)) {
+          state = const ServerSwitchState.idle();
+        }
+      } catch (error) {
+        if (!_isCurrent(operation)) return;
+        final exception = toApiException(error);
+        state = ServerSwitchState.error(
+          targetServerId: current.targetServerId!,
+          message: exception.message,
+          avatarOrigin: current.avatarOrigin,
+        );
+      } finally {
+        _releaseSelectionTicket(selectionTicket);
+      }
+      return;
+    }
+
     state = ServerSwitchState.checking(
       targetServerId: previousServerId,
       previousServerId: current.targetServerId,
@@ -385,12 +448,33 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         ticket: selectionTicket,
       );
       if (!_isCurrent(operation)) return;
-      _activateServer(previousServerId);
+      ref
+          .read(serverRuntimeProvider.notifier)
+          .beginSwitch(lane, previousServerId);
+      _activateServer(lane, previousServerId);
+      if (lane == ServerRuntimeLane.files) {
+        runtimeNotifier.restore(
+          lane,
+          previousServerId,
+          visibleLane: rollbackVisibleLane,
+        );
+        state = const ServerSwitchState.idle();
+        return;
+      }
       final result = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
       final auth = result.auth;
       if (auth.phase == AuthPhase.authenticated) {
-        await _completeAuthenticatedSwitch(operation);
+        if (rollbackVisibleLane == lane) {
+          await _completeAuthenticatedSwitch(operation);
+        } else {
+          runtimeNotifier.restore(
+            lane,
+            previousServerId,
+            visibleLane: rollbackVisibleLane,
+          );
+          state = const ServerSwitchState.idle();
+        }
       } else {
         state = ServerSwitchState.error(
           targetServerId: previousServerId,
@@ -478,7 +562,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   Future<void> _completeAuthenticatedSwitch(int operation) async {
     if (!_isCurrent(operation)) return;
     final current = state;
-    final project = ref.read(serverConfigProvider)?.activeServer?.project;
+    final project = ref.read(mediaRuntimeConfigProvider)?.activeServer?.project;
     if (project?.isFileSource == true) {
       state = const ServerSwitchState.idle();
       return;
@@ -492,6 +576,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     if (!_isCurrent(operation)) return;
     void beginFinishing() {
       if (!_isCurrent(operation)) return;
+      ref
+          .read(serverRuntimeProvider.notifier)
+          .commit(ServerRuntimeLane.media, targetServerId);
       state = ServerSwitchState.finishing(
         targetServerId: targetServerId,
         previousServerId: current.previousServerId,
@@ -581,23 +668,78 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     Rect? avatarOrigin,
     bool returnToSelectionOnCancel = false,
   }) async {
-    // 从已登录页面返回选择器时，旧运行态会先被卸载以释放服务器资源；
-    // 选择器仍通过持久化配置展示服务器，因此切换也必须使用同一份回退配置。
-    final current =
+    final catalog =
         ref.read(serverConfigProvider) ??
         ref.read(serverConfigRepoProvider).load();
-    if (current == null) return;
-    if (current.activeServerId == serverId && !allowActiveTarget) return;
+    if (catalog == null) return;
+    ServerProfile? target;
+    for (final server in catalog.servers) {
+      if (server.id == serverId) {
+        target = server;
+        break;
+      }
+    }
+    final project = target?.project;
+    if (target == null || project == null) {
+      state = ServerSwitchState.error(
+        targetServerId: serverId,
+        messageKind: ServerSwitchMessageKind.invalidTarget,
+        avatarOrigin: avatarOrigin,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
+      );
+      return;
+    }
 
-    // 快速 A→B→C 时，B 可能已经写入配置但仍处于鉴权阶段。此时 C 的
-    // 回退起点必须沿用整条切换链最初的 A，不能把尚未完成的 B 当成稳定起点。
-    final pendingPreviousServerId = state.isActive
-        ? state.previousServerId
-        : null;
-    final previousServerId =
-        previousServerIdOverride ??
-        pendingPreviousServerId ??
-        (current.activeServerId == serverId ? null : current.activeServerId);
+    final lane = runtimeLaneForProject(project);
+    final runtime = ref.read(serverRuntimeProvider);
+    final slot = runtime.slot(lane);
+    final connection = _connectionFor(lane);
+    final authReady =
+        lane == ServerRuntimeLane.files ||
+        ref.read(authControllerProvider).value?.phase ==
+            AuthPhase.authenticated;
+    final targetAlreadyReady =
+        slot.serverId == serverId &&
+        slot.phase == ServerRuntimePhase.ready &&
+        connection.accepts(serverId) &&
+        authReady;
+    if (targetAlreadyReady && !allowActiveTarget) {
+      if (runtime.visibleLane == lane) return;
+      final operation = ++_operation;
+      state = ServerSwitchState.checking(
+        targetServerId: serverId,
+        previousServerId: serverId,
+        avatarOrigin: avatarOrigin,
+      );
+      try {
+        await ref
+            .read(serverConfigProvider.notifier)
+            .saveServer(target, select: true);
+        if (!_isCurrent(operation)) return;
+        await ref.read(playbackTaskCoordinatorProvider).stopAll();
+        if (!_isCurrent(operation)) return;
+        ref.read(serverRuntimeProvider.notifier).showLane(lane);
+        state = lane == ServerRuntimeLane.media
+            ? ServerSwitchState.finishing(
+                targetServerId: serverId,
+                previousServerId: serverId,
+                avatarOrigin: avatarOrigin,
+              )
+            : const ServerSwitchState.idle();
+      } catch (error) {
+        if (!_isCurrent(operation)) return;
+        final exception = toApiException(error);
+        state = ServerSwitchState.error(
+          targetServerId: serverId,
+          previousServerId: serverId,
+          message: exception.message,
+          avatarOrigin: avatarOrigin,
+        );
+      }
+      return;
+    }
+
+    final previousServerId = previousServerIdOverride ?? slot.serverId;
     final operation = ++_operation;
     _cancelPendingSelection();
     final configNotifier = ref.read(serverConfigProvider.notifier);
@@ -609,26 +751,34 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       avatarOrigin: avatarOrigin,
       returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
-    // 第一次 await 之前同步取消旧 lease。Dio、WebSocket、SSE、文件源和
-    // 播放器会立即收到关闭通知，且 suspended 状态会阻止重建旧客户端。
-    ref
-        .read(serverConnectionProvider.notifier)
-        .suspend(expectedServerId: current.activeServerId);
+    await ref.read(playbackTaskCoordinatorProvider).stopAll();
+    if (!_isCurrent(operation)) return;
+    _suspendLane(lane, expectedServerId: previousServerId);
+    ref.read(serverRuntimeProvider.notifier).beginSwitch(lane, serverId);
     try {
-      if (current.activeServerId != serverId || allowActiveTarget) {
+      if (catalog.activeServerId != serverId || allowActiveTarget) {
         await configNotifier.selectServer(serverId, ticket: selectionTicket);
       }
       if (!_isCurrent(operation)) return;
-      _activateServer(serverId);
-      final target = current.servers.firstWhere(
-        (server) => server.id == serverId,
-      );
-      if (target.project?.isFileSource == true) {
+      _activateServer(lane, serverId);
+      if (lane == ServerRuntimeLane.files) {
+        ref.read(serverRuntimeProvider.notifier).commit(lane, serverId);
+        await ref.read(fileSourceRegistryProvider.future);
+        if (!_isCurrent(operation)) return;
         state = const ServerSwitchState.idle();
         return;
       }
       final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
+      if (_authFailureRequiresRollback(auth.auth.phase)) {
+        await _rollbackLaneAfterFailure(
+          lane: lane,
+          targetServerId: serverId,
+          previousServerId: previousServerId,
+          selectionTicket: selectionTicket,
+        );
+        if (!_isCurrent(operation)) return;
+      }
       await _applyAuthResult(
         auth.auth,
         targetServerId: serverId,
@@ -643,19 +793,30 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       Object effectiveError = error;
       if (previousServerId != null) {
         try {
-          // 目标线路可能已经提交并开始鉴权；失败恢复前先关闭该代际，
-          // 再等待配置写队列恢复原服务器，并为它建立全新连接。
-          ref.read(serverConnectionProvider.notifier).suspend();
+          _suspendLane(lane);
           await configNotifier.restoreServer(
             previousServerId,
             ticket: selectionTicket,
           );
           if (!_isCurrent(operation)) return;
-          _activateServer(previousServerId);
+          ref
+              .read(serverRuntimeProvider.notifier)
+              .beginSwitch(lane, previousServerId);
+          _activateServer(lane, previousServerId);
+          ref
+              .read(serverRuntimeProvider.notifier)
+              .restore(
+                lane,
+                previousServerId,
+                visibleLane: runtime.visibleLane,
+              );
         } catch (restoreError) {
           if (!_isCurrent(operation)) return;
           effectiveError = restoreError;
         }
+      } else {
+        _suspendLane(lane);
+        ref.read(serverRuntimeProvider.notifier).clearLane(lane);
       }
       final exception = toApiException(effectiveError);
       state = ServerSwitchState.error(
@@ -684,23 +845,88 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     if (_selectionTicket == ticket) _selectionTicket = null;
   }
 
-  void _activateServer(String serverId) {
-    final config = ref.read(serverConfigProvider);
+  void _activateServer(ServerRuntimeLane lane, String serverId) {
+    final config = lane == ServerRuntimeLane.media
+        ? ref.read(mediaRuntimeConfigProvider)
+        : ref.read(fileRuntimeConfigProvider);
     if (config?.activeServerId != serverId) {
       throw StateError(AppErrorCode.operationFailed);
     }
     final project = config?.activeServer?.project;
-    final allowLegacyMigration =
-        project != ServerProject.dbOnline &&
-        project != ServerProject.emby &&
-        project != ServerProject.jellyfin;
+    if (lane == ServerRuntimeLane.media) {
+      final allowLegacyMigration =
+          project != ServerProject.dbOnline &&
+          project != ServerProject.emby &&
+          project != ServerProject.jellyfin;
+      ref
+          .read(authSessionRepositoryProvider)
+          .setActiveServerId(
+            serverId,
+            allowLegacyMigration: allowLegacyMigration,
+          );
+      ref.read(mediaServerConnectionProvider.notifier).activate(serverId);
+      return;
+    }
+    ref.read(fileServerConnectionProvider.notifier).activate(serverId);
+  }
+
+  ServerConnectionState _connectionFor(ServerRuntimeLane lane) =>
+      lane == ServerRuntimeLane.media
+      ? ref.read(mediaServerConnectionProvider)
+      : ref.read(fileServerConnectionProvider);
+
+  void _suspendLane(ServerRuntimeLane lane, {String? expectedServerId}) {
+    if (lane == ServerRuntimeLane.media) {
+      ref
+          .read(mediaServerConnectionProvider.notifier)
+          .suspend(expectedServerId: expectedServerId);
+      return;
+    }
     ref
-        .read(authSessionRepositoryProvider)
-        .setActiveServerId(
-          serverId,
-          allowLegacyMigration: allowLegacyMigration,
-        );
-    ref.read(serverConnectionProvider.notifier).activate(serverId);
+        .read(fileServerConnectionProvider.notifier)
+        .suspend(expectedServerId: expectedServerId);
+  }
+
+  bool _authFailureRequiresRollback(AuthPhase phase) => switch (phase) {
+    AuthPhase.incompatible ||
+    AuthPhase.unavailable ||
+    AuthPhase.serverSelection ||
+    AuthPhase.unconfigured => true,
+    AuthPhase.authenticated ||
+    AuthPhase.needsLogin ||
+    AuthPhase.totpRequired ||
+    AuthPhase.needsApiKey => false,
+  };
+
+  Future<void> _rollbackLaneAfterFailure({
+    required ServerRuntimeLane lane,
+    required String targetServerId,
+    required String? previousServerId,
+    required int selectionTicket,
+  }) async {
+    final runtimeNotifier = ref.read(serverRuntimeProvider.notifier);
+    final visibleLane = ref.read(serverRuntimeProvider).visibleLane;
+    _suspendLane(lane, expectedServerId: targetServerId);
+    final configNotifier = ref.read(serverConfigProvider.notifier);
+    if (previousServerId != null) {
+      await configNotifier.restoreServer(
+        previousServerId,
+        ticket: selectionTicket,
+      );
+      runtimeNotifier.beginSwitch(lane, previousServerId);
+      _activateServer(lane, previousServerId);
+      runtimeNotifier.restore(lane, previousServerId, visibleLane: visibleLane);
+      return;
+    }
+
+    runtimeNotifier.clearLane(lane);
+    final fallbackServerId = ref.read(serverRuntimeProvider).visibleServerId;
+    if (fallbackServerId != null) {
+      await configNotifier.restoreServer(
+        fallbackServerId,
+        ticket: selectionTicket,
+      );
+    }
   }
 
   bool _isCurrent(int operation) => operation == _operation;

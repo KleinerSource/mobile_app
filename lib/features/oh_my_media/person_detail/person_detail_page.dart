@@ -9,7 +9,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/mapping_rule.dart';
@@ -274,7 +274,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     final hue = actorHueFromName(widget.actor.name);
     // 状态栏穿透: 封面延伸到状态栏底下,悬浮操作行单独避开状态栏
     final statusBarTop = MediaQuery.paddingOf(context).top;
-    _syncHeroArt(ref.watch(serverConfigProvider));
+    _syncHeroArt(ref.watch(mediaRuntimeConfigProvider));
     // 封面占版面上部约 42%: 名称/简介与影片列表首屏即可见
     final heroMaxHeight = MediaQuery.sizeOf(context).height * 0.42;
     final heroMinHeight = heroMaxHeight * 0.62;

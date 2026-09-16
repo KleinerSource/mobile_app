@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/common/source_id.dart';
@@ -53,7 +53,7 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     final c = appColors(context);
     final l = AppL10n.of(context);
     final serverId = ref.watch(
-      serverConfigProvider.select((config) => config?.activeServerId),
+      fileRuntimeConfigProvider.select((config) => config?.activeServerId),
     );
     final favorites = serverId == null
         ? const <FileFavorite>[]

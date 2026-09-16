@@ -370,6 +370,8 @@
   "@fileOperationFailed": { "placeholders": { "action": { "type": "String" } } },
   "fileOperationPending": "{action} pending",
   "@fileOperationPending": { "placeholders": { "action": { "type": "String" } } },
+  "fileOperationItemsProgress": "Processed {completed} / {total} items",
+  "@fileOperationItemsProgress": { "placeholders": { "completed": { "type": "int" }, "total": { "type": "int" } } },
   "filePlaybackProgress": "Playback progress",
   "fileNotFileServer": "The current server is not a file server",
   "fileChooseFileServer": "Choose a file server",

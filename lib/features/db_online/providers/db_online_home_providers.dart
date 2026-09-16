@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/error_codes.dart';
 
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
@@ -278,7 +278,8 @@ class DbOnlinePlayRequest {
 }
 
 void _checkServerScope(Ref ref, String requestServerId) {
-  final activeServerId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+  final activeServerId =
+      ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
   if (requestServerId != activeServerId) {
     throw const SourceException(
       AppErrorCode.operationFailed,

@@ -12,7 +12,9 @@ import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/system.dart';
+import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
@@ -137,6 +139,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
+    _activateRuntimeLane(container, ServerRuntimeLane.media, server.id);
     container.read(serverSwitchTransitionProvider);
     await container.read(authControllerProvider.future);
     container.read(authExpiryEventProvider.notifier).state =
@@ -211,9 +214,11 @@ void main() {
             activeServerId: 'source-server',
           ),
         );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, source.id);
 
     final transition = container.read(serverSwitchTransitionProvider.notifier);
     final switching = transition.switchTo(target.id);
+    await Future<void>.value();
     expect(
       container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.checking,
@@ -248,7 +253,7 @@ void main() {
     );
   });
 
-  test('切换开始同步断开旧连接，取消后迟到探测不能提交目标服务器', () async {
+  test('切换开始停止任务后断开旧连接，取消后迟到探测不能提交目标服务器', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final targetProbe = Completer<ServerLineProbeResult>();
@@ -312,6 +317,7 @@ void main() {
             activeServerId: 'source-server',
           ),
         );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, source.id);
 
     final oldConnection = container.read(serverConnectionProvider);
     final oldLease = oldConnection.lease!;
@@ -320,6 +326,7 @@ void main() {
 
     final transition = container.read(serverSwitchTransitionProvider.notifier);
     final switching = transition.switchTo(target.id);
+    await Future<void>.value();
 
     expect(cancelledSynchronously, isTrue);
     expect(oldLease.isActive, isFalse);
@@ -723,6 +730,7 @@ void main() {
             activeServerId: firstServer.id,
           ),
         );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, firstServer.id);
 
     final transition = container.read(serverSwitchTransitionProvider.notifier);
     await transition.switchTo(secondServer.id);
@@ -870,7 +878,7 @@ void main() {
     expect(container.read(serverConnectionProvider).serverId, 'c-server');
   });
 
-  test('B 已提交但鉴权未完成时切换 C，C 失败仍恢复最初的 A', () async {
+  test('B 已进入目标槽但鉴权未完成时切换 C，C 失败恢复 B', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final authStarted = Completer<void>();
@@ -947,6 +955,7 @@ void main() {
             activeServerId: 'a-server',
           ),
         );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, 'a-server');
 
     final transition = container.read(serverSwitchTransitionProvider.notifier);
     final bSwitch = transition.switchTo('b-server');
@@ -955,11 +964,11 @@ void main() {
 
     await transition.switchTo('c-server');
 
-    expect(container.read(serverConfigProvider)?.activeServerId, 'a-server');
-    expect(container.read(serverConnectionProvider).serverId, 'a-server');
+    expect(container.read(serverConfigProvider)?.activeServerId, 'b-server');
+    expect(container.read(serverConnectionProvider).serverId, 'b-server');
     authResult.complete(const AuthState(phase: AuthPhase.authenticated));
     await bSwitch;
-    expect(container.read(serverConfigProvider)?.activeServerId, 'a-server');
+    expect(container.read(serverConfigProvider)?.activeServerId, 'b-server');
   });
 
   test('目标探测失败后自动恢复原服务器并创建新连接代际', () async {
@@ -1013,6 +1022,7 @@ void main() {
             activeServerId: 'a-server',
           ),
         );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, aServer.id);
     final initialLease = container.read(serverConnectionProvider).lease;
 
     await container
@@ -1028,6 +1038,543 @@ void main() {
       ServerSwitchPhase.error,
     );
   });
+
+  test('媒体与文件槽已就绪时，跨槽往返复用原 lease 与 generation', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        authControllerProvider.overrideWith(
+          _AlwaysAuthenticatedAuthController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const mediaLine = ServerLine(
+      id: 'media-line',
+      name: '媒体线路',
+      baseUrl: 'https://media.example',
+    );
+    const fileLine = ServerLine(
+      id: 'file-line',
+      name: '文件线路',
+      baseUrl: 'https://files.example/dav',
+    );
+    const mediaServer = ServerProfile(
+      id: 'media-server',
+      name: '媒体服务器',
+      lines: [mediaLine],
+      activeLineId: 'media-line',
+      projectName: 'db_online',
+    );
+    const fileServer = ServerProfile(
+      id: 'file-server',
+      name: '文件服务器',
+      lines: [fileLine],
+      activeLineId: 'file-line',
+      projectName: 'webdav',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          ServerConfig(
+            baseUrl: mediaLine.baseUrl,
+            lines: const [mediaLine],
+            servers: const [mediaServer, fileServer],
+            activeServerId: mediaServer.id,
+          ),
+        );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, mediaServer.id);
+    _activateRuntimeLane(container, ServerRuntimeLane.files, fileServer.id);
+    container
+        .read(serverRuntimeProvider.notifier)
+        .showLane(ServerRuntimeLane.media);
+    await container.read(authControllerProvider.future);
+
+    final mediaBefore = container.read(mediaServerConnectionProvider);
+    final filesBefore = container.read(fileServerConnectionProvider);
+    final transition = container.read(serverSwitchTransitionProvider.notifier);
+
+    await transition.switchTo(fileServer.id);
+    expect(
+      container.read(serverRuntimeProvider).visibleLane,
+      ServerRuntimeLane.files,
+    );
+    expect(
+      container.read(mediaServerConnectionProvider).lease,
+      same(mediaBefore.lease),
+    );
+    expect(
+      container.read(fileServerConnectionProvider).lease,
+      same(filesBefore.lease),
+    );
+
+    await container.read(authControllerProvider.future);
+    await transition.switchTo(mediaServer.id);
+    expect(
+      container.read(serverRuntimeProvider).visibleLane,
+      ServerRuntimeLane.media,
+    );
+    final mediaAfter = container.read(mediaServerConnectionProvider);
+    final filesAfter = container.read(fileServerConnectionProvider);
+    expect(mediaAfter.lease, same(mediaBefore.lease));
+    expect(mediaAfter.generation, mediaBefore.generation);
+    expect(filesAfter.lease, same(filesBefore.lease));
+    expect(filesAfter.generation, filesBefore.generation);
+  });
+
+  test('媒体同槽换实例只替换媒体 lease，文件槽保持不变', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              8,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'db_online',
+                version: '1.14.0',
+              ),
+            ),
+          ),
+        ),
+        authControllerProvider.overrideWith(
+          _AlwaysAuthenticatedAuthController.new,
+        ),
+        dbOnlineRecommendProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestUpdatedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+        dbOnlineLatestReleasedProvider.overrideWith(
+          (ref) async => const <DbOnlineMovie>[],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const mediaOneLine = ServerLine(
+      id: 'media-one-line',
+      name: '媒体一',
+      baseUrl: 'https://media-one.example',
+    );
+    const mediaTwoLine = ServerLine(
+      id: 'media-two-line',
+      name: '媒体二',
+      baseUrl: 'https://media-two.example',
+    );
+    const fileLine = ServerLine(
+      id: 'file-line',
+      name: '文件',
+      baseUrl: 'https://files.example/dav',
+    );
+    const mediaOne = ServerProfile(
+      id: 'media-one',
+      name: '媒体一',
+      lines: [mediaOneLine],
+      activeLineId: 'media-one-line',
+      projectName: 'db_online',
+    );
+    const mediaTwo = ServerProfile(
+      id: 'media-two',
+      name: '媒体二',
+      lines: [mediaTwoLine],
+      activeLineId: 'media-two-line',
+      projectName: 'db_online',
+    );
+    const fileServer = ServerProfile(
+      id: 'file-server',
+      name: '文件服务器',
+      lines: [fileLine],
+      activeLineId: 'file-line',
+      projectName: 'webdav',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          ServerConfig(
+            baseUrl: mediaOneLine.baseUrl,
+            lines: const [mediaOneLine],
+            servers: const [mediaOne, mediaTwo, fileServer],
+            activeServerId: mediaOne.id,
+          ),
+        );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, mediaOne.id);
+    _activateRuntimeLane(container, ServerRuntimeLane.files, fileServer.id);
+    container
+        .read(serverRuntimeProvider.notifier)
+        .showLane(ServerRuntimeLane.media);
+
+    final mediaBefore = container.read(mediaServerConnectionProvider);
+    final filesBefore = container.read(fileServerConnectionProvider);
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(mediaTwo.id);
+
+    final mediaAfter = container.read(mediaServerConnectionProvider);
+    final filesAfter = container.read(fileServerConnectionProvider);
+    expect(mediaBefore.lease?.isActive, isFalse);
+    expect(mediaAfter.accepts(mediaTwo.id), isTrue);
+    expect(mediaAfter.lease, isNot(same(mediaBefore.lease)));
+    expect(mediaAfter.generation, greaterThan(mediaBefore.generation));
+    expect(filesAfter.lease, same(filesBefore.lease));
+    expect(filesAfter.generation, filesBefore.generation);
+    expect(filesAfter.accepts(fileServer.id), isTrue);
+    expect(
+      container.read(serverRuntimeProvider).media.phase,
+      ServerRuntimePhase.ready,
+    );
+  });
+
+  test('媒体切换失败只回滚媒体槽，可见文件槽与 lease 不变', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async =>
+                ServerLineProbeResult.failure(line, '目标服务器不可用'),
+          ),
+        ),
+        authControllerProvider.overrideWith(
+          _AlwaysAuthenticatedAuthController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const mediaOneLine = ServerLine(
+      id: 'media-one-line',
+      name: '媒体一',
+      baseUrl: 'https://media-one.example',
+    );
+    const mediaTwoLine = ServerLine(
+      id: 'media-two-line',
+      name: '媒体二',
+      baseUrl: 'https://media-two.example',
+    );
+    const fileLine = ServerLine(
+      id: 'file-line',
+      name: '文件',
+      baseUrl: 'https://files.example/dav',
+    );
+    const mediaOne = ServerProfile(
+      id: 'media-one',
+      name: '媒体一',
+      lines: [mediaOneLine],
+      activeLineId: 'media-one-line',
+      projectName: 'db_online',
+    );
+    const mediaTwo = ServerProfile(
+      id: 'media-two',
+      name: '媒体二',
+      lines: [mediaTwoLine],
+      activeLineId: 'media-two-line',
+      projectName: 'db_online',
+    );
+    const fileServer = ServerProfile(
+      id: 'file-server',
+      name: '文件服务器',
+      lines: [fileLine],
+      activeLineId: 'file-line',
+      projectName: 'webdav',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          ServerConfig(
+            baseUrl: fileLine.baseUrl,
+            lines: const [fileLine],
+            servers: const [mediaOne, mediaTwo, fileServer],
+            activeServerId: fileServer.id,
+          ),
+        );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, mediaOne.id);
+    _activateRuntimeLane(container, ServerRuntimeLane.files, fileServer.id);
+    final mediaBefore = container.read(mediaServerConnectionProvider);
+    final filesBefore = container.read(fileServerConnectionProvider);
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(mediaTwo.id);
+
+    final runtime = container.read(serverRuntimeProvider);
+    final mediaAfter = container.read(mediaServerConnectionProvider);
+    final filesAfter = container.read(fileServerConnectionProvider);
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.error,
+    );
+    expect(runtime.media.serverId, mediaOne.id);
+    expect(runtime.media.phase, ServerRuntimePhase.ready);
+    expect(runtime.visibleLane, ServerRuntimeLane.files);
+    expect(mediaBefore.lease?.isActive, isFalse);
+    expect(mediaAfter.accepts(mediaOne.id), isTrue);
+    expect(mediaAfter.lease, isNot(same(mediaBefore.lease)));
+    expect(filesAfter.lease, same(filesBefore.lease));
+    expect(filesAfter.generation, filesBefore.generation);
+    expect(filesAfter.accepts(fileServer.id), isTrue);
+  });
+
+  test('文件槽可见时取消首次媒体登录只清理媒体槽', () async {
+    final setup = await _crossLaneSetup(
+      const AuthState(phase: AuthPhase.needsLogin),
+    );
+    addTearDown(setup.container.dispose);
+
+    await setup.container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(setup.mediaServer.id);
+
+    expect(
+      setup.container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.needsLogin,
+    );
+    expect(
+      setup.container.read(serverRuntimeProvider).visibleLane,
+      ServerRuntimeLane.files,
+    );
+    final fileBefore = setup.container.read(fileServerConnectionProvider);
+
+    await setup.container
+        .read(serverSwitchTransitionProvider.notifier)
+        .cancel();
+
+    final runtime = setup.container.read(serverRuntimeProvider);
+    final fileAfter = setup.container.read(fileServerConnectionProvider);
+    expect(
+      setup.container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.idle,
+    );
+    expect(runtime.media.serverId, isNull);
+    expect(runtime.files.serverId, setup.fileServer.id);
+    expect(runtime.visibleLane, ServerRuntimeLane.files);
+    expect(
+      setup.container.read(mediaServerConnectionProvider).suspended,
+      isTrue,
+    );
+    expect(fileAfter.lease, same(fileBefore.lease));
+    expect(fileAfter.accepts(setup.fileServer.id), isTrue);
+    expect(
+      setup.container.read(serverConfigProvider)?.activeServerId,
+      setup.fileServer.id,
+    );
+  });
+
+  test('媒体鉴权硬失败自动回滚且保持文件槽可见', () async {
+    final setup = await _crossLaneSetup(
+      const AuthState(phase: AuthPhase.unavailable, message: '连接失败'),
+    );
+    addTearDown(setup.container.dispose);
+    final fileBefore = setup.container.read(fileServerConnectionProvider);
+
+    await setup.container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(setup.mediaServer.id);
+
+    final runtime = setup.container.read(serverRuntimeProvider);
+    final fileAfter = setup.container.read(fileServerConnectionProvider);
+    expect(
+      setup.container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.error,
+    );
+    expect(runtime.media.serverId, isNull);
+    expect(runtime.files.serverId, setup.fileServer.id);
+    expect(runtime.visibleLane, ServerRuntimeLane.files);
+    expect(
+      setup.container.read(mediaServerConnectionProvider).suspended,
+      isTrue,
+    );
+    expect(fileAfter.lease, same(fileBefore.lease));
+    expect(fileAfter.accepts(setup.fileServer.id), isTrue);
+    expect(
+      setup.container.read(serverConfigProvider)?.activeServerId,
+      setup.fileServer.id,
+    );
+  });
+
+  test('文件同槽切换注册失败会恢复旧文件实例并保持媒体可见', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        fileSourceRegistryProvider.overrideWith(
+          (ref) async => throw StateError('文件来源连接失败'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    const mediaLine = ServerLine(
+      id: 'media-line',
+      name: '媒体',
+      baseUrl: 'https://media.example',
+    );
+    const fileOneLine = ServerLine(
+      id: 'file-one-line',
+      name: '文件一',
+      baseUrl: 'https://files-one.example/dav',
+    );
+    const fileTwoLine = ServerLine(
+      id: 'file-two-line',
+      name: '文件二',
+      baseUrl: 'https://files-two.example/dav',
+    );
+    const mediaServer = ServerProfile(
+      id: 'media-server',
+      name: '媒体服务器',
+      lines: [mediaLine],
+      activeLineId: 'media-line',
+      projectName: 'db_online',
+    );
+    const fileOne = ServerProfile(
+      id: 'file-one',
+      name: '文件一',
+      lines: [fileOneLine],
+      activeLineId: 'file-one-line',
+      projectName: 'webdav',
+    );
+    const fileTwo = ServerProfile(
+      id: 'file-two',
+      name: '文件二',
+      lines: [fileTwoLine],
+      activeLineId: 'file-two-line',
+      projectName: 'webdav',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://media.example',
+            lines: [mediaLine],
+            servers: [mediaServer, fileOne, fileTwo],
+            activeServerId: 'media-server',
+          ),
+        );
+    _activateRuntimeLane(container, ServerRuntimeLane.media, mediaServer.id);
+    _activateRuntimeLane(container, ServerRuntimeLane.files, fileOne.id);
+    container
+        .read(serverRuntimeProvider.notifier)
+        .showLane(ServerRuntimeLane.media);
+    final mediaBefore = container.read(mediaServerConnectionProvider);
+    final fileBefore = container.read(fileServerConnectionProvider);
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(fileTwo.id);
+
+    final runtime = container.read(serverRuntimeProvider);
+    final mediaAfter = container.read(mediaServerConnectionProvider);
+    final fileAfter = container.read(fileServerConnectionProvider);
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.error,
+    );
+    expect(runtime.files.serverId, fileOne.id);
+    expect(runtime.files.phase, ServerRuntimePhase.ready);
+    expect(runtime.visibleLane, ServerRuntimeLane.media);
+    expect(mediaAfter.lease, same(mediaBefore.lease));
+    expect(mediaAfter.accepts(mediaServer.id), isTrue);
+    expect(fileBefore.lease?.isActive, isFalse);
+    expect(fileAfter.lease, isNot(same(fileBefore.lease)));
+    expect(fileAfter.accepts(fileOne.id), isTrue);
+  });
+}
+
+Future<
+  ({
+    ProviderContainer container,
+    ServerProfile mediaServer,
+    ServerProfile fileServer,
+  })
+>
+_crossLaneSetup(AuthState refreshResult) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  final container = ProviderContainer(
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      serverLineProbeCoordinatorProvider.overrideWithValue(
+        ServerLineProbeCoordinator(
+          probe: (line) async => ServerLineProbeResult.success(
+            line,
+            10,
+            versionInfo: const ServerVersionInfo(
+              projectName: 'db_online',
+              version: '1.14.0',
+            ),
+          ),
+        ),
+      ),
+      authControllerProvider.overrideWith(
+        () => _FakeAuthController([], [], refreshResult: refreshResult),
+      ),
+    ],
+  );
+  const mediaLine = ServerLine(
+    id: 'media-line',
+    name: '媒体',
+    baseUrl: 'https://media.example',
+  );
+  const fileLine = ServerLine(
+    id: 'file-line',
+    name: '文件',
+    baseUrl: 'https://files.example/dav',
+  );
+  const mediaServer = ServerProfile(
+    id: 'media-server',
+    name: '媒体服务器',
+    lines: [mediaLine],
+    activeLineId: 'media-line',
+    projectName: 'db_online',
+  );
+  const fileServer = ServerProfile(
+    id: 'file-server',
+    name: '文件服务器',
+    lines: [fileLine],
+    activeLineId: 'file-line',
+    projectName: 'webdav',
+  );
+  await container
+      .read(serverConfigProvider.notifier)
+      .save(
+        const ServerConfig(
+          baseUrl: 'https://files.example/dav',
+          lines: [fileLine],
+          servers: [mediaServer, fileServer],
+          activeServerId: 'file-server',
+        ),
+      );
+  _activateRuntimeLane(container, ServerRuntimeLane.files, fileServer.id);
+  return (
+    container: container,
+    mediaServer: mediaServer,
+    fileServer: fileServer,
+  );
+}
+
+void _activateRuntimeLane(
+  ProviderContainer container,
+  ServerRuntimeLane lane,
+  String serverId,
+) {
+  final runtime = container.read(serverRuntimeProvider.notifier);
+  runtime.beginSwitch(lane, serverId);
+  switch (lane) {
+    case ServerRuntimeLane.media:
+      container.read(mediaServerConnectionProvider.notifier).activate(serverId);
+    case ServerRuntimeLane.files:
+      container.read(fileServerConnectionProvider.notifier).activate(serverId);
+  }
+  runtime.commit(lane, serverId);
 }
 
 class _FakeAuthController extends AuthController {
@@ -1061,6 +1608,16 @@ class _FakeAuthController extends AuthController {
     loginCalls.add((password: password, totpCode: totpCode));
     return true;
   }
+}
+
+class _AlwaysAuthenticatedAuthController extends AuthController {
+  @override
+  Future<AuthState> build() async =>
+      const AuthState(phase: AuthPhase.authenticated);
+
+  @override
+  Future<AuthState> refreshCurrentServer() async =>
+      const AuthState(phase: AuthPhase.authenticated);
 }
 
 class _RecoveryRequiredAuthController extends AuthController {

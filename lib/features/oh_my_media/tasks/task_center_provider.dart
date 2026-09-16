@@ -11,7 +11,7 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/library.dart';
 import 'task_model.dart';
 
@@ -57,13 +57,13 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
       unregisterLease?.call();
       _disposeResources(resourceGeneration);
     });
-    final connection = ref.watch(serverConnectionProvider);
+    final connection = ref.watch(mediaServerConnectionProvider);
     _connectionLease = connection.lease;
     unregisterLease = _connectionLease?.register(
       () => _disposeResources(resourceGeneration),
     );
     // 服务器切换时重建连接，避免任务状态串到旧线路。
-    ref.watch(serverConfigProvider);
+    ref.watch(mediaRuntimeConfigProvider);
     if (_connectionLease?.isActive == true) {
       final lease = _connectionLease!;
       _connectWs();
@@ -288,7 +288,7 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
   Future<void> _connectWsAsync() async {
     if (_disposed) return;
-    final cfg = ref.read(serverConfigProvider);
+    final cfg = ref.read(mediaRuntimeConfigProvider);
     final serverId = cfg?.activeServerId;
     final lease = _connectionLease;
     if (cfg == null ||

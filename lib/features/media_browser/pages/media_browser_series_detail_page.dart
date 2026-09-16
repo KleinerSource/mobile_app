@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -84,7 +84,8 @@ class _MediaBrowserSeriesDetailPageState
   }
 
   void _invalidateDetail() {
-    final serverId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(serverId: serverId, itemId: _seriesId),
@@ -101,7 +102,8 @@ class _MediaBrowserSeriesDetailPageState
 
   @override
   Widget build(BuildContext context) {
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final detail = ref.watch(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(serverId: serverId, itemId: _seriesId),
@@ -311,7 +313,8 @@ class _SeasonSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final seasons = ref.watch(
       mediaBrowserSeasonsProvider(
         MediaBrowserSeasonsRequest(serverId: serverId, seriesId: seriesId),
@@ -444,7 +447,8 @@ class _EpisodeList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final episodes = ref.watch(
       mediaBrowserEpisodesProvider(
         MediaBrowserEpisodesRequest(

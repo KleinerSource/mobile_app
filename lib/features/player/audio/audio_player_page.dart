@@ -102,6 +102,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   AudioMetadataCoordinator? _metadataCoordinator;
   ServerConnectionLease? _connectionLease;
   VoidCallback? _unregisterConnectionLease;
+  VoidCallback? _unregisterPlaybackTask;
 
   bool _loading = true;
   String? _error;
@@ -126,10 +127,13 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         .toList(growable: false);
     _engine = AudioPlaybackEngine(handler: AudioPlaybackService.handler);
     _host = PlayerSessionController(engine: _engine);
-    _connectionLease = ref.read(serverConnectionProvider).lease;
+    _connectionLease = ref.read(visibleServerConnectionProvider).lease;
     _unregisterConnectionLease = _connectionLease?.register(
       _handleServerConnectionCancelled,
     );
+    _unregisterPlaybackTask = ref
+        .read(playbackTaskCoordinatorProvider)
+        .register(_exitPlayer);
     final loader = widget.audioMetadataLoader;
     if (loader != null) {
       _metadataCoordinator = AudioMetadataCoordinator(loader: loader);
@@ -297,9 +301,11 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     if (_leaving) return;
     _leaving = true;
     _loadGeneration++;
-    // 退出不能等待播放器完成整文件缓存；先释放代理和后台下载，再立即移除页面。
-    unawaited(_disposeQueueResources());
-    unawaited(_stopPlayback());
+    // 切换服务器前必须确认本地播放和队列资源已经停止；协调器仍有统一超时兜底。
+    await Future.wait([
+      _disposeQueueResources().catchError((_) {}),
+      _stopPlayback(),
+    ]);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -308,6 +314,8 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     _leaving = true;
     _unregisterConnectionLease?.call();
     _unregisterConnectionLease = null;
+    _unregisterPlaybackTask?.call();
+    _unregisterPlaybackTask = null;
     _loadGeneration++;
     _host.removeListener(_onPlaybackStateChanged);
     unawaited(_metadataCoordinator?.dispose());

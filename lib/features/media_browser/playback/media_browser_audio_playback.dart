@@ -59,7 +59,7 @@ Future<void> _openMediaBrowserAudioPlayback(
       .toList(growable: false);
   if (playable.isEmpty || !context.mounted) return;
   if (ref.read(mediaBrowserConfigProvider) == null) return;
-  final connectionLease = ref.read(serverConnectionProvider).lease;
+  final connectionLease = ref.read(mediaServerConnectionProvider).lease;
   MediaBrowserAudioQueueSession? session;
   MediaBrowserAudioProxy? proxy;
   VoidCallback? unregisterConnectionLease;

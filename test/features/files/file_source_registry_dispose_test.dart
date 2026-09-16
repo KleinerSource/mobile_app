@@ -11,8 +11,10 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,6 +90,10 @@ void main() {
       serverId,
       'https://127.0.0.1:1',
     );
+    final runtime = container.read(serverRuntimeProvider.notifier);
+    runtime.beginSwitch(ServerRuntimeLane.files, serverId);
+    container.read(fileServerConnectionProvider.notifier).activate(serverId);
+    runtime.commit(ServerRuntimeLane.files, serverId);
 
     // 保持 registry 存活（连接 127.0.0.1:1 异步失败与断言无关）。
     final subscription = container.listen(

@@ -6,7 +6,7 @@ import 'package:omm/features/cache/image_cache_manager.dart';
 
 import '../core/api/url_resolver.dart';
 import '../core/config/server_config.dart';
-import '../core/config/server_config_provider.dart';
+import '../core/config/server_runtime.dart';
 import '../core/platform/app_theme.dart';
 
 /// 构造演员头像地址。头像接口公开提供，不需要把 access token 放入 URL。
@@ -125,7 +125,7 @@ class ActorAvatar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     // null = 字段缺失,仍尝试加载;空数组 = 明确无头像,跳过请求
     final shouldLoadImage = avatarPaths == null || avatarPaths!.isNotEmpty;
     final imageUrl = config != null && shouldLoadImage

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/features/cache/image_cache_manager.dart';
 
-import '../core/config/server_config_provider.dart';
+import '../core/config/server_runtime.dart';
 import '../core/platform/app_theme.dart';
 import 'actor_avatar.dart';
 
@@ -181,7 +181,7 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final config = ref.watch(serverConfigProvider);
+    final config = ref.watch(mediaRuntimeConfigProvider);
     final count = _coverCount;
 
     Widget coverImage(int index) {

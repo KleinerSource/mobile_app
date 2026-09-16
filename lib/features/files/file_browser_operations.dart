@@ -3,6 +3,7 @@ part of 'file_browser_page.dart';
 // 状态及资源所有权保留在页面；此扩展只组织同一职责的方法。
 extension _FileBrowserOperations on _FileBrowserPageState {
   Future<void> _createDirectory(FilePath parent) async {
+    if (_busy) return;
     final l = _l10n;
     final name = await _askText(l.fileCreateDirectory, l.fileFolderNameLabel);
     if (name == null || name.trim().isEmpty) return;
@@ -14,6 +15,7 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   }
 
   Future<void> _upload(FilePath parent) async {
+    if (_busy) return;
     final l = _l10n;
     final localPath = await _askText(l.fileUpload, l.fileLocalPathLabel);
     if (localPath == null || localPath.trim().isEmpty) return;
@@ -29,14 +31,15 @@ extension _FileBrowserOperations on _FileBrowserPageState {
     );
     final overwrite = await _confirmOverwrite(destination);
     if (overwrite != true) return;
-    await _run(l.fileUploadFailed, () async {
-      final repo = await _repository();
-      final operationId = _tracker.start(
-        FileOperationKind.upload,
-        destination: destination,
-      );
-      final cancellation = _tracker.cancellation(operationId)!;
-      try {
+    await _runTracked(
+      FileOperationKind.upload,
+      l.fileUploadFailed,
+      destination: destination,
+      successMessage: l.fileUploadDone,
+      canceledMessage: l.fileUploadCanceled,
+      action: (operationId) async {
+        final repo = await _repository();
+        final cancellation = _tracker.cancellation(operationId)!;
         await repo.upload(
           FileUploadRequest(
             destination: destination,
@@ -53,21 +56,13 @@ extension _FileBrowserOperations on _FileBrowserPageState {
         if (cancellation.isCancelled) {
           throw FileSourceException(l.fileUploadCanceled, code: 'canceled');
         }
-        _tracker.complete(operationId, FileOperationKind.upload);
-        _message(l.fileUploadDone);
         await _refresh();
-      } catch (error) {
-        _tracker.fail(operationId, FileOperationKind.upload, error);
-        if (cancellation.isCancelled || _isCanceled(error)) {
-          _message(l.fileUploadCanceled);
-          return;
-        }
-        rethrow;
-      }
-    });
+      },
+    );
   }
 
   Future<void> _rename(FileEntry entry) async {
+    if (_busy) return;
     final l = _l10n;
     final name = await _askText(
       l.fileRename,
@@ -94,9 +89,10 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   }
 
   Future<void> _move(FileEntry entry) async {
+    if (_busy) return;
     final l = _l10n;
     final directory = await _pickDirectory();
-    if (directory == null) return;
+    if (directory == null || !mounted || _busy) return;
     if (_isInvalidMoveTarget(entry, directory)) return;
     final destination = FilePath(
       sourceId: widget.sourceId,
@@ -104,15 +100,21 @@ extension _FileBrowserOperations on _FileBrowserPageState {
     );
     if (destination == entry.path) return;
     if (await _confirmOverwrite(destination) != true) return;
-    await _run(l.fileMoveFailed, () async {
-      await (await _repository()).move(
-        entry.path,
-        destination,
-        overwrite: true,
-      );
-      if (_selectionMode) _exitSelection();
-      await _refresh();
-    });
+    await _runTracked(
+      FileOperationKind.move,
+      l.fileMoveFailed,
+      source: entry.path,
+      destination: destination,
+      action: (_) async {
+        await (await _repository()).move(
+          entry.path,
+          destination,
+          overwrite: true,
+        );
+        if (_selectionMode) _exitSelection();
+        await _refresh();
+      },
+    );
   }
 
   Future<FilePath?> _pickDirectory() async {
@@ -160,13 +162,14 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   }
 
   Future<void> _moveSelected(List<FileEntry> entries) async {
+    if (_busy) return;
     final selected = entries
         .where((entry) => _selectedKeys.contains(entry.stableKey))
         .toList(growable: false);
     if (selected.isEmpty) return;
 
     final directory = await _pickDirectory();
-    if (directory == null || !mounted) return;
+    if (directory == null || !mounted || _busy) return;
     if (selected.any((entry) => _isInvalidMoveTarget(entry, directory))) {
       return;
     }
@@ -185,22 +188,44 @@ extension _FileBrowserOperations on _FileBrowserPageState {
         .toList(growable: false);
     if (moves.isEmpty) return;
 
-    await _run(_l10n.fileBatchMoveFailed, () async {
-      final repo = await _repository();
-      var conflictCount = 0;
-      for (final move in moves) {
-        if (await repo.exists(move.destination)) conflictCount++;
-      }
-      if (conflictCount > 0 &&
-          await _confirmBatchOverwrite(conflictCount, _l10n.fileMove) != true) {
-        return;
-      }
-      for (final move in moves) {
-        await repo.move(move.entry.path, move.destination, overwrite: true);
-      }
-      _exitSelection();
-      await _refresh();
-    });
+    final preparation = await _prepareBatchOperation(
+      _l10n.fileBatchMoveFailed,
+      moves.map((move) => move.destination),
+    );
+    if (preparation == null || !mounted) return;
+    if (preparation.conflictCount > 0 &&
+        await _confirmBatchOverwrite(
+              preparation.conflictCount,
+              _l10n.fileMove,
+            ) !=
+            true) {
+      return;
+    }
+    await _runTracked(
+      FileOperationKind.move,
+      _l10n.fileBatchMoveFailed,
+      totalItems: moves.length,
+      action: (operationId) async {
+        try {
+          for (var index = 0; index < moves.length; index++) {
+            final move = moves[index];
+            await preparation.repository.move(
+              move.entry.path,
+              move.destination,
+              overwrite: true,
+            );
+            _tracker.itemsProgress(
+              operationId,
+              completed: index + 1,
+              total: moves.length,
+            );
+          }
+        } finally {
+          if (_selectionMode) _exitSelection();
+          await _refresh();
+        }
+      },
+    );
   }
 
   Future<bool?> _confirmBatchOverwrite(int count, String action) {
@@ -225,6 +250,7 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   }
 
   Future<void> _renameSelected(List<FileEntry> entries) async {
+    if (_busy) return;
     final l = _l10n;
     final selected = entries
         .where((entry) => _selectedKeys.contains(entry.stableKey))
@@ -259,30 +285,49 @@ extension _FileBrowserOperations on _FileBrowserPageState {
       }
     }
 
-    await _run(l.fileBatchRenameFailed, () async {
-      final repo = await _repository();
-      var conflictCount = 0;
-      for (final item in planned) {
-        final destination = FilePath(
-          sourceId: widget.sourceId,
-          value: _join(_parent(item.entry.path.value), item.name),
-        );
-        if (destination.value != item.entry.path.value &&
-            !selectedPaths.contains(destination.value) &&
-            await repo.exists(destination)) {
-          conflictCount++;
+    final externalDestinations = planned
+        .map(
+          (item) => FilePath(
+            sourceId: widget.sourceId,
+            value: _join(_parent(item.entry.path.value), item.name),
+          ),
+        )
+        .where((destination) => !selectedPaths.contains(destination.value));
+    final preparation = await _prepareBatchOperation(
+      l.fileBatchRenameFailed,
+      externalDestinations,
+    );
+    if (preparation == null || !mounted) return;
+    if (preparation.conflictCount > 0 &&
+        await _confirmBatchOverwrite(preparation.conflictCount, l.fileRename) !=
+            true) {
+      return;
+    }
+    await _runTracked(
+      FileOperationKind.rename,
+      l.fileBatchRenameFailed,
+      totalItems: planned.length,
+      action: (operationId) async {
+        try {
+          for (var index = 0; index < planned.length; index++) {
+            final item = planned[index];
+            await preparation.repository.rename(
+              item.entry.path,
+              item.name,
+              overwrite: true,
+            );
+            _tracker.itemsProgress(
+              operationId,
+              completed: index + 1,
+              total: planned.length,
+            );
+          }
+        } finally {
+          if (_selectionMode) _exitSelection();
+          await _refresh();
         }
-      }
-      if (conflictCount > 0 &&
-          await _confirmBatchOverwrite(conflictCount, l.fileRename) != true) {
-        return;
-      }
-      for (final item in planned) {
-        await repo.rename(item.entry.path, item.name, overwrite: true);
-      }
-      _exitSelection();
-      await _refresh();
-    });
+      },
+    );
   }
 
   Future<_BatchRenameDraft?> _showBatchRenameSheet(
@@ -300,6 +345,7 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   }
 
   Future<void> _delete(FileEntry entry) async {
+    if (_busy) return;
     final l = _l10n;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -334,6 +380,7 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   }
 
   Future<void> _deleteSelected(List<FileEntry> entries) async {
+    if (_busy) return;
     final l = _l10n;
     final selected = entries
         .where((entry) => _selectedKeys.contains(entry.stableKey))
@@ -363,17 +410,31 @@ extension _FileBrowserOperations on _FileBrowserPageState {
     );
     if (confirmed != true || !mounted) return;
 
-    await _run(l.fileBatchDeleteFailed, () async {
-      final repo = await _repository();
-      for (final entry in selected) {
-        await repo.delete(
-          entry.path,
-          options: FileDeleteOptions(recursive: entry.isDirectory),
-        );
-      }
-      _exitSelection();
-      await _refresh();
-    });
+    await _runTracked(
+      FileOperationKind.delete,
+      l.fileBatchDeleteFailed,
+      totalItems: selected.length,
+      action: (operationId) async {
+        final repo = await _repository();
+        try {
+          for (var index = 0; index < selected.length; index++) {
+            final entry = selected[index];
+            await repo.delete(
+              entry.path,
+              options: FileDeleteOptions(recursive: entry.isDirectory),
+            );
+            _tracker.itemsProgress(
+              operationId,
+              completed: index + 1,
+              total: selected.length,
+            );
+          }
+        } finally {
+          if (_selectionMode) _exitSelection();
+          await _refresh();
+        }
+      },
+    );
   }
 
   void _cancelOperation() {
@@ -402,15 +463,93 @@ extension _FileBrowserOperations on _FileBrowserPageState {
   bool _isCanceled(Object error) =>
       error is SourceException && error.code == 'canceled';
 
+  Future<({FileSourceRepository repository, int conflictCount})?>
+  _prepareBatchOperation(
+    String errorPrefix,
+    Iterable<FilePath> destinations,
+  ) async {
+    if (_busy) return null;
+    _updateViewState(() => _busy = true);
+    try {
+      final repository = await _repository();
+      var conflictCount = 0;
+      for (final destination in destinations) {
+        if (await repository.exists(destination)) conflictCount++;
+      }
+      return (repository: repository, conflictCount: conflictCount);
+    } catch (error) {
+      if (mounted) {
+        _message('$errorPrefix：${localizedErrorMessage(_l10n, error)}');
+      }
+      return null;
+    } finally {
+      if (mounted) _updateViewState(() => _busy = false);
+    }
+  }
+
+  Future<void> _runTracked(
+    FileOperationKind kind,
+    String errorPrefix, {
+    required Future<void> Function(String operationId) action,
+    FilePath? source,
+    FilePath? destination,
+    int? totalItems,
+    String? successMessage,
+    String? canceledMessage,
+  }) async {
+    if (_busy || _trackedOperationRunning) return;
+    _updateViewState(() {
+      _busy = true;
+      _trackedOperationRunning = true;
+    });
+    final shellOperationLock = _shellOperationLock;
+    if (shellOperationLock != null && !shellOperationLock.value) {
+      shellOperationLock.value = true;
+    }
+
+    final operationId = _tracker.start(
+      kind,
+      source: source,
+      destination: destination,
+    );
+    if (totalItems != null) {
+      _tracker.itemsProgress(operationId, completed: 0, total: totalItems);
+    }
+    final cancellation = _tracker.cancellation(operationId);
+    try {
+      await action(operationId);
+      if (cancellation?.isCancelled == true) {
+        throw FileSourceException(
+          canceledMessage ?? errorPrefix,
+          code: 'canceled',
+        );
+      }
+      _tracker.complete(operationId, kind);
+      if (successMessage != null) _message(successMessage);
+    } catch (error) {
+      _tracker.fail(operationId, kind, error);
+      if (cancellation?.isCancelled == true || _isCanceled(error)) {
+        if (canceledMessage != null) _message(canceledMessage);
+      } else if (mounted) {
+        _message('$errorPrefix：${localizedErrorMessage(_l10n, error)}');
+      }
+    } finally {
+      if (shellOperationLock?.value == true) {
+        shellOperationLock!.value = false;
+      }
+      _trackedOperationRunning = false;
+      if (mounted) _updateViewState(() => _busy = false);
+    }
+  }
+
   Future<void> _run(String errorPrefix, Future<void> Function() action) async {
+    if (_busy) return;
     _updateViewState(() => _busy = true);
     try {
       await action();
     } catch (error) {
       if (mounted) {
-        _message(
-          '$errorPrefix：${localizedErrorMessage(_l10n, error)}',
-        );
+        _message('$errorPrefix：${localizedErrorMessage(_l10n, error)}');
       }
     } finally {
       if (mounted) _updateViewState(() => _busy = false);

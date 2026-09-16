@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
@@ -5,12 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
+import 'package:omm/core/sources/files/file_capabilities.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
+import 'package:omm/core/sources/files/file_operation.dart';
+import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
 import 'package:omm/features/files/file_entry_icons.dart';
@@ -295,6 +301,17 @@ void main() {
         ),
       ),
     );
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('打开选择器')),
+      listen: false,
+    );
+    container
+        .read(serverRuntimeProvider.notifier)
+        .beginSwitch(ServerRuntimeLane.files, serverId);
+    container.read(fileServerConnectionProvider.notifier).activate(serverId);
+    container
+        .read(serverRuntimeProvider.notifier)
+        .commit(ServerRuntimeLane.files, serverId);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('打开选择器'));
@@ -376,6 +393,63 @@ void main() {
     expect(find.text('根目录文件.txt'), findsNothing);
   });
 
+  testWidgets('批量删除处理中显示项目进度并锁定导航与重复操作', (tester) async {
+    final source = _ControlledMutationFileSource();
+    await _pumpShell(tester, source: source);
+
+    await _startBatchDelete(tester);
+
+    expect(source.deleteCalls, 1);
+    expect(find.text('删除进行中'), findsOneWidget);
+    expect(find.text('已处理 0 / 1 项'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    final batchMenu = find.byWidgetPredicate(
+      (widget) => widget is PopupMenuButton<int> && widget.tooltip == '批量操作',
+    );
+    expect(tester.widget<PopupMenuButton<int>>(batchMenu).enabled, isFalse);
+    final navigationLock = find.byKey(
+      const ValueKey<String>('file-manager-operation-lock'),
+    );
+    expect(tester.widget<IgnorePointer>(navigationLock).ignoring, isTrue);
+
+    await tester.tap(find.byIcon(Icons.settings_rounded), warnIfMissed: false);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(FileBrowserPage), findsOneWidget);
+    expect(source.deleteCalls, 1);
+
+    source.deleteCompleter.complete();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('删除完成'), findsOneWidget);
+    expect(find.text('已处理 1 / 1 项'), findsOneWidget);
+    expect(tester.widget<IgnorePointer>(navigationLock).ignoring, isFalse);
+
+    await tester.tap(find.byIcon(Icons.settings_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+  });
+
+  testWidgets('批量删除失败后刷新目录并解除导航锁', (tester) async {
+    final source = _ControlledMutationFileSource(
+      deleteError: StateError('删除失败'),
+    );
+    await _pumpShell(tester, source: source);
+
+    await _startBatchDelete(tester);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(source.deleteCalls, 1);
+    expect(find.textContaining('批量删除失败'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.settings_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+  });
+
   testWidgets('文件管理器设置页隐藏服务器设置和退出登录', (tester) async {
     await _pumpShell(tester);
 
@@ -408,6 +482,7 @@ void main() {
 Future<void> _pumpShell(
   WidgetTester tester, {
   List<FileFavorite> favorites = const [],
+  FileSource? source,
 }) async {
   final prefs = await _prefs();
   if (favorites.isNotEmpty) {
@@ -439,7 +514,7 @@ Future<void> _pumpShell(
             ),
           ],
         ),
-        fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+        fileSourceProvider(sourceId.value).overrideWith((ref) async => source),
         fileDirectoryProvider(
           const FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
         ).overrideWith((ref) async => _rootListing(sourceId)),
@@ -466,7 +541,29 @@ Future<void> _pumpShell(
       ),
     ),
   );
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(FileManagerShell)),
+    listen: false,
+  );
+  container
+      .read(serverRuntimeProvider.notifier)
+      .beginSwitch(ServerRuntimeLane.files, serverId);
+  container.read(fileServerConnectionProvider.notifier).activate(serverId);
+  container
+      .read(serverRuntimeProvider.notifier)
+      .commit(ServerRuntimeLane.files, serverId);
   await tester.pumpAndSettle();
+}
+
+Future<void> _startBatchDelete(WidgetTester tester) async {
+  await tester.longPress(find.text('根目录文件.txt'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip('批量操作'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('删除').last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('删除').last);
+  await tester.pump();
 }
 
 Future<SharedPreferences> _prefs() async {
@@ -581,3 +678,54 @@ DirectoryListing _favoriteTargetChildListing(SourceId sourceId) =>
       ],
       entries: const [],
     );
+
+class _ControlledMutationFileSource
+    implements FileSource, FileMutationCapability {
+  _ControlledMutationFileSource({this.deleteError});
+
+  final Object? deleteError;
+  final Completer<void> deleteCompleter = Completer<void>();
+  var deleteCalls = 0;
+
+  @override
+  SourceDescriptor get descriptor => const SourceDescriptor(
+    id: SourceId('file-source'),
+    kind: SourceKind.smb,
+    name: '测试文件来源',
+  );
+
+  @override
+  Set<FileCapability> get capabilities => const {FileCapability.mutation};
+
+  @override
+  bool supports(FileCapability capability) => capabilities.contains(capability);
+
+  @override
+  Future<FilePath> createDirectory(FilePath parent, String name) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> delete(
+    FilePath path, {
+    FileDeleteOptions options = const FileDeleteOptions(),
+  }) async {
+    deleteCalls++;
+    final error = deleteError;
+    if (error != null) throw error;
+    await deleteCompleter.future;
+  }
+
+  @override
+  Future<void> move(
+    FilePath source,
+    FilePath destination, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> rename(
+    FilePath source,
+    String newName, {
+    bool overwrite = false,
+  }) => throw UnimplementedError();
+}

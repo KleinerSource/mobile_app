@@ -2041,6 +2041,12 @@ abstract class AppL10n {
   /// **'{action}等待中'**
   String fileOperationPending(String action);
 
+  /// No description provided for @fileOperationItemsProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'已处理 {completed} / {total} 项'**
+  String fileOperationItemsProgress(int completed, int total);
+
   /// No description provided for @filePlaybackProgress.
   ///
   /// In zh, this message translates to:

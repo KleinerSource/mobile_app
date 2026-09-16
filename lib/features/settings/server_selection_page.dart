@@ -10,10 +10,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/dio_factory.dart';
+import '../../core/api/server_connection.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_runtime.dart';
 import '../../core/config/server_profile_runtime_loader.dart';
 import '../../core/config/server_line_probe.dart';
 import '../../core/models/system.dart';
@@ -26,6 +28,7 @@ import '../../shared/localized_error_message.dart';
 import '../../shared/server_avatar.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import '../home/server_switch_transition.dart';
+import '../player/common/player_launch_gate.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'server_selection_display_settings.dart';
 import 'server_setup_page.dart';
@@ -96,17 +99,19 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
         );
       },
     );
-    var released = false;
-    void releaseResources() {
-      if (released) return;
-      released = true;
+    Future<void>? releaseFuture;
+    Future<void> releaseResources() => releaseFuture ??= () async {
+      await container.read(playbackTaskCoordinatorProvider).stopAll();
+      container.read(mediaServerConnectionProvider.notifier).suspend();
+      container.read(fileServerConnectionProvider.notifier).suspend();
+      container.read(serverRuntimeProvider.notifier).clearAll();
       container.read(serverConfigProvider.notifier).showServerSelection();
-    }
+    }();
 
     void releaseWhenSettled(AnimationStatus status) {
       if (status == AnimationStatus.completed) {
         route.animation?.removeStatusListener(releaseWhenSettled);
-        releaseResources();
+        unawaited(releaseResources());
       }
     }
 
@@ -114,14 +119,14 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
       final result = navigator.push<void>(route);
       final animation = route.animation;
       if (animation == null || animation.status == AnimationStatus.completed) {
-        releaseResources();
+        unawaited(releaseResources());
       } else {
         animation.addStatusListener(releaseWhenSettled);
       }
       await result;
     } finally {
       route.animation?.removeStatusListener(releaseWhenSettled);
-      releaseResources();
+      await releaseResources();
       container.read(serverSelectionRouteActiveProvider.notifier).state = false;
     }
   }

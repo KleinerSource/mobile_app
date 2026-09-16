@@ -1080,6 +1080,11 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String fileOperationItemsProgress(int completed, int total) {
+    return 'Processed $completed / $total items';
+  }
+
+  @override
   String get filePlaybackProgress => 'Playback progress';
 
   @override

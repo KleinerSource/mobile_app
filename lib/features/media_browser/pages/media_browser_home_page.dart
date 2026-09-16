@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
-import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_browser_media_operations_source.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -93,7 +93,8 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     final nextUp = ref.watch(mediaBrowserNextUpProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final project = ref.watch(mediaBrowserConfigProvider)?.project;
-    final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final canEditLayout =
         project == ServerProject.emby ||
         project == ServerProject.jellyfin ||
@@ -341,7 +342,8 @@ class _MediaBrowserViewSectionsState
           return const SliverToBoxAdapter(child: SizedBox.shrink());
         }
         final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
-        final serverId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+        final serverId =
+            ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
         final displayable = list
             .where((view) => !isSkippableViewType(view.collectionType))
             .toList(growable: false);
@@ -466,7 +468,8 @@ class _MediaBrowserViewSectionsState
     ref.invalidate(mediaBrowserResumeProvider);
     ref.invalidate(mediaBrowserNextUpProvider);
     ref.invalidate(mediaBrowserLibraryStatsProvider);
-    final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+    final activeServerId =
+        ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
       mediaBrowserViewLatestProvider(
         MediaBrowserViewLatestRequest(
