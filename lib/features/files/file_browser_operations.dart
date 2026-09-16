@@ -450,11 +450,34 @@ extension _FileBrowserOperations on _FileBrowserPageState {
     _operationDismissTimer = null;
     if (!mounted) return;
     _updateViewState(() => _operation = operation);
+    final overlay = _operationOverlay;
+    if (overlay == null) {
+      _operationOverlay = OverlayEntry(
+        builder: (_) {
+          final current = _operation;
+          if (current == null) return const SizedBox.shrink();
+          return _FileOperationOverlay(
+            operation: current,
+            onCancel:
+                current.kind == FileOperationKind.upload &&
+                    current.status == FileOperationStatus.running
+                ? _cancelOperation
+                : null,
+          );
+        },
+      );
+      Overlay.of(context, rootOverlay: true).insert(_operationOverlay!);
+    } else {
+      overlay.markNeedsBuild();
+    }
     if (operation.status == FileOperationStatus.running) return;
 
     final operationId = operation.id;
     _operationDismissTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted || _operation?.id != operationId) return;
+      _operationOverlay?.remove();
+      _operationOverlay?.dispose();
+      _operationOverlay = null;
       _updateViewState(() => _operation = null);
       _operationDismissTimer = null;
     });

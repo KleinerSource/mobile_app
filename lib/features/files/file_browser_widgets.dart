@@ -1,7 +1,7 @@
 part of 'file_browser_page.dart';
 
-class _FileOperationBanner extends StatelessWidget {
-  const _FileOperationBanner({required this.operation, this.onCancel});
+class _FileOperationOverlay extends StatelessWidget {
+  const _FileOperationOverlay({required this.operation, this.onCancel});
 
   final FileOperation operation;
   final VoidCallback? onCancel;
@@ -11,74 +11,120 @@ class _FileOperationBanner extends StatelessWidget {
     final progress = operation.progress;
     final isRunning = operation.status == FileOperationStatus.running;
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: colorScheme.surfaceContainerHighest,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(_operationIcon(operation.kind), size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _operationTitle(operation, AppL10n.of(context)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+    final ratio = _operationProgress(operation);
+    return Stack(
+      children: [
+        ModalBarrier(
+          key: const ValueKey('file-operation-barrier'),
+          dismissible: false,
+          color: Colors.black.withValues(alpha: 0.42),
+        ),
+        Center(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 320,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+                ),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Material(
+                    key: const ValueKey('file-operation-dialog'),
+                    color: colorScheme.surface,
+                    elevation: 12,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 24,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox.square(
+                              dimension: 56,
+                              child: isRunning
+                                  ? Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        SizedBox.square(
+                                          dimension: 56,
+                                          child: CircularProgressIndicator(
+                                            value: ratio,
+                                            strokeWidth: 4,
+                                          ),
+                                        ),
+                                        if (ratio != null)
+                                          Text('${(ratio * 100).round()}%'),
+                                      ],
+                                    )
+                                  : Icon(
+                                      _operationStatusIcon(operation.status),
+                                      size: 48,
+                                      color:
+                                          operation.status ==
+                                              FileOperationStatus.completed
+                                          ? colorScheme.primary
+                                          : colorScheme.error,
+                                    ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _operationTitle(operation, AppL10n.of(context)),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            if (progress != null) ...[
+                              const SizedBox(height: 8),
+                              Text(_progressText(progress)),
+                            ],
+                            if (progress == null &&
+                                operation.totalItems != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                AppL10n.of(context).fileOperationItemsProgress(
+                                  operation.completedItems ?? 0,
+                                  operation.totalItems!,
+                                ),
+                              ),
+                            ],
+                            if (!isRunning && operation.message != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                operation.message!,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                            if (isRunning && onCancel != null) ...[
+                              const SizedBox(height: 16),
+                              TextButton(
+                                onPressed: onCancel,
+                                child: Text(AppL10n.of(context).cancel),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  if (isRunning && onCancel != null)
-                    IconButton(
-                      tooltip: AppL10n.of(context).cancel,
-                      onPressed: onCancel,
-                      icon: const Icon(Icons.close),
-                    ),
-                ],
+                ),
               ),
-              if (isRunning) ...[
-                const SizedBox(height: 4),
-                LinearProgressIndicator(value: _operationProgress(operation)),
-              ],
-              if (progress != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(_progressText(progress)),
-                ),
-              if (progress == null && operation.totalItems != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    AppL10n.of(context).fileOperationItemsProgress(
-                      operation.completedItems ?? 0,
-                      operation.totalItems!,
-                    ),
-                  ),
-                ),
-              if (!isRunning && operation.message != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(operation.message!),
-                ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-IconData _operationIcon(FileOperationKind kind) => switch (kind) {
-  FileOperationKind.upload => Icons.upload_outlined,
-  FileOperationKind.delete => Icons.delete_outline,
-  FileOperationKind.move => Icons.drive_file_move_outlined,
-  FileOperationKind.rename => Icons.drive_file_rename_outline,
-  FileOperationKind.createDirectory => Icons.create_new_folder_outlined,
-  _ => Icons.sync,
+IconData _operationStatusIcon(FileOperationStatus status) => switch (status) {
+  FileOperationStatus.completed => Icons.check_circle_outline,
+  FileOperationStatus.canceled => Icons.cancel_outlined,
+  _ => Icons.error_outline,
 };
 
 String _operationTitle(FileOperation operation, AppL10n l) {

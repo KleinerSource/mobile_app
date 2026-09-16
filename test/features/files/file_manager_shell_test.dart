@@ -402,7 +402,19 @@ void main() {
     expect(source.deleteCalls, 1);
     expect(find.text('删除进行中'), findsOneWidget);
     expect(find.text('已处理 0 / 1 项'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    final dialog = find.byKey(const ValueKey('file-operation-dialog'));
+    final barrier = find.byKey(const ValueKey('file-operation-barrier'));
+    expect(dialog, findsOneWidget);
+    expect(
+      tester.getCenter(dialog).dy,
+      closeTo(
+        tester.view.physicalSize.height / tester.view.devicePixelRatio / 2,
+        1,
+      ),
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(barrier, findsOneWidget);
     final batchMenu = find.byWidgetPredicate(
       (widget) => widget is PopupMenuButton<int> && widget.tooltip == '批量操作',
     );
@@ -427,6 +439,13 @@ void main() {
     expect(find.text('已处理 1 / 1 项'), findsOneWidget);
     expect(tester.widget<IgnorePointer>(navigationLock).ignoring, isFalse);
 
+    await tester.tap(find.byIcon(Icons.settings_rounded), warnIfMissed: false);
+    await tester.pump();
+    expect(find.byType(SettingsPage), findsNothing);
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(dialog, findsNothing);
+    expect(barrier, findsNothing);
     await tester.tap(find.byIcon(Icons.settings_rounded));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsPage), findsOneWidget);
@@ -445,6 +464,8 @@ void main() {
     expect(source.deleteCalls, 1);
     expect(find.textContaining('批量删除失败'), findsOneWidget);
 
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byKey(const ValueKey('file-operation-barrier')), findsNothing);
     await tester.tap(find.byIcon(Icons.settings_rounded));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsPage), findsOneWidget);

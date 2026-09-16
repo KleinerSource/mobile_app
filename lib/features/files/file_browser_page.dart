@@ -144,6 +144,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   FileThumbnailLoader _thumbnailLoader = FileThumbnailLoader();
   StreamSubscription<FileOperation>? _operationSubscription;
   Timer? _operationDismissTimer;
+  OverlayEntry? _operationOverlay;
   FileOperation? _operation;
   bool _busy = false;
   bool _trackedOperationRunning = false;
@@ -198,6 +199,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   void dispose() {
     if (_trackedOperationRunning) _shellOperationLock?.value = false;
     _operationDismissTimer?.cancel();
+    _operationOverlay?.remove();
+    _operationOverlay?.dispose();
     unawaited(_operationSubscription?.cancel());
     _scrollController.removeListener(_closeSwipeOnScroll);
     _scrollController.dispose();
@@ -235,9 +238,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       }
     }
     final page = PopScope(
-      canPop: !_selectionMode && !_trackedOperationRunning,
+      canPop: !_selectionMode && _operation == null,
       onPopInvokedWithResult: (didPop, _) {
-        if (_trackedOperationRunning) return;
+        if (_operation != null) return;
         if (!didPop && _selectionMode) _exitSelection();
       },
       child: Scaffold(
@@ -391,39 +394,24 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   );
                 },
               ),
-              body: Column(
-                children: [
-                  Expanded(
-                    child: listing.when(
-                      data: (value) =>
-                          _buildListing(value, imagePreviewEnabled, favorites),
-                      loading: () => Padding(
-                        padding: EdgeInsets.only(
-                          bottom: floatingTabBarContentBottomInset(context),
-                        ),
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (error, _) => Padding(
-                        padding: EdgeInsets.only(
-                          bottom: floatingTabBarContentBottomInset(context),
-                        ),
-                        child: _BrowserError(
-                          message: localizedErrorMessage(_l10n, error),
-                          onRetry: () => unawaited(_refresh()),
-                        ),
-                      ),
-                    ),
+              body: listing.when(
+                data: (value) =>
+                    _buildListing(value, imagePreviewEnabled, favorites),
+                loading: () => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: floatingTabBarContentBottomInset(context),
                   ),
-                  if (_operation != null)
-                    _FileOperationBanner(
-                      operation: _operation!,
-                      onCancel:
-                          _operation!.kind == FileOperationKind.upload &&
-                              _operation!.status == FileOperationStatus.running
-                          ? _cancelOperation
-                          : null,
-                    ),
-                ],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: floatingTabBarContentBottomInset(context),
+                  ),
+                  child: _BrowserError(
+                    message: localizedErrorMessage(_l10n, error),
+                    onRetry: () => unawaited(_refresh()),
+                  ),
+                ),
               ),
             ),
           ),
