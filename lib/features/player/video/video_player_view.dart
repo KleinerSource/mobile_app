@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +33,7 @@ class VideoPlayerView extends ConsumerWidget {
     required this.indicator,
     required this.controlsVisible,
     required this.isBuffering,
+    this.bufferingDelay = Duration.zero,
     required this.pictureInPictureUrl,
     required this.pictureInPictureHeaders,
     required this.quality,
@@ -65,6 +68,8 @@ class VideoPlayerView extends ConsumerWidget {
     required this.onExit,
   });
 
+  static const ksPlayerBufferingDelay = Duration(milliseconds: 350);
+
   final PlayerSessionController controller;
   final String title;
   final playback_models.PlaybackDecision decision;
@@ -77,6 +82,7 @@ class VideoPlayerView extends ConsumerWidget {
   final PlayerIndicator? indicator;
   final bool controlsVisible;
   final bool isBuffering;
+  final Duration bufferingDelay;
   final String? pictureInPictureUrl;
   final Map<String, String>? pictureInPictureHeaders;
   final String quality;
@@ -151,8 +157,12 @@ class VideoPlayerView extends ConsumerWidget {
           ),
         ),
         Positioned.fill(child: PlayerOverlayIndicators(indicator: indicator)),
-        if (isBuffering)
-          const Positioned.fill(child: VideoPlayerBufferingView()),
+        Positioned.fill(
+          child: VideoPlayerBufferingOverlay(
+            isBuffering: isBuffering,
+            showDelay: bufferingDelay,
+          ),
+        ),
         Positioned(
           top: 8,
           left: 20,
@@ -259,6 +269,86 @@ class VideoPlayerView extends ConsumerWidget {
       ],
     );
   }
+}
+
+class VideoPlayerBufferingOverlay extends StatefulWidget {
+  const VideoPlayerBufferingOverlay({
+    super.key,
+    required this.isBuffering,
+    required this.showDelay,
+  });
+
+  final bool isBuffering;
+  final Duration showDelay;
+
+  @override
+  State<VideoPlayerBufferingOverlay> createState() =>
+      _VideoPlayerBufferingOverlayState();
+}
+
+class _VideoPlayerBufferingOverlayState
+    extends State<VideoPlayerBufferingOverlay> {
+  Timer? _showTimer;
+  late bool _visible;
+
+  @override
+  void initState() {
+    super.initState();
+    _visible = widget.isBuffering && widget.showDelay <= Duration.zero;
+    if (widget.isBuffering && !_visible) {
+      _scheduleShow();
+    }
+  }
+
+  @override
+  void didUpdateWidget(VideoPlayerBufferingOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isBuffering != oldWidget.isBuffering ||
+        widget.showDelay != oldWidget.showDelay) {
+      _syncVisibility();
+    }
+  }
+
+  void _syncVisibility() {
+    if (!widget.isBuffering) {
+      _showTimer?.cancel();
+      _showTimer = null;
+      _setVisible(false);
+      return;
+    }
+    if (_visible) return;
+
+    _showTimer?.cancel();
+    if (widget.showDelay <= Duration.zero) {
+      _showTimer = null;
+      _setVisible(true);
+    } else {
+      _scheduleShow();
+    }
+  }
+
+  void _scheduleShow() {
+    _showTimer = Timer(widget.showDelay, () {
+      _showTimer = null;
+      if (!mounted || !widget.isBuffering || _visible) return;
+      setState(() => _visible = true);
+    });
+  }
+
+  void _setVisible(bool visible) {
+    if (_visible == visible) return;
+    setState(() => _visible = visible);
+  }
+
+  @override
+  void dispose() {
+    _showTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _visible ? const VideoPlayerBufferingView() : const SizedBox.shrink();
 }
 
 class VideoPlayerBufferingView extends StatelessWidget {

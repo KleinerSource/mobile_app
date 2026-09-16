@@ -346,11 +346,13 @@ class PlaybackViewState {
       videoSize != Size.zero ||
       audioTracks.isNotEmpty;
 
-  /// 首帧出现前等待首段视频流；首帧出现后，仅在当前时间点超出已缓冲
-  /// 区间时显示。这样缓冲区内 seek 不会被短暂的 buffering 事件打断。
+  /// 首帧出现前等待首段视频流；首帧出现后，KSPlayer 直接采用原生
+  /// buffering 状态，其他引擎仅在当前时间点超出已缓冲区间时显示。
+  /// KSPlayer 的短状态防闪由视频 UI 延迟处理。
   bool get shouldShowVideoBuffering {
     if (!buffering) return false;
     if (!firstFrameRendered) return true;
+    if (engineKind == PlaybackEngineKind.ksPlayer) return true;
     return position > buffered;
   }
 

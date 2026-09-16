@@ -2062,6 +2062,11 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       indicator: _indicator,
       controlsVisible: _controlsVisible,
       isBuffering: playbackState.shouldShowVideoBuffering,
+      bufferingDelay:
+          playbackState.engineKind == PlaybackEngineKind.ksPlayer &&
+              playbackState.firstFrameRendered
+          ? VideoPlayerView.ksPlayerBufferingDelay
+          : Duration.zero,
       pictureInPictureUrl: _pictureInPictureUrl,
       pictureInPictureHeaders: _pictureInPictureHeaders,
       quality: _quality,
