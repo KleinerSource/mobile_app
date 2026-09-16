@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -65,10 +66,7 @@ void main() {
     expect(firstMediaLease.isActive, isFalse);
     expect(secondMediaLease.isActive, isTrue);
     expect(fileLease.isActive, isTrue);
-    expect(
-      container.read(fileServerConnectionProvider).lease,
-      same(fileLease),
-    );
+    expect(container.read(fileServerConnectionProvider).lease, same(fileLease));
   });
 
   test('切换可见槽不会重建任一连接', () {
@@ -97,10 +95,7 @@ void main() {
       container.read(mediaServerConnectionProvider).lease,
       same(mediaLease),
     );
-    expect(
-      container.read(fileServerConnectionProvider).lease,
-      same(fileLease),
-    );
+    expect(container.read(fileServerConnectionProvider).lease, same(fileLease));
   });
 
   test('删除运行实例只清理对应槽', () {
@@ -121,7 +116,9 @@ void main() {
     runtime.commit(ServerRuntimeLane.files, 'file-one');
 
     container.read(serverConfigProvider.notifier).state = config.copyWith(
-      servers: config.servers.where((server) => server.id != 'media-one').toList(),
+      servers: config.servers
+          .where((server) => server.id != 'media-one')
+          .toList(),
       activeServerId: 'file-one',
     );
 
@@ -129,6 +126,55 @@ void main() {
     expect(container.read(serverRuntimeProvider).files.serverId, 'file-one');
     expect(mediaLease.isActive, isFalse);
     expect(fileLease.isActive, isTrue);
+  });
+
+  test('探测元数据更新不会重建媒体 ApiClient', () {
+    final notifier = _ServerConfigState(config);
+    final container = ProviderContainer.test(
+      overrides: [serverConfigProvider.overrideWith(() => notifier)],
+    );
+    final runtime = container.read(serverRuntimeProvider.notifier);
+    runtime.beginSwitch(ServerRuntimeLane.media, 'media-one');
+    final lease = container
+        .read(mediaServerConnectionProvider.notifier)
+        .activate('media-one');
+    runtime.commit(ServerRuntimeLane.media, 'media-one');
+
+    final firstClient = container.read(apiClientProvider)!;
+    const updatedLine = ServerLine(
+      id: 'media-line-one',
+      name: '媒体一',
+      baseUrl: 'https://media-one.example',
+      latencyMs: 42,
+      lastTestedAt: null,
+    );
+    const updatedServer = ServerProfile(
+      id: 'media-one',
+      name: '媒体一',
+      lines: [updatedLine],
+      activeLineId: 'media-line-one',
+      projectName: 'emby',
+      serverVersion: '4.8.11',
+    );
+    container.read(serverConfigProvider.notifier).state = ServerConfig(
+      baseUrl: updatedLine.baseUrl,
+      lines: const [updatedLine],
+      servers: [
+        updatedServer,
+        ...config.servers.where((server) => server.id != 'media-one'),
+      ],
+      activeServerId: 'media-one',
+    );
+
+    final secondClient = container.read(apiClientProvider)!;
+
+    expect(secondClient, same(firstClient));
+    expect(firstClient.isActive, isTrue);
+    expect(lease.isActive, isTrue);
+    expect(
+      container.read(mediaRuntimeConfigProvider)?.activeServer?.serverVersion,
+      '4.8.11',
+    );
   });
 }
 

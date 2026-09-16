@@ -609,6 +609,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     }
     // 鉴权状态确认后先保留 finishing 遮罩完成头像放大。首页刷新在后台启动，
     // 避免未配置鉴权的服务器在清理旧会话或某个首页区块响应较慢时一直停留。
+    beginFinishing();
     final refresh = refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
       refreshContinueWatching: () =>
@@ -617,7 +618,6 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       refreshRecommendCarousel: () =>
           ref.refresh(recommendCarouselProvider.future),
     );
-    beginFinishing();
     unawaited(refresh);
   }
 

@@ -17,7 +17,9 @@ import 'package:omm/core/models/system.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/home/home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
+import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -439,6 +441,82 @@ void main() {
     expect(
       container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.idle,
+    );
+  });
+
+  test('OMM 冷启动首次刷新在媒体槽 ready 后启动', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    const line = ServerLine(
+      id: 'omm-line',
+      name: 'OMM 主线路',
+      baseUrl: 'https://omm.example',
+    );
+    const server = ServerProfile(
+      id: 'omm-server',
+      name: 'OMM',
+      lines: [line],
+      activeLineId: 'omm-line',
+      projectName: 'oh-my-media',
+    );
+    final observedPhases = <ServerRuntimePhase>[];
+    final observedConnections = <bool>[];
+
+    Never recordRefresh(Ref ref) {
+      observedPhases.add(ref.read(serverRuntimeProvider).media.phase);
+      observedConnections.add(
+        ref.read(mediaServerConnectionProvider).accepts(server.id),
+      );
+      throw StateError('测试刷新已记录');
+    }
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              10,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'oh-my-media',
+                version: '2.4.0',
+              ),
+            ),
+          ),
+        ),
+        authControllerProvider.overrideWith(
+          _AlwaysAuthenticatedAuthController.new,
+        ),
+        recentlyAddedProvider.overrideWith(recordRefresh),
+        continueWatchingProvider.overrideWith(recordRefresh),
+        librariesProvider.overrideWith(recordRefresh),
+        recommendCarouselProvider.overrideWith(recordRefresh),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://omm.example',
+            lines: [line],
+            servers: [server],
+            activeServerId: 'omm-server',
+          ),
+        );
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(server.id, allowActiveTarget: true);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(observedPhases, hasLength(4));
+    expect(observedPhases, everyElement(ServerRuntimePhase.ready));
+    expect(observedConnections, everyElement(isTrue));
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.finishing,
     );
   });
 
