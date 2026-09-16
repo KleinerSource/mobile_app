@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
@@ -16,6 +17,7 @@ import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_repository.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/feiniu/feiniu_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -209,6 +211,10 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    final runtime = container.read(serverRuntimeProvider.notifier);
+    runtime.beginSwitch(ServerRuntimeLane.media, server.id);
+    container.read(mediaServerConnectionProvider.notifier).activate(server.id);
+    runtime.commit(ServerRuntimeLane.media, server.id);
 
     expect(
       (await container.read(authControllerProvider.future)).phase,

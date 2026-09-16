@@ -16,6 +16,7 @@ import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/files/file_playback_progress.dart';
@@ -563,6 +564,12 @@ void _main_0() {
       'force-server',
       'openlist',
     );
+    final runtime = container.read(serverRuntimeProvider.notifier);
+    runtime.beginSwitch(ServerRuntimeLane.files, 'force-server');
+    container
+        .read(fileServerConnectionProvider.notifier)
+        .activate('force-server');
+    runtime.commit(ServerRuntimeLane.files, 'force-server');
 
     const request = FileDirectoryRequest(
       serverId: 'force-server',

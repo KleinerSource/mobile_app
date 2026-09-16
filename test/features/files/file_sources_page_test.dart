@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
@@ -56,6 +58,7 @@ void main() {
         ),
       ),
     );
+    _activateFileRuntime(tester, serverId);
     await tester.pumpAndSettle();
 
     expect(find.text('选择一个文件来源'), findsNothing);
@@ -90,6 +93,7 @@ void main() {
         ),
       ),
     );
+    _activateFileRuntime(tester, serverId);
     await tester.pump();
 
     final title = find.text('SMB 一号');
@@ -197,6 +201,7 @@ void main() {
         ),
       ),
     );
+    _activateFileRuntime(tester, serverId);
     await tester.pumpAndSettle();
     expect(listingCalls, 1);
 
@@ -246,6 +251,7 @@ void main() {
         ),
       ),
     );
+    _activateFileRuntime(tester, serverId);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('更多'));
@@ -1144,6 +1150,7 @@ void main() {
         ),
       ),
     );
+    _activateFileRuntime(tester, serverId);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('返回服务器选择'));
@@ -1395,6 +1402,17 @@ Widget _disableAnimationsBuilder(BuildContext context, Widget? child) {
     data: MediaQuery.of(context).copyWith(disableAnimations: true),
     child: child ?? const SizedBox.shrink(),
   );
+}
+
+void _activateFileRuntime(WidgetTester tester, String serverId) {
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(FileSourcesPage)),
+    listen: false,
+  );
+  final runtime = container.read(serverRuntimeProvider.notifier);
+  runtime.beginSwitch(ServerRuntimeLane.files, serverId);
+  container.read(fileServerConnectionProvider.notifier).activate(serverId);
+  runtime.commit(ServerRuntimeLane.files, serverId);
 }
 
 Future<SharedPreferences> _prefs({
