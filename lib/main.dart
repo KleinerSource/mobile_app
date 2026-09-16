@@ -387,10 +387,10 @@ class _AuthenticatedManagerHome extends ConsumerWidget {
     return IndexedStack(
       index: index,
       children: [
-        mediaServerId == null
+        mediaServerId == null || runtime.media.phase != ServerRuntimePhase.ready
             ? const SizedBox.shrink()
             : MediaManagerShell(key: ValueKey('media:$mediaServerId')),
-        fileServerId == null
+        fileServerId == null || runtime.files.phase != ServerRuntimePhase.ready
             ? const SizedBox.shrink()
             : FileManagerShell(key: ValueKey('files:$fileServerId')),
       ],

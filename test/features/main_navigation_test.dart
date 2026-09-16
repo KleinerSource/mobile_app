@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/api/server_connection.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
@@ -16,8 +20,10 @@ import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/files/file_manager_shell.dart';
+import 'package:omm/features/home/home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
 import 'package:omm/features/main/media_manager_shell.dart';
+import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
 import 'package:omm/features/security/security_providers.dart';
 import 'package:omm/features/security/security_repository.dart';
@@ -40,6 +46,13 @@ class _AuthenticatedAuthState extends AuthController {
   @override
   Future<AuthState> build() async =>
       const AuthState(phase: AuthPhase.authenticated);
+
+  @override
+  Future<AuthState> refreshCurrentServer() async {
+    const result = AuthState(phase: AuthPhase.authenticated);
+    state = const AsyncData(result);
+    return result;
+  }
 }
 
 class _UnlockedSecurityState extends SecurityController {
@@ -85,6 +98,8 @@ Future<void> _pumpMainNavigationApp(
   SharedPreferences prefs,
   ServerConfig config, {
   bool activateMedia = true,
+  ServerLineProbeCoordinator? probeCoordinator,
+  List<Override> extraOverrides = const [],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -92,16 +107,17 @@ Future<void> _pumpMainNavigationApp(
         sharedPrefsProvider.overrideWithValue(prefs),
         serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
         serverLineProbeCoordinatorProvider.overrideWithValue(
-          ServerLineProbeCoordinator(
-            probe: (line) async => ServerLineProbeResult.success(
-              line,
-              1,
-              versionInfo: const ServerVersionInfo(
-                projectName: 'db_online',
-                version: 'test',
+          probeCoordinator ??
+              ServerLineProbeCoordinator(
+                probe: (line) async => ServerLineProbeResult.success(
+                  line,
+                  1,
+                  versionInfo: const ServerVersionInfo(
+                    projectName: 'db_online',
+                    version: 'test',
+                  ),
+                ),
               ),
-            ),
-          ),
         ),
         authControllerProvider.overrideWith(_AuthenticatedAuthState.new),
         securityControllerProvider.overrideWith(_UnlockedSecurityState.new),
@@ -125,6 +141,7 @@ Future<void> _pumpMainNavigationApp(
             ),
           ],
         ),
+        ...extraOverrides,
       ],
       child: const MaterialApp(
         locale: Locale('zh'),
@@ -327,5 +344,96 @@ void main() {
           .active,
       1,
     );
+  });
+
+  testWidgets('从其它媒体服务器切回 OMM 时只在连接就绪后请求首页', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    const ommLine = ServerLine(
+      id: 'omm-line',
+      name: 'OMM 线路',
+      baseUrl: 'https://omm.example',
+    );
+    const ommServer = ServerProfile(
+      id: 'omm-server',
+      name: 'OMM',
+      lines: [ommLine],
+      activeLineId: 'omm-line',
+      projectName: 'oh-my-media',
+    );
+    final config = _mainNavigationConfig();
+    final probe = Completer<ServerLineProbeResult>();
+    final observed = <(ServerRuntimePhase, bool)>[];
+    Never recordRefresh(Ref ref) {
+      observed.add((
+        ref.read(serverRuntimeProvider).media.phase,
+        ref.read(mediaServerConnectionProvider).accepts('omm-server'),
+      ));
+      throw StateError('测试首页刷新已记录');
+    }
+
+    await _pumpMainNavigationApp(
+      tester,
+      prefs,
+      config.copyWith(servers: [...config.servers, ommServer]),
+      probeCoordinator: ServerLineProbeCoordinator(
+        probe: (line) => line.id == ommLine.id
+            ? probe.future
+            : Future.value(
+                ServerLineProbeResult.success(
+                  line,
+                  1,
+                  versionInfo: const ServerVersionInfo(
+                    projectName: 'db_online',
+                    version: 'test',
+                  ),
+                ),
+              ),
+      ),
+      extraOverrides: [
+        recentlyAddedProvider.overrideWith(recordRefresh),
+        continueWatchingProvider.overrideWith(recordRefresh),
+        librariesProvider.overrideWith(recordRefresh),
+        recommendCarouselProvider.overrideWith(recordRefresh),
+      ],
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OmmApp)),
+      listen: false,
+    );
+    expect(find.byKey(const ValueKey('media:media-server')), findsOneWidget);
+
+    final switching = container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo('omm-server');
+    await _pumpUntil(
+      tester,
+      () =>
+          container.read(serverRuntimeProvider).media.phase ==
+          ServerRuntimePhase.connecting,
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('media:omm-server')), findsNothing);
+    expect(observed, isEmpty);
+
+    probe.complete(
+      const ServerLineProbeResult.success(
+        ommLine,
+        1,
+        versionInfo: ServerVersionInfo(
+          projectName: 'oh-my-media',
+          version: '2.4.0',
+        ),
+      ),
+    );
+    await switching;
+
+    expect(
+      container.read(serverRuntimeProvider).media.phase,
+      ServerRuntimePhase.ready,
+    );
+    expect(container.read(requiredApiClientProvider).isActive, isTrue);
+    expect(observed, isNotEmpty);
+    expect(observed, everyElement((ServerRuntimePhase.ready, true)));
   });
 }
