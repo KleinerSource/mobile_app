@@ -1948,7 +1948,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   Future<void> _disposePlayer() async {
-    await _stopPlayer();
     try {
       await _host.dispose();
     } catch (_) {}
@@ -1976,22 +1975,16 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     if (_isLeaving) return;
     _isLeaving = true;
     _loadGeneration++;
-    // 先停止传感器并恢复竖屏，确保上一层页面显示时已经是正确方向。
+    // 退出必须立即关闭路由；本地停止、进度上报和转码清理在 dispose 后
+    // 转为后台任务，不能被原生 stop/dispose 的悬挂 Future 卡住。
     _stopOrientationSensor();
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    await _restorePortraitOrientation();
-    // 停止任务与进度上报并行，确保切换服务器前本地播放、转码和队列资源
-    // 已经释放；协调器仍有统一超时兜底，网络异常不会永久阻塞切换。
-    await Future.wait([
-      _stopPlayer(),
-      _stopTranscodeSession(),
-      _disposeQueueResources(),
-      _reportProgress().timeout(const Duration(seconds: 3), onTimeout: () {}),
-    ]);
+    unawaited(_reportProgress());
     if (mounted) {
       Navigator.of(context).pop();
     }
+    unawaited(_restorePortraitOrientation());
   }
 
   @override
