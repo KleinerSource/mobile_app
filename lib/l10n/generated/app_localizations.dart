@@ -11034,6 +11034,18 @@ abstract class AppL10n {
   /// **'下载时间'**
   String get detailDownloadedAt;
 
+  /// No description provided for @detailCreatedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建时间'**
+  String get detailCreatedAt;
+
+  /// No description provided for @detailUpdatedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改时间'**
+  String get detailUpdatedAt;
+
   /// No description provided for @detailContainer.
   ///
   /// In zh, this message translates to:

@@ -2085,6 +2085,8 @@
   "detailFileSize": "文件大小",
   "detailPart": "分部",
   "detailDownloadedAt": "下载时间",
+  "detailCreatedAt": "创建时间",
+  "detailUpdatedAt": "修改时间",
   "detailContainer": "容器",
   "detailSize": "大小",
   "detailMediaInfo": "媒体信息",

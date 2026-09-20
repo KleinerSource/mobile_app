@@ -5985,6 +5985,12 @@ class AppL10nZh extends AppL10n {
   String get detailDownloadedAt => '下载时间';
 
   @override
+  String get detailCreatedAt => '创建时间';
+
+  @override
+  String get detailUpdatedAt => '修改时间';
+
+  @override
   String get detailContainer => '容器';
 
   @override

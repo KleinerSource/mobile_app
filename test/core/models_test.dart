@@ -791,6 +791,18 @@ void _main_6() {
     expect(movie.hasExternalSubtitle, isTrue);
   });
 
+  test('详情模型解析创建时间和修改时间', () {
+    final movie = MovieDetail.fromJson({
+      'id': 2,
+      'title': '时间字段测试',
+      'created_at': '2026-09-20T08:30:00Z',
+      'updated_at': '2026-09-20T09:45:00Z',
+    });
+
+    expect(movie.createdAt, DateTime.parse('2026-09-20T08:30:00Z'));
+    expect(movie.updatedAt, DateTime.parse('2026-09-20T09:45:00Z'));
+  });
+
   test('详情模型解析关联字幕文件', () {
     final movie = MovieDetail.fromJson({
       'id': 3,

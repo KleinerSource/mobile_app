@@ -975,6 +975,12 @@ class _DetailsTable extends ConsumerWidget {
     if (movie.lastDownloadedAt != null && movie.lastDownloadedAt!.isNotEmpty) {
       rows.add([l.detailDownloadedAt, movie.lastDownloadedAt!]);
     }
+    if (movie.createdAt != null) {
+      rows.add([l.detailCreatedAt, _formatDateTime(movie.createdAt!)]);
+    }
+    if (movie.updatedAt != null) {
+      rows.add([l.detailUpdatedAt, _formatDateTime(movie.updatedAt!)]);
+    }
     if (rows.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -1029,6 +1035,13 @@ class _DetailsTable extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _formatDateTime(DateTime value) {
+  final local = value.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}';
 }
 
 String _formatBytes(int bytes) {

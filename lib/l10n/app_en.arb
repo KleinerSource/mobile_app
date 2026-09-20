@@ -2085,6 +2085,8 @@
   "detailFileSize": "File size",
   "detailPart": "Part",
   "detailDownloadedAt": "Downloaded at",
+  "detailCreatedAt": "Created at",
+  "detailUpdatedAt": "Updated at",
   "detailContainer": "Container",
   "detailSize": "Size",
   "detailMediaInfo": "Media information",

@@ -204,6 +204,8 @@ abstract class MovieDetail with _$MovieDetail {
     @Default(ResolutionTier.none)
     ResolutionTier resolutionTier,
     @JsonKey(name: 'last_downloaded_at') String? lastDownloadedAt,
+    @JsonKey(name: 'created_at') DateTime? createdAt,
+    @JsonKey(name: 'updated_at') DateTime? updatedAt,
     @JsonKey(name: 'movie_part') String? moviePart,
     @JsonKey(name: 'poster_uuid') String? posterUuid,
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,

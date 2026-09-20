@@ -6110,6 +6110,12 @@ class AppL10nEn extends AppL10n {
   String get detailDownloadedAt => 'Downloaded at';
 
   @override
+  String get detailCreatedAt => 'Created at';
+
+  @override
+  String get detailUpdatedAt => 'Updated at';
+
+  @override
   String get detailContainer => 'Container';
 
   @override
