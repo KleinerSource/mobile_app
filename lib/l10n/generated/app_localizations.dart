@@ -12797,6 +12797,456 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'私藏'**
   String get favoriteListAfterHours;
+
+  /// No description provided for @dbOnlineSubscriptionsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅'**
+  String get dbOnlineSubscriptionsTitle;
+
+  /// No description provided for @dbOnlineSubscriptionPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'待处理'**
+  String get dbOnlineSubscriptionPending;
+
+  /// No description provided for @dbOnlineSubscriptionCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get dbOnlineSubscriptionCompleted;
+
+  /// No description provided for @dbOnlineSubscriptionOnline.
+  ///
+  /// In zh, this message translates to:
+  /// **'在线订阅'**
+  String get dbOnlineSubscriptionOnline;
+
+  /// No description provided for @dbOnlineSubscriptionActors.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员'**
+  String get dbOnlineSubscriptionActors;
+
+  /// No description provided for @dbOnlineSubscriptionSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列'**
+  String get dbOnlineSubscriptionSeries;
+
+  /// No description provided for @dbOnlineSubscriptionBlacklist.
+  ///
+  /// In zh, this message translates to:
+  /// **'黑名单'**
+  String get dbOnlineSubscriptionBlacklist;
+
+  /// No description provided for @dbOnlineSubscriptionSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索订阅'**
+  String get dbOnlineSubscriptionSearch;
+
+  /// No description provided for @dbOnlineSubscriptionEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无内容'**
+  String get dbOnlineSubscriptionEmpty;
+
+  /// No description provided for @dbOnlineSubscriptionNoResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配的订阅'**
+  String get dbOnlineSubscriptionNoResults;
+
+  /// No description provided for @dbOnlineSubscriptionUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'此功能当前不可用'**
+  String get dbOnlineSubscriptionUnavailable;
+
+  /// No description provided for @dbOnlineSubscriptionAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加订阅'**
+  String get dbOnlineSubscriptionAdd;
+
+  /// No description provided for @dbOnlineSubscriptionSubscribed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已订阅'**
+  String get dbOnlineSubscriptionSubscribed;
+
+  /// No description provided for @dbOnlineSubscriptionEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑订阅'**
+  String get dbOnlineSubscriptionEdit;
+
+  /// No description provided for @dbOnlineSubscriptionDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除订阅'**
+  String get dbOnlineSubscriptionDelete;
+
+  /// No description provided for @dbOnlineSubscriptionDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除此订阅吗？'**
+  String get dbOnlineSubscriptionDeleteConfirm;
+
+  /// No description provided for @dbOnlineSubscriptionCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'番号'**
+  String get dbOnlineSubscriptionCode;
+
+  /// No description provided for @dbOnlineSubscriptionName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get dbOnlineSubscriptionName;
+
+  /// No description provided for @dbOnlineSubscriptionId.
+  ///
+  /// In zh, this message translates to:
+  /// **'编号'**
+  String get dbOnlineSubscriptionId;
+
+  /// No description provided for @dbOnlineSubscriptionActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用订阅'**
+  String get dbOnlineSubscriptionActive;
+
+  /// No description provided for @dbOnlineSubscriptionInactive.
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用'**
+  String get dbOnlineSubscriptionInactive;
+
+  /// No description provided for @dbOnlineSubscriptionQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'画质'**
+  String get dbOnlineSubscriptionQuality;
+
+  /// No description provided for @dbOnlineSubscriptionSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要字幕'**
+  String get dbOnlineSubscriptionSubtitle;
+
+  /// No description provided for @dbOnlineSubscriptionUncensored.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要无码'**
+  String get dbOnlineSubscriptionUncensored;
+
+  /// No description provided for @dbOnlineSubscriptionSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get dbOnlineSubscriptionSave;
+
+  /// No description provided for @dbOnlineSubscriptionCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get dbOnlineSubscriptionCancel;
+
+  /// No description provided for @dbOnlineSubscriptionCheck.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查订阅'**
+  String get dbOnlineSubscriptionCheck;
+
+  /// No description provided for @dbOnlineSubscriptionRun.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行订阅'**
+  String get dbOnlineSubscriptionRun;
+
+  /// No description provided for @dbOnlineSubscriptionSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步在线订阅'**
+  String get dbOnlineSubscriptionSync;
+
+  /// No description provided for @dbOnlineSubscriptionAutoSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动同步'**
+  String get dbOnlineSubscriptionAutoSync;
+
+  /// No description provided for @dbOnlineSubscriptionPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅预设'**
+  String get dbOnlineSubscriptionPreset;
+
+  /// No description provided for @dbOnlineSubscriptionShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享订阅'**
+  String get dbOnlineSubscriptionShare;
+
+  /// No description provided for @dbOnlineSubscriptionExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出'**
+  String get dbOnlineSubscriptionExport;
+
+  /// No description provided for @dbOnlineSubscriptionImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入'**
+  String get dbOnlineSubscriptionImport;
+
+  /// No description provided for @dbOnlineSubscriptionShareText.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享内容'**
+  String get dbOnlineSubscriptionShareText;
+
+  /// No description provided for @dbOnlineSubscriptionCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get dbOnlineSubscriptionCopy;
+
+  /// No description provided for @dbOnlineSubscriptionBlacklistAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入黑名单'**
+  String get dbOnlineSubscriptionBlacklistAdd;
+
+  /// No description provided for @dbOnlineSubscriptionBlacklistVideoCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'影片番号'**
+  String get dbOnlineSubscriptionBlacklistVideoCode;
+
+  /// No description provided for @dbOnlineSubscriptionBlacklistCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'类别规则'**
+  String get dbOnlineSubscriptionBlacklistCategory;
+
+  /// No description provided for @dbOnlineSubscriptionType.
+  ///
+  /// In zh, this message translates to:
+  /// **'规则类型'**
+  String get dbOnlineSubscriptionType;
+
+  /// No description provided for @dbOnlineSubscriptionReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'原因'**
+  String get dbOnlineSubscriptionReason;
+
+  /// No description provided for @dbOnlineSubscriptionTestContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'待测试影片番号'**
+  String get dbOnlineSubscriptionTestContent;
+
+  /// No description provided for @dbOnlineSubscriptionCategoryRule.
+  ///
+  /// In zh, this message translates to:
+  /// **'类别匹配词（逗号分隔）'**
+  String get dbOnlineSubscriptionCategoryRule;
+
+  /// No description provided for @dbOnlineSubscriptionBlacklistTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试黑名单'**
+  String get dbOnlineSubscriptionBlacklistTest;
+
+  /// No description provided for @dbOnlineSubscriptionRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get dbOnlineSubscriptionRemove;
+
+  /// No description provided for @dbOnlineSubscriptionStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get dbOnlineSubscriptionStatus;
+
+  /// No description provided for @dbOnlineSubscriptionPendingStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'待处理'**
+  String get dbOnlineSubscriptionPendingStatus;
+
+  /// No description provided for @dbOnlineSubscriptionSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'已跳过'**
+  String get dbOnlineSubscriptionSkipped;
+
+  /// No description provided for @dbOnlineSubscriptionQualityNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'不限'**
+  String get dbOnlineSubscriptionQualityNormal;
+
+  /// No description provided for @dbOnlineSubscriptionQualityHd.
+  ///
+  /// In zh, this message translates to:
+  /// **'高清'**
+  String get dbOnlineSubscriptionQualityHd;
+
+  /// No description provided for @dbOnlineSubscriptionQualityUhd.
+  ///
+  /// In zh, this message translates to:
+  /// **'超高清'**
+  String get dbOnlineSubscriptionQualityUhd;
+
+  /// No description provided for @dbOnlineSubscriptionStartDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始日期'**
+  String get dbOnlineSubscriptionStartDate;
+
+  /// No description provided for @dbOnlineSubscriptionSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开设置'**
+  String get dbOnlineSubscriptionSettings;
+
+  /// No description provided for @dbOnlineSubscriptionFeatureRequiresDatabase.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在 DBO 后台启用数据库功能'**
+  String get dbOnlineSubscriptionFeatureRequiresDatabase;
+
+  /// No description provided for @dbOnlineSubscriptionFeatureRequiresOnlineAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在 DBO 后台配置在线账户'**
+  String get dbOnlineSubscriptionFeatureRequiresOnlineAccount;
+
+  /// No description provided for @dbOnlineSubscriptionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅操作'**
+  String get dbOnlineSubscriptionTitle;
+
+  /// No description provided for @dbOnlineSubscriptionPreDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'预下载模式'**
+  String get dbOnlineSubscriptionPreDownload;
+
+  /// No description provided for @dbOnlineSubscriptionWashMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'洗版模式'**
+  String get dbOnlineSubscriptionWashMode;
+
+  /// No description provided for @dbOnlineSubscriptionMinimumSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小体积（MB）'**
+  String get dbOnlineSubscriptionMinimumSize;
+
+  /// No description provided for @dbOnlineSubscriptionMaximumSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大体积（MB）'**
+  String get dbOnlineSubscriptionMaximumSize;
+
+  /// No description provided for @dbOnlineSubscriptionMaxFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大文件数'**
+  String get dbOnlineSubscriptionMaxFiles;
+
+  /// No description provided for @dbOnlineSubscriptionOverdueDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'逾期天数'**
+  String get dbOnlineSubscriptionOverdueDays;
+
+  /// No description provided for @dbOnlineSubscriptionIncludeCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'包含类别（逗号分隔）'**
+  String get dbOnlineSubscriptionIncludeCategories;
+
+  /// No description provided for @dbOnlineSubscriptionExcludeCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'排除类别（逗号分隔）'**
+  String get dbOnlineSubscriptionExcludeCategories;
+
+  /// No description provided for @dbOnlineSubscriptionDownloader.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载器'**
+  String get dbOnlineSubscriptionDownloader;
+
+  /// No description provided for @dbOnlineSubscriptionSavePath.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存路径'**
+  String get dbOnlineSubscriptionSavePath;
+
+  /// No description provided for @dbOnlineSubscriptionDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标设备'**
+  String get dbOnlineSubscriptionDevice;
+
+  /// No description provided for @dbOnlineSubscriptionSchedules.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步时间（逗号分隔）'**
+  String get dbOnlineSubscriptionSchedules;
+
+  /// No description provided for @dbOnlineSubscriptionActionCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作已完成'**
+  String get dbOnlineSubscriptionActionCompleted;
+
+  /// No description provided for @dbOnlineSubscriptionPreviousPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一页'**
+  String get dbOnlineSubscriptionPreviousPage;
+
+  /// No description provided for @dbOnlineSubscriptionNextPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一页'**
+  String get dbOnlineSubscriptionNextPage;
+
+  /// No description provided for @dbOnlineSubscriptionSyncPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'在线订阅预设'**
+  String get dbOnlineSubscriptionSyncPreset;
+
+  /// No description provided for @dbOnlineSubscriptionAddPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'按前缀添加'**
+  String get dbOnlineSubscriptionAddPrefix;
+
+  /// No description provided for @dbOnlineSubscriptionOverwrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖现有订阅'**
+  String get dbOnlineSubscriptionOverwrite;
+
+  /// No description provided for @dbOnlineSubscriptionOverwriteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将预设应用到当前启用的影片订阅？'**
+  String get dbOnlineSubscriptionOverwriteConfirm;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

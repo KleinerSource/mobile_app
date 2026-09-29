@@ -7107,4 +7107,235 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get favoriteListAfterHours => 'Private';
+
+  @override
+  String get dbOnlineSubscriptionsTitle => 'Subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionPending => 'Pending';
+
+  @override
+  String get dbOnlineSubscriptionCompleted => 'Completed';
+
+  @override
+  String get dbOnlineSubscriptionOnline => 'Online';
+
+  @override
+  String get dbOnlineSubscriptionActors => 'Actors';
+
+  @override
+  String get dbOnlineSubscriptionSeries => 'Series';
+
+  @override
+  String get dbOnlineSubscriptionBlacklist => 'Blacklist';
+
+  @override
+  String get dbOnlineSubscriptionSearch => 'Search subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionEmpty => 'Nothing here yet';
+
+  @override
+  String get dbOnlineSubscriptionNoResults => 'No matching subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionUnavailable => 'This feature is unavailable';
+
+  @override
+  String get dbOnlineSubscriptionAdd => 'Add subscription';
+
+  @override
+  String get dbOnlineSubscriptionSubscribed => 'Subscribed';
+
+  @override
+  String get dbOnlineSubscriptionEdit => 'Edit subscription';
+
+  @override
+  String get dbOnlineSubscriptionDelete => 'Delete subscription';
+
+  @override
+  String get dbOnlineSubscriptionDeleteConfirm => 'Delete this subscription?';
+
+  @override
+  String get dbOnlineSubscriptionCode => 'Code';
+
+  @override
+  String get dbOnlineSubscriptionName => 'Name';
+
+  @override
+  String get dbOnlineSubscriptionId => 'ID';
+
+  @override
+  String get dbOnlineSubscriptionActive => 'Enable subscription';
+
+  @override
+  String get dbOnlineSubscriptionInactive => 'Inactive';
+
+  @override
+  String get dbOnlineSubscriptionQuality => 'Quality';
+
+  @override
+  String get dbOnlineSubscriptionSubtitle => 'Require subtitles';
+
+  @override
+  String get dbOnlineSubscriptionUncensored => 'Require uncensored';
+
+  @override
+  String get dbOnlineSubscriptionSave => 'Save';
+
+  @override
+  String get dbOnlineSubscriptionCancel => 'Cancel';
+
+  @override
+  String get dbOnlineSubscriptionCheck => 'Check subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionRun => 'Run subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionSync => 'Sync online subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionAutoSync => 'Auto sync';
+
+  @override
+  String get dbOnlineSubscriptionPreset => 'Subscription preset';
+
+  @override
+  String get dbOnlineSubscriptionShare => 'Share subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionExport => 'Export';
+
+  @override
+  String get dbOnlineSubscriptionImport => 'Import';
+
+  @override
+  String get dbOnlineSubscriptionShareText => 'Share content';
+
+  @override
+  String get dbOnlineSubscriptionCopy => 'Copy';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistAdd => 'Add to blacklist';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistVideoCode => 'Video code';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistCategory => 'Category rule';
+
+  @override
+  String get dbOnlineSubscriptionType => 'Entry type';
+
+  @override
+  String get dbOnlineSubscriptionReason => 'Reason';
+
+  @override
+  String get dbOnlineSubscriptionTestContent => 'Video codes to test';
+
+  @override
+  String get dbOnlineSubscriptionCategoryRule =>
+      'Category match terms (comma separated)';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistTest => 'Test blacklist';
+
+  @override
+  String get dbOnlineSubscriptionRemove => 'Remove';
+
+  @override
+  String get dbOnlineSubscriptionStatus => 'Status';
+
+  @override
+  String get dbOnlineSubscriptionPendingStatus => 'Pending';
+
+  @override
+  String get dbOnlineSubscriptionSkipped => 'Skipped';
+
+  @override
+  String get dbOnlineSubscriptionQualityNormal => 'Any';
+
+  @override
+  String get dbOnlineSubscriptionQualityHd => 'HD';
+
+  @override
+  String get dbOnlineSubscriptionQualityUhd => 'UHD';
+
+  @override
+  String get dbOnlineSubscriptionStartDate => 'Start date';
+
+  @override
+  String get dbOnlineSubscriptionSettings => 'Open settings';
+
+  @override
+  String get dbOnlineSubscriptionFeatureRequiresDatabase =>
+      'Enable the database capability in DBO settings first';
+
+  @override
+  String get dbOnlineSubscriptionFeatureRequiresOnlineAccount =>
+      'Configure an online account in DBO settings first';
+
+  @override
+  String get dbOnlineSubscriptionTitle => 'Subscription actions';
+
+  @override
+  String get dbOnlineSubscriptionPreDownload => 'Pre-download mode';
+
+  @override
+  String get dbOnlineSubscriptionWashMode => 'Wash mode';
+
+  @override
+  String get dbOnlineSubscriptionMinimumSize => 'Minimum size (MB)';
+
+  @override
+  String get dbOnlineSubscriptionMaximumSize => 'Maximum size (MB)';
+
+  @override
+  String get dbOnlineSubscriptionMaxFiles => 'Maximum file count';
+
+  @override
+  String get dbOnlineSubscriptionOverdueDays => 'Overdue days';
+
+  @override
+  String get dbOnlineSubscriptionIncludeCategories =>
+      'Include categories (comma separated)';
+
+  @override
+  String get dbOnlineSubscriptionExcludeCategories =>
+      'Exclude categories (comma separated)';
+
+  @override
+  String get dbOnlineSubscriptionDownloader => 'Downloader';
+
+  @override
+  String get dbOnlineSubscriptionSavePath => 'Save path';
+
+  @override
+  String get dbOnlineSubscriptionDevice => 'Target device';
+
+  @override
+  String get dbOnlineSubscriptionSchedules => 'Sync times (comma separated)';
+
+  @override
+  String get dbOnlineSubscriptionActionCompleted => 'Action completed';
+
+  @override
+  String get dbOnlineSubscriptionPreviousPage => 'Previous page';
+
+  @override
+  String get dbOnlineSubscriptionNextPage => 'Next page';
+
+  @override
+  String get dbOnlineSubscriptionSyncPreset => 'Online subscription preset';
+
+  @override
+  String get dbOnlineSubscriptionAddPrefix => 'Add by prefix';
+
+  @override
+  String get dbOnlineSubscriptionOverwrite => 'Apply to existing subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionOverwriteConfirm =>
+      'Apply the preset to all active video subscriptions?';
 }

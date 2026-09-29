@@ -2,13 +2,17 @@ import 'package:dio/dio.dart';
 
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_codes.dart';
 
 class DbOnlineApi {
-  DbOnlineApi(this._dio);
+  DbOnlineApi(Dio dio)
+    : _dio = dio,
+      subscriptions = DbOnlineSubscriptionApi(dio);
 
   final Dio _dio;
+  final DbOnlineSubscriptionApi subscriptions;
 
   /// 读取 DBO 后台配置。配置接口返回完整配置，但未鉴权时只包含公开字段。
   Future<Map<String, dynamic>> getBackendConfig() async {

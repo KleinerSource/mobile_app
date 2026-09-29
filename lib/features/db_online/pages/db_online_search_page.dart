@@ -22,6 +22,7 @@ import 'package:omm/shared/search_type_menu.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 
 /// dbonline 搜索页。
 ///
@@ -455,10 +456,13 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final actor = value.actors[index];
                   return _DbOnlineSearchEntityCard(
+                    id: actor.id,
                     name: actor.name,
                     label: AppL10n.of(context).searchModeActorSearch,
                     count: actor.videosCount,
                     icon: Icons.person_outline_rounded,
+                    subscriptionKind: 'actor',
+                    subscriptionData: {'actor_avatar': actor.avatarUrl ?? ''},
                   );
                 }, childCount: value.actors.length),
               ),
@@ -552,10 +556,12 @@ class _DbOnlineSeriesSearchResultsState
             ),
             builderDelegate: PagedChildBuilderDelegate<DbOnlineSearchEntity>(
               itemBuilder: (context, item, _) => _DbOnlineSearchEntityCard(
+                id: item.id,
                 name: item.name,
                 label: AppL10n.of(context).searchModeSeries,
                 count: item.moviesCount,
                 icon: Icons.layers_outlined,
+                subscriptionKind: 'series',
               ),
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),
@@ -581,16 +587,22 @@ class _DbOnlineSeriesSearchResultsState
 
 class _DbOnlineSearchEntityCard extends StatelessWidget {
   const _DbOnlineSearchEntityCard({
+    required this.id,
     required this.name,
     required this.label,
     required this.count,
     required this.icon,
+    required this.subscriptionKind,
+    this.subscriptionData = const <String, dynamic>{},
   });
 
+  final String id;
   final String name;
   final String label;
   final int count;
   final IconData icon;
+  final String subscriptionKind;
+  final Map<String, dynamic> subscriptionData;
 
   @override
   Widget build(BuildContext context) {
@@ -635,6 +647,12 @@ class _DbOnlineSearchEntityCard extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
+            DbOnlineSubscriptionAction(
+              kind: subscriptionKind,
+              id: id,
+              title: name,
+              initial: subscriptionData,
             ),
           ],
         ),

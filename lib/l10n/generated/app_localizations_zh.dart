@@ -6965,4 +6965,230 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get favoriteListAfterHours => '私藏';
+
+  @override
+  String get dbOnlineSubscriptionsTitle => '订阅';
+
+  @override
+  String get dbOnlineSubscriptionPending => '待处理';
+
+  @override
+  String get dbOnlineSubscriptionCompleted => '已完成';
+
+  @override
+  String get dbOnlineSubscriptionOnline => '在线订阅';
+
+  @override
+  String get dbOnlineSubscriptionActors => '演员';
+
+  @override
+  String get dbOnlineSubscriptionSeries => '系列';
+
+  @override
+  String get dbOnlineSubscriptionBlacklist => '黑名单';
+
+  @override
+  String get dbOnlineSubscriptionSearch => '搜索订阅';
+
+  @override
+  String get dbOnlineSubscriptionEmpty => '暂无内容';
+
+  @override
+  String get dbOnlineSubscriptionNoResults => '没有匹配的订阅';
+
+  @override
+  String get dbOnlineSubscriptionUnavailable => '此功能当前不可用';
+
+  @override
+  String get dbOnlineSubscriptionAdd => '添加订阅';
+
+  @override
+  String get dbOnlineSubscriptionSubscribed => '已订阅';
+
+  @override
+  String get dbOnlineSubscriptionEdit => '编辑订阅';
+
+  @override
+  String get dbOnlineSubscriptionDelete => '删除订阅';
+
+  @override
+  String get dbOnlineSubscriptionDeleteConfirm => '确定删除此订阅吗？';
+
+  @override
+  String get dbOnlineSubscriptionCode => '番号';
+
+  @override
+  String get dbOnlineSubscriptionName => '名称';
+
+  @override
+  String get dbOnlineSubscriptionId => '编号';
+
+  @override
+  String get dbOnlineSubscriptionActive => '启用订阅';
+
+  @override
+  String get dbOnlineSubscriptionInactive => '已停用';
+
+  @override
+  String get dbOnlineSubscriptionQuality => '画质';
+
+  @override
+  String get dbOnlineSubscriptionSubtitle => '需要字幕';
+
+  @override
+  String get dbOnlineSubscriptionUncensored => '需要无码';
+
+  @override
+  String get dbOnlineSubscriptionSave => '保存';
+
+  @override
+  String get dbOnlineSubscriptionCancel => '取消';
+
+  @override
+  String get dbOnlineSubscriptionCheck => '检查订阅';
+
+  @override
+  String get dbOnlineSubscriptionRun => '执行订阅';
+
+  @override
+  String get dbOnlineSubscriptionSync => '同步在线订阅';
+
+  @override
+  String get dbOnlineSubscriptionAutoSync => '自动同步';
+
+  @override
+  String get dbOnlineSubscriptionPreset => '订阅预设';
+
+  @override
+  String get dbOnlineSubscriptionShare => '共享订阅';
+
+  @override
+  String get dbOnlineSubscriptionExport => '导出';
+
+  @override
+  String get dbOnlineSubscriptionImport => '导入';
+
+  @override
+  String get dbOnlineSubscriptionShareText => '分享内容';
+
+  @override
+  String get dbOnlineSubscriptionCopy => '复制';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistAdd => '加入黑名单';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistVideoCode => '影片番号';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistCategory => '类别规则';
+
+  @override
+  String get dbOnlineSubscriptionType => '规则类型';
+
+  @override
+  String get dbOnlineSubscriptionReason => '原因';
+
+  @override
+  String get dbOnlineSubscriptionTestContent => '待测试影片番号';
+
+  @override
+  String get dbOnlineSubscriptionCategoryRule => '类别匹配词（逗号分隔）';
+
+  @override
+  String get dbOnlineSubscriptionBlacklistTest => '测试黑名单';
+
+  @override
+  String get dbOnlineSubscriptionRemove => '移除';
+
+  @override
+  String get dbOnlineSubscriptionStatus => '状态';
+
+  @override
+  String get dbOnlineSubscriptionPendingStatus => '待处理';
+
+  @override
+  String get dbOnlineSubscriptionSkipped => '已跳过';
+
+  @override
+  String get dbOnlineSubscriptionQualityNormal => '不限';
+
+  @override
+  String get dbOnlineSubscriptionQualityHd => '高清';
+
+  @override
+  String get dbOnlineSubscriptionQualityUhd => '超高清';
+
+  @override
+  String get dbOnlineSubscriptionStartDate => '开始日期';
+
+  @override
+  String get dbOnlineSubscriptionSettings => '打开设置';
+
+  @override
+  String get dbOnlineSubscriptionFeatureRequiresDatabase => '请先在 DBO 后台启用数据库功能';
+
+  @override
+  String get dbOnlineSubscriptionFeatureRequiresOnlineAccount =>
+      '请先在 DBO 后台配置在线账户';
+
+  @override
+  String get dbOnlineSubscriptionTitle => '订阅操作';
+
+  @override
+  String get dbOnlineSubscriptionPreDownload => '预下载模式';
+
+  @override
+  String get dbOnlineSubscriptionWashMode => '洗版模式';
+
+  @override
+  String get dbOnlineSubscriptionMinimumSize => '最小体积（MB）';
+
+  @override
+  String get dbOnlineSubscriptionMaximumSize => '最大体积（MB）';
+
+  @override
+  String get dbOnlineSubscriptionMaxFiles => '最大文件数';
+
+  @override
+  String get dbOnlineSubscriptionOverdueDays => '逾期天数';
+
+  @override
+  String get dbOnlineSubscriptionIncludeCategories => '包含类别（逗号分隔）';
+
+  @override
+  String get dbOnlineSubscriptionExcludeCategories => '排除类别（逗号分隔）';
+
+  @override
+  String get dbOnlineSubscriptionDownloader => '下载器';
+
+  @override
+  String get dbOnlineSubscriptionSavePath => '保存路径';
+
+  @override
+  String get dbOnlineSubscriptionDevice => '目标设备';
+
+  @override
+  String get dbOnlineSubscriptionSchedules => '同步时间（逗号分隔）';
+
+  @override
+  String get dbOnlineSubscriptionActionCompleted => '操作已完成';
+
+  @override
+  String get dbOnlineSubscriptionPreviousPage => '上一页';
+
+  @override
+  String get dbOnlineSubscriptionNextPage => '下一页';
+
+  @override
+  String get dbOnlineSubscriptionSyncPreset => '在线订阅预设';
+
+  @override
+  String get dbOnlineSubscriptionAddPrefix => '按前缀添加';
+
+  @override
+  String get dbOnlineSubscriptionOverwrite => '覆盖现有订阅';
+
+  @override
+  String get dbOnlineSubscriptionOverwriteConfirm => '将预设应用到当前启用的影片订阅？';
 }

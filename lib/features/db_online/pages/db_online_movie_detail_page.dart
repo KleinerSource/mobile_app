@@ -28,6 +28,7 @@ import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 
 class DbOnlineMovieDetailPage extends ConsumerWidget {
   const DbOnlineMovieDetailPage({super.key, required this.code})
@@ -242,6 +243,45 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
               year: normalizeMediaYear(movie.date),
               runtime: normalizeMediaDurationMinutes(movie.duration),
               rating: normalizeMediaRating(movie.score),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                DbOnlineSubscriptionAction(
+                  kind: 'video',
+                  id: movie.code,
+                  title: displayTitle,
+                  showLabel: true,
+                  initial: {
+                    'video_id': movie.videoId ?? '',
+                    'cover_url': movie.coverUrl ?? '',
+                    'thumb_url': movie.thumbUrl ?? '',
+                    'release_date': movie.date ?? '',
+                  },
+                ),
+                if (movie.series?.externalId?.trim().isNotEmpty == true)
+                  DbOnlineSubscriptionAction(
+                    kind: 'series',
+                    id: movie.series!.externalId!,
+                    title: movie.series!.name,
+                    showLabel: true,
+                  ),
+                for (final actor in movie.actors.take(3))
+                  if (actor.externalId?.trim().isNotEmpty == true)
+                    DbOnlineSubscriptionAction(
+                      kind: 'actor',
+                      id: actor.externalId!,
+                      title: actor.name,
+                      showLabel: true,
+                      initial: {'actor_avatar': actor.avatarUrl ?? ''},
+                    ),
+              ],
             ),
           ),
         ),
