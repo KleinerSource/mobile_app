@@ -8,6 +8,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/resource_panel_components.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 
@@ -340,159 +341,66 @@ class _SubtitleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final l = AppL10n.of(context);
     final ext = item.ext ?? '';
     final size = item.fileSize ?? 0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SubtitlePanelRow(
+      index: index + 1,
+      title: item.name,
+      details: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // 序号
-          SizedBox(
-            width: 24,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
+          if (ext.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: c.chipBg,
+                borderRadius: BorderRadius.circular(4),
+              ),
               child: Text(
-                '${index + 1}',
+                '.$ext',
                 style: TextStyle(
-                  color: c.muted,
+                  color: c.text2,
                   fontFamily: 'monospace',
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  fontSize: 11,
                 ),
               ),
             ),
-          ),
-          // 名称 + meta
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (durationMs != null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Icon(Icons.access_time, size: 11, color: c.muted),
+                const SizedBox(width: 3),
                 Text(
-                  item.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  _formatDuration(durationMs!),
                   style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
-                    height: 1.3,
+                    color: c.muted,
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (ext.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.chipBg,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '.$ext',
-                          style: TextStyle(
-                            color: c.text2,
-                            fontFamily: 'monospace',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    if (durationMs != null)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.access_time, size: 11, color: c.muted),
-                          const SizedBox(width: 3),
-                          Text(
-                            _formatDuration(durationMs!),
-                            style: TextStyle(
-                              color: c.muted,
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      Text(
-                        '—',
-                        style: TextStyle(
-                          color: c.muted2,
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                        ),
-                      ),
-                    if (size > 0)
-                      Text(_fmtBytes(size), style: AppText.meta(context)),
-                  ],
-                ),
               ],
+            )
+          else
+            Text(
+              '—',
+              style: TextStyle(
+                color: c.muted2,
+                fontFamily: 'monospace',
+                fontSize: 11,
+              ),
             ),
-          ),
-          // 操作
-          const SizedBox(width: 6),
-          _IconBtn(
-            tooltip: l.subtitlePreview,
-            loading: previewing,
-            icon: Icons.visibility_outlined,
-            onTap: onPreview,
-          ),
-          const SizedBox(width: 4),
-          _IconBtn(
-            tooltip: l.subtitleDownload,
-            loading: downloading,
-            icon: Icons.download,
-            color: c.accent,
-            onTap: onDownload,
-          ),
+          if (size > 0) Text(_fmtBytes(size), style: AppText.meta(context)),
         ],
       ),
-    );
-  }
-}
-
-class _IconBtn extends StatelessWidget {
-  const _IconBtn({
-    required this.tooltip,
-    required this.loading,
-    required this.icon,
-    required this.onTap,
-    this.color,
-  });
-  final String tooltip;
-  final bool loading;
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return IconButton(
-      tooltip: tooltip,
-      iconSize: 18,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.all(6),
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-      icon: loading
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(icon, color: color ?? c.text2),
-      onPressed: loading ? null : onTap,
+      previewing: previewing,
+      downloading: downloading,
+      onPreview: onPreview,
+      onDownload: onDownload,
     );
   }
 }

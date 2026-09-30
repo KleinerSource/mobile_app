@@ -9,6 +9,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/resource_panel_components.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movies/media_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -483,7 +484,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _TabBtn(
+                        child: ResourcePanelTabButton(
                           label: l.resourceMagnetCount(_magnets.length),
                           active: _tab == _ResTab.magnet,
                           onTap: () => setState(() {
@@ -493,7 +494,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                         ),
                       ),
                       Expanded(
-                        child: _TabBtn(
+                        child: ResourcePanelTabButton(
                           label: l.resourceEd2kCount(_ed2ks.length),
                           active: _tab == _ResTab.ed2k,
                           onTap: () => setState(() {
@@ -710,52 +711,6 @@ String _formatResourceSize(dynamic value) {
   return '$display MB';
 }
 
-class _TabBtn extends StatelessWidget {
-  const _TabBtn({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? c.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: active
-              ? const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? c.text : c.muted,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ResourceTile extends StatelessWidget {
   const _ResourceTile({
     required this.item,
@@ -786,276 +741,93 @@ class _ResourceTile extends StatelessWidget {
     final date =
         item['date']?.toString() ?? item['publish_date']?.toString() ?? '';
     final source = (item['site'] ?? item['source'] ?? '').toString().trim();
-    final isDownloaded = downloadedAt != null && downloadedAt!.isNotEmpty;
-    final tile = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    if (size.isNotEmpty)
-                      Text(size, style: AppText.meta(context)),
-                    if (source.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.chipBg,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          l.resourceFrom(source),
-                          style: TextStyle(
-                            color: c.muted,
-                            fontFamily: 'monospace',
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                _ResourceTagBadges(item: item),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // 右侧: 上方日期, 下方按钮
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (date.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6, bottom: 2),
-                  child: Text(
-                    date,
-                    style: TextStyle(
-                      color: c.muted,
-                      fontFamily: 'monospace',
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: l.resourceCopy,
-                    icon: Icon(Icons.copy, size: 18, color: c.accent),
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(6),
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    onPressed: url.isEmpty
-                        ? null
-                        : () async {
-                            await Clipboard.setData(ClipboardData(text: url));
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(l.resourceCopied),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                  ),
-                  IconButton(
-                    tooltip: pushing
-                        ? l.resourcePushing
-                        : l.resourcePushDownload,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(6),
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    icon: pushing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(Icons.send, size: 18, color: c.warning),
-                    onPressed: pushDisabled ? null : onPush,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    Widget content = Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: isDownloaded
-            ? Border.all(color: const Color(0xFF2E9C7A), width: 1)
-            : null,
-      ),
-      child: tile,
-    );
-
-    if (isDownloaded) {
-      content = Tooltip(
-        message: _formatDownloadedTooltip(l, downloadedAt!),
-        child: content,
-      );
-    }
-    return content;
-  }
-}
-
-/// 在线资源 tag badge 行 · UHD/HD · 字幕 · 破解/LADA
-class _ResourceTagBadges extends StatelessWidget {
-  const _ResourceTagBadges({required this.item});
-  final Map<String, dynamic> item;
-
-  List<String> get _tagsLower {
-    final raw = item['tags'];
-    if (raw is! List) return const [];
-    return raw
-        .map((t) => t.toString().toLowerCase())
-        .where((t) => t.isNotEmpty)
-        .toList();
-  }
-
-  bool get _hasUHD {
-    return _tagsLower.any(
-      (t) => t == '4k' || t.contains('uhd') || t.contains('4k'),
-    );
-  }
-
-  bool get _hasHD {
-    if (_hasUHD) return false;
-    return _tagsLower.any(
-      (t) => t == 'hd' || t.contains('hd') || t.contains('高清'),
-    );
-  }
-
-  bool get _hasSub =>
-      _tagsLower.any((t) => t.contains('字幕') || t.contains('sub'));
-
-  bool get _hasCrack =>
-      _tagsLower.any((t) => t.contains('破解') || t.contains('无码'));
-
-  bool get _hasLADA => _tagsLower.any((t) => t == 'lada');
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    final hasUHD = _hasUHD;
-    final hasHD = _hasHD;
-    final hasSub = _hasSub;
-    final hasCrack = _hasCrack;
-    final hasLADA = _hasLADA;
-
-    if (!hasUHD && !hasHD && !hasSub && !hasCrack && !hasLADA) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Wrap(
-        spacing: 4,
+    final rawTags = item['tags'];
+    return ResourcePanelRow(
+      title: title,
+      metadata: Wrap(
+        spacing: 8,
         runSpacing: 4,
         children: [
-          if (hasUHD)
-            const _ResBadge(
-              label: 'UHD',
-              icon: Icons.tv_rounded,
-              color: Color(0xFF2D6CDF),
-            )
-          else if (hasHD)
-            const _ResBadge(
-              label: 'HD',
-              icon: Icons.tv_rounded,
-              color: Color(0xFF10B981),
-            ),
-          if (hasSub)
-            _ResBadge(
-              label: l.movieFlagSubtitle,
-              icon: Icons.closed_caption_rounded,
-              color: const Color(0xFFFF9F1C),
-            ),
-          if (hasLADA)
-            const _ResBadge(
-              label: 'LADA',
-              icon: Icons.auto_awesome_rounded,
-              color: Color(0xFFA855F7),
-            )
-          else if (hasCrack)
-            _ResBadge(
-              label: l.movieFlagCrack,
-              icon: Icons.lock_open_rounded,
-              color: const Color(0xFFE91E63),
+          if (size.isNotEmpty) Text(size, style: AppText.meta(context)),
+          if (source.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: c.chipBg,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                l.resourceFrom(source),
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'monospace',
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
         ],
       ),
-    );
-  }
-}
-
-class _ResBadge extends StatelessWidget {
-  const _ResBadge({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
+      tags: rawTags is List
+          ? rawTags.map((tag) => tag.toString()).toList(growable: false)
+          : const <String>[],
+      downloadedTooltip: downloadedAt?.isNotEmpty == true
+          ? _formatDownloadedTooltip(l, downloadedAt!)
+          : null,
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 10),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w800,
-              fontSize: 9.5,
-              height: 1,
-              letterSpacing: 0.3,
+          if (date.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 6, bottom: 2),
+              child: Text(
+                date,
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: l.resourceCopy,
+                icon: Icon(Icons.copy, size: 18, color: c.accent),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                onPressed: url.isEmpty
+                    ? null
+                    : () async {
+                        await Clipboard.setData(ClipboardData(text: url));
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(l.resourceCopied),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      },
+              ),
+              IconButton(
+                tooltip: pushing ? l.resourcePushing : l.resourcePushDownload,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: pushing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.send, size: 18, color: c.warning),
+                onPressed: pushDisabled ? null : onPush,
+              ),
+            ],
           ),
         ],
       ),

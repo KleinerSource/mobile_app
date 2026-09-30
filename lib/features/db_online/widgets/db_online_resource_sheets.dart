@@ -12,6 +12,7 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.da
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/resource_panel_components.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
 enum _ResourceTab { magnet, ed2k }
@@ -82,7 +83,7 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: _ResourceTabButton(
+                      child: ResourcePanelTabButton(
                         label: l.resourceMagnetCount(
                           widget.movie.magnets.length,
                         ),
@@ -91,7 +92,7 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
                       ),
                     ),
                     Expanded(
-                      child: _ResourceTabButton(
+                      child: ResourcePanelTabButton(
                         label: l.resourceEd2kCount(widget.movie.ed2ks.length),
                         active: !isMagnet,
                         onTap: () => setState(() => _tab = _ResourceTab.ed2k),
@@ -133,44 +134,6 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ResourceTabButton extends StatelessWidget {
-  const _ResourceTabButton({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: BoxDecoration(
-          color: active ? colors.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? colors.text : colors.muted,
-            fontFamily: 'Inter',
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
         ),
       ),
     );
@@ -239,68 +202,65 @@ class _ResourceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
-    final meta = <String>[
+    final metadata = <Widget>[
       if (sizeMb != null && sizeMb! > 0)
-        formatFileSize((sizeMb! * 1024 * 1024).round()),
+        Text(
+          formatFileSize((sizeMb! * 1024 * 1024).round()),
+          style: AppText.meta(context),
+        ),
       if (fileCount != null && fileCount! > 0)
-        l.dbOnlineResourceFileCount(fileCount!),
-      if (date?.trim().isNotEmpty == true) date!.trim(),
-      if (site?.trim().isNotEmpty == true) site!.trim(),
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.trim().isEmpty ? value : name,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.body(
-                    context,
-                  ).copyWith(color: colors.text, fontWeight: FontWeight.w600),
-                ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    meta.join(' · '),
-                    style: AppText.meta(context).copyWith(color: colors.muted),
-                  ),
-                ],
-                if (tags.isNotEmpty) ...[
-                  const SizedBox(height: 7),
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 5,
-                    children: [
-                      for (final tag in tags)
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: colors.chipBg,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            child: Text(tag, style: AppText.meta(context)),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ],
+        Text(
+          l.dbOnlineResourceFileCount(fileCount!),
+          style: AppText.meta(context),
+        ),
+      if (site?.trim().isNotEmpty == true)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: colors.chipBg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            l.resourceFrom(site!.trim()),
+            style: TextStyle(
+              color: colors.muted,
+              fontFamily: 'monospace',
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
+        ),
+    ];
+    return ResourcePanelRow(
+      title: name.trim().isEmpty ? value : name,
+      metadata: metadata.isEmpty
+          ? null
+          : Wrap(spacing: 8, runSpacing: 4, children: metadata),
+      tags: tags,
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (date?.trim().isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(right: 6, bottom: 2),
+              child: Text(
+                date!.trim(),
+                style: TextStyle(
+                  color: colors.muted,
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           IconButton(
             tooltip: l.subtitleCopy,
             onPressed: value.trim().isEmpty ? null : onCopy,
             icon: Icon(Icons.copy_rounded, size: 18, color: colors.accent),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(6),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
       ),
@@ -563,14 +523,14 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: _ResourceTabButton(
+                      child: ResourcePanelTabButton(
                         label: l.dbOnlineLocalSubtitles(_localFiles.length),
                         active: isLocal,
                         onTap: () => setState(() => _tab = _SubtitleTab.local),
                       ),
                     ),
                     Expanded(
-                      child: _ResourceTabButton(
+                      child: ResourcePanelTabButton(
                         label: l.dbOnlineThunderSubtitles(_thunderItems.length),
                         active: !isLocal,
                         onTap: () =>
@@ -737,58 +697,22 @@ class _SubtitleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     final l = AppL10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.body(
-                    context,
-                  ).copyWith(color: colors.text, fontWeight: FontWeight.w600),
-                ),
-                if (details.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    details.join(' · '),
-                    style: AppText.meta(context).copyWith(color: colors.muted),
-                  ),
-                ],
-              ],
+    return SubtitlePanelRow(
+      title: name,
+      details: details.isEmpty
+          ? null
+          : Text(
+              details.join(' · '),
+              style: AppText.meta(
+                context,
+              ).copyWith(color: appColors(context).muted),
             ),
-          ),
-          IconButton(
-            tooltip: l.subtitlePreview,
-            onPressed: previewing || downloading ? null : onPreview,
-            icon: previewing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.visibility_outlined, size: 18),
-          ),
-          IconButton(
-            tooltip: l.subtitleDownload,
-            onPressed: downloading || previewing ? null : onDownload,
-            icon: downloading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.download_outlined, size: 18, color: colors.accent),
-          ),
-        ],
-      ),
+      previewing: previewing,
+      downloading: downloading,
+      disableOtherActionWhileBusy: true,
+      onPreview: onPreview,
+      onDownload: onDownload,
     );
   }
 }
