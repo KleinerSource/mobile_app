@@ -57,6 +57,7 @@ class _DbOnlineSubscriptionsPageState
   String _keyword = '';
   bool _busy = false;
   bool _pagingListenerAttached = false;
+  bool _lastPageComplete = false;
   String? _pagingQueryKey;
   Completer<void>? _refreshCompleter;
   late final PagedSelectionController<DbOnlineSubscriptionItem>
@@ -243,9 +244,9 @@ class _DbOnlineSubscriptionsPageState
                     ),
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
-                      18,
+                      _section == 'blacklist' ? 22 : 18,
                       4,
-                      18,
+                      _section == 'blacklist' ? 22 : 18,
                       _selectingBlacklist
                           ? 136
                           : floatingTabBarContentBottomInset(context),
@@ -269,8 +270,19 @@ class _DbOnlineSubscriptionsPageState
                             DbOnlineSubscriptionItem
                           >.separated(
                             pagingController: _pagingController,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 8),
+                            separatorBuilder: (_, itemIndex) {
+                              if (_section != 'blacklist') {
+                                return const SizedBox(height: 8);
+                              }
+                              final count =
+                                  _pagingController.itemList?.length ?? 0;
+                              return itemIndex >= count - 1
+                                  ? const SizedBox.shrink()
+                                  : Divider(
+                                      height: 1,
+                                      color: appColors(context).divider,
+                                    );
+                            },
                             builderDelegate: _pagingDelegate(l, serverConfig),
                           ),
                   ),
@@ -301,7 +313,7 @@ class _DbOnlineSubscriptionsPageState
     AppL10n l,
     ServerConfig? serverConfig,
   ) => PagedChildBuilderDelegate<DbOnlineSubscriptionItem>(
-    itemBuilder: (context, item, _) {
+    itemBuilder: (context, item, index) {
       if (_usesMovieCards) return _movieSubscriptionCard(item, l, serverConfig);
       if (_section == 'blacklist') {
         return PagedSelectionItem<DbOnlineSubscriptionItem>(
@@ -312,6 +324,7 @@ class _DbOnlineSubscriptionsPageState
             l,
             serverConfig,
             selectedBlacklist: selected,
+            blacklistIndex: index,
           ),
         );
       }
@@ -374,6 +387,7 @@ class _DbOnlineSubscriptionsPageState
       _requests.invalidate();
       _completeRefresh();
     }
+    _lastPageComplete = false;
     refreshPagedController(
       controller: _pagingController,
       requests: _requests,
@@ -404,6 +418,7 @@ class _DbOnlineSubscriptionsPageState
           .toList(growable: false);
       final isLastPage =
           !result.hasMore || result.items.length < _pageSize || items.isEmpty;
+      _lastPageComplete = isLastPage;
       if (isLastPage) {
         _pagingController.appendLastPage(items);
       } else {
@@ -732,6 +747,7 @@ class _DbOnlineSubscriptionsPageState
     AppL10n l,
     ServerConfig? serverConfig, {
     bool selectedBlacklist = false,
+    int blacklistIndex = 0,
   }) {
     final videoCount = int.tryParse(item.data['video_count']?.toString() ?? '');
     final pendingCount = int.tryParse(
@@ -753,13 +769,25 @@ class _DbOnlineSubscriptionsPageState
         ? data['video_code'].toString().trim()
         : item.title;
     final blacklistReason = data['reason']?.toString().trim() ?? '';
-    final blacklistCreatedAt = data['created_at']?.toString().trim() ?? '';
+    final blacklistCreatedAt = _formatBlacklistCreatedAt(
+      data['created_at']?.toString() ?? '',
+    );
     final blacklistIsWildcard = blacklistRule.contains('*');
     final imageUrl = _resolveSubscriptionImage(serverConfig, [
       data['actor_avatar'],
       data['avatar_url'],
     ]);
     final selectingBlacklist = _section == 'blacklist' && _selectingBlacklist;
+    final blacklistItemCount = _pagingController.itemList?.length ?? 0;
+    final rowRadius = isBlacklist
+        ? BorderRadius.vertical(
+            top: blacklistIndex == 0 ? const Radius.circular(16) : Radius.zero,
+            bottom:
+                _lastPageComplete && blacklistIndex == blacklistItemCount - 1
+                ? const Radius.circular(16)
+                : Radius.zero,
+          )
+        : BorderRadius.circular(16);
     final entries = _rowMenuEntries(l);
     final stats = <Widget>[
       if (pendingCount != null && pendingCount > 0)
@@ -821,10 +849,15 @@ class _DbOnlineSubscriptionsPageState
     final card = Opacity(
       opacity: inactive ? 0.8 : 1,
       child: Container(
-        decoration: settingsCardDecoration(context),
+        decoration: isBlacklist ? null : settingsCardDecoration(context),
         child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: isBlacklist
+              ? selectedBlacklist
+                    ? appColors(context).accent.withValues(alpha: 0.07)
+                    : appColors(context).surface
+              : Colors.transparent,
+          borderRadius: rowRadius,
+          clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
               Padding(
@@ -986,9 +1019,9 @@ class _DbOnlineSubscriptionsPageState
     if (selectingBlacklist) {
       return Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: rowRadius,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: rowRadius,
           onTap: () => _blacklistSelection.toggle(_blacklistItemKey(item)),
           child: card,
         ),
@@ -3010,6 +3043,17 @@ class _AutoSyncEditorState extends State<_AutoSyncEditor> {
 String _scheduleText(Object? raw) => raw is List
     ? raw.map((item) => item.toString()).join(', ')
     : raw?.toString() ?? '';
+
+String _formatBlacklistCreatedAt(String value) {
+  final raw = value.trim();
+  if (raw.isEmpty) return '';
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return '—';
+  final local = parsed.toLocal();
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+      '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
+}
 
 Map<String, dynamic> _payloadMap(Object? raw) {
   final root = _mapValue(raw);
