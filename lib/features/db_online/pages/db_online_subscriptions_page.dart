@@ -460,7 +460,7 @@ class _DbOnlineSubscriptionsPageState
       unawaited(
         Scrollable.ensureVisible(
           targetContext,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          alignment: 0.5,
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
         ),
@@ -1272,9 +1272,24 @@ class _DbOnlineSubscriptionsPageState
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text(l.dbOnlineSubscriptionDelete),
-        content: Text(l.dbOnlineSubscriptionDeleteConfirm),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.dbOnlineSubscriptionDeleteConfirm),
+            const SizedBox(height: 8),
+            Text(
+              item.title.isEmpty ? item.id : item.title,
+              style: TextStyle(
+                color: appColors(context).text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1287,7 +1302,7 @@ class _DbOnlineSubscriptionsPageState
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     await _perform(() async {
       switch (_section) {
         case 'pending' || 'completed':
