@@ -2011,28 +2011,41 @@ class _DbOnlineSubscriptionEditorState
                 ),
               ],
               _field(_startDate, l.dbOnlineSubscriptionStartDate),
-              DropdownButtonFormField<String>(
-                initialValue: const ['', 'hd', 'uhd'].contains(_quality)
-                    ? _quality
-                    : '',
-                decoration: InputDecoration(
-                  labelText: l.dbOnlineSubscriptionQuality,
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: '',
-                    child: Text(l.dbOnlineSubscriptionQualityNormal),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.dbOnlineSubscriptionQuality,
+                    style: AppText.meta(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
-                  DropdownMenuItem(
-                    value: 'hd',
-                    child: Text(l.dbOnlineSubscriptionQualityHd),
-                  ),
-                  DropdownMenuItem(
-                    value: 'uhd',
-                    child: Text(l.dbOnlineSubscriptionQualityUhd),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: '',
+                        label: Text(l.dbOnlineSubscriptionQualityNormal),
+                      ),
+                      ButtonSegment(
+                        value: 'hd',
+                        label: Text(l.dbOnlineSubscriptionQualityHd),
+                      ),
+                      ButtonSegment(
+                        value: 'uhd',
+                        label: Text(l.dbOnlineSubscriptionQualityUhd),
+                      ),
+                    ],
+                    selected: {
+                      const ['', 'hd', 'uhd'].contains(_quality)
+                          ? _quality
+                          : '',
+                    },
+                    onSelectionChanged: (selection) =>
+                        setState(() => _quality = selection.first),
                   ),
                 ],
-                onChanged: (value) => setState(() => _quality = value ?? ''),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -2040,31 +2053,40 @@ class _DbOnlineSubscriptionEditorState
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.dbOnlineSubscriptionSubtitle),
-                value: _requireSub,
-                onChanged: (value) => setState(() => _requireSub = value),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _toggleButton(
+                    l.dbOnlineSubscriptionSubtitle,
+                    _requireSub,
+                    const Color(0xFFFFC107),
+                    () => setState(() => _requireSub = !_requireSub),
+                  ),
+                  _toggleButton(
+                    l.dbOnlineSubscriptionUncensored,
+                    _requireUncensored,
+                    const Color(0xFFFF4081),
+                    () => setState(
+                      () => _requireUncensored = !_requireUncensored,
+                    ),
+                  ),
+                  _toggleButton(
+                    l.dbOnlineSubscriptionPreDownload,
+                    _preDownload,
+                    const Color(0xFF00C878),
+                    () => setState(() => _preDownload = !_preDownload),
+                  ),
+                  _toggleButton(
+                    l.dbOnlineSubscriptionWashMode,
+                    _washMode,
+                    const Color(0xFFA855F7),
+                    () => setState(() => _washMode = !_washMode),
+                  ),
+                ],
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.dbOnlineSubscriptionUncensored),
-                value: _requireUncensored,
-                onChanged: (value) =>
-                    setState(() => _requireUncensored = value),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.dbOnlineSubscriptionPreDownload),
-                value: _preDownload,
-                onChanged: (value) => setState(() => _preDownload = value),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.dbOnlineSubscriptionWashMode),
-                value: _washMode,
-                onChanged: (value) => setState(() => _washMode = value),
-              ),
+              const SizedBox(height: 12),
               _field(
                 _minimum,
                 l.dbOnlineSubscriptionMinimumSize,
@@ -2106,6 +2128,34 @@ class _DbOnlineSubscriptionEditorState
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _toggleButton(
+    String label,
+    bool selected,
+    Color color,
+    VoidCallback onPressed,
+  ) {
+    final colors = appColors(context);
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(
+        selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+        size: 18,
+      ),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: selected ? color : colors.muted,
+        backgroundColor: selected
+            ? color.withValues(alpha: 0.12)
+            : Colors.transparent,
+        side: BorderSide(
+          color: selected ? color.withValues(alpha: 0.75) : colors.divider,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
