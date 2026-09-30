@@ -41,6 +41,7 @@ class _DbOnlineSubscriptionsPageState
   String _keyword = '';
   int _page = 1;
   bool _busy = false;
+  double _horizontalDragDistance = 0;
 
   @override
   void dispose() {
@@ -121,107 +122,142 @@ class _DbOnlineSubscriptionsPageState
 
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _header(l, capabilities)),
-          if (!capabilities.database || !capabilities.onlineAccount)
-            SliverToBoxAdapter(child: _capabilityNotice(capabilities, l)),
-          if (sections.isNotEmpty)
-            SliverToBoxAdapter(child: _sectionPicker(sections)),
-          if (sections.isNotEmpty) ...[
-            if (_section != 'online')
-              SliverToBoxAdapter(child: _searchField(l)),
-            if (_busy)
-              const SliverToBoxAdapter(
-                child: LinearProgressIndicator(minHeight: 2),
-              ),
-            if (page != null)
-              page.when(
-                loading: () => const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: sections.length > 1
+            ? (_) => _horizontalDragDistance = 0
+            : null,
+        onHorizontalDragUpdate: sections.length > 1
+            ? (details) => _horizontalDragDistance += details.delta.dx
+            : null,
+        onHorizontalDragEnd: sections.length > 1
+            ? (_) => _switchSectionBySwipe(sections)
+            : null,
+        onHorizontalDragCancel: () => _horizontalDragDistance = 0,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: _header(l, capabilities)),
+            if (!capabilities.database || !capabilities.onlineAccount)
+              SliverToBoxAdapter(child: _capabilityNotice(capabilities, l)),
+            if (sections.isNotEmpty)
+              SliverToBoxAdapter(child: _sectionPicker(sections)),
+            if (sections.isNotEmpty) ...[
+              if (_section != 'online')
+                SliverToBoxAdapter(child: _searchField(l)),
+              if (_busy)
+                const SliverToBoxAdapter(
+                  child: LinearProgressIndicator(minHeight: 2),
                 ),
-                error: (error, _) => SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _inlineError(
-                    error,
-                    () =>
-                        ref.invalidate(dbOnlineSubscriptionListProvider(query)),
+              if (page != null)
+                page.when(
+                  loading: () => const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
                   ),
-                ),
-                data: (result) => result.items.isEmpty
-                    ? SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Text(
-                            _keyword.isEmpty
-                                ? l.dbOnlineSubscriptionEmpty
-                                : l.dbOnlineSubscriptionNoResults,
-                            style: AppText.body(context),
+                  error: (error, _) => SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _inlineError(
+                      error,
+                      () => ref.invalidate(
+                        dbOnlineSubscriptionListProvider(query),
+                      ),
+                    ),
+                  ),
+                  data: (result) => result.items.isEmpty
+                      ? SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Text(
+                              _keyword.isEmpty
+                                  ? l.dbOnlineSubscriptionEmpty
+                                  : l.dbOnlineSubscriptionNoResults,
+                              style: AppText.body(context),
+                            ),
                           ),
-                        ),
-                      )
-                    : SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                        sliver: _usesMovieCards
-                            ? SliverGrid(
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 3,
-                                      crossAxisSpacing: 12,
-                                      mainAxisSpacing: 14,
-                                      childAspectRatio: MediaCardTemplate
-                                          .gridChildAspectRatio,
-                                    ),
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) => _movieSubscriptionCard(
-                                    result.items[index],
-                                    l,
-                                    serverConfig,
-                                  ),
-                                  childCount: result.items.length,
-                                ),
-                              )
-                            : SliverList.separated(
-                                itemCount: result.items.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 8),
-                                itemBuilder: (context, index) =>
-                                    _subscriptionRow(
+                        )
+                      : SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                          sliver: _usesMovieCards
+                              ? SliverGrid(
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 14,
+                                        childAspectRatio: MediaCardTemplate
+                                            .gridChildAspectRatio,
+                                      ),
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) => _movieSubscriptionCard(
                                       result.items[index],
                                       l,
                                       serverConfig,
                                     ),
-                              ),
-                      ),
-              ),
-            if (page != null)
-              page.when(
-                loading: () => const SliverToBoxAdapter(child: SizedBox()),
-                error: (_, _) => const SliverToBoxAdapter(child: SizedBox()),
-                data: (result) =>
-                    SliverToBoxAdapter(child: _pagination(result, l)),
-              ),
-          ] else
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    !capabilities.database
-                        ? l.dbOnlineSubscriptionFeatureRequiresDatabase
-                        : l.dbOnlineSubscriptionFeatureRequiresOnlineAccount,
-                    textAlign: TextAlign.center,
+                                    childCount: result.items.length,
+                                  ),
+                                )
+                              : SliverList.separated(
+                                  itemCount: result.items.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 8),
+                                  itemBuilder: (context, index) =>
+                                      _subscriptionRow(
+                                        result.items[index],
+                                        l,
+                                        serverConfig,
+                                      ),
+                                ),
+                        ),
+                ),
+              if (page != null)
+                page.when(
+                  loading: () => const SliverToBoxAdapter(child: SizedBox()),
+                  error: (_, _) => const SliverToBoxAdapter(child: SizedBox()),
+                  data: (result) =>
+                      SliverToBoxAdapter(child: _pagination(result, l)),
+                ),
+            ] else
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      !capabilities.database
+                          ? l.dbOnlineSubscriptionFeatureRequiresDatabase
+                          : l.dbOnlineSubscriptionFeatureRequiresOnlineAccount,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        ),
       ),
     );
+  }
+
+  void _switchSectionBySwipe(List<(String, String)> sections) {
+    final distance = _horizontalDragDistance;
+    _horizontalDragDistance = 0;
+    if (distance.abs() < 60) return;
+
+    final currentIndex = sections.indexWhere(
+      (section) => section.$1 == _section,
+    );
+    final nextIndex = currentIndex + (distance < 0 ? 1 : -1);
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sections.length) {
+      return;
+    }
+
+    setState(() {
+      _section = sections[nextIndex].$1;
+      _page = 1;
+      _keyword = '';
+      _searchController.clear();
+    });
   }
 
   List<(String, String)> _sections(
@@ -532,21 +568,20 @@ class _DbOnlineSubscriptionsPageState
         : null;
     final meta = item.data['release_date']?.toString().trim() ?? '';
     final entries = _rowMenuEntries(l);
+    final overlays = _subscriptionMovieBadges(item, l);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final card = _withSubscriptionMovieBadges(
-          CatalogMovieCard(
-            title: item.title,
-            code: onlineCode?.isNotEmpty == true ? onlineCode : item.id,
-            imageUrl: imageUrl,
-            meta: meta,
-            width: constraints.maxWidth,
-            onTap: entries.isEmpty
-                ? () => _openSubscriptionMovieDetail(context, item)
-                : null,
-          ),
-          item,
-          l,
+        final card = CatalogMovieCard(
+          title: item.title,
+          code: onlineCode?.isNotEmpty == true ? onlineCode : item.id,
+          imageUrl: imageUrl,
+          meta: meta,
+          width: constraints.maxWidth,
+          onTap: entries.isEmpty
+              ? () => _openSubscriptionMovieDetail(context, item)
+              : null,
+          coverTopLeftOverlay: overlays.status,
+          coverBottomLeftOverlay: overlays.filters,
         );
         if (entries.isEmpty) return card;
         return GlassMenuAnchor<String>(
@@ -1426,8 +1461,7 @@ void _openSubscriptionMovieDetail(
   );
 }
 
-Widget _withSubscriptionMovieBadges(
-  Widget child,
+({Widget? status, Widget? filters}) _subscriptionMovieBadges(
   DbOnlineSubscriptionItem item,
   AppL10n l,
 ) {
@@ -1436,40 +1470,33 @@ Widget _withSubscriptionMovieBadges(
   final overdue = data['overdue'] == true;
   final matchedFlags =
       int.tryParse(data['matched_flags']?.toString() ?? '') ?? 0;
-  final badges = <Widget>[];
+  Widget? statusBadge;
 
   if (overdue) {
-    badges.add(
-      _subscriptionBadge(
-        l.dbOnlineSubscriptionOverdue,
-        const Color(0xFFF97316),
-      ),
+    statusBadge = _subscriptionBadge(
+      l.dbOnlineSubscriptionOverdue,
+      const Color(0xFFF97316),
     );
   } else if (status == 'completed') {
-    badges.add(
-      _subscriptionBadge(
-        l.dbOnlineSubscriptionCompleted,
-        const Color(0xFF22C55E),
-      ),
+    statusBadge = _subscriptionBadge(
+      l.dbOnlineSubscriptionCompleted,
+      const Color(0xFF22C55E),
     );
   } else if (status == 'pending') {
-    badges.add(
-      _subscriptionBadge(
-        l.dbOnlineSubscriptionPendingBadge,
-        const Color(0xFFFACC15),
-      ),
+    statusBadge = _subscriptionBadge(
+      l.dbOnlineSubscriptionPendingBadge,
+      const Color(0xFFFACC15),
     );
   } else if (status == 'skipped') {
-    badges.add(
-      _subscriptionBadge(
-        l.dbOnlineSubscriptionSkipped,
-        const Color(0xFFEF4444),
-      ),
+    statusBadge = _subscriptionBadge(
+      l.dbOnlineSubscriptionSkipped,
+      const Color(0xFFEF4444),
     );
   }
 
+  final filters = <Widget>[];
   if (data['wash_mode'] == true) {
-    badges.add(
+    filters.add(
       _subscriptionBadge(
         l.dbOnlineSubscriptionWashShort,
         const Color(0xFFA855F7),
@@ -1478,7 +1505,7 @@ Widget _withSubscriptionMovieBadges(
     );
   }
   if (data['pre_download_mode'] == true) {
-    badges.add(
+    filters.add(
       _subscriptionBadge(
         l.dbOnlineSubscriptionPreDownloadShort,
         const Color(0xFF00C878),
@@ -1488,7 +1515,7 @@ Widget _withSubscriptionMovieBadges(
   }
   final quality = data['quality']?.toString().toLowerCase();
   if (quality == 'hd') {
-    badges.add(
+    filters.add(
       _subscriptionBadge(
         'HD',
         const Color(0xFF00CFE8),
@@ -1496,7 +1523,7 @@ Widget _withSubscriptionMovieBadges(
       ),
     );
   } else if (quality == 'uhd') {
-    badges.add(
+    filters.add(
       _subscriptionBadge(
         'UHD',
         const Color(0xFF4A9EFF),
@@ -1505,7 +1532,7 @@ Widget _withSubscriptionMovieBadges(
     );
   }
   if (data['require_sub'] == true) {
-    badges.add(
+    filters.add(
       _subscriptionBadge(
         l.dbOnlineSubscriptionSubtitleShort,
         const Color(0xFFFFC107),
@@ -1514,7 +1541,7 @@ Widget _withSubscriptionMovieBadges(
     );
   }
   if (data['require_uncensored'] == true) {
-    badges.add(
+    filters.add(
       _subscriptionBadge(
         l.dbOnlineSubscriptionUncensoredShort,
         const Color(0xFFFF0050),
@@ -1522,20 +1549,11 @@ Widget _withSubscriptionMovieBadges(
       ),
     );
   }
-  if (badges.isEmpty) return child;
-
-  return Stack(
-    children: [
-      child,
-      Positioned(
-        top: 5,
-        left: 5,
-        right: 5,
-        child: IgnorePointer(
-          child: Wrap(spacing: 3, runSpacing: 3, children: badges),
-        ),
-      ),
-    ],
+  return (
+    status: statusBadge,
+    filters: filters.isEmpty
+        ? null
+        : Wrap(spacing: 3, runSpacing: 3, children: filters),
   );
 }
 
@@ -1791,22 +1809,21 @@ class _DbOnlineSubscriptionVideosSheetState
           status == 'pending' ? Icons.schedule_rounded : Icons.done_all_rounded,
         ),
     ];
+    final overlays = _subscriptionMovieBadges(item, l);
     return LayoutBuilder(
       builder: (context, constraints) => GlassMenuAnchor<String>(
         width: 232,
         entries: menuEntries,
         onSelected: (status) => _updateStatus(item, status, query, l),
         onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
-        child: _withSubscriptionMovieBadges(
-          CatalogMovieCard(
-            title: item.title,
-            code: item.id,
-            imageUrl: imageUrl,
-            meta: meta,
-            width: constraints.maxWidth,
-          ),
-          item,
-          l,
+        child: CatalogMovieCard(
+          title: item.title,
+          code: item.id,
+          imageUrl: imageUrl,
+          meta: meta,
+          width: constraints.maxWidth,
+          coverTopLeftOverlay: overlays.status,
+          coverBottomLeftOverlay: overlays.filters,
         ),
       ),
     );

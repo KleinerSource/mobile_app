@@ -521,6 +521,8 @@ class CatalogMovieCard extends ConsumerWidget {
     this.posterAspectRatio = 2 / 3,
     this.imageHeaders,
     this.landscape = false,
+    this.coverTopLeftOverlay,
+    this.coverBottomLeftOverlay,
   });
 
   final String title;
@@ -554,6 +556,12 @@ class CatalogMovieCard extends ConsumerWidget {
 
   /// 横屏目录卡片：16:9 封面 + 玻璃容器内的信息区，参考 Stash。
   final bool landscape;
+
+  /// 海报左上角的自定义覆盖内容。
+  final Widget? coverTopLeftOverlay;
+
+  /// 海报左下角的自定义覆盖内容。
+  final Widget? coverBottomLeftOverlay;
 
   /// 为非 OMM 影片提供隐私遮罩键；为空时保持普通目录卡片行为。
   final Object? privacyId;
@@ -601,6 +609,24 @@ class CatalogMovieCard extends ConsumerWidget {
           aspectRatio: landscape ? 16 / 9 : posterAspectRatio,
           httpHeaders: imageHeaders,
         ),
+        if (coverTopLeftOverlay != null)
+          Positioned(
+            top: 5,
+            left: 5,
+            child: IgnorePointer(child: coverTopLeftOverlay!),
+          ),
+        if (coverBottomLeftOverlay != null)
+          Positioned(
+            bottom: !played && progress > 0 ? 8 : 5,
+            left: 5,
+            right: 5,
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: coverBottomLeftOverlay!,
+              ),
+            ),
+          ),
         // 已看完 (固定左上, 与 OMM 卡片一致)
         if (played)
           Positioned(
