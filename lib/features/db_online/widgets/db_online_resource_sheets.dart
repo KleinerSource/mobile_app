@@ -47,6 +47,8 @@ class _DbOnlineResourcesSheetState
   final List<DbOnlineMagnet> _nyaaMagnets = [];
   final Set<String> _loadingSources = {'custom', 'nyaa'};
   final Map<String, String> _sourceErrors = {};
+  Map<String, String> _downloadedMagnets = const {};
+  Map<String, String> _downloadedEd2ks = const {};
 
   List<DbOnlineMagnet> get _magnets => mergeDbOnlineMagnets({
     'javdb': widget.movie.magnets,
@@ -62,6 +64,28 @@ class _DbOnlineResourcesSheetState
     super.initState();
     unawaited(_loadExternalSource('custom'));
     unawaited(_loadExternalSource('nyaa'));
+    unawaited(_loadDownloadHistory());
+  }
+
+  Future<void> _loadDownloadHistory() async {
+    try {
+      final history = await ref
+          .read(dboMediaRepositoryProvider)
+          .getDownloadHistory(widget.movie.code);
+      if (!mounted) return;
+      setState(() {
+        _downloadedMagnets = history.magnets;
+        _downloadedEd2ks = history.ed2ks;
+      });
+    } catch (_) {
+      // 下载历史不可用时继续展示在线资源。
+    }
+  }
+
+  String? _downloadedAt(Map<String, String> history, String hash) {
+    if (hash.isEmpty) return null;
+    final value = history[hash];
+    return value == null || value.isEmpty ? null : value;
   }
 
   Future<void> _loadExternalSource(String source) async {
@@ -208,10 +232,18 @@ class _DbOnlineResourcesSheetState
                   itemBuilder: (context, index) => isMagnet
                       ? _MagnetRow(
                           item: magnetItems[index],
+                          downloadedAt: _downloadedAt(
+                            _downloadedMagnets,
+                            dbOnlineMagnetHash(magnetItems[index].magnet),
+                          ),
                           onCopy: () => _copy(magnetItems[index].magnet),
                         )
                       : _Ed2kRow(
                           item: ed2kItems[index],
+                          downloadedAt: _downloadedAt(
+                            _downloadedEd2ks,
+                            dbOnlineEd2kHash(ed2kItems[index].ed2k),
+                          ),
                           onCopy: () => _copy(ed2kItems[index].ed2k),
                         ),
                 ),
@@ -224,10 +256,15 @@ class _DbOnlineResourcesSheetState
 }
 
 class _MagnetRow extends StatelessWidget {
-  const _MagnetRow({required this.item, required this.onCopy});
+  const _MagnetRow({
+    required this.item,
+    required this.onCopy,
+    this.downloadedAt,
+  });
 
   final DbOnlineMagnet item;
   final VoidCallback onCopy;
+  final String? downloadedAt;
 
   @override
   Widget build(BuildContext context) => _ResourceRow(
@@ -238,15 +275,17 @@ class _MagnetRow extends StatelessWidget {
     date: item.date,
     site: item.site,
     tags: item.tags,
+    downloadedAt: downloadedAt,
     onCopy: onCopy,
   );
 }
 
 class _Ed2kRow extends StatelessWidget {
-  const _Ed2kRow({required this.item, required this.onCopy});
+  const _Ed2kRow({required this.item, required this.onCopy, this.downloadedAt});
 
   final DbOnlineEd2k item;
   final VoidCallback onCopy;
+  final String? downloadedAt;
 
   @override
   Widget build(BuildContext context) => _ResourceRow(
@@ -256,6 +295,7 @@ class _Ed2kRow extends StatelessWidget {
     date: item.date,
     site: item.site,
     tags: item.tags,
+    downloadedAt: downloadedAt,
     onCopy: onCopy,
   );
 }
@@ -270,6 +310,7 @@ class _ResourceRow extends StatelessWidget {
     this.date,
     this.site,
     this.tags = const [],
+    this.downloadedAt,
   });
 
   final String name;
@@ -280,6 +321,7 @@ class _ResourceRow extends StatelessWidget {
   final String? date;
   final String? site;
   final List<String> tags;
+  final String? downloadedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -320,6 +362,9 @@ class _ResourceRow extends StatelessWidget {
           ? null
           : Wrap(spacing: 8, runSpacing: 4, children: metadata),
       tags: tags,
+      downloadedTooltip: downloadedAt?.isNotEmpty == true
+          ? formatResourceDownloadedTooltip(l, downloadedAt!)
+          : null,
       trailing: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,

@@ -7,7 +7,7 @@ List<DbOnlineMagnet> mergeDbOnlineMagnets(
 ) => _mergeResources(
   bySource,
   urlOf: (item) => item.magnet,
-  hashOf: _magnetHash,
+  hashOf: dbOnlineMagnetHash,
   dateOf: (item) => item.date,
 );
 
@@ -16,7 +16,7 @@ List<DbOnlineEd2k> mergeDbOnlineEd2ks(
 ) => _mergeResources(
   bySource,
   urlOf: (item) => item.ed2k,
-  hashOf: _ed2kHash,
+  hashOf: dbOnlineEd2kHash,
   dateOf: (item) => item.date,
 );
 
@@ -88,7 +88,7 @@ DateTime _epochToDate(double value) {
   return DateTime.fromMillisecondsSinceEpoch(millis.round());
 }
 
-String _magnetHash(String value) {
+String dbOnlineMagnetHash(String value) {
   final match = RegExp(
     r'(?:^|[?&])xt=urn:btih:([A-Za-z0-9]+)',
     caseSensitive: false,
@@ -96,7 +96,7 @@ String _magnetHash(String value) {
   return match?.group(1)?.toUpperCase() ?? '';
 }
 
-String _ed2kHash(String value) {
+String dbOnlineEd2kHash(String value) {
   final parts = value.split('|');
   if (parts.length < 5) return '';
   return parts[4].trim().toUpperCase();

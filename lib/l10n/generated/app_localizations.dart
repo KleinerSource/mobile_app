@@ -835,6 +835,12 @@ abstract class AppL10n {
   /// **'列表搜索'**
   String get searchModeList;
 
+  /// No description provided for @searchModeVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'番号直达'**
+  String get searchModeVideo;
+
   /// No description provided for @searchModeActorSearch.
   ///
   /// In zh, this message translates to:
@@ -876,6 +882,12 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'搜索影片标题、番号、演员'**
   String get searchPlaceholderList;
+
+  /// No description provided for @searchPlaceholderVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入影片番号直达详情'**
+  String get searchPlaceholderVideo;
 
   /// No description provided for @searchPlaceholderSeries.
   ///

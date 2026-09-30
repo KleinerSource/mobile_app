@@ -397,6 +397,9 @@ class AppL10nZh extends AppL10n {
   String get searchModeList => '列表搜索';
 
   @override
+  String get searchModeVideo => '番号直达';
+
+  @override
   String get searchModeActorSearch => '演员搜索';
 
   @override
@@ -416,6 +419,9 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get searchPlaceholderList => '搜索影片标题、番号、演员';
+
+  @override
+  String get searchPlaceholderVideo => '输入影片番号直达详情';
 
   @override
   String get searchPlaceholderSeries => '搜索系列名称';

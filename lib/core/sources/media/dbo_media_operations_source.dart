@@ -23,6 +23,9 @@ abstract interface class DboMediaOperationsSource {
 
   Future<DbOnlineExternalResources> getNyaaResources(String code);
 
+  Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
+  getDownloadHistory(String code);
+
   Future<DbOnlineActorSearchResult> searchActors({required String query});
 
   Future<DbOnlineSearchEntityPage> searchSeriesPage({

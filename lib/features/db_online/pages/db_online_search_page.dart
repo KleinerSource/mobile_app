@@ -19,6 +19,7 @@ import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
+import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
@@ -35,23 +36,26 @@ class DbOnlineSearchPage extends ConsumerStatefulWidget {
   ConsumerState<DbOnlineSearchPage> createState() => _DbOnlineSearchPageState();
 }
 
-enum DbOnlineSearchType { list, actor, series }
+enum DbOnlineSearchType { list, video, actor, series }
 
 extension on DbOnlineSearchType {
   String label(AppL10n l) => switch (this) {
     DbOnlineSearchType.list => l.searchModeList,
+    DbOnlineSearchType.video => l.searchModeVideo,
     DbOnlineSearchType.actor => l.searchModeActorSearch,
     DbOnlineSearchType.series => l.searchModeSeries,
   };
 
   String placeholder(AppL10n l) => switch (this) {
     DbOnlineSearchType.list => l.searchPlaceholderList,
+    DbOnlineSearchType.video => l.searchPlaceholderVideo,
     DbOnlineSearchType.actor => l.searchPlaceholderActor,
     DbOnlineSearchType.series => l.searchPlaceholderSeries,
   };
 
   IconData get icon => switch (this) {
     DbOnlineSearchType.list => Icons.list_alt_outlined,
+    DbOnlineSearchType.video => Icons.movie_outlined,
     DbOnlineSearchType.actor => Icons.person_outline_rounded,
     DbOnlineSearchType.series => Icons.layers_outlined,
   };
@@ -93,6 +97,17 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
           _searchSerial++;
         });
       }
+      return;
+    }
+    if (_searchType == DbOnlineSearchType.video) {
+      FocusScope.of(context).unfocus();
+      unawaited(
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => DbOnlineMovieDetailPage(code: query),
+          ),
+        ),
+      );
       return;
     }
     setState(() {
@@ -232,6 +247,8 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                         query: _submittedQuery,
                         viewMode: _viewMode,
                       ),
+                      DbOnlineSearchType.video =>
+                        const _DbOnlineSearchEmptyHint(),
                       DbOnlineSearchType.actor => _DbOnlineActorSearchResults(
                         key: ValueKey('actor:$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,

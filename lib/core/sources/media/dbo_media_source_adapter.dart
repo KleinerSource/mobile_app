@@ -162,6 +162,10 @@ class DboMediaSourceAdapter implements DboMediaSource {
       _call(() => api.nyaaResources(code));
 
   @override
+  Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
+  getDownloadHistory(String code) => _call(() => api.downloadHistory(code));
+
+  @override
   Future<PlaybackDescriptor> resolvePlayback(
     MediaRef ref,
     PlaybackRequest request,

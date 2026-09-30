@@ -419,6 +419,9 @@ class AppL10nEn extends AppL10n {
   String get searchModeList => 'List search';
 
   @override
+  String get searchModeVideo => 'Code direct';
+
+  @override
   String get searchModeActorSearch => 'Actor search';
 
   @override
@@ -438,6 +441,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchPlaceholderList => 'Search titles, codes, or actors...';
+
+  @override
+  String get searchPlaceholderVideo => 'Enter a video code to open its details';
 
   @override
   String get searchPlaceholderSeries => 'Search series names...';

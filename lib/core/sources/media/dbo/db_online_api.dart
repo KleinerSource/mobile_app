@@ -255,6 +255,39 @@ class DbOnlineApi {
   Future<DbOnlineExternalResources> nyaaResources(String code) =>
       _externalResources('nyaa', code);
 
+  /// 查询番号下成功下载过的资源哈希和时间。
+  Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
+  downloadHistory(String code) async {
+    final normalized = code.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(code, 'code', AppErrorCode.validationFailed);
+    }
+    final response = await _dio.get<dynamic>(
+      '/video/${Uri.encodeComponent(normalized)}/download-history',
+    );
+    return unwrapStd<
+      ({Map<String, String> magnets, Map<String, String> ed2ks})
+    >(response.data, (data) {
+      Map<String, String> normalize(Object? value) {
+        if (value is! Map) return <String, String>{};
+        final result = <String, String>{};
+        for (final entry in value.entries) {
+          final hash = entry.key.toString().trim().toUpperCase();
+          if (hash.isNotEmpty) result[hash] = (entry.value ?? '').toString();
+        }
+        return result;
+      }
+
+      if (data is Map) {
+        return (
+          magnets: normalize(data['magnets']),
+          ed2ks: normalize(data['ed2ks']),
+        );
+      }
+      return (magnets: <String, String>{}, ed2ks: <String, String>{});
+    });
+  }
+
   Future<DbOnlineExternalResources> _externalResources(
     String source,
     String code,

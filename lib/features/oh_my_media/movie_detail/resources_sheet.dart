@@ -683,19 +683,6 @@ String _extractEd2kHash(String ed2k) {
   return t.toUpperCase();
 }
 
-String _formatDownloadedTooltip(AppL10n l, String value) {
-  if (value.isEmpty) return '';
-  final dt = DateTime.tryParse(value);
-  if (dt == null) return l.resourceRecentlyDownloaded(value);
-  final local = dt.toLocal();
-  final y = local.year.toString().padLeft(4, '0');
-  final mo = local.month.toString().padLeft(2, '0');
-  final d = local.day.toString().padLeft(2, '0');
-  final h = local.hour.toString().padLeft(2, '0');
-  final mi = local.minute.toString().padLeft(2, '0');
-  return l.resourceRecentlyDownloadedAt('$y-$mo-$d $h:$mi');
-}
-
 String _formatResourceSize(dynamic value) {
   final sizeMb = value is num
       ? value.toDouble()
@@ -772,7 +759,7 @@ class _ResourceTile extends StatelessWidget {
           ? rawTags.map((tag) => tag.toString()).toList(growable: false)
           : const <String>[],
       downloadedTooltip: downloadedAt?.isNotEmpty == true
-          ? _formatDownloadedTooltip(l, downloadedAt!)
+          ? formatResourceDownloadedTooltip(l, downloadedAt!)
           : null,
       trailing: Column(
         crossAxisAlignment: CrossAxisAlignment.end,

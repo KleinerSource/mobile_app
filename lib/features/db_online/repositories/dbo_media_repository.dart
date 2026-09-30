@@ -145,6 +145,9 @@ class DboMediaRepository {
   Future<DbOnlineExternalResources> getNyaaResources(String code) =>
       _source.getNyaaResources(code);
 
+  Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
+  getDownloadHistory(String code) => _source.getDownloadHistory(code);
+
   Future<DbOnlinePlayEpisodes> getPlayEpisodes({
     required String code,
     required int sourceId,

@@ -73,6 +73,19 @@ class ResourcePanelRow extends StatelessWidget {
   }
 }
 
+String formatResourceDownloadedTooltip(AppL10n l, String value) {
+  if (value.isEmpty) return '';
+  final dt = DateTime.tryParse(value);
+  if (dt == null) return l.resourceRecentlyDownloaded(value);
+  final local = dt.toLocal();
+  final y = local.year.toString().padLeft(4, '0');
+  final mo = local.month.toString().padLeft(2, '0');
+  final d = local.day.toString().padLeft(2, '0');
+  final h = local.hour.toString().padLeft(2, '0');
+  final mi = local.minute.toString().padLeft(2, '0');
+  return l.resourceRecentlyDownloadedAt('$y-$mo-$d $h:$mi');
+}
+
 /// Segmented resource/subtitle tab button shared by the OMM and DBO panels.
 class ResourcePanelTabButton extends StatelessWidget {
   const ResourcePanelTabButton({
