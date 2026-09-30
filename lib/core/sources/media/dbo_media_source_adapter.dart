@@ -154,6 +154,14 @@ class DboMediaSourceAdapter implements DboMediaSource {
       _call(() => api.detailByVideoId(videoId, refresh: true));
 
   @override
+  Future<DbOnlineExternalResources> getCustomResources(String code) =>
+      _call(() => api.customResources(code));
+
+  @override
+  Future<DbOnlineExternalResources> getNyaaResources(String code) =>
+      _call(() => api.nyaaResources(code));
+
+  @override
   Future<PlaybackDescriptor> resolvePlayback(
     MediaRef ref,
     PlaybackRequest request,

@@ -249,6 +249,29 @@ class DbOnlineApi {
     );
   }
 
+  Future<DbOnlineExternalResources> customResources(String code) =>
+      _externalResources('custom', code);
+
+  Future<DbOnlineExternalResources> nyaaResources(String code) =>
+      _externalResources('nyaa', code);
+
+  Future<DbOnlineExternalResources> _externalResources(
+    String source,
+    String code,
+  ) async {
+    final normalized = code.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(code, 'code', AppErrorCode.validationFailed);
+    }
+    final response = await _dio.get<dynamic>(
+      '/external-magnets/$source/${Uri.encodeComponent(normalized)}',
+    );
+    return unwrapStd<DbOnlineExternalResources>(
+      response.data,
+      DbOnlineExternalResources.fromJson,
+    );
+  }
+
   /// 获取 dbonline 在线播放剧集和清晰度。source_id 必须是详情接口返回
   /// 的正整数播放源 ID；video_id 可选，后端会按番号回查。
   Future<DbOnlinePlayEpisodes> onlinePlayEpisodes(

@@ -19,6 +19,10 @@ abstract interface class DboMediaOperationsSource {
     String? videoId,
   });
 
+  Future<DbOnlineExternalResources> getCustomResources(String code);
+
+  Future<DbOnlineExternalResources> getNyaaResources(String code);
+
   Future<DbOnlineActorSearchResult> searchActors({required String query});
 
   Future<DbOnlineSearchEntityPage> searchSeriesPage({

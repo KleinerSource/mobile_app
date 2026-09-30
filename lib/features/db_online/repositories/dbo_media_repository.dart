@@ -139,6 +139,12 @@ class DboMediaRepository {
   Future<DbOnlineMovieDetail> getMovieByVideoId(String videoId) =>
       _source.getMovieByVideoId(videoId);
 
+  Future<DbOnlineExternalResources> getCustomResources(String code) =>
+      _source.getCustomResources(code);
+
+  Future<DbOnlineExternalResources> getNyaaResources(String code) =>
+      _source.getNyaaResources(code);
+
   Future<DbOnlinePlayEpisodes> getPlayEpisodes({
     required String code,
     required int sourceId,

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_resource_merge.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -17,7 +20,7 @@ import 'package:omm/shared/sheet_controls.dart';
 
 enum _ResourceTab { magnet, ed2k }
 
-class DbOnlineResourcesSheet extends StatefulWidget {
+class DbOnlineResourcesSheet extends ConsumerStatefulWidget {
   const DbOnlineResourcesSheet({super.key, required this.movie});
 
   final DbOnlineMovieDetail movie;
@@ -32,11 +35,73 @@ class DbOnlineResourcesSheet extends StatefulWidget {
   }
 
   @override
-  State<DbOnlineResourcesSheet> createState() => _DbOnlineResourcesSheetState();
+  ConsumerState<DbOnlineResourcesSheet> createState() =>
+      _DbOnlineResourcesSheetState();
 }
 
-class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
+class _DbOnlineResourcesSheetState
+    extends ConsumerState<DbOnlineResourcesSheet> {
   _ResourceTab _tab = _ResourceTab.magnet;
+  final List<DbOnlineMagnet> _customMagnets = [];
+  final List<DbOnlineEd2k> _customEd2ks = [];
+  final List<DbOnlineMagnet> _nyaaMagnets = [];
+  final Set<String> _loadingSources = {'custom', 'nyaa'};
+  final Map<String, String> _sourceErrors = {};
+
+  List<DbOnlineMagnet> get _magnets => mergeDbOnlineMagnets({
+    'javdb': widget.movie.magnets,
+    'custom': _customMagnets,
+    'nyaa': _nyaaMagnets,
+  });
+
+  List<DbOnlineEd2k> get _ed2ks =>
+      mergeDbOnlineEd2ks({'javdb': widget.movie.ed2ks, 'custom': _customEd2ks});
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadExternalSource('custom'));
+    unawaited(_loadExternalSource('nyaa'));
+  }
+
+  Future<void> _loadExternalSource(String source) async {
+    try {
+      final repository = ref.read(dboMediaRepositoryProvider);
+      final result = source == 'custom'
+          ? await repository.getCustomResources(widget.movie.code)
+          : await repository.getNyaaResources(widget.movie.code);
+      if (!mounted) return;
+      setState(() {
+        if (source == 'custom') {
+          _customMagnets
+            ..clear()
+            ..addAll(result.magnets);
+          _customEd2ks
+            ..clear()
+            ..addAll(result.ed2ks);
+        } else {
+          _nyaaMagnets
+            ..clear()
+            ..addAll(result.magnets);
+        }
+        _sourceErrors.remove(source);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        final sourceLabel = source == 'custom' ? 'Custom' : 'Nyaa';
+        final l = AppL10n.of(context);
+        _sourceErrors[source] =
+            '${l.resourceFrom(sourceLabel)}: ${localizedErrorMessage(l, error)}';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingSources.remove(source);
+        });
+      }
+    }
+  }
 
   Future<void> _copy(String value) async {
     await Clipboard.setData(ClipboardData(text: value));
@@ -54,9 +119,9 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final isMagnet = _tab == _ResourceTab.magnet;
-    final count = isMagnet
-        ? widget.movie.magnets.length
-        : widget.movie.ed2ks.length;
+    final magnetItems = _magnets;
+    final ed2kItems = _ed2ks;
+    final count = isMagnet ? magnetItems.length : ed2kItems.length;
     return SafeArea(
       top: false,
       bottom: false,
@@ -84,16 +149,14 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
                   children: [
                     Expanded(
                       child: ResourcePanelTabButton(
-                        label: l.resourceMagnetCount(
-                          widget.movie.magnets.length,
-                        ),
+                        label: l.resourceMagnetCount(magnetItems.length),
                         active: isMagnet,
                         onTap: () => setState(() => _tab = _ResourceTab.magnet),
                       ),
                     ),
                     Expanded(
                       child: ResourcePanelTabButton(
-                        label: l.resourceEd2kCount(widget.movie.ed2ks.length),
+                        label: l.resourceEd2kCount(ed2kItems.length),
                         active: !isMagnet,
                         onTap: () => setState(() => _tab = _ResourceTab.ed2k),
                       ),
@@ -103,7 +166,28 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
               ),
             ),
             const SizedBox(height: 10),
-            if (count == 0)
+            if (_loadingSources.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 22),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (_sourceErrors.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _sourceErrors.values.join('\n'),
+                    style: AppText.meta(context).copyWith(color: colors.danger),
+                  ),
+                ),
+              ),
+            if (count == 0 && _loadingSources.isNotEmpty)
+              const SizedBox(
+                height: 112,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (count == 0)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
                 child: Text(
@@ -123,13 +207,12 @@ class _DbOnlineResourcesSheetState extends State<DbOnlineResourcesSheet> {
                       Divider(height: 1, color: colors.divider),
                   itemBuilder: (context, index) => isMagnet
                       ? _MagnetRow(
-                          item: widget.movie.magnets[index],
-                          onCopy: () =>
-                              _copy(widget.movie.magnets[index].magnet),
+                          item: magnetItems[index],
+                          onCopy: () => _copy(magnetItems[index].magnet),
                         )
                       : _Ed2kRow(
-                          item: widget.movie.ed2ks[index],
-                          onCopy: () => _copy(widget.movie.ed2ks[index].ed2k),
+                          item: ed2kItems[index],
+                          onCopy: () => _copy(ed2kItems[index].ed2k),
                         ),
                 ),
               ),

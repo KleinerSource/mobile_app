@@ -224,12 +224,15 @@ class DbOnlineMagnet {
     if (raw is! Map) return const DbOnlineMagnet(name: '', magnet: '');
     final json = Map<String, dynamic>.from(raw);
     return DbOnlineMagnet(
-      name: json['name']?.toString() ?? '',
-      magnet: json['magnet']?.toString() ?? '',
+      name: _stringOrNull(json['name']) ?? _stringOrNull(json['title']) ?? '',
+      magnet:
+          _stringOrNull(json['magnet']) ??
+          _stringOrNull(json['download_url']) ??
+          '',
       sizeMb: _doubleValue(json['size_mb']),
       fileCount: _intValue(json['file_count']),
-      date: _stringOrNull(json['date']),
-      tags: _stringList(json['tags']),
+      date: _stringOrNull(json['date'] ?? json['post_time']),
+      tags: _resourceTags(json),
       site: _stringOrNull(json['site']),
     );
   }
@@ -257,12 +260,35 @@ class DbOnlineEd2k {
     if (raw is! Map) return const DbOnlineEd2k(name: '', ed2k: '');
     final json = Map<String, dynamic>.from(raw);
     return DbOnlineEd2k(
-      name: json['name']?.toString() ?? '',
-      ed2k: json['ed2k']?.toString() ?? '',
+      name: _stringOrNull(json['name']) ?? _stringOrNull(json['title']) ?? '',
+      ed2k:
+          _stringOrNull(json['ed2k']) ??
+          _stringOrNull(json['download_url']) ??
+          '',
       sizeMb: _doubleValue(json['size_mb']),
-      date: _stringOrNull(json['date']),
-      tags: _stringList(json['tags']),
+      date: _stringOrNull(json['date'] ?? json['post_time']),
+      tags: _resourceTags(json),
       site: _stringOrNull(json['site']),
+    );
+  }
+}
+
+@immutable
+class DbOnlineExternalResources {
+  const DbOnlineExternalResources({
+    this.magnets = const <DbOnlineMagnet>[],
+    this.ed2ks = const <DbOnlineEd2k>[],
+  });
+
+  final List<DbOnlineMagnet> magnets;
+  final List<DbOnlineEd2k> ed2ks;
+
+  factory DbOnlineExternalResources.fromJson(Object? raw) {
+    if (raw is! Map) return const DbOnlineExternalResources();
+    final json = Map<String, dynamic>.from(raw);
+    return DbOnlineExternalResources(
+      magnets: _magnetList(json['magnets']),
+      ed2ks: _ed2kList(json['ed2ks']),
     );
   }
 }
@@ -519,6 +545,14 @@ List<String> _stringList(Object? value) {
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
 }
+
+List<String> _resourceTags(Map<String, dynamic> json) => [
+  ..._stringList(json['tags']),
+  if (_boolValue(json['uhd'])) 'UHD',
+  if (_boolValue(json['hd'])) 'HD',
+  if (_boolValue(json['chinese'])) '字幕',
+  if (_boolValue(json['uc'])) '破解',
+];
 
 DbOnlinePerson? _personOrNull(Object? value) {
   if (value is! Map) return null;
