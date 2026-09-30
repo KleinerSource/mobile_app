@@ -6988,7 +6988,7 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionsTitle => '订阅';
 
   @override
-  String get dbOnlineSubscriptionPending => '待处理';
+  String get dbOnlineSubscriptionPending => '订阅中';
 
   @override
   String get dbOnlineSubscriptionPendingBadge => '订阅中';
@@ -7129,7 +7129,7 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionStatus => '状态';
 
   @override
-  String get dbOnlineSubscriptionPendingStatus => '待处理';
+  String get dbOnlineSubscriptionPendingStatus => '订阅中';
 
   @override
   String get dbOnlineSubscriptionSkipped => '已跳过';

@@ -12831,7 +12831,7 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionPending.
   ///
   /// In zh, this message translates to:
-  /// **'待处理'**
+  /// **'订阅中'**
   String get dbOnlineSubscriptionPending;
 
   /// No description provided for @dbOnlineSubscriptionPendingBadge.
@@ -13113,7 +13113,7 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionPendingStatus.
   ///
   /// In zh, this message translates to:
-  /// **'待处理'**
+  /// **'订阅中'**
   String get dbOnlineSubscriptionPendingStatus;
 
   /// No description provided for @dbOnlineSubscriptionSkipped.
