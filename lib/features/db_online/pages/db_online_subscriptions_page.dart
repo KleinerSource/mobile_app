@@ -796,6 +796,7 @@ class _DbOnlineSubscriptionsPageState
           pendingCount,
           Icons.schedule_rounded,
           const Color(0xFFF59E0B),
+          iconOnly: isEntitySubscription,
         ),
       if (completedCount != null && completedCount > 0)
         entityStat(
@@ -803,6 +804,7 @@ class _DbOnlineSubscriptionsPageState
           completedCount,
           Icons.check_circle_outline_rounded,
           const Color(0xFF22C55E),
+          iconOnly: isEntitySubscription,
         ),
       if (skippedCount != null && skippedCount > 0)
         entityStat(
@@ -810,6 +812,7 @@ class _DbOnlineSubscriptionsPageState
           skippedCount,
           Icons.skip_next_rounded,
           const Color(0xFFEF4444),
+          iconOnly: isEntitySubscription,
         ),
       if (videoCount != null)
         entityStat(
@@ -1039,17 +1042,24 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  Widget entityStat(String label, int count, IconData icon, Color color) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: color),
+  Widget entityStat(
+    String label,
+    int count,
+    IconData icon,
+    Color color, {
+    bool iconOnly = false,
+  }) {
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          if (!iconOnly) ...[
             const SizedBox(width: 4),
             Text(
               label.isEmpty ? '$count' : '$label $count',
@@ -1060,8 +1070,11 @@ class _DbOnlineSubscriptionsPageState
               ),
             ),
           ],
-        ),
-      );
+        ],
+      ),
+    );
+    return iconOnly ? Tooltip(message: '$label $count', child: badge) : badge;
+  }
 
   Widget _movieSubscriptionCard(
     DbOnlineSubscriptionItem item,

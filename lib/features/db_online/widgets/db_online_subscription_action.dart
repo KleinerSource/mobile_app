@@ -54,13 +54,23 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       loading: () => true,
       error: (_, _) => false,
     );
-    final subscribed = status.when(
+    final subscription = status.when(
       data: (value) => value,
-      loading: () => false,
-      error: (_, _) => false,
+      loading: () => null,
+      error: (_, _) => null,
     );
+    final subscribed = subscription?.subscribed ?? false;
     final colors = appColors(context);
     final l = AppL10n.of(context);
+    final actionLabel = !subscribed
+        ? l.dbOnlineSubscriptionAdd
+        : subscription!.overdue
+        ? l.dbOnlineSubscriptionOverdue
+        : switch (subscription.status) {
+            'completed' => l.dbOnlineSubscriptionCompleted,
+            'skipped' => l.dbOnlineSubscriptionSkipped,
+            _ => l.dbOnlineSubscriptionSubscribed,
+          };
     final icon = statusLoading
         ? const SizedBox.square(
             dimension: 18,
@@ -70,23 +80,32 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
             subscribed ? Icons.check_circle_rounded : Icons.add_circle_outline,
             color: subscribed ? colors.accent : colors.muted,
           );
-    void onPressed() =>
-        _openActions(context, ref, query, l, subscribed: subscribed);
+    void onPressed() => _openActions(
+      context,
+      ref,
+      query,
+      l,
+      subscribed: subscribed,
+      subscription: subscription,
+    );
 
     return showLabel
         ? OutlinedButton.icon(
             onPressed: statusLoading ? null : onPressed,
             icon: icon,
-            label: Text(
-              subscribed
-                  ? l.dbOnlineSubscriptionSubscribed
-                  : l.dbOnlineSubscriptionAdd,
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(actionLabel),
+                if (subscribed) ...[
+                  const SizedBox(width: 2),
+                  const Icon(Icons.arrow_drop_down_rounded, size: 18),
+                ],
+              ],
             ),
           )
         : IconButton(
-            tooltip: subscribed
-                ? l.dbOnlineSubscriptionSubscribed
-                : l.dbOnlineSubscriptionAdd,
+            tooltip: actionLabel,
             onPressed: statusLoading ? null : onPressed,
             icon: icon,
           );
@@ -98,36 +117,91 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     DbOnlineSubscriptionStatusQuery query,
     AppL10n l, {
     required bool subscribed,
+    required DbOnlineSubscriptionStatus? subscription,
   }) async {
     var editing = false;
     if (subscribed) {
+      final state = subscription;
+      if (state == null) return;
+      final currentStatus = state.status.isEmpty ? 'pending' : state.status;
+      final actions = <(String, String, IconData)>[];
+      if (kind == 'video') {
+        if (state.overdue ||
+            currentStatus == 'skipped' ||
+            currentStatus == 'completed') {
+          actions.add((
+            'restore',
+            l.dbOnlineSubscriptionPendingStatus,
+            Icons.restart_alt_rounded,
+          ));
+        }
+        if (currentStatus == 'pending' &&
+            state.sourceType != 'video' &&
+            !state.overdue) {
+          actions.add((
+            'skip',
+            l.dbOnlineSubscriptionSkipped,
+            Icons.skip_next_rounded,
+          ));
+        }
+        if (currentStatus != 'completed') {
+          actions.add((
+            'complete',
+            l.dbOnlineSubscriptionCompleted,
+            Icons.done_all_rounded,
+          ));
+        }
+      }
+      actions.add(('edit', l.dbOnlineSubscriptionEdit, Icons.edit_outlined));
+      actions.add((
+        'remove',
+        l.dbOnlineSubscriptionRemove,
+        Icons.remove_circle_outline_rounded,
+      ));
       final action = await showGlassSheet<String>(
         context: context,
         builder: (context) => SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: Text(l.dbOnlineSubscriptionEdit),
-                onTap: () => Navigator.pop(context, 'edit'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.remove_circle_outline_rounded),
-                title: Text(l.dbOnlineSubscriptionRemove),
-                onTap: () => Navigator.pop(context, 'delete'),
-              ),
-            ],
+            children: actions
+                .map(
+                  (action) => ListTile(
+                    leading: Icon(
+                      action.$3,
+                      color: action.$1 == 'remove'
+                          ? appColors(context).danger
+                          : null,
+                    ),
+                    title: Text(action.$2),
+                    onTap: () => Navigator.pop(context, action.$1),
+                  ),
+                )
+                .toList(growable: false),
           ),
         ),
       );
       if (!context.mounted || action == null) return;
-      editing = action == 'edit';
-      if (!editing) {
+      if (action == 'remove') {
         await _deleteSubscription(context, ref, query, l);
         return;
       }
+      if (action != 'edit') {
+        await _updateVideoSubscriptionStatus(
+          context,
+          ref,
+          query,
+          state,
+          l,
+          action == 'restore'
+              ? 'pending'
+              : action == 'skip'
+              ? 'skipped'
+              : 'completed',
+        );
+        return;
+      }
+      editing = true;
     }
 
     try {
@@ -181,6 +255,42 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           } else {
             await repository.api.createSeriesSubscription(result);
           }
+      }
+      if (!context.mounted) return;
+      ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
+      ref.invalidate(dbOnlineSubscriptionListProvider);
+      _notify(context, l.dbOnlineSubscriptionActionCompleted);
+    } catch (error) {
+      if (context.mounted) {
+        _notify(context, localizedErrorMessage(l, error));
+      }
+    }
+  }
+
+  Future<void> _updateVideoSubscriptionStatus(
+    BuildContext context,
+    WidgetRef ref,
+    DbOnlineSubscriptionStatusQuery query,
+    DbOnlineSubscriptionStatus subscription,
+    AppL10n l,
+    String nextStatus,
+  ) async {
+    try {
+      final api = ref.read(dboSubscriptionRepositoryProvider).api;
+      if (nextStatus == 'completed' && subscription.sourceType == 'video') {
+        await api.updateVideoSubscription(query.id, {'mark_completed': true});
+      } else {
+        if (subscription.sourceType != 'video' &&
+            subscription.sourceId == null) {
+          throw StateError('Subscription source ID is unavailable.');
+        }
+        await api.updateSubscriptionVideoStatus({
+          'source_type': subscription.sourceType,
+          if (subscription.sourceType != 'video')
+            'source_id': subscription.sourceId,
+          'video_code': query.id,
+          'status': nextStatus,
+        });
       }
       if (!context.mounted) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));

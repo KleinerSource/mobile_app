@@ -26,8 +26,13 @@ final dbOnlineSubscriptionListProvider = FutureProvider.autoDispose
     });
 
 final dbOnlineSubscriptionStatusProvider = FutureProvider.autoDispose
-    .family<bool, DbOnlineSubscriptionStatusQuery>((ref, query) {
-      return ref.watch(dboSubscriptionRepositoryProvider).isSubscribed(query);
+    .family<DbOnlineSubscriptionStatus, DbOnlineSubscriptionStatusQuery>((
+      ref,
+      query,
+    ) {
+      return ref
+          .watch(dboSubscriptionRepositoryProvider)
+          .subscriptionStatus(query);
     });
 
 final dbOnlineSubscriptionAutoSyncProvider = FutureProvider.autoDispose

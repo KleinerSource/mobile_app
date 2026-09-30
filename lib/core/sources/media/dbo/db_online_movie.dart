@@ -51,7 +51,7 @@ class DbOnlineMovie {
       score: scoreValue is num
           ? scoreValue.toDouble()
           : double.tryParse('$scoreValue'),
-      canPlay: json['can_play'] == true,
+      canPlay: _boolValue(json['can_play']),
     );
   }
 }
@@ -166,7 +166,7 @@ class DbOnlineRecommendedMovie {
       duration: _intValue(json['duration']),
       score: score,
       watchedCount: _intValue(json['watched_count']),
-      canPlay: json['can_play'] == true,
+      canPlay: _boolValue(json['can_play']),
       library: json['library'] is Map
           ? DbOnlineLibraryInfo.fromJson(json['library'])
           : null,
@@ -374,7 +374,7 @@ class DbOnlineMovieDetail {
       library: json['library'] is Map
           ? DbOnlineLibraryInfo.fromJson(json['library'])
           : null,
-      canPlay: json['can_play'] == true,
+      canPlay: _boolValue(json['can_play']),
       hasCnsub: json['has_cnsub'] == true,
       playSources: _playSourceList(json['play_sources']),
     );
@@ -498,6 +498,13 @@ String? _libraryLabel(Object? value) {
 int? _intValue(Object? value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString().trim() ?? '');
+}
+
+bool _boolValue(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final normalized = value?.toString().trim().toLowerCase();
+  return normalized == 'true' || normalized == '1';
 }
 
 double? _doubleValue(Object? value) {

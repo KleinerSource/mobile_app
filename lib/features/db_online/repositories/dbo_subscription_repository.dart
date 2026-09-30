@@ -18,17 +18,38 @@ class DboSubscriptionRepository {
     return DbOnlineSubscriptionCapabilities.fromJson(await api.health());
   }
 
-  Future<bool> isSubscribed(DbOnlineSubscriptionStatusQuery query) async {
+  Future<DbOnlineSubscriptionStatus> subscriptionStatus(
+    DbOnlineSubscriptionStatusQuery query,
+  ) async {
     checkServer(query.serverId);
     final result = await api.subscriptionStatus(
       type: query.kind,
       id: query.id,
       subType: query.subType,
     );
-    if (result is! Map) return false;
-    final value = result[query.id] ?? result[query.id.toUpperCase()];
-    if (value is Map) return value['subscribed'] == true;
-    return value == true;
+    final value = result is Map
+        ? result[query.id] ?? result[query.id.toUpperCase()]
+        : null;
+    if (value is Map) {
+      final data = Map<String, dynamic>.from(value);
+      return DbOnlineSubscriptionStatus(
+        subscribed: data['subscribed'] == true,
+        id: (data['id'] as num?)?.toInt(),
+        sourceType: data['source_type']?.toString() ?? query.kind,
+        sourceId: (data['source_id'] as num?)?.toInt(),
+        status: data['status']?.toString() ?? 'pending',
+        active: data['active'] == true,
+        overdue: data['overdue'] == true,
+      );
+    }
+    final subscribed = value == true;
+    return DbOnlineSubscriptionStatus(
+      subscribed: subscribed,
+      sourceType: query.kind,
+      sourceId: query.kind == 'video' ? null : int.tryParse(query.id),
+      status: subscribed ? 'pending' : '',
+      active: subscribed,
+    );
   }
 
   Future<DbOnlineSubscriptionPage> list(DbOnlineSubscriptionQuery query) async {
@@ -175,4 +196,24 @@ class DbOnlineSubscriptionStatusQuery {
 
   @override
   int get hashCode => Object.hash(serverId, kind, id, subType);
+}
+
+class DbOnlineSubscriptionStatus {
+  const DbOnlineSubscriptionStatus({
+    required this.subscribed,
+    required this.sourceType,
+    required this.status,
+    required this.active,
+    this.id,
+    this.sourceId,
+    this.overdue = false,
+  });
+
+  final bool subscribed;
+  final int? id;
+  final String sourceType;
+  final int? sourceId;
+  final String status;
+  final bool active;
+  final bool overdue;
 }
