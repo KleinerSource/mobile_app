@@ -2191,7 +2191,6 @@ class _DbOnlineSubscriptionEditorState
   ) {
     return OutlinedButton(
       onPressed: onPressed,
-      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       style: OutlinedButton.styleFrom(
         foregroundColor: selected ? color : color.withValues(alpha: 0.55),
         backgroundColor: selected
@@ -2205,6 +2204,7 @@ class _DbOnlineSubscriptionEditorState
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 
