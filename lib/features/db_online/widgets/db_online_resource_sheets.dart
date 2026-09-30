@@ -697,7 +697,6 @@ class _SubtitleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
     return SubtitlePanelRow(
       title: name,
       details: details.isEmpty
