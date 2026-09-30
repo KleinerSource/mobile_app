@@ -11,6 +11,7 @@ import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
+import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
@@ -543,13 +544,16 @@ class _DbOnlineSubscriptionsPageState
           imageUrl: imageUrl,
           meta: meta,
           width: constraints.maxWidth,
+          onTap: entries.isEmpty
+              ? () => _openSubscriptionMovieDetail(context, item)
+              : null,
         );
         if (entries.isEmpty) return card;
         return GlassMenuAnchor<String>(
           width: 232,
           entries: entries,
           onSelected: (action) => _handleItemAction(action, item, l),
-          onAnchorTap: () {},
+          onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
           child: card,
         );
       },
@@ -1403,6 +1407,25 @@ class _DbOnlineSubscriptionsPageState
   }
 }
 
+void _openSubscriptionMovieDetail(
+  BuildContext context,
+  DbOnlineSubscriptionItem item,
+) {
+  final videoId = item.data['video_id']?.toString().trim() ?? '';
+  final code = [item.data['number'], item.data['video_code'], item.data['code']]
+      .map((value) => value?.toString().trim() ?? '')
+      .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+  if (videoId.isEmpty && code.isEmpty) return;
+
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => videoId.isNotEmpty
+          ? DbOnlineMovieDetailPage.byVideoId(videoId: videoId)
+          : DbOnlineMovieDetailPage(code: code),
+    ),
+  );
+}
+
 class DbOnlineSubscriptionVideosSheet extends ConsumerStatefulWidget {
   const DbOnlineSubscriptionVideosSheet({
     super.key,
@@ -1644,7 +1667,7 @@ class _DbOnlineSubscriptionVideosSheetState
         width: 232,
         entries: menuEntries,
         onSelected: (status) => _updateStatus(item, status, query, l),
-        onAnchorTap: () {},
+        onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
         child: CatalogMovieCard(
           title: item.title,
           code: item.id,
