@@ -1059,17 +1059,15 @@ class _DbOnlineSubscriptionsPageState
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: color),
-          if (!iconOnly) ...[
-            const SizedBox(width: 4),
-            Text(
-              label.isEmpty ? '$count' : '$label $count',
-              style: AppText.meta(context).copyWith(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
+          const SizedBox(width: 4),
+          Text(
+            iconOnly || label.isEmpty ? '$count' : '$label $count',
+            style: AppText.meta(context).copyWith(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
             ),
-          ],
+          ),
         ],
       ),
     );
