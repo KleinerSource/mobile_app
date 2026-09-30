@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
@@ -22,6 +24,9 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/paged_request_coordinator.dart';
+import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
 class DbOnlineSubscriptionsPage extends ConsumerStatefulWidget {
@@ -37,14 +42,25 @@ class _DbOnlineSubscriptionsPageState
   static const _pageSize = 24;
 
   final _searchController = TextEditingController();
+  final _requests = PagedRequestCoordinator();
+  final _pagingController = PagingController<int, DbOnlineSubscriptionItem>(
+    firstPageKey: 1,
+  );
   String _section = 'pending';
   String _keyword = '';
-  int _page = 1;
   bool _busy = false;
+  bool _pagingListenerAttached = false;
+  String? _pagingQueryKey;
+  Completer<void>? _refreshCompleter;
   double _horizontalDragDistance = 0;
+  bool _selectingBlacklist = false;
+  final Map<String, DbOnlineSubscriptionItem> _selectedBlacklistItems = {};
 
   @override
   void dispose() {
+    _completeRefresh();
+    _requests.dispose();
+    _pagingController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -106,19 +122,15 @@ class _DbOnlineSubscriptionsPageState
     if (sections.isNotEmpty &&
         !sections.any((section) => section.$1 == _section)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _section = sections.first.$1);
+        if (!mounted) return;
+        setState(() => _section = sections.first.$1);
+        _reloadForQuery();
       });
     }
-    final query = DbOnlineSubscriptionQuery(
-      serverId: serverId,
-      kind: _section,
-      page: _page,
-      limit: _pageSize,
-      keyword: _keyword,
-    );
-    final page = sections.isEmpty
-        ? null
-        : ref.watch(dbOnlineSubscriptionListProvider(query));
+    if (sections.isNotEmpty) _syncPagingQuery(serverId);
+    final autoSync = _section == 'online' && capabilities.onlineAccount
+        ? ref.watch(dbOnlineSubscriptionAutoSyncProvider(serverId))
+        : null;
 
     return RefreshIndicator(
       onRefresh: _refresh,
@@ -137,7 +149,7 @@ class _DbOnlineSubscriptionsPageState
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _header(l, capabilities)),
+            SliverToBoxAdapter(child: _header(l, capabilities, autoSync)),
             if (!capabilities.database || !capabilities.onlineAccount)
               SliverToBoxAdapter(child: _capabilityNotice(capabilities, l)),
             if (sections.isNotEmpty)
@@ -149,74 +161,28 @@ class _DbOnlineSubscriptionsPageState
                 const SliverToBoxAdapter(
                   child: LinearProgressIndicator(minHeight: 2),
                 ),
-              if (page != null)
-                page.when(
-                  loading: () => const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (error, _) => SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _inlineError(
-                      error,
-                      () => ref.invalidate(
-                        dbOnlineSubscriptionListProvider(query),
-                      ),
-                    ),
-                  ),
-                  data: (result) => result.items.isEmpty
-                      ? SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Center(
-                            child: Text(
-                              _keyword.isEmpty
-                                  ? l.dbOnlineSubscriptionEmpty
-                                  : l.dbOnlineSubscriptionNoResults,
-                              style: AppText.body(context),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                sliver: _usesMovieCards
+                    ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
+                        pagingController: _pagingController,
+                        showNoMoreItemsIndicatorAsGridChild: false,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 14,
+                              childAspectRatio:
+                                  MediaCardTemplate.gridChildAspectRatio,
                             ),
-                          ),
-                        )
-                      : SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                          sliver: _usesMovieCards
-                              ? SliverGrid(
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 3,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 14,
-                                        childAspectRatio: MediaCardTemplate
-                                            .gridChildAspectRatio,
-                                      ),
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) => _movieSubscriptionCard(
-                                      result.items[index],
-                                      l,
-                                      serverConfig,
-                                    ),
-                                    childCount: result.items.length,
-                                  ),
-                                )
-                              : SliverList.separated(
-                                  itemCount: result.items.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 8),
-                                  itemBuilder: (context, index) =>
-                                      _subscriptionRow(
-                                        result.items[index],
-                                        l,
-                                        serverConfig,
-                                      ),
-                                ),
-                        ),
-                ),
-              if (page != null)
-                page.when(
-                  loading: () => const SliverToBoxAdapter(child: SizedBox()),
-                  error: (_, _) => const SliverToBoxAdapter(child: SizedBox()),
-                  data: (result) =>
-                      SliverToBoxAdapter(child: _pagination(result, l)),
-                ),
+                        builderDelegate: _pagingDelegate(l, serverConfig),
+                      )
+                    : PagedSliverList<int, DbOnlineSubscriptionItem>.separated(
+                        pagingController: _pagingController,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        builderDelegate: _pagingDelegate(l, serverConfig),
+                      ),
+              ),
             ] else
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -239,7 +205,124 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  void _switchSectionBySwipe(List<(String, String)> sections) {
+  PagedChildBuilderDelegate<DbOnlineSubscriptionItem> _pagingDelegate(
+    AppL10n l,
+    ServerConfig? serverConfig,
+  ) => PagedChildBuilderDelegate<DbOnlineSubscriptionItem>(
+    itemBuilder: (context, item, _) => _usesMovieCards
+        ? _movieSubscriptionCard(item, l, serverConfig)
+        : _subscriptionRow(item, l, serverConfig),
+    firstPageProgressIndicatorBuilder: (_) => const Padding(
+      padding: EdgeInsets.all(24),
+      child: Center(child: CircularProgressIndicator()),
+    ),
+    firstPageErrorIndicatorBuilder: (_) => _inlineError(
+      _pagingController.error ?? StateError(l.loadFailed),
+      _pagingController.refresh,
+    ),
+    newPageErrorIndicatorBuilder: (_) =>
+        PaginationRetry(onRetry: _pagingController.retryLastFailedRequest),
+    noItemsFoundIndicatorBuilder: (_) => Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Text(
+          _keyword.isEmpty
+              ? l.dbOnlineSubscriptionEmpty
+              : l.dbOnlineSubscriptionNoResults,
+          style: AppText.body(context),
+        ),
+      ),
+    ),
+    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+  );
+
+  void _syncPagingQuery(String serverId) {
+    final queryKey = '$serverId|$_section|$_keyword';
+    if (_pagingQueryKey == queryKey) return;
+    final hadQuery = _pagingQueryKey != null;
+    _pagingQueryKey = queryKey;
+    if (!_pagingListenerAttached) {
+      _pagingListenerAttached = true;
+      _pagingController.addPageRequestListener(_fetchPage);
+      return;
+    }
+    if (!hadQuery) return;
+    _requests.invalidate();
+    _completeRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pagingQueryKey != queryKey) return;
+      _resetPaging(invalidateRequests: false);
+    });
+  }
+
+  void _reloadForQuery() {
+    final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    _pagingQueryKey = '$serverId|$_section|$_keyword';
+    _resetPaging();
+  }
+
+  void _resetPaging({bool invalidateRequests = true}) {
+    if (!_pagingListenerAttached) return;
+    if (invalidateRequests) {
+      _requests.invalidate();
+      _completeRefresh();
+    }
+    refreshPagedController(
+      controller: _pagingController,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
+  }
+
+  Future<void> _fetchPage(int page) async {
+    final request = _requests.begin(page);
+    if (request == null) return;
+    try {
+      final query = DbOnlineSubscriptionQuery(
+        serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+        kind: _section,
+        page: page,
+        limit: _pageSize,
+        keyword: _keyword,
+      );
+      final result = await ref
+          .read(dboSubscriptionRepositoryProvider)
+          .list(query);
+      if (!request.isCurrent || !mounted) return;
+      final current =
+          _pagingController.itemList ?? const <DbOnlineSubscriptionItem>[];
+      final seen = <String>{for (final item in current) _itemKey(item)};
+      final items = result.items
+          .where((item) => seen.add(_itemKey(item)))
+          .toList(growable: false);
+      final isLastPage =
+          !result.hasMore || result.items.length < _pageSize || items.isEmpty;
+      if (isLastPage) {
+        _pagingController.appendLastPage(items);
+      } else {
+        _pagingController.appendPage(items, page + 1);
+      }
+      if (page == 1) _completeRefresh();
+    } catch (error) {
+      if (!request.isCurrent || !mounted) return;
+      _pagingController.error = localizedErrorMessage(
+        AppL10n.of(context),
+        error,
+      );
+      if (page == 1) _completeRefresh();
+    } finally {
+      request.finish();
+    }
+  }
+
+  String _itemKey(DbOnlineSubscriptionItem item) {
+    final videoId = item.data['video_id']?.toString().trim() ?? '';
+    if (videoId.isNotEmpty) return 'video:$videoId';
+    final subType = item.data['sub_type']?.toString() ?? '';
+    return '${item.kind}:$subType:${item.id}';
+  }
+
+  void _switchSectionBySwipe(List<(String, String, IconData)> sections) {
     final distance = _horizontalDragDistance;
     _horizontalDragDistance = 0;
     if (distance.abs() < 60) return;
@@ -254,32 +337,73 @@ class _DbOnlineSubscriptionsPageState
 
     setState(() {
       _section = sections[nextIndex].$1;
-      _page = 1;
       _keyword = '';
       _searchController.clear();
+      _selectingBlacklist = false;
+      _selectedBlacklistItems.clear();
     });
+    _reloadForQuery();
   }
 
-  List<(String, String)> _sections(
+  List<(String, String, IconData)> _sections(
     AppL10n l,
     DbOnlineSubscriptionCapabilities capabilities,
   ) => [
     if (capabilities.database) ...[
-      ('pending', l.dbOnlineSubscriptionPending),
-      ('completed', l.dbOnlineSubscriptionCompleted),
+      (
+        'pending',
+        l.dbOnlineSubscriptionPending,
+        Icons.hourglass_bottom_rounded,
+      ),
+      (
+        'completed',
+        l.dbOnlineSubscriptionCompleted,
+        Icons.inventory_2_outlined,
+      ),
     ],
-    if (capabilities.onlineAccount) ('online', l.dbOnlineSubscriptionOnline),
+    if (capabilities.onlineAccount)
+      ('online', l.dbOnlineSubscriptionOnline, Icons.cloud_outlined),
     if (capabilities.database) ...[
-      ('actor', l.dbOnlineSubscriptionActors),
-      ('series', l.dbOnlineSubscriptionSeries),
-      ('blacklist', l.dbOnlineSubscriptionBlacklist),
+      ('actor', l.dbOnlineSubscriptionActorTab, Icons.person_outline_rounded),
+      ('series', l.dbOnlineSubscriptionComprehensive, Icons.layers_outlined),
+      ('blacklist', l.dbOnlineSubscriptionBlacklist, Icons.block_rounded),
     ],
   ];
 
-  Widget _header(AppL10n l, DbOnlineSubscriptionCapabilities capabilities) {
+  Widget _header(
+    AppL10n l,
+    DbOnlineSubscriptionCapabilities capabilities,
+    AsyncValue<Map<String, dynamic>>? autoSync,
+  ) {
     final colors = appColors(context);
     final canManageOnlineSync =
         capabilities.database && capabilities.onlineAccount;
+    final actions = switch (_section) {
+      'pending' => <String>['run', 'preset', 'share'],
+      'completed' => <String>['share'],
+      'online' => <String>[
+        if (canManageOnlineSync) 'sync-preset',
+        if (canManageOnlineSync) 'autosync',
+        if (canManageOnlineSync) 'sync',
+        if (capabilities.database) 'share',
+      ],
+      'actor' => <String>['fetch-list', 'run', 'share'],
+      'series' => <String>['fetch-list', 'run', 'prefix'],
+      'blacklist' => <String>[
+        'blacklist-test',
+        'blacklist-add',
+        'blacklist-delete',
+        'share',
+      ],
+      _ => const <String>[],
+    };
+    final autoSyncEnabled =
+        autoSync?.when(
+          data: (value) => value['enabled'] == true,
+          loading: () => false,
+          error: (_, _) => false,
+        ) ??
+        false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 14, 8),
       child: Row(
@@ -307,74 +431,37 @@ class _DbOnlineSubscriptionsPageState
               child: Icon(Icons.settings, size: 18, color: colors.text),
             ),
           ),
-          if (capabilities.database || canManageOnlineSync)
+          if (actions.isNotEmpty)
             PopupMenuButton<String>(
               tooltip: l.dbOnlineSubscriptionTitle,
               onSelected: (action) => _handleHeaderAction(action, l),
               itemBuilder: (context) => [
-                if (_section == 'pending')
+                for (final action in actions)
                   PopupMenuItem(
-                    value: 'add',
-                    child: Text(l.dbOnlineSubscriptionAdd),
+                    value: action,
+                    child: action == 'autosync'
+                        ? Row(
+                            children: [
+                              Expanded(
+                                child: Text(l.dbOnlineSubscriptionAutoSync),
+                              ),
+                              if (autoSyncEnabled) ...[
+                                const SizedBox(width: 12),
+                                Text(
+                                  l.dbOnlineSubscriptionAutoSyncOn,
+                                  style: AppText.meta(context),
+                                ),
+                              ],
+                            ],
+                          )
+                        : Text(
+                            action == 'blacklist-delete' &&
+                                    _selectingBlacklist &&
+                                    _selectedBlacklistItems.isEmpty
+                                ? l.dbOnlineSubscriptionCancel
+                                : _headerActionLabel(action, l),
+                          ),
                   ),
-                if (_section == 'pending' || _section == 'completed')
-                  PopupMenuItem(
-                    value: 'run',
-                    child: Text(l.dbOnlineSubscriptionRun),
-                  ),
-                if (_section == 'actor' || _section == 'series') ...[
-                  PopupMenuItem(
-                    value: 'add',
-                    child: Text(l.dbOnlineSubscriptionAdd),
-                  ),
-                  PopupMenuItem(
-                    value: 'check',
-                    child: Text(l.dbOnlineSubscriptionCheck),
-                  ),
-                  PopupMenuItem(
-                    value: 'run',
-                    child: Text(l.dbOnlineSubscriptionRun),
-                  ),
-                  if (_section == 'series')
-                    PopupMenuItem(
-                      value: 'prefix',
-                      child: Text(l.dbOnlineSubscriptionAddPrefix),
-                    ),
-                ],
-                if (_section == 'online' && canManageOnlineSync) ...[
-                  PopupMenuItem(
-                    value: 'sync',
-                    child: Text(l.dbOnlineSubscriptionSync),
-                  ),
-                  PopupMenuItem(
-                    value: 'autosync',
-                    child: Text(l.dbOnlineSubscriptionAutoSync),
-                  ),
-                  PopupMenuItem(
-                    value: 'sync-preset',
-                    child: Text(l.dbOnlineSubscriptionSyncPreset),
-                  ),
-                ],
-                if (_section == 'blacklist') ...[
-                  PopupMenuItem(
-                    value: 'blacklist-add',
-                    child: Text(l.dbOnlineSubscriptionBlacklistAdd),
-                  ),
-                  PopupMenuItem(
-                    value: 'blacklist-test',
-                    child: Text(l.dbOnlineSubscriptionBlacklistTest),
-                  ),
-                ],
-                if (capabilities.database) ...[
-                  PopupMenuItem(
-                    value: 'preset',
-                    child: Text(l.dbOnlineSubscriptionPreset),
-                  ),
-                  PopupMenuItem(
-                    value: 'share',
-                    child: Text(l.dbOnlineSubscriptionShare),
-                  ),
-                ],
               ],
               icon: Icon(Icons.more_vert_rounded, color: colors.muted),
             ),
@@ -405,7 +492,7 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  Widget _sectionPicker(List<(String, String)> sections) {
+  Widget _sectionPicker(List<(String, String, IconData)> sections) {
     return SizedBox(
       height: 48,
       child: ListView.separated(
@@ -416,44 +503,97 @@ class _DbOnlineSubscriptionsPageState
         itemBuilder: (context, index) {
           final section = sections[index];
           return ChoiceChip(
+            avatar: Icon(section.$3, size: 16),
+            showCheckmark: false,
             label: Text(section.$2),
             selected: section.$1 == _section,
-            onSelected: (_) => setState(() {
-              _section = section.$1;
-              _page = 1;
-              _keyword = '';
-              _searchController.clear();
-            }),
+            onSelected: (_) {
+              setState(() {
+                _section = section.$1;
+                _keyword = '';
+                _searchController.clear();
+                _selectingBlacklist = false;
+                _selectedBlacklistItems.clear();
+              });
+              _reloadForQuery();
+            },
           );
         },
       ),
     );
   }
 
+  String _headerActionLabel(String action, AppL10n l) => switch (action) {
+    'preset' => l.dbOnlineSubscriptionPreset,
+    'run' => l.dbOnlineSubscriptionRun,
+    'share' => l.dbOnlineSubscriptionShare,
+    'fetch-list' => l.dbOnlineSubscriptionFetchList,
+    'sync-preset' => l.dbOnlineSubscriptionSyncPreset,
+    'autosync' => l.dbOnlineSubscriptionAutoSync,
+    'sync' => l.dbOnlineSubscriptionSync,
+    'prefix' => l.dbOnlineSubscriptionAddPrefix,
+    'blacklist-test' => l.dbOnlineSubscriptionBlacklistTest,
+    'blacklist-add' => l.dbOnlineSubscriptionBlacklistAdd,
+    'blacklist-delete' => l.dbOnlineSubscriptionDelete,
+    _ => action,
+  };
+
   Widget _searchField(AppL10n l) {
+    final colors = appColors(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 4, 22, 10),
-      child: TextField(
-        controller: _searchController,
-        textInputAction: TextInputAction.search,
-        onSubmitted: (value) => setState(() {
-          _keyword = value.trim();
-          _page = 1;
-        }),
-        decoration: InputDecoration(
-          hintText: l.dbOnlineSubscriptionSearch,
-          prefixIcon: const Icon(Icons.search_rounded),
-          suffixIcon: _keyword.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: l.dbOnlineSubscriptionCancel,
-                  onPressed: () => setState(() {
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border.all(color: colors.cardBorder),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 14),
+            Icon(Icons.search_rounded, color: colors.muted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                textAlignVertical: TextAlignVertical.center,
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (value) {
+                  final keyword = value.trim();
+                  if (_keyword == keyword) return;
+                  setState(() => _keyword = keyword);
+                  _reloadForQuery();
+                },
+                decoration: InputDecoration(
+                  hintText: l.dbOnlineSubscriptionSearch,
+                  hintStyle: TextStyle(
+                    color: colors.muted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  isCollapsed: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  border: InputBorder.none,
+                ),
+                style: TextStyle(
+                  color: colors.text,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              IconButton(
+                icon: Icon(Icons.close, size: 16, color: colors.muted),
+                tooltip: l.dbOnlineSubscriptionCancel,
+                onPressed: () {
+                  setState(() {
                     _keyword = '';
                     _searchController.clear();
-                    _page = 1;
-                  }),
-                  icon: const Icon(Icons.close_rounded),
-                ),
+                  });
+                  _reloadForQuery();
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -464,7 +604,6 @@ class _DbOnlineSubscriptionsPageState
     AppL10n l,
     ServerConfig? serverConfig,
   ) {
-    final status = item.status;
     final videoCount = int.tryParse(item.data['video_count']?.toString() ?? '');
     final pendingCount = int.tryParse(
       item.data['pending_count']?.toString() ?? '',
@@ -472,75 +611,174 @@ class _DbOnlineSubscriptionsPageState
     final completedCount = int.tryParse(
       item.data['completed_count']?.toString() ?? '',
     );
-    final subtitle = <String>[
-      if (item.id.isNotEmpty) item.id,
-      if (status.isNotEmpty) '${l.dbOnlineSubscriptionStatus}: $status',
-      if (item.data['active'] is bool)
-        item.active
-            ? l.dbOnlineSubscriptionActive
-            : l.dbOnlineSubscriptionInactive,
-      if (item.data['quality']?.toString().isNotEmpty == true)
-        item.data['quality'].toString().toUpperCase(),
-      if (videoCount != null) l.libraryCount(videoCount),
-      if (pendingCount != null && pendingCount > 0)
-        '${l.dbOnlineSubscriptionPending}: $pendingCount',
-      if (completedCount != null && completedCount > 0)
-        '${l.dbOnlineSubscriptionCompleted}: $completedCount',
-    ].join(' · ');
+    final skippedCount = int.tryParse(
+      item.data['skipped_count']?.toString() ?? '',
+    );
     final isActor = _section == 'actor';
+    final isEntitySubscription = isActor || _section == 'series';
+    final inactive = isEntitySubscription && !item.active;
+    final data = item.data;
     final imageUrl = _resolveSubscriptionImage(serverConfig, [
-      item.data['actor_avatar'],
-      item.data['avatar_url'],
+      data['actor_avatar'],
+      data['avatar_url'],
     ]);
+    final selectingBlacklist = _section == 'blacklist' && _selectingBlacklist;
+    final selectedBlacklist = _selectedBlacklistItems.containsKey(item.id);
     final entries = _rowMenuEntries(l);
-    final card = Container(
-      decoration: settingsCardDecoration(context),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final stats = <Widget>[
+      if (pendingCount != null && pendingCount > 0)
+        entityStat(
+          l.dbOnlineSubscriptionPending,
+          pendingCount,
+          Icons.schedule_rounded,
+          const Color(0xFFF59E0B),
+        ),
+      if (completedCount != null && completedCount > 0)
+        entityStat(
+          l.dbOnlineSubscriptionCompleted,
+          completedCount,
+          Icons.check_circle_outline_rounded,
+          const Color(0xFF22C55E),
+        ),
+      if (skippedCount != null && skippedCount > 0)
+        entityStat(
+          l.dbOnlineSubscriptionSkipped,
+          skippedCount,
+          Icons.skip_next_rounded,
+          const Color(0xFFEF4444),
+        ),
+      if (videoCount != null)
+        entityStat(
+          '',
+          videoCount,
+          Icons.movie_outlined,
+          appColors(context).muted,
+        ),
+    ];
+    final flags = <Widget>[
+      if (data['pre_download_mode'] == true)
+        _subscriptionBadge(
+          l.dbOnlineSubscriptionPreDownloadShort,
+          const Color(0xFF00C878),
+        ),
+      if (data['wash_mode'] == true)
+        _subscriptionBadge(
+          l.dbOnlineSubscriptionWashShort,
+          const Color(0xFFA855F7),
+        ),
+      if (data['quality']?.toString().toLowerCase() == 'hd')
+        _subscriptionBadge('HD', const Color(0xFF00CFE8)),
+      if (data['quality']?.toString().toLowerCase() == 'uhd')
+        _subscriptionBadge('UHD', const Color(0xFF4A9EFF)),
+      if (data['require_sub'] == true)
+        _subscriptionBadge(
+          l.dbOnlineSubscriptionSubtitleShort,
+          const Color(0xFFFFC107),
+        ),
+      if (data['require_uncensored'] == true ||
+          (isActor && data['actor_uncensored'] == true))
+        _subscriptionBadge(
+          l.dbOnlineSubscriptionUncensoredShort,
+          const Color(0xFFFF0050),
+        ),
+    ];
+    final card = Opacity(
+      opacity: inactive ? 0.8 : 1,
+      child: Container(
+        decoration: settingsCardDecoration(context),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
             children: [
-              if (isActor) ...[
-                _SubscriptionCardArtwork(imageUrl: imageUrl, isActor: true),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.title.isEmpty ? item.id : item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.cardTitle(context),
+                    if (selectingBlacklist) ...[
+                      Icon(
+                        selectedBlacklist
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: selectedBlacklist
+                            ? appColors(context).accent
+                            : appColors(context).muted,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    if (isActor) ...[
+                      _SubscriptionCardArtwork(
+                        imageUrl: imageUrl,
+                        isActor: true,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title.isEmpty ? item.id : item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.cardTitle(context),
+                          ),
+                          if (stats.isNotEmpty) ...[
+                            const SizedBox(height: 7),
+                            Wrap(spacing: 6, runSpacing: 5, children: stats),
+                          ],
+                          if (flags.isNotEmpty) ...[
+                            const SizedBox(height: 7),
+                            Wrap(spacing: 4, runSpacing: 4, children: flags),
+                          ],
+                        ],
+                      ),
                     ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.meta(context),
+                    if (isEntitySubscription) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: appColors(context).muted,
                       ),
                     ],
                   ],
                 ),
               ),
-              if (_section == 'actor' || _section == 'series') ...[
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: appColors(context).muted,
+              if (inactive)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.34),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.pause_circle_outline_rounded,
+                          size: 28,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ],
             ],
           ),
         ),
       ),
     );
+    if (selectingBlacklist) {
+      return Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _toggleBlacklistSelection(item),
+          child: card,
+        ),
+      );
+    }
     if (entries.isEmpty) return card;
     return GlassMenuAnchor<String>(
       width: 232,
@@ -552,6 +790,30 @@ class _DbOnlineSubscriptionsPageState
       child: card,
     );
   }
+
+  Widget entityStat(String label, int count, IconData icon, Color color) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label.isEmpty ? '$count' : '$label $count',
+              style: AppText.meta(context).copyWith(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _movieSubscriptionCard(
     DbOnlineSubscriptionItem item,
@@ -611,6 +873,7 @@ class _DbOnlineSubscriptionsPageState
 
   List<GlassMenuEntry<String>> _rowMenuEntries(AppL10n l) {
     final danger = appColors(context).danger;
+    if (_section == 'blacklist' && _selectingBlacklist) return const [];
     if (_section == 'pending' || _section == 'completed') {
       final restoring = _section == 'completed';
       return [
@@ -648,7 +911,7 @@ class _DbOnlineSubscriptionsPageState
       return [
         _subscriptionMenuEntry(
           'remove',
-          l.dbOnlineSubscriptionRemove,
+          l.dbOnlineSubscriptionDelete,
           Icons.remove_circle_outline_rounded,
           color: danger,
         ),
@@ -675,28 +938,6 @@ class _DbOnlineSubscriptionsPageState
     ];
   }
 
-  Widget _pagination(DbOnlineSubscriptionPage result, AppL10n l) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            tooltip: l.dbOnlineSubscriptionPreviousPage,
-            onPressed: _page > 1 ? () => setState(() => _page--) : null,
-            icon: const Icon(Icons.chevron_left_rounded),
-          ),
-          Text('${result.page} · ${result.total}'),
-          IconButton(
-            tooltip: l.dbOnlineSubscriptionNextPage,
-            onPressed: result.hasMore ? () => setState(() => _page++) : null,
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _inlineError(Object error, VoidCallback retry) {
     final l = AppL10n.of(context);
     return Center(
@@ -716,9 +957,6 @@ class _DbOnlineSubscriptionsPageState
 
   Future<void> _handleHeaderAction(String action, AppL10n l) async {
     switch (action) {
-      case 'add':
-        await _editSubscription(_section == 'pending' ? 'video' : _section);
-        return;
       case 'run':
         if (_section == 'actor') {
           await _perform(() => _api.runActorSubscriptions());
@@ -728,7 +966,7 @@ class _DbOnlineSubscriptionsPageState
           await _runAllVideoSubscriptions();
         }
         return;
-      case 'check':
+      case 'fetch-list':
         await _checkAllEntitySubscriptions();
         return;
       case 'sync':
@@ -751,6 +989,9 @@ class _DbOnlineSubscriptionsPageState
         return;
       case 'blacklist-test':
         await _testBlacklist();
+        return;
+      case 'blacklist-delete':
+        await _deleteSelectedBlacklistItems(l);
         return;
       case 'prefix':
         await _addSeriesPrefixes();
@@ -790,53 +1031,34 @@ class _DbOnlineSubscriptionsPageState
 
   Future<void> _editSubscription(
     String kind, {
-    DbOnlineSubscriptionItem? item,
-    Map<String, dynamic>? initial,
+    required DbOnlineSubscriptionItem item,
   }) async {
-    final initialData = <String, dynamic>{
-      if (item != null) ...item.data,
-      if (initial != null) ...initial,
-    };
     final saved = await showGlassSheet<Map<String, dynamic>>(
       context: context,
       builder: (context) => DbOnlineSubscriptionEditor(
         kind: kind,
-        initial: initialData,
+        initial: item.data,
         l: AppL10n.of(context),
-        isEdit: item != null,
+        isEdit: true,
       ),
     );
     if (saved == null) return;
     final api = _api;
     await _perform(() async {
-      if (item != null) {
-        switch (kind) {
-          case 'video':
-            await api.updateVideoSubscription(item.id, saved);
-            break;
-          case 'actor':
-            await api.updateActorSubscription(item.id, saved);
-            break;
-          case 'series':
-            await api.updateSeriesSubscription(
-              item.id,
-              saved,
-              subType: item.data['sub_type']?.toString() ?? 'series',
-            );
-            break;
-        }
-      } else {
-        switch (kind) {
-          case 'video':
-            await api.createVideoSubscription(saved);
-            break;
-          case 'actor':
-            await api.createActorSubscription(saved);
-            break;
-          case 'series':
-            await api.createSeriesSubscription(saved);
-            break;
-        }
+      switch (kind) {
+        case 'video':
+          await api.updateVideoSubscription(item.id, saved);
+          break;
+        case 'actor':
+          await api.updateActorSubscription(item.id, saved);
+          break;
+        case 'series':
+          await api.updateSeriesSubscription(
+            item.id,
+            saved,
+            subType: item.data['sub_type']?.toString() ?? 'series',
+          );
+          break;
       }
     });
   }
@@ -881,56 +1103,122 @@ class _DbOnlineSubscriptionsPageState
     });
   }
 
-  Future<void> _checkOne(DbOnlineSubscriptionItem item) => _perform(() async {
-    if (_section == 'pending' || _section == 'completed') {
-      await _api.checkVideoSubscription(item.id);
-    } else if (_section == 'actor') {
-      await _api.checkActorSubscription(item.id);
-    } else if (_section == 'series') {
-      await _api.checkSeriesSubscription(
+  Future<void> _checkOne(DbOnlineSubscriptionItem item) async {
+    await _perform(() async {
+      if (_section == 'pending' || _section == 'completed') {
+        await _api.checkVideoSubscription(item.id);
+      } else if (_section == 'actor') {
+        await _api.checkActorSubscription(item.id);
+      } else if (_section == 'series') {
+        await _api.checkSeriesSubscription(
+          item.id,
+          subType: item.data['sub_type']?.toString() ?? 'series',
+        );
+      }
+    });
+  }
+
+  Future<void> _updateQueueStatus(String code, String status) async {
+    await _perform(
+      () => _api.updateSubscriptionVideoStatus({
+        'source_type': 'video',
+        'video_code': code,
+        'status': status,
+      }),
+    );
+  }
+
+  Future<void> _removeBlacklistItem(DbOnlineSubscriptionItem item) async {
+    await _perform(
+      () => _api.removeFromBlacklist(
         item.id,
-        subType: item.data['sub_type']?.toString() ?? 'series',
-      );
+        entryType: item.data['entry_type']?.toString() ?? 'video_code',
+      ),
+    );
+  }
+
+  void _toggleBlacklistSelection(DbOnlineSubscriptionItem item) {
+    setState(() {
+      if (_selectedBlacklistItems.remove(item.id) == null) {
+        _selectedBlacklistItems[item.id] = item;
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedBlacklistItems(AppL10n l) async {
+    if (_selectedBlacklistItems.isEmpty) {
+      final enteringSelection = !_selectingBlacklist;
+      setState(() => _selectingBlacklist = enteringSelection);
+      if (enteringSelection) {
+        _notify(l.dbOnlineSubscriptionSelectBlacklistItems);
+      }
+      return;
     }
-  });
 
-  Future<void> _updateQueueStatus(String code, String status) => _perform(
-    () => _api.updateSubscriptionVideoStatus({
-      'source_type': 'video',
-      'video_code': code,
-      'status': status,
-    }),
-  );
+    final selected = _selectedBlacklistItems.values.toList(growable: false);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.dbOnlineSubscriptionDelete),
+        content: Text(l.dbOnlineSubscriptionDeleteBlacklistConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.dbOnlineSubscriptionCancel),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.dbOnlineSubscriptionDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
 
-  Future<void> _removeBlacklistItem(DbOnlineSubscriptionItem item) => _perform(
-    () => _api.removeFromBlacklist(
-      item.id,
-      entryType: item.data['entry_type']?.toString() ?? 'video_code',
-    ),
-  );
-
-  Future<void> _runAllVideoSubscriptions() =>
-      _perform(() => _api.runVideoSubscriptionChecks());
-
-  Future<void> _checkAllEntitySubscriptions() => _perform(() async {
-    if (_section == 'actor') {
-      await _api.batchCheckActorSubscriptions();
-    } else if (_section == 'series') {
-      await _api.batchCheckSeriesSubscriptions(subType: 'all');
+    final deleted = await _perform(() async {
+      for (final item in selected) {
+        await _api.removeFromBlacklist(
+          item.id,
+          entryType: item.data['entry_type']?.toString() ?? 'video_code',
+        );
+      }
+    });
+    if (deleted && mounted) {
+      setState(() {
+        _selectingBlacklist = false;
+        _selectedBlacklistItems.clear();
+      });
     }
-  });
+  }
 
-  Future<void> _handleSeriesRun() => _perform(() async {
-    await _api.runSeriesSubscriptions(subType: 'all');
-  });
+  Future<void> _runAllVideoSubscriptions() async {
+    await _perform(() => _api.runVideoSubscriptionChecks());
+  }
 
-  Future<void> _perform(Future<dynamic> Function() action) async {
-    if (_busy) return;
+  Future<void> _checkAllEntitySubscriptions() async {
+    await _perform(() async {
+      if (_section == 'actor') {
+        await _api.batchCheckActorSubscriptions();
+      } else if (_section == 'series') {
+        await _api.batchCheckSeriesSubscriptions(subType: 'all');
+      }
+    });
+  }
+
+  Future<void> _handleSeriesRun() async {
+    await _perform(() async {
+      await _api.runSeriesSubscriptions(subType: 'all');
+    });
+  }
+
+  Future<bool> _perform(Future<dynamic> Function() action) async {
+    if (_busy) return false;
     setState(() => _busy = true);
     try {
       await action();
       if (mounted) {
-        ref.invalidate(dbOnlineSubscriptionListProvider(_query));
+        await _refreshList();
+        if (!mounted) return true;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -939,8 +1227,10 @@ class _DbOnlineSubscriptionsPageState
           ),
         );
       }
+      return true;
     } catch (error) {
       if (mounted) _notify(localizedErrorMessage(AppL10n.of(context), error));
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -957,6 +1247,11 @@ class _DbOnlineSubscriptionsPageState
       );
       if (result == null) return;
       await _perform(() => _api.updateAutoSync(result));
+      ref.invalidate(
+        dbOnlineSubscriptionAutoSyncProvider(
+          ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+        ),
+      );
     } catch (error) {
       if (mounted) _notify(localizedErrorMessage(AppL10n.of(context), error));
     }
@@ -1417,20 +1712,28 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  Future<void> _refresh() async {
-    ref.invalidate(dbOnlineSubscriptionListProvider(_query));
-    try {
-      await ref.read(dbOnlineSubscriptionListProvider(_query).future);
-    } catch (_) {}
+  Future<void> _refresh() => _refreshList();
+
+  Future<void> _refreshList() {
+    if (!_pagingListenerAttached) return Future<void>.value();
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _pagingController,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
+    return completer.future;
   }
 
-  DbOnlineSubscriptionQuery get _query => DbOnlineSubscriptionQuery(
-    serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
-    kind: _section,
-    page: _page,
-    limit: _pageSize,
-    keyword: _keyword,
-  );
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+  }
 
   DbOnlineSubscriptionApi get _api =>
       ref.read(dboSubscriptionRepositoryProvider).api;
@@ -1599,32 +1902,157 @@ class _DbOnlineSubscriptionVideosSheetState
   static const _statuses = ['pending', 'completed', 'skipped'];
 
   final _searchController = TextEditingController();
+  final _requests = PagedRequestCoordinator();
+  final _pagingController = PagingController<int, DbOnlineSubscriptionItem>(
+    firstPageKey: 1,
+  );
   String _keyword = '';
   String _status = 'pending';
-  int _page = 1;
   bool _busy = false;
+  bool _pagingListenerAttached = false;
+  String? _pagingQueryKey;
+  Completer<void>? _refreshCompleter;
 
   @override
   void dispose() {
+    _completeRefresh();
+    _requests.dispose();
+    _pagingController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _syncPagingQuery(String serverId) {
+    final queryKey =
+        '$serverId|${widget.kind}|${widget.sourceId}|$_status|$_keyword';
+    if (_pagingQueryKey == queryKey) return;
+    final hadQuery = _pagingQueryKey != null;
+    _pagingQueryKey = queryKey;
+    if (!_pagingListenerAttached) {
+      _pagingListenerAttached = true;
+      _pagingController.addPageRequestListener(_fetchPage);
+      return;
+    }
+    if (!hadQuery) return;
+    _requests.invalidate();
+    _completeRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pagingQueryKey != queryKey) return;
+      _resetPaging(invalidateRequests: false);
+    });
+  }
+
+  void _reloadForQuery() {
+    final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    _pagingQueryKey =
+        '$serverId|${widget.kind}|${widget.sourceId}|$_status|$_keyword';
+    _resetPaging();
+  }
+
+  void _resetPaging({bool invalidateRequests = true}) {
+    if (!_pagingListenerAttached) return;
+    if (invalidateRequests) {
+      _requests.invalidate();
+      _completeRefresh();
+    }
+    refreshPagedController(
+      controller: _pagingController,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
+  }
+
+  Future<void> _fetchPage(int page) async {
+    final request = _requests.begin(page);
+    if (request == null) return;
+    try {
+      final query = DbOnlineSubscriptionQuery(
+        serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+        kind: widget.kind == 'actor' ? 'actor-videos' : 'series-videos',
+        sourceType: widget.kind,
+        sourceId: widget.sourceId,
+        queueStatus: _status,
+        page: page,
+        limit: _pageSize,
+        keyword: _keyword,
+      );
+      final result = await ref
+          .read(dboSubscriptionRepositoryProvider)
+          .list(query);
+      if (!request.isCurrent || !mounted) return;
+      final current =
+          _pagingController.itemList ?? const <DbOnlineSubscriptionItem>[];
+      final seen = <String>{for (final item in current) _itemKey(item)};
+      final items = result.items
+          .where((item) => seen.add(_itemKey(item)))
+          .toList(growable: false);
+      final isLastPage =
+          !result.hasMore || result.items.length < _pageSize || items.isEmpty;
+      if (isLastPage) {
+        _pagingController.appendLastPage(items);
+      } else {
+        _pagingController.appendPage(items, page + 1);
+      }
+      if (page == 1) _completeRefresh();
+    } catch (error) {
+      if (!request.isCurrent || !mounted) return;
+      _pagingController.error = localizedErrorMessage(
+        AppL10n.of(context),
+        error,
+      );
+      if (page == 1) _completeRefresh();
+    } finally {
+      request.finish();
+    }
+  }
+
+  String _itemKey(DbOnlineSubscriptionItem item) {
+    final videoId = item.data['video_id']?.toString().trim() ?? '';
+    if (videoId.isNotEmpty) return 'video:$videoId';
+    return '${item.kind}:${item.id}';
+  }
+
+  Future<void> _refreshList() {
+    if (!_pagingListenerAttached) return Future<void>.value();
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _requests.invalidate();
+    refreshPagedController(
+      controller: _pagingController,
+      requests: _requests,
+      loadPage: _fetchPage,
+    );
+    return completer.future;
+  }
+
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+  }
+
+  Widget _inlineError(Object error, VoidCallback retry) {
+    final l = AppL10n.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(localizedErrorMessage(l, error), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          TextButton(onPressed: retry, child: Text(l.dbOnlineRetry)),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final serverConfig = ref.watch(mediaRuntimeConfigProvider);
     final serverId = serverConfig?.activeServerId ?? '';
-    final query = DbOnlineSubscriptionQuery(
-      serverId: serverId,
-      kind: widget.kind == 'actor' ? 'actor-videos' : 'series-videos',
-      sourceType: widget.kind,
-      sourceId: widget.sourceId,
-      queueStatus: _status,
-      page: _page,
-      limit: _pageSize,
-      keyword: _keyword,
-    );
-    final result = ref.watch(dbOnlineSubscriptionListProvider(query));
+    _syncPagingQuery(serverId);
     final l = AppL10n.of(context);
     return SafeArea(
       top: false,
@@ -1656,10 +2084,11 @@ class _DbOnlineSubscriptionVideosSheetState
                     return ChoiceChip(
                       label: Text(label),
                       selected: _status == status,
-                      onSelected: (_) => setState(() {
-                        _status = status;
-                        _page = 1;
-                      }),
+                      onSelected: (_) {
+                        if (_status == status) return;
+                        setState(() => _status = status);
+                        _reloadForQuery();
+                      },
                     );
                   },
                 ),
@@ -1668,10 +2097,12 @@ class _DbOnlineSubscriptionVideosSheetState
               TextField(
                 controller: _searchController,
                 textInputAction: TextInputAction.search,
-                onSubmitted: (value) => setState(() {
-                  _keyword = value.trim();
-                  _page = 1;
-                }),
+                onSubmitted: (value) {
+                  final keyword = value.trim();
+                  if (_keyword == keyword) return;
+                  setState(() => _keyword = keyword);
+                  _reloadForQuery();
+                },
                 decoration: InputDecoration(
                   hintText: l.dbOnlineSubscriptionSearch,
                   prefixIcon: const Icon(Icons.search_rounded),
@@ -1679,11 +2110,13 @@ class _DbOnlineSubscriptionVideosSheetState
                       ? null
                       : IconButton(
                           tooltip: l.dbOnlineSubscriptionCancel,
-                          onPressed: () => setState(() {
-                            _keyword = '';
-                            _searchController.clear();
-                            _page = 1;
-                          }),
+                          onPressed: () {
+                            setState(() {
+                              _keyword = '';
+                              _searchController.clear();
+                            });
+                            _reloadForQuery();
+                          },
                           icon: const Icon(Icons.close_rounded),
                         ),
                 ),
@@ -1692,89 +2125,64 @@ class _DbOnlineSubscriptionVideosSheetState
               if (_busy) const LinearProgressIndicator(minHeight: 2),
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () => _refresh(query),
-                  child: result.when(
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (error, _) => ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        const SizedBox(height: 90),
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Text(
-                            localizedErrorMessage(l, error),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        Center(
-                          child: TextButton(
-                            onPressed: () => ref.invalidate(
-                              dbOnlineSubscriptionListProvider(query),
-                            ),
-                            child: Text(l.dbOnlineRetry),
-                          ),
-                        ),
-                      ],
-                    ),
-                    data: (page) => page.items.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [
-                              const SizedBox(height: 100),
-                              Center(
-                                child: Text(
-                                  _keyword.isEmpty
-                                      ? l.dbOnlineSubscriptionEmpty
-                                      : l.dbOnlineSubscriptionNoResults,
-                                ),
+                  onRefresh: _refreshList,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        sliver: PagedSliverGrid<int, DbOnlineSubscriptionItem>(
+                          pagingController: _pagingController,
+                          showNoMoreItemsIndicatorAsGridChild: false,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 14,
+                                childAspectRatio:
+                                    MediaCardTemplate.gridChildAspectRatio,
                               ),
-                            ],
-                          )
-                        : GridView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: page.items.length,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 14,
-                                  childAspectRatio:
-                                      MediaCardTemplate.gridChildAspectRatio,
+                          builderDelegate:
+                              PagedChildBuilderDelegate<
+                                DbOnlineSubscriptionItem
+                              >(
+                                itemBuilder: (context, item, _) =>
+                                    _videoCard(item, l, serverConfig),
+                                firstPageProgressIndicatorBuilder: (_) =>
+                                    const Padding(
+                                      padding: EdgeInsets.all(24),
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                firstPageErrorIndicatorBuilder: (_) =>
+                                    _inlineError(
+                                      _pagingController.error ??
+                                          StateError(l.loadFailed),
+                                      _pagingController.refresh,
+                                    ),
+                                newPageErrorIndicatorBuilder: (_) =>
+                                    PaginationRetry(
+                                      onRetry: _pagingController
+                                          .retryLastFailedRequest,
+                                    ),
+                                noItemsFoundIndicatorBuilder: (_) => Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Center(
+                                    child: Text(
+                                      _keyword.isEmpty
+                                          ? l.dbOnlineSubscriptionEmpty
+                                          : l.dbOnlineSubscriptionNoResults,
+                                    ),
+                                  ),
                                 ),
-                            itemBuilder: (context, index) => _videoCard(
-                              page.items[index],
-                              l,
-                              query,
-                              serverConfig,
-                            ),
-                          ),
+                                noMoreItemsIndicatorBuilder: (_) =>
+                                    const NoMoreContent(),
+                              ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              result.when(
-                loading: () => const SizedBox(height: 44),
-                error: (_, _) => const SizedBox(height: 44),
-                data: (page) => Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      tooltip: l.dbOnlineSubscriptionPreviousPage,
-                      onPressed: _page > 1
-                          ? () => setState(() => _page--)
-                          : null,
-                      icon: const Icon(Icons.chevron_left_rounded),
-                    ),
-                    Text('${page.page} · ${page.total}'),
-                    IconButton(
-                      tooltip: l.dbOnlineSubscriptionNextPage,
-                      onPressed: page.hasMore
-                          ? () => setState(() => _page++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right_rounded),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -1787,7 +2195,6 @@ class _DbOnlineSubscriptionVideosSheetState
   Widget _videoCard(
     DbOnlineSubscriptionItem item,
     AppL10n l,
-    DbOnlineSubscriptionQuery query,
     ServerConfig? serverConfig,
   ) {
     final releaseDate = [
@@ -1820,7 +2227,7 @@ class _DbOnlineSubscriptionVideosSheetState
       builder: (context, constraints) => GlassMenuAnchor<String>(
         width: 232,
         entries: menuEntries,
-        onSelected: (status) => _updateStatus(item, status, query, l),
+        onSelected: (status) => _updateStatus(item, status, l),
         onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
         child: CatalogMovieCard(
           title: item.title,
@@ -1838,7 +2245,6 @@ class _DbOnlineSubscriptionVideosSheetState
   Future<void> _updateStatus(
     DbOnlineSubscriptionItem item,
     String status,
-    DbOnlineSubscriptionQuery query,
     AppL10n l,
   ) async {
     if (_busy) return;
@@ -1854,8 +2260,8 @@ class _DbOnlineSubscriptionVideosSheetState
             'status': status,
           });
       if (!mounted) return;
-      ref.invalidate(dbOnlineSubscriptionListProvider(query));
-      ref.invalidate(dbOnlineSubscriptionListProvider);
+      await _refreshList();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.dbOnlineSubscriptionActionCompleted)),
       );
@@ -1868,13 +2274,6 @@ class _DbOnlineSubscriptionVideosSheetState
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _refresh(DbOnlineSubscriptionQuery query) async {
-    ref.invalidate(dbOnlineSubscriptionListProvider(query));
-    try {
-      await ref.read(dbOnlineSubscriptionListProvider(query).future);
-    } catch (_) {}
   }
 }
 
@@ -2013,13 +2412,9 @@ class _DbOnlineSubscriptionEditorState
                   widget.kind == 'video'
                       ? l.dbOnlineSubscriptionCode
                       : l.dbOnlineSubscriptionId,
-                  readOnly: widget.isEdit,
+                  readOnly: true,
                 ),
-                _field(
-                  _name,
-                  l.dbOnlineSubscriptionName,
-                  readOnly: widget.isEdit,
-                ),
+                _field(_name, l.dbOnlineSubscriptionName, readOnly: true),
               ],
               _sectionTitle(l.dbOnlineSubscriptionDownloadMode),
               Row(

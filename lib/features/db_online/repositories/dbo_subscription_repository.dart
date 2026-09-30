@@ -60,6 +60,8 @@ class DboSubscriptionRepository {
         query: {
           'page': query.page,
           'limit': query.limit,
+          'sort_by': 'created_at',
+          'order_by': 'desc',
           if (query.keyword.trim().isNotEmpty) 'keyword': query.keyword.trim(),
         },
       ),
@@ -68,6 +70,8 @@ class DboSubscriptionRepository {
           'page': query.page,
           'limit': query.limit,
           'sub_type': 'all',
+          'sort_by': 'created_at',
+          'order_by': 'desc',
           if (query.keyword.trim().isNotEmpty) 'keyword': query.keyword.trim(),
         },
       ),

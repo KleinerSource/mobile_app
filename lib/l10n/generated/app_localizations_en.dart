@@ -7151,6 +7151,12 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionSeries => 'Series';
 
   @override
+  String get dbOnlineSubscriptionActorTab => 'Actor subscriptions';
+
+  @override
+  String get dbOnlineSubscriptionComprehensive => 'Series subscriptions';
+
+  @override
   String get dbOnlineSubscriptionBlacklist => 'Blacklist';
 
   @override
@@ -7223,10 +7229,24 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionAutoSync => 'Auto sync';
 
   @override
-  String get dbOnlineSubscriptionPreset => 'Subscription preset';
+  String get dbOnlineSubscriptionPreset => 'Local preset';
 
   @override
-  String get dbOnlineSubscriptionShare => 'Share subscriptions';
+  String get dbOnlineSubscriptionShare => 'Share';
+
+  @override
+  String get dbOnlineSubscriptionFetchList => 'Fetch list';
+
+  @override
+  String get dbOnlineSubscriptionAutoSyncOn => 'ON';
+
+  @override
+  String get dbOnlineSubscriptionSelectBlacklistItems =>
+      'Select blacklist rules to delete';
+
+  @override
+  String get dbOnlineSubscriptionDeleteBlacklistConfirm =>
+      'Delete the selected blacklist rules?';
 
   @override
   String get dbOnlineSubscriptionExport => 'Export';
@@ -7263,7 +7283,7 @@ class AppL10nEn extends AppL10n {
       'Category match terms (comma separated)';
 
   @override
-  String get dbOnlineSubscriptionBlacklistTest => 'Test blacklist';
+  String get dbOnlineSubscriptionBlacklistTest => 'Test rules';
 
   @override
   String get dbOnlineSubscriptionRemove => 'Remove';
@@ -7375,10 +7395,10 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionNextPage => 'Next page';
 
   @override
-  String get dbOnlineSubscriptionSyncPreset => 'Online subscription preset';
+  String get dbOnlineSubscriptionSyncPreset => 'Online preset';
 
   @override
-  String get dbOnlineSubscriptionAddPrefix => 'Add by prefix';
+  String get dbOnlineSubscriptionAddPrefix => 'Add prefix subscription';
 
   @override
   String get dbOnlineSubscriptionOverwrite => 'Apply to existing subscriptions';

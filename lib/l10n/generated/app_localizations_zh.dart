@@ -7009,6 +7009,12 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionSeries => '系列';
 
   @override
+  String get dbOnlineSubscriptionActorTab => '演员订阅';
+
+  @override
+  String get dbOnlineSubscriptionComprehensive => '综合订阅';
+
+  @override
   String get dbOnlineSubscriptionBlacklist => '黑名单';
 
   @override
@@ -7081,10 +7087,22 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionAutoSync => '自动同步';
 
   @override
-  String get dbOnlineSubscriptionPreset => '订阅预设';
+  String get dbOnlineSubscriptionPreset => '本地预设';
 
   @override
-  String get dbOnlineSubscriptionShare => '共享订阅';
+  String get dbOnlineSubscriptionShare => '分享';
+
+  @override
+  String get dbOnlineSubscriptionFetchList => '获取列表';
+
+  @override
+  String get dbOnlineSubscriptionAutoSyncOn => 'ON';
+
+  @override
+  String get dbOnlineSubscriptionSelectBlacklistItems => '请选择要删除的黑名单规则';
+
+  @override
+  String get dbOnlineSubscriptionDeleteBlacklistConfirm => '确定删除选中的黑名单规则吗？';
 
   @override
   String get dbOnlineSubscriptionExport => '导出';
@@ -7120,7 +7138,7 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionCategoryRule => '类别匹配词（逗号分隔）';
 
   @override
-  String get dbOnlineSubscriptionBlacklistTest => '测试黑名单';
+  String get dbOnlineSubscriptionBlacklistTest => '规则测试';
 
   @override
   String get dbOnlineSubscriptionRemove => '移除';
@@ -7229,10 +7247,10 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionNextPage => '下一页';
 
   @override
-  String get dbOnlineSubscriptionSyncPreset => '在线订阅预设';
+  String get dbOnlineSubscriptionSyncPreset => '在线预设';
 
   @override
-  String get dbOnlineSubscriptionAddPrefix => '按前缀添加';
+  String get dbOnlineSubscriptionAddPrefix => '添加前缀订阅';
 
   @override
   String get dbOnlineSubscriptionOverwrite => '覆盖现有订阅';

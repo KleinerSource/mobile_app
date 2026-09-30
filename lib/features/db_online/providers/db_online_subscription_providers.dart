@@ -29,3 +29,15 @@ final dbOnlineSubscriptionStatusProvider = FutureProvider.autoDispose
     .family<bool, DbOnlineSubscriptionStatusQuery>((ref, query) {
       return ref.watch(dboSubscriptionRepositoryProvider).isSubscribed(query);
     });
+
+final dbOnlineSubscriptionAutoSyncProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, serverId) async {
+      final repository = ref.watch(dboSubscriptionRepositoryProvider);
+      repository.checkServer(serverId);
+      final raw = await repository.api.getAutoSync();
+      final root = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
+      final data = root['data'];
+      return data is Map ? Map<String, dynamic>.from(data) : root;
+    });

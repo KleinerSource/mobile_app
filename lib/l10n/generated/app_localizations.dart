@@ -12870,6 +12870,18 @@ abstract class AppL10n {
   /// **'系列'**
   String get dbOnlineSubscriptionSeries;
 
+  /// No description provided for @dbOnlineSubscriptionActorTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员订阅'**
+  String get dbOnlineSubscriptionActorTab;
+
+  /// No description provided for @dbOnlineSubscriptionComprehensive.
+  ///
+  /// In zh, this message translates to:
+  /// **'综合订阅'**
+  String get dbOnlineSubscriptionComprehensive;
+
   /// No description provided for @dbOnlineSubscriptionBlacklist.
   ///
   /// In zh, this message translates to:
@@ -13017,14 +13029,38 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionPreset.
   ///
   /// In zh, this message translates to:
-  /// **'订阅预设'**
+  /// **'本地预设'**
   String get dbOnlineSubscriptionPreset;
 
   /// No description provided for @dbOnlineSubscriptionShare.
   ///
   /// In zh, this message translates to:
-  /// **'共享订阅'**
+  /// **'分享'**
   String get dbOnlineSubscriptionShare;
+
+  /// No description provided for @dbOnlineSubscriptionFetchList.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取列表'**
+  String get dbOnlineSubscriptionFetchList;
+
+  /// No description provided for @dbOnlineSubscriptionAutoSyncOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'ON'**
+  String get dbOnlineSubscriptionAutoSyncOn;
+
+  /// No description provided for @dbOnlineSubscriptionSelectBlacklistItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择要删除的黑名单规则'**
+  String get dbOnlineSubscriptionSelectBlacklistItems;
+
+  /// No description provided for @dbOnlineSubscriptionDeleteBlacklistConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除选中的黑名单规则吗？'**
+  String get dbOnlineSubscriptionDeleteBlacklistConfirm;
 
   /// No description provided for @dbOnlineSubscriptionExport.
   ///
@@ -13095,7 +13131,7 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionBlacklistTest.
   ///
   /// In zh, this message translates to:
-  /// **'测试黑名单'**
+  /// **'规则测试'**
   String get dbOnlineSubscriptionBlacklistTest;
 
   /// No description provided for @dbOnlineSubscriptionRemove.
@@ -13311,13 +13347,13 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionSyncPreset.
   ///
   /// In zh, this message translates to:
-  /// **'在线订阅预设'**
+  /// **'在线预设'**
   String get dbOnlineSubscriptionSyncPreset;
 
   /// No description provided for @dbOnlineSubscriptionAddPrefix.
   ///
   /// In zh, this message translates to:
-  /// **'按前缀添加'**
+  /// **'添加前缀订阅'**
   String get dbOnlineSubscriptionAddPrefix;
 
   /// No description provided for @dbOnlineSubscriptionOverwrite.
