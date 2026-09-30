@@ -51,6 +51,8 @@ class _DbOnlineSubscriptionsPageState
     firstPageKey: 1,
   );
   final _scrollController = ScrollController();
+  final _sectionPickerController = ScrollController();
+  final Map<String, GlobalKey> _sectionKeys = {};
   String _section = 'pending';
   String _keyword = '';
   bool _busy = false;
@@ -77,6 +79,7 @@ class _DbOnlineSubscriptionsPageState
     _requests.dispose();
     _pagingController.dispose();
     _scrollController.dispose();
+    _sectionPickerController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -190,6 +193,7 @@ class _DbOnlineSubscriptionsPageState
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _section = sections.first.$1);
+        _scrollSelectedSectionIntoView();
         _reloadForQuery();
       });
     }
@@ -444,8 +448,28 @@ class _DbOnlineSubscriptionsPageState
       _keyword = '';
       _searchController.clear();
     });
+    _scrollSelectedSectionIntoView();
     _reloadForQuery();
   }
+
+  void _scrollSelectedSectionIntoView() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sectionPickerController.hasClients) return;
+      final targetContext = _sectionKeys[_section]?.currentContext;
+      if (targetContext == null) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          targetContext,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
+  }
+
+  GlobalKey _sectionKey(String section) =>
+      _sectionKeys.putIfAbsent(section, GlobalKey.new);
 
   List<(String, String, IconData)> _sections(
     AppL10n l,
@@ -599,6 +623,7 @@ class _DbOnlineSubscriptionsPageState
     return SizedBox(
       height: 48,
       child: ListView.separated(
+        controller: _sectionPickerController,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         scrollDirection: Axis.horizontal,
         itemCount: sections.length,
@@ -606,6 +631,7 @@ class _DbOnlineSubscriptionsPageState
         itemBuilder: (context, index) {
           final section = sections[index];
           return ChoiceChip(
+            key: _sectionKey(section.$1),
             avatar: Icon(section.$3, size: 16),
             showCheckmark: false,
             label: Text(section.$2),
@@ -617,6 +643,7 @@ class _DbOnlineSubscriptionsPageState
                 _keyword = '';
                 _searchController.clear();
               });
+              _scrollSelectedSectionIntoView();
               _reloadForQuery();
             },
           );
