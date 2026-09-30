@@ -22,9 +22,13 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glass_menu.dart';
+import 'package:omm/shared/drag_selection.dart';
+import 'package:omm/shared/entity_batch_toolbar.dart';
+import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
+import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -46,23 +50,48 @@ class _DbOnlineSubscriptionsPageState
   final _pagingController = PagingController<int, DbOnlineSubscriptionItem>(
     firstPageKey: 1,
   );
+  final _scrollController = ScrollController();
   String _section = 'pending';
   String _keyword = '';
   bool _busy = false;
   bool _pagingListenerAttached = false;
   String? _pagingQueryKey;
   Completer<void>? _refreshCompleter;
+  late final PagedSelectionController<DbOnlineSubscriptionItem>
+  _blacklistSelection;
   double _horizontalDragDistance = 0;
-  bool _selectingBlacklist = false;
-  final Map<String, DbOnlineSubscriptionItem> _selectedBlacklistItems = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _blacklistSelection = PagedSelectionController<DbOnlineSubscriptionItem>(
+      idOf: _blacklistItemKey,
+    )..addModeListener(_onBlacklistSelectionModeChanged);
+  }
 
   @override
   void dispose() {
+    _blacklistSelection.removeModeListener(_onBlacklistSelectionModeChanged);
+    _blacklistSelection.dispose();
     _completeRefresh();
     _requests.dispose();
     _pagingController.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool get _selectingBlacklist =>
+      _section == 'blacklist' && _blacklistSelection.isActive;
+
+  void _onBlacklistSelectionModeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _blacklistItemKey(DbOnlineSubscriptionItem item) {
+    final type = item.data['entry_type']?.toString() ?? 'video_code';
+    final rule = item.data['video_code']?.toString() ?? item.id;
+    return '$type:$rule';
   }
 
   bool get _usesMovieCards =>
@@ -75,16 +104,53 @@ class _DbOnlineSubscriptionsPageState
     final capabilities = ref.watch(
       dbOnlineSubscriptionCapabilitiesProvider(serverId),
     );
-    final colors = appColors(context);
     return Scaffold(
-      backgroundColor: colors.bg,
-      body: SafeArea(
-        child: capabilities.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _capabilityError(error, serverId),
-          data: (value) => _content(value, serverId, serverConfig),
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+      bottomNavigationBar: _blacklistToolbar(AppL10n.of(context)),
+      body: PopScope(
+        canPop: !_selectingBlacklist,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selectingBlacklist) _blacklistSelection.exit();
+        },
+        child: SafeArea(
+          child: capabilities.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => _capabilityError(error, serverId),
+            data: (value) => _content(value, serverId, serverConfig),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget? _blacklistToolbar(AppL10n l) {
+    if (!_selectingBlacklist) return null;
+    final colors = appColors(context);
+    return ValueListenableBuilder<Set<Object>>(
+      valueListenable: _blacklistSelection.selectedListenable,
+      builder: (context, selected, _) => EntityBatchToolbar(
+        selectedCount: selected.length,
+        onSelectAll: _selectAllLoadedBlacklist,
+        onClear: _blacklistSelection.clear,
+        onClose: _blacklistSelection.exit,
+        actions: [
+          EntityBatchAction(
+            icon: Icons.delete_outline_rounded,
+            label: l.dbOnlineSubscriptionDelete,
+            color: colors.danger,
+            onTap: selected.isEmpty || _busy
+                ? null
+                : () => _deleteSelectedBlacklistItems(l),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _selectAllLoadedBlacklist() {
+    _blacklistSelection.selectAll(
+      _pagingController.itemList ?? const <DbOnlineSubscriptionItem>[],
     );
   }
 
@@ -132,74 +198,96 @@ class _DbOnlineSubscriptionsPageState
         ? ref.watch(dbOnlineSubscriptionAutoSyncProvider(serverId))
         : null;
 
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: sections.length > 1
-            ? (_) => _horizontalDragDistance = 0
-            : null,
-        onHorizontalDragUpdate: sections.length > 1
-            ? (details) => _horizontalDragDistance += details.delta.dx
-            : null,
-        onHorizontalDragEnd: sections.length > 1
-            ? (_) => _switchSectionBySwipe(sections)
-            : null,
-        onHorizontalDragCancel: () => _horizontalDragDistance = 0,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _header(l, capabilities, autoSync)),
-            if (!capabilities.database || !capabilities.onlineAccount)
-              SliverToBoxAdapter(child: _capabilityNotice(capabilities, l)),
-            if (sections.isNotEmpty)
-              SliverToBoxAdapter(child: _sectionPicker(sections)),
-            if (sections.isNotEmpty) ...[
-              if (_section != 'online')
-                SliverToBoxAdapter(child: _searchField(l)),
-              if (_busy)
-                const SliverToBoxAdapter(
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                sliver: _usesMovieCards
-                    ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
-                        pagingController: _pagingController,
-                        showNoMoreItemsIndicatorAsGridChild: false,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 14,
-                              childAspectRatio:
-                                  MediaCardTemplate.gridChildAspectRatio,
-                            ),
-                        builderDelegate: _pagingDelegate(l, serverConfig),
-                      )
-                    : PagedSliverList<int, DbOnlineSubscriptionItem>.separated(
-                        pagingController: _pagingController,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        builderDelegate: _pagingDelegate(l, serverConfig),
+    return SettingsFixedHeaderLayout(
+      scrollController: _scrollController,
+      header: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _header(l, capabilities, autoSync),
+          if (!capabilities.database || !capabilities.onlineAccount)
+            _capabilityNotice(capabilities, l),
+          if (sections.isNotEmpty) _sectionPicker(sections),
+          if (sections.isNotEmpty && _section != 'online') _searchField(l),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: sections.length > 1
+              ? (_) => _horizontalDragDistance = 0
+              : null,
+          onHorizontalDragUpdate: sections.length > 1
+              ? (details) => _horizontalDragDistance += details.delta.dx
+              : null,
+          onHorizontalDragEnd: sections.length > 1
+              ? (_) => _switchSectionBySwipe(sections)
+              : null,
+          onHorizontalDragCancel: () => _horizontalDragDistance = 0,
+          child: PagedSelectionScope<DbOnlineSubscriptionItem>(
+            selection: _blacklistSelection,
+            scrollController: _scrollController,
+            layout: DragSelectionLayout.list,
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                if (sections.isNotEmpty) ...[
+                  if (_busy)
+                    const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      18,
+                      4,
+                      18,
+                      _selectingBlacklist
+                          ? 136
+                          : floatingTabBarContentBottomInset(context),
+                    ),
+                    sliver: _usesMovieCards
+                        ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
+                            pagingController: _pagingController,
+                            showNoMoreItemsIndicatorAsGridChild: false,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 14,
+                                  childAspectRatio:
+                                      MediaCardTemplate.gridChildAspectRatio,
+                                ),
+                            builderDelegate: _pagingDelegate(l, serverConfig),
+                          )
+                        : PagedSliverList<
+                            int,
+                            DbOnlineSubscriptionItem
+                          >.separated(
+                            pagingController: _pagingController,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 8),
+                            builderDelegate: _pagingDelegate(l, serverConfig),
+                          ),
+                  ),
+                ] else
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          !capabilities.database
+                              ? l.dbOnlineSubscriptionFeatureRequiresDatabase
+                              : l.dbOnlineSubscriptionFeatureRequiresOnlineAccount,
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-              ),
-            ] else
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      !capabilities.database
-                          ? l.dbOnlineSubscriptionFeatureRequiresDatabase
-                          : l.dbOnlineSubscriptionFeatureRequiresOnlineAccount,
-                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -209,9 +297,22 @@ class _DbOnlineSubscriptionsPageState
     AppL10n l,
     ServerConfig? serverConfig,
   ) => PagedChildBuilderDelegate<DbOnlineSubscriptionItem>(
-    itemBuilder: (context, item, _) => _usesMovieCards
-        ? _movieSubscriptionCard(item, l, serverConfig)
-        : _subscriptionRow(item, l, serverConfig),
+    itemBuilder: (context, item, _) {
+      if (_usesMovieCards) return _movieSubscriptionCard(item, l, serverConfig);
+      if (_section == 'blacklist') {
+        return PagedSelectionItem<DbOnlineSubscriptionItem>(
+          selection: _blacklistSelection,
+          item: item,
+          cardBuilder: (context, item, selected) => _subscriptionRow(
+            item,
+            l,
+            serverConfig,
+            selectedBlacklist: selected,
+          ),
+        );
+      }
+      return _subscriptionRow(item, l, serverConfig);
+    },
     firstPageProgressIndicatorBuilder: (_) => const Padding(
       padding: EdgeInsets.all(24),
       child: Center(child: CircularProgressIndicator()),
@@ -251,11 +352,13 @@ class _DbOnlineSubscriptionsPageState
     _completeRefresh();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _pagingQueryKey != queryKey) return;
+      if (_blacklistSelection.isActive) _blacklistSelection.exit();
       _resetPaging(invalidateRequests: false);
     });
   }
 
   void _reloadForQuery() {
+    if (_blacklistSelection.isActive) _blacklistSelection.exit();
     final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     _pagingQueryKey = '$serverId|$_section|$_keyword';
     _resetPaging();
@@ -335,12 +438,11 @@ class _DbOnlineSubscriptionsPageState
       return;
     }
 
+    if (_section != sections[nextIndex].$1) _blacklistSelection.exit();
     setState(() {
       _section = sections[nextIndex].$1;
       _keyword = '';
       _searchController.clear();
-      _selectingBlacklist = false;
-      _selectedBlacklistItems.clear();
     });
     _reloadForQuery();
   }
@@ -389,12 +491,7 @@ class _DbOnlineSubscriptionsPageState
       ],
       'actor' => <String>['fetch-list', 'run', 'share'],
       'series' => <String>['fetch-list', 'run', 'prefix'],
-      'blacklist' => <String>[
-        'blacklist-test',
-        'blacklist-add',
-        'blacklist-delete',
-        'share',
-      ],
+      'blacklist' => <String>['blacklist-test', 'blacklist-add', 'share'],
       _ => const <String>[],
     };
     final autoSyncEnabled =
@@ -414,21 +511,6 @@ class _DbOnlineSubscriptionsPageState
               style: AppText.pageTitle(context),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            tooltip: l.dbOnlineSubscriptionSettings,
-            onPressed: () => Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-            ),
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.surface,
-                border: Border.all(color: colors.cardBorder),
-              ),
-              child: Icon(Icons.settings, size: 18, color: colors.text),
             ),
           ),
           if (actions.isNotEmpty)
@@ -454,17 +536,38 @@ class _DbOnlineSubscriptionsPageState
                               ],
                             ],
                           )
-                        : Text(
-                            action == 'blacklist-delete' &&
-                                    _selectingBlacklist &&
-                                    _selectedBlacklistItems.isEmpty
-                                ? l.dbOnlineSubscriptionCancel
-                                : _headerActionLabel(action, l),
-                          ),
+                        : Text(_headerActionLabel(action, l)),
                   ),
               ],
-              icon: Icon(Icons.more_vert_rounded, color: colors.muted),
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.surface,
+                  border: Border.all(color: colors.cardBorder),
+                ),
+                child: Icon(
+                  Icons.more_vert_rounded,
+                  size: 18,
+                  color: colors.text,
+                ),
+              ),
             ),
+          IconButton(
+            tooltip: l.dbOnlineSubscriptionSettings,
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+            ),
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.surface,
+                border: Border.all(color: colors.cardBorder),
+              ),
+              child: Icon(Icons.settings, size: 18, color: colors.text),
+            ),
+          ),
         ],
       ),
     );
@@ -508,12 +611,11 @@ class _DbOnlineSubscriptionsPageState
             label: Text(section.$2),
             selected: section.$1 == _section,
             onSelected: (_) {
+              if (_section != section.$1) _blacklistSelection.exit();
               setState(() {
                 _section = section.$1;
                 _keyword = '';
                 _searchController.clear();
-                _selectingBlacklist = false;
-                _selectedBlacklistItems.clear();
               });
               _reloadForQuery();
             },
@@ -534,7 +636,6 @@ class _DbOnlineSubscriptionsPageState
     'prefix' => l.dbOnlineSubscriptionAddPrefix,
     'blacklist-test' => l.dbOnlineSubscriptionBlacklistTest,
     'blacklist-add' => l.dbOnlineSubscriptionBlacklistAdd,
-    'blacklist-delete' => l.dbOnlineSubscriptionDelete,
     _ => action,
   };
 
@@ -602,8 +703,9 @@ class _DbOnlineSubscriptionsPageState
   Widget _subscriptionRow(
     DbOnlineSubscriptionItem item,
     AppL10n l,
-    ServerConfig? serverConfig,
-  ) {
+    ServerConfig? serverConfig, {
+    bool selectedBlacklist = false,
+  }) {
     final videoCount = int.tryParse(item.data['video_count']?.toString() ?? '');
     final pendingCount = int.tryParse(
       item.data['pending_count']?.toString() ?? '',
@@ -616,14 +718,21 @@ class _DbOnlineSubscriptionsPageState
     );
     final isActor = _section == 'actor';
     final isEntitySubscription = isActor || _section == 'series';
+    final isBlacklist = _section == 'blacklist';
     final inactive = isEntitySubscription && !item.active;
     final data = item.data;
+    final blacklistRule =
+        data['video_code']?.toString().trim().isNotEmpty == true
+        ? data['video_code'].toString().trim()
+        : item.title;
+    final blacklistReason = data['reason']?.toString().trim() ?? '';
+    final blacklistCreatedAt = data['created_at']?.toString().trim() ?? '';
+    final blacklistIsWildcard = blacklistRule.contains('*');
     final imageUrl = _resolveSubscriptionImage(serverConfig, [
       data['actor_avatar'],
       data['avatar_url'],
     ]);
     final selectingBlacklist = _section == 'blacklist' && _selectingBlacklist;
-    final selectedBlacklist = _selectedBlacklistItems.containsKey(item.id);
     final entries = _rowMenuEntries(l);
     final stats = <Widget>[
       if (pendingCount != null && pendingCount > 0)
@@ -724,6 +833,75 @@ class _DbOnlineSubscriptionsPageState
                             overflow: TextOverflow.ellipsis,
                             style: AppText.cardTitle(context),
                           ),
+                          if (isBlacklist) ...[
+                            const SizedBox(height: 7),
+                            Wrap(
+                              spacing: 5,
+                              runSpacing: 5,
+                              children: [
+                                _subscriptionBadge(
+                                  data['entry_type'] == 'category'
+                                      ? l.dbOnlineSubscriptionBlacklistCategory
+                                      : l.dbOnlineSubscriptionBlacklistVideoCode,
+                                  const Color(0xFF4A9EFF),
+                                ),
+                                if (blacklistIsWildcard)
+                                  Tooltip(
+                                    message: l.dbOnlineSubscriptionWildcard,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFFFFC107,
+                                        ).withValues(alpha: 0.2),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFFFFC107,
+                                          ).withValues(alpha: 0.4),
+                                        ),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: const Icon(
+                                        Icons.bolt_rounded,
+                                        color: Color(0xFFFFC107),
+                                        size: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              '${l.dbOnlineSubscriptionRemark}: ${blacklistReason.isEmpty ? '—' : blacklistReason}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.meta(context),
+                            ),
+                            if (blacklistCreatedAt.isNotEmpty) ...[
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 12,
+                                    color: appColors(context).muted,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      '${l.detailCreatedAt}: $blacklistCreatedAt',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppText.meta(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                           if (stats.isNotEmpty) ...[
                             const SizedBox(height: 7),
                             Wrap(spacing: 6, runSpacing: 5, children: stats),
@@ -742,6 +920,16 @@ class _DbOnlineSubscriptionsPageState
                         color: appColors(context).muted,
                       ),
                     ],
+                    if (isBlacklist && !selectingBlacklist)
+                      IconButton(
+                        tooltip: l.dbOnlineSubscriptionDelete,
+                        onPressed: () => _removeBlacklistItem(item),
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.delete_outline_rounded,
+                          color: appColors(context).danger,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -774,7 +962,7 @@ class _DbOnlineSubscriptionsPageState
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _toggleBlacklistSelection(item),
+          onTap: () => _blacklistSelection.toggle(_blacklistItemKey(item)),
           child: card,
         ),
       );
@@ -907,16 +1095,7 @@ class _DbOnlineSubscriptionsPageState
         ),
       ];
     }
-    if (_section == 'blacklist') {
-      return [
-        _subscriptionMenuEntry(
-          'remove',
-          l.dbOnlineSubscriptionDelete,
-          Icons.remove_circle_outline_rounded,
-          color: danger,
-        ),
-      ];
-    }
+    if (_section == 'blacklist') return const [];
     if (_section == 'online') return const [];
     return [
       _subscriptionMenuEntry(
@@ -989,9 +1168,6 @@ class _DbOnlineSubscriptionsPageState
         return;
       case 'blacklist-test':
         await _testBlacklist();
-        return;
-      case 'blacklist-delete':
-        await _deleteSelectedBlacklistItems(l);
         return;
       case 'prefix':
         await _addSeriesPrefixes();
@@ -1137,25 +1313,13 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  void _toggleBlacklistSelection(DbOnlineSubscriptionItem item) {
-    setState(() {
-      if (_selectedBlacklistItems.remove(item.id) == null) {
-        _selectedBlacklistItems[item.id] = item;
-      }
-    });
-  }
-
   Future<void> _deleteSelectedBlacklistItems(AppL10n l) async {
-    if (_selectedBlacklistItems.isEmpty) {
-      final enteringSelection = !_selectingBlacklist;
-      setState(() => _selectingBlacklist = enteringSelection);
-      if (enteringSelection) {
-        _notify(l.dbOnlineSubscriptionSelectBlacklistItems);
-      }
-      return;
-    }
-
-    final selected = _selectedBlacklistItems.values.toList(growable: false);
+    final selectedIds = _blacklistSelection.selectedIds;
+    final selected =
+        (_pagingController.itemList ?? const <DbOnlineSubscriptionItem>[])
+            .where((item) => selectedIds.contains(_blacklistItemKey(item)))
+            .toList(growable: false);
+    if (selected.isEmpty) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1173,7 +1337,7 @@ class _DbOnlineSubscriptionsPageState
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     final deleted = await _perform(() async {
       for (final item in selected) {
@@ -1183,12 +1347,7 @@ class _DbOnlineSubscriptionsPageState
         );
       }
     });
-    if (deleted && mounted) {
-      setState(() {
-        _selectingBlacklist = false;
-        _selectedBlacklistItems.clear();
-      });
-    }
+    if (deleted && mounted) _blacklistSelection.exit();
   }
 
   Future<void> _runAllVideoSubscriptions() async {

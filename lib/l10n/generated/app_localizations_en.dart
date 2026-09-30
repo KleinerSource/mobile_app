@@ -7270,6 +7270,18 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionBlacklistCategory => 'Category rule';
 
   @override
+  String get dbOnlineSubscriptionWildcard => 'Wildcard';
+
+  @override
+  String get dbOnlineSubscriptionYes => 'Yes';
+
+  @override
+  String get dbOnlineSubscriptionNo => 'No';
+
+  @override
+  String get dbOnlineSubscriptionRemark => 'Note';
+
+  @override
   String get dbOnlineSubscriptionType => 'Entry type';
 
   @override

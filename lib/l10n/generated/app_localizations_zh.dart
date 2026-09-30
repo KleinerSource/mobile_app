@@ -7126,6 +7126,18 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionBlacklistCategory => '类别规则';
 
   @override
+  String get dbOnlineSubscriptionWildcard => '通配符';
+
+  @override
+  String get dbOnlineSubscriptionYes => '是';
+
+  @override
+  String get dbOnlineSubscriptionNo => '否';
+
+  @override
+  String get dbOnlineSubscriptionRemark => '备注';
+
+  @override
   String get dbOnlineSubscriptionType => '规则类型';
 
   @override

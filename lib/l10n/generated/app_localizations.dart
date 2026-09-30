@@ -13104,6 +13104,30 @@ abstract class AppL10n {
   /// **'类别规则'**
   String get dbOnlineSubscriptionBlacklistCategory;
 
+  /// No description provided for @dbOnlineSubscriptionWildcard.
+  ///
+  /// In zh, this message translates to:
+  /// **'通配符'**
+  String get dbOnlineSubscriptionWildcard;
+
+  /// No description provided for @dbOnlineSubscriptionYes.
+  ///
+  /// In zh, this message translates to:
+  /// **'是'**
+  String get dbOnlineSubscriptionYes;
+
+  /// No description provided for @dbOnlineSubscriptionNo.
+  ///
+  /// In zh, this message translates to:
+  /// **'否'**
+  String get dbOnlineSubscriptionNo;
+
+  /// No description provided for @dbOnlineSubscriptionRemark.
+  ///
+  /// In zh, this message translates to:
+  /// **'备注'**
+  String get dbOnlineSubscriptionRemark;
+
   /// No description provided for @dbOnlineSubscriptionType.
   ///
   /// In zh, this message translates to:
