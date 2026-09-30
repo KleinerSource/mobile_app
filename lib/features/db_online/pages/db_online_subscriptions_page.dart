@@ -18,7 +18,9 @@ import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
 class DbOnlineSubscriptionsPage extends ConsumerStatefulWidget {
@@ -44,6 +46,9 @@ class _DbOnlineSubscriptionsPageState
     _searchController.dispose();
     super.dispose();
   }
+
+  bool get _usesMovieCards =>
+      _section == 'pending' || _section == 'completed' || _section == 'online';
 
   @override
   Widget build(BuildContext context) {
@@ -158,15 +163,36 @@ class _DbOnlineSubscriptionsPageState
                       )
                     : SliverPadding(
                         padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                        sliver: SliverList.separated(
-                          itemCount: result.items.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) => _subscriptionRow(
-                            result.items[index],
-                            l,
-                            serverConfig,
-                          ),
-                        ),
+                        sliver: _usesMovieCards
+                            ? SliverGrid(
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 14,
+                                      childAspectRatio: MediaCardTemplate
+                                          .gridChildAspectRatio,
+                                    ),
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) => _movieSubscriptionCard(
+                                    result.items[index],
+                                    l,
+                                    serverConfig,
+                                  ),
+                                  childCount: result.items.length,
+                                ),
+                              )
+                            : SliverList.separated(
+                                itemCount: result.items.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, index) =>
+                                    _subscriptionRow(
+                                      result.items[index],
+                                      l,
+                                      serverConfig,
+                                    ),
+                              ),
                       ),
               ),
             if (page != null)
@@ -417,65 +443,108 @@ class _DbOnlineSubscriptionsPageState
         '${l.dbOnlineSubscriptionCompleted}: $completedCount',
     ].join(' · ');
     final isActor = _section == 'actor';
-    final showArtwork =
-        isActor || _section == 'pending' || _section == 'completed';
-    final imageUrl = _resolveSubscriptionImage(
-      serverConfig,
-      isActor
-          ? [item.data['actor_avatar'], item.data['avatar_url']]
-          : [item.data['thumb_url'], item.data['cover_url']],
-    );
-    return Container(
+    final imageUrl = _resolveSubscriptionImage(serverConfig, [
+      item.data['actor_avatar'],
+      item.data['avatar_url'],
+    ]);
+    final entries = _rowMenuEntries(l);
+    final card = Container(
       decoration: settingsCardDecoration(context),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: _section == 'actor' || _section == 'series'
-              ? () => _openEntityVideos(item)
-              : null,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showArtwork) ...[
-                  _SubscriptionCardArtwork(
-                    imageUrl: imageUrl,
-                    isActor: isActor,
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isActor) ...[
+                _SubscriptionCardArtwork(imageUrl: imageUrl, isActor: true),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title.isEmpty ? item.id : item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.cardTitle(context),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 5),
                       Text(
-                        item.title.isEmpty ? item.id : item.title,
+                        subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.cardTitle(context),
+                        style: AppText.meta(context),
                       ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 5),
-                        Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.meta(context),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                _rowActions(item, l),
+              ),
+              if (_section == 'actor' || _section == 'series') ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: appColors(context).muted,
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
+    );
+    if (entries.isEmpty) return card;
+    return GlassMenuAnchor<String>(
+      width: 232,
+      entries: entries,
+      onSelected: (action) => _handleItemAction(action, item, l),
+      onAnchorTap: _section == 'actor' || _section == 'series'
+          ? () => _openEntityVideos(item)
+          : () {},
+      child: card,
+    );
+  }
+
+  Widget _movieSubscriptionCard(
+    DbOnlineSubscriptionItem item,
+    AppL10n l,
+    ServerConfig? serverConfig,
+  ) {
+    final imageUrl = _resolveSubscriptionImage(serverConfig, [
+      item.data['thumb_url'],
+      item.data['cover_url'],
+      item.data['image_url'],
+    ]);
+    final onlineCode = item.kind == 'online'
+        ? item.data['number']?.toString().trim()
+        : null;
+    final meta = [
+      if (item.data['release_date']?.toString().trim().isNotEmpty == true)
+        item.data['release_date'].toString(),
+      if (item.status.isNotEmpty) _subscriptionQueueStatusLabel(item.status, l),
+    ].join(' · ');
+    final entries = _rowMenuEntries(l);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final card = CatalogMovieCard(
+          title: item.title,
+          code: onlineCode?.isNotEmpty == true ? onlineCode : item.id,
+          imageUrl: imageUrl,
+          meta: meta,
+          width: constraints.maxWidth,
+        );
+        if (entries.isEmpty) return card;
+        return GlassMenuAnchor<String>(
+          width: 232,
+          entries: entries,
+          onSelected: (action) => _handleItemAction(action, item, l),
+          onAnchorTap: () {},
+          child: card,
+        );
+      },
     );
   }
 
@@ -493,72 +562,70 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  Widget _rowActions(DbOnlineSubscriptionItem item, AppL10n l) {
+  List<GlassMenuEntry<String>> _rowMenuEntries(AppL10n l) {
+    final danger = appColors(context).danger;
     if (_section == 'pending' || _section == 'completed') {
       final restoring = _section == 'completed';
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: restoring
-                ? l.dbOnlineSubscriptionPendingStatus
-                : l.dbOnlineSubscriptionSkipped,
-            onPressed: _busy
-                ? null
-                : () => _updateQueueStatus(
-                    item.id,
-                    restoring ? 'pending' : 'skipped',
-                  ),
-            icon: Icon(
-              restoring ? Icons.restart_alt_rounded : Icons.skip_next_rounded,
-            ),
+      return [
+        if (!restoring)
+          _subscriptionMenuEntry(
+            'complete',
+            l.dbOnlineSubscriptionCompleted,
+            Icons.done_all_rounded,
+          )
+        else
+          _subscriptionMenuEntry(
+            'pending',
+            l.dbOnlineSubscriptionPendingStatus,
+            Icons.restart_alt_rounded,
           ),
-          PopupMenuButton<String>(
-            onSelected: (action) => _handleItemAction(action, item, l),
-            itemBuilder: (context) => [
-              if (!restoring)
-                PopupMenuItem(
-                  value: 'complete',
-                  child: Text(l.dbOnlineSubscriptionCompleted),
-                ),
-              PopupMenuItem(
-                value: 'edit',
-                child: Text(l.dbOnlineSubscriptionEdit),
-              ),
-              PopupMenuItem(
-                value: 'check',
-                child: Text(l.dbOnlineSubscriptionCheck),
-              ),
-              PopupMenuItem(
-                value: 'delete',
-                child: Text(l.dbOnlineSubscriptionDelete),
-              ),
-            ],
-            icon: const Icon(Icons.more_horiz_rounded),
-          ),
-        ],
-      );
+        _subscriptionMenuEntry(
+          'edit',
+          l.dbOnlineSubscriptionEdit,
+          Icons.edit_outlined,
+        ),
+        _subscriptionMenuEntry(
+          'check',
+          l.dbOnlineSubscriptionCheck,
+          Icons.refresh_rounded,
+        ),
+        _subscriptionMenuEntry(
+          'delete',
+          l.dbOnlineSubscriptionDelete,
+          Icons.delete_outline_rounded,
+          color: danger,
+        ),
+      ];
     }
     if (_section == 'blacklist') {
-      return IconButton(
-        tooltip: l.dbOnlineSubscriptionRemove,
-        onPressed: _busy ? null : () => _removeBlacklistItem(item),
-        icon: const Icon(Icons.remove_circle_outline_rounded),
-      );
-    }
-    if (_section == 'online') return const SizedBox(width: 8);
-    return PopupMenuButton<String>(
-      onSelected: (action) => _handleItemAction(action, item, l),
-      itemBuilder: (context) => [
-        PopupMenuItem(value: 'edit', child: Text(l.dbOnlineSubscriptionEdit)),
-        PopupMenuItem(value: 'check', child: Text(l.dbOnlineSubscriptionCheck)),
-        PopupMenuItem(
-          value: 'delete',
-          child: Text(l.dbOnlineSubscriptionDelete),
+      return [
+        _subscriptionMenuEntry(
+          'remove',
+          l.dbOnlineSubscriptionRemove,
+          Icons.remove_circle_outline_rounded,
+          color: danger,
         ),
-      ],
-      icon: const Icon(Icons.more_horiz_rounded),
-    );
+      ];
+    }
+    if (_section == 'online') return const [];
+    return [
+      _subscriptionMenuEntry(
+        'edit',
+        l.dbOnlineSubscriptionEdit,
+        Icons.edit_outlined,
+      ),
+      _subscriptionMenuEntry(
+        'check',
+        l.dbOnlineSubscriptionCheck,
+        Icons.refresh_rounded,
+      ),
+      _subscriptionMenuEntry(
+        'delete',
+        l.dbOnlineSubscriptionDelete,
+        Icons.delete_outline_rounded,
+        color: danger,
+      ),
+    ];
   }
 
   Widget _pagination(DbOnlineSubscriptionPage result, AppL10n l) {
@@ -664,6 +731,12 @@ class _DbOnlineSubscriptionsPageState
         return;
       case 'complete':
         await _updateQueueStatus(item.id, 'completed');
+        return;
+      case 'pending':
+        await _updateQueueStatus(item.id, 'pending');
+        return;
+      case 'remove':
+        await _removeBlacklistItem(item);
         return;
     }
   }
@@ -1477,12 +1550,19 @@ class _DbOnlineSubscriptionVideosSheetState
                               ),
                             ],
                           )
-                        : ListView.separated(
+                        : GridView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: page.items.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, index) => _videoRow(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 14,
+                                  childAspectRatio:
+                                      MediaCardTemplate.gridChildAspectRatio,
+                                ),
+                            itemBuilder: (context, index) => _videoCard(
                               page.items[index],
                               l,
                               query,
@@ -1523,14 +1603,13 @@ class _DbOnlineSubscriptionVideosSheetState
     );
   }
 
-  Widget _videoRow(
+  Widget _videoCard(
     DbOnlineSubscriptionItem item,
     AppL10n l,
     DbOnlineSubscriptionQuery query,
     ServerConfig? serverConfig,
   ) {
-    final subtitle = [
-      if (item.id.isNotEmpty) item.id,
+    final releaseDate = [
       if (item.data['release_date']?.toString().isNotEmpty == true)
         item.data['release_date'].toString(),
     ].join(' · ');
@@ -1538,54 +1617,32 @@ class _DbOnlineSubscriptionVideosSheetState
       item.data['thumb_url'],
       item.data['cover_url'],
     ]);
-    return Container(
-      decoration: settingsCardDecoration(context),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-        child: Row(
-          children: [
-            _SubscriptionCardArtwork(imageUrl: imageUrl),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title.isEmpty ? item.id : item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.cardTitle(context),
-                  ),
-                  if (subtitle.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.meta(context),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 4),
-            PopupMenuButton<String>(
-              onSelected: (status) => _updateStatus(item, status, query, l),
-              itemBuilder: (context) => [
-                for (final status in _statuses.where(
-                  (value) => value != item.status,
-                ))
-                  PopupMenuItem(
-                    value: status,
-                    child: Text(switch (status) {
-                      'pending' => l.dbOnlineSubscriptionPendingStatus,
-                      'completed' => l.dbOnlineSubscriptionCompleted,
-                      _ => l.dbOnlineSubscriptionSkipped,
-                    }),
-                  ),
-              ],
-            ),
-          ],
+    final meta = [
+      if (releaseDate.isNotEmpty) releaseDate,
+      if (item.status.isNotEmpty) _subscriptionQueueStatusLabel(item.status, l),
+    ].join(' · ');
+    final menuEntries = [
+      for (final status in _statuses.where(
+        (value) => value != item.status && value != 'skipped',
+      ))
+        _subscriptionMenuEntry(
+          status,
+          _subscriptionQueueStatusLabel(status, l),
+          status == 'pending' ? Icons.schedule_rounded : Icons.done_all_rounded,
+        ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) => GlassMenuAnchor<String>(
+        width: 232,
+        entries: menuEntries,
+        onSelected: (status) => _updateStatus(item, status, query, l),
+        onAnchorTap: () {},
+        child: CatalogMovieCard(
+          title: item.title,
+          code: item.id,
+          imageUrl: imageUrl,
+          meta: meta,
+          width: constraints.maxWidth,
         ),
       ),
     );
@@ -2105,3 +2162,27 @@ class _SubscriptionCardArtwork extends StatelessWidget {
     );
   }
 }
+
+GlassMenuEntry<String> _subscriptionMenuEntry(
+  String value,
+  String label,
+  IconData icon, {
+  Color? color,
+}) => GlassMenuEntry<String>.action(
+  value: value,
+  builder: (context, selected, onTap) => GlassMenuRow(
+    icon: icon,
+    label: label,
+    selected: selected,
+    foregroundColor: color,
+    onTap: onTap,
+  ),
+);
+
+String _subscriptionQueueStatusLabel(String status, AppL10n l) =>
+    switch (status) {
+      'pending' => l.dbOnlineSubscriptionPendingStatus,
+      'completed' => l.dbOnlineSubscriptionCompleted,
+      'skipped' => l.dbOnlineSubscriptionSkipped,
+      _ => status,
+    };
