@@ -82,7 +82,10 @@ class DboSubscriptionRepository {
     };
 
     final keys = switch (query.kind) {
-      'pending' || 'completed' => const ['items', 'videos'],
+      'pending' ||
+      'completed' ||
+      'actor-videos' ||
+      'series-videos' => const ['items', 'videos'],
       'online' => const ['movies', 'items'],
       'actor' => const ['subscriptions', 'actors', 'items'],
       'series' => const ['subscriptions', 'series', 'items'],

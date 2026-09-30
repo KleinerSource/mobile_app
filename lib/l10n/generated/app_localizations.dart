@@ -12834,11 +12834,23 @@ abstract class AppL10n {
   /// **'待处理'**
   String get dbOnlineSubscriptionPending;
 
+  /// No description provided for @dbOnlineSubscriptionPendingBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅中'**
+  String get dbOnlineSubscriptionPendingBadge;
+
   /// No description provided for @dbOnlineSubscriptionCompleted.
   ///
   /// In zh, this message translates to:
   /// **'已完成'**
   String get dbOnlineSubscriptionCompleted;
+
+  /// No description provided for @dbOnlineSubscriptionOverdue.
+  ///
+  /// In zh, this message translates to:
+  /// **'超期'**
+  String get dbOnlineSubscriptionOverdue;
 
   /// No description provided for @dbOnlineSubscriptionOnline.
   ///
@@ -13109,6 +13121,30 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'已跳过'**
   String get dbOnlineSubscriptionSkipped;
+
+  /// No description provided for @dbOnlineSubscriptionWashShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'洗'**
+  String get dbOnlineSubscriptionWashShort;
+
+  /// No description provided for @dbOnlineSubscriptionPreDownloadShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'预'**
+  String get dbOnlineSubscriptionPreDownloadShort;
+
+  /// No description provided for @dbOnlineSubscriptionSubtitleShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'字'**
+  String get dbOnlineSubscriptionSubtitleShort;
+
+  /// No description provided for @dbOnlineSubscriptionUncensoredShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'破'**
+  String get dbOnlineSubscriptionUncensoredShort;
 
   /// No description provided for @dbOnlineSubscriptionQualityNormal.
   ///

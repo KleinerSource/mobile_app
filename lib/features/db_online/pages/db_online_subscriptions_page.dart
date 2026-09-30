@@ -168,7 +168,7 @@ class _DbOnlineSubscriptionsPageState
                             ? SliverGrid(
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
+                                      crossAxisCount: 3,
                                       crossAxisSpacing: 12,
                                       mainAxisSpacing: 14,
                                       childAspectRatio: MediaCardTemplate
@@ -530,23 +530,23 @@ class _DbOnlineSubscriptionsPageState
     final onlineCode = item.kind == 'online'
         ? item.data['number']?.toString().trim()
         : null;
-    final meta = [
-      if (item.data['release_date']?.toString().trim().isNotEmpty == true)
-        item.data['release_date'].toString(),
-      if (item.status.isNotEmpty) _subscriptionQueueStatusLabel(item.status, l),
-    ].join(' · ');
+    final meta = item.data['release_date']?.toString().trim() ?? '';
     final entries = _rowMenuEntries(l);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final card = CatalogMovieCard(
-          title: item.title,
-          code: onlineCode?.isNotEmpty == true ? onlineCode : item.id,
-          imageUrl: imageUrl,
-          meta: meta,
-          width: constraints.maxWidth,
-          onTap: entries.isEmpty
-              ? () => _openSubscriptionMovieDetail(context, item)
-              : null,
+        final card = _withSubscriptionMovieBadges(
+          CatalogMovieCard(
+            title: item.title,
+            code: onlineCode?.isNotEmpty == true ? onlineCode : item.id,
+            imageUrl: imageUrl,
+            meta: meta,
+            width: constraints.maxWidth,
+            onTap: entries.isEmpty
+                ? () => _openSubscriptionMovieDetail(context, item)
+                : null,
+          ),
+          item,
+          l,
         );
         if (entries.isEmpty) return card;
         return GlassMenuAnchor<String>(
@@ -1426,6 +1426,138 @@ void _openSubscriptionMovieDetail(
   );
 }
 
+Widget _withSubscriptionMovieBadges(
+  Widget child,
+  DbOnlineSubscriptionItem item,
+  AppL10n l,
+) {
+  final data = item.data;
+  final status = item.status;
+  final overdue = data['overdue'] == true;
+  final matchedFlags =
+      int.tryParse(data['matched_flags']?.toString() ?? '') ?? 0;
+  final badges = <Widget>[];
+
+  if (overdue) {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionOverdue,
+        const Color(0xFFF97316),
+      ),
+    );
+  } else if (status == 'completed') {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionCompleted,
+        const Color(0xFF22C55E),
+      ),
+    );
+  } else if (status == 'pending') {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionPendingBadge,
+        const Color(0xFFFACC15),
+      ),
+    );
+  } else if (status == 'skipped') {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionSkipped,
+        const Color(0xFFEF4444),
+      ),
+    );
+  }
+
+  if (data['wash_mode'] == true) {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionWashShort,
+        const Color(0xFFA855F7),
+        matched: status == 'completed',
+      ),
+    );
+  }
+  if (data['pre_download_mode'] == true) {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionPreDownloadShort,
+        const Color(0xFF00C878),
+        matched: matchedFlags != 0,
+      ),
+    );
+  }
+  final quality = data['quality']?.toString().toLowerCase();
+  if (quality == 'hd') {
+    badges.add(
+      _subscriptionBadge(
+        'HD',
+        const Color(0xFF00CFE8),
+        matched: (matchedFlags & 2) != 0,
+      ),
+    );
+  } else if (quality == 'uhd') {
+    badges.add(
+      _subscriptionBadge(
+        'UHD',
+        const Color(0xFF4A9EFF),
+        matched: (matchedFlags & 4) != 0,
+      ),
+    );
+  }
+  if (data['require_sub'] == true) {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionSubtitleShort,
+        const Color(0xFFFFC107),
+        matched: (matchedFlags & 8) != 0,
+      ),
+    );
+  }
+  if (data['require_uncensored'] == true) {
+    badges.add(
+      _subscriptionBadge(
+        l.dbOnlineSubscriptionUncensoredShort,
+        const Color(0xFFFF0050),
+        matched: (matchedFlags & 16) != 0,
+      ),
+    );
+  }
+  if (badges.isEmpty) return child;
+
+  return Stack(
+    children: [
+      child,
+      Positioned(
+        top: 5,
+        left: 5,
+        right: 5,
+        child: IgnorePointer(
+          child: Wrap(spacing: 3, runSpacing: 3, children: badges),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _subscriptionBadge(String label, Color color, {bool matched = true}) =>
+    Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: matched ? color.withValues(alpha: 0.82) : Colors.black54,
+        border: Border.all(color: color.withValues(alpha: 0.9)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: matched ? Colors.white : color,
+          fontSize: 9,
+          height: 1,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+
 class DbOnlineSubscriptionVideosSheet extends ConsumerStatefulWidget {
   const DbOnlineSubscriptionVideosSheet({
     super.key,
@@ -1587,7 +1719,7 @@ class _DbOnlineSubscriptionVideosSheetState
                             itemCount: page.items.length,
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
+                                  crossAxisCount: 3,
                                   crossAxisSpacing: 12,
                                   mainAxisSpacing: 14,
                                   childAspectRatio:
@@ -1648,10 +1780,7 @@ class _DbOnlineSubscriptionVideosSheetState
       item.data['thumb_url'],
       item.data['cover_url'],
     ]);
-    final meta = [
-      if (releaseDate.isNotEmpty) releaseDate,
-      if (item.status.isNotEmpty) _subscriptionQueueStatusLabel(item.status, l),
-    ].join(' · ');
+    final meta = releaseDate;
     final menuEntries = [
       for (final status in _statuses.where(
         (value) => value != item.status && value != 'skipped',
@@ -1668,12 +1797,16 @@ class _DbOnlineSubscriptionVideosSheetState
         entries: menuEntries,
         onSelected: (status) => _updateStatus(item, status, query, l),
         onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
-        child: CatalogMovieCard(
-          title: item.title,
-          code: item.id,
-          imageUrl: imageUrl,
-          meta: meta,
-          width: constraints.maxWidth,
+        child: _withSubscriptionMovieBadges(
+          CatalogMovieCard(
+            title: item.title,
+            code: item.id,
+            imageUrl: imageUrl,
+            meta: meta,
+            width: constraints.maxWidth,
+          ),
+          item,
+          l,
         ),
       ),
     );

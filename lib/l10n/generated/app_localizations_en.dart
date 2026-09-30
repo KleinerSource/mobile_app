@@ -7133,7 +7133,13 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionPending => 'Pending';
 
   @override
+  String get dbOnlineSubscriptionPendingBadge => 'Pending';
+
+  @override
   String get dbOnlineSubscriptionCompleted => 'Completed';
+
+  @override
+  String get dbOnlineSubscriptionOverdue => 'Overdue';
 
   @override
   String get dbOnlineSubscriptionOnline => 'Online';
@@ -7270,6 +7276,18 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get dbOnlineSubscriptionSkipped => 'Skipped';
+
+  @override
+  String get dbOnlineSubscriptionWashShort => 'RE';
+
+  @override
+  String get dbOnlineSubscriptionPreDownloadShort => 'PRE';
+
+  @override
+  String get dbOnlineSubscriptionSubtitleShort => 'SUB';
+
+  @override
+  String get dbOnlineSubscriptionUncensoredShort => 'UMR';
 
   @override
   String get dbOnlineSubscriptionQualityNormal => 'Any';
