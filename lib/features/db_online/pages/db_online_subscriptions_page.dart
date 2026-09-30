@@ -1,15 +1,19 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/url_resolver.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -43,8 +47,8 @@ class _DbOnlineSubscriptionsPageState
 
   @override
   Widget build(BuildContext context) {
-    final serverId =
-        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final serverConfig = ref.watch(mediaRuntimeConfigProvider);
+    final serverId = serverConfig?.activeServerId ?? '';
     final capabilities = ref.watch(
       dbOnlineSubscriptionCapabilitiesProvider(serverId),
     );
@@ -55,7 +59,7 @@ class _DbOnlineSubscriptionsPageState
         child: capabilities.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => _capabilityError(error, serverId),
-          data: (value) => _content(value, serverId),
+          data: (value) => _content(value, serverId, serverConfig),
         ),
       ),
     );
@@ -88,6 +92,7 @@ class _DbOnlineSubscriptionsPageState
   Widget _content(
     DbOnlineSubscriptionCapabilities capabilities,
     String serverId,
+    ServerConfig? serverConfig,
   ) {
     final l = AppL10n.of(context);
     final sections = _sections(l, capabilities);
@@ -156,8 +161,11 @@ class _DbOnlineSubscriptionsPageState
                         sliver: SliverList.separated(
                           itemCount: result.items.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) =>
-                              _subscriptionRow(result.items[index], l),
+                          itemBuilder: (context, index) => _subscriptionRow(
+                            result.items[index],
+                            l,
+                            serverConfig,
+                          ),
                         ),
                       ),
               ),
@@ -380,7 +388,11 @@ class _DbOnlineSubscriptionsPageState
     );
   }
 
-  Widget _subscriptionRow(DbOnlineSubscriptionItem item, AppL10n l) {
+  Widget _subscriptionRow(
+    DbOnlineSubscriptionItem item,
+    AppL10n l,
+    ServerConfig? serverConfig,
+  ) {
     final status = item.status;
     final videoCount = int.tryParse(item.data['video_count']?.toString() ?? '');
     final pendingCount = int.tryParse(
@@ -404,6 +416,15 @@ class _DbOnlineSubscriptionsPageState
       if (completedCount != null && completedCount > 0)
         '${l.dbOnlineSubscriptionCompleted}: $completedCount',
     ].join(' · ');
+    final isActor = _section == 'actor';
+    final showArtwork =
+        isActor || _section == 'pending' || _section == 'completed';
+    final imageUrl = _resolveSubscriptionImage(
+      serverConfig,
+      isActor
+          ? [item.data['actor_avatar'], item.data['avatar_url']]
+          : [item.data['thumb_url'], item.data['cover_url']],
+    );
     return Container(
       decoration: settingsCardDecoration(context),
       child: Material(
@@ -419,6 +440,13 @@ class _DbOnlineSubscriptionsPageState
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (showArtwork) ...[
+                  _SubscriptionCardArtwork(
+                    imageUrl: imageUrl,
+                    isActor: isActor,
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1330,8 +1358,8 @@ class _DbOnlineSubscriptionVideosSheetState
 
   @override
   Widget build(BuildContext context) {
-    final serverId =
-        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final serverConfig = ref.watch(mediaRuntimeConfigProvider);
+    final serverId = serverConfig?.activeServerId ?? '';
     final query = DbOnlineSubscriptionQuery(
       serverId: serverId,
       kind: widget.kind == 'actor' ? 'actor-videos' : 'series-videos',
@@ -1454,8 +1482,12 @@ class _DbOnlineSubscriptionVideosSheetState
                             itemCount: page.items.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 8),
-                            itemBuilder: (context, index) =>
-                                _videoRow(page.items[index], l, query),
+                            itemBuilder: (context, index) => _videoRow(
+                              page.items[index],
+                              l,
+                              query,
+                              serverConfig,
+                            ),
                           ),
                   ),
                 ),
@@ -1495,18 +1527,25 @@ class _DbOnlineSubscriptionVideosSheetState
     DbOnlineSubscriptionItem item,
     AppL10n l,
     DbOnlineSubscriptionQuery query,
+    ServerConfig? serverConfig,
   ) {
     final subtitle = [
       if (item.id.isNotEmpty) item.id,
       if (item.data['release_date']?.toString().isNotEmpty == true)
         item.data['release_date'].toString(),
     ].join(' · ');
+    final imageUrl = _resolveSubscriptionImage(serverConfig, [
+      item.data['thumb_url'],
+      item.data['cover_url'],
+    ]);
     return Container(
       decoration: settingsCardDecoration(context),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
         child: Row(
           children: [
+            _SubscriptionCardArtwork(imageUrl: imageUrl),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2014,3 +2053,55 @@ Map<String, dynamic> _mapValue(Object? raw) =>
 String _stringList(Object? raw) => raw is List
     ? raw.map((item) => item.toString()).join(', ')
     : raw?.toString() ?? '';
+
+String? _resolveSubscriptionImage(
+  ServerConfig? config,
+  List<Object?> candidates,
+) {
+  if (config == null) return null;
+  for (final candidate in candidates) {
+    final value = candidate?.toString().trim() ?? '';
+    if (value.isNotEmpty) return resolveServerUrl(config, value);
+  }
+  return null;
+}
+
+class _SubscriptionCardArtwork extends StatelessWidget {
+  const _SubscriptionCardArtwork({this.imageUrl, this.isActor = false});
+
+  final String? imageUrl;
+  final bool isActor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final fallback = Center(
+      child: Icon(
+        isActor ? Icons.person_outline_rounded : Icons.movie_outlined,
+        size: 22,
+        color: colors.muted,
+      ),
+    );
+    final source = imageUrl?.trim() ?? '';
+    return Container(
+      width: isActor ? 56 : 58,
+      height: isActor ? 56 : 82,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colors.chipBg,
+        shape: isActor ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: isActor ? null : BorderRadius.circular(10),
+        border: Border.all(color: colors.cardBorder),
+      ),
+      child: source.isEmpty
+          ? fallback
+          : CachedNetworkImage(
+              cacheManager: AppImageCacheManager.instance,
+              imageUrl: source,
+              fit: BoxFit.cover,
+              placeholder: (_, _) => fallback,
+              errorWidget: (_, _, _) => fallback,
+            ),
+    );
+  }
+}
