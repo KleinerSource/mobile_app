@@ -7199,10 +7199,10 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionQuality => 'Quality';
 
   @override
-  String get dbOnlineSubscriptionSubtitle => 'Require subtitles';
+  String get dbOnlineSubscriptionSubtitle => 'Subtitles';
 
   @override
-  String get dbOnlineSubscriptionUncensored => 'Require uncensored';
+  String get dbOnlineSubscriptionUncensored => 'Uncensored';
 
   @override
   String get dbOnlineSubscriptionSave => 'Save';
@@ -7316,10 +7316,22 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionTitle => 'Subscription actions';
 
   @override
-  String get dbOnlineSubscriptionPreDownload => 'Pre-download mode';
+  String get dbOnlineSubscriptionPreDownload => 'Pre-download';
 
   @override
-  String get dbOnlineSubscriptionWashMode => 'Wash mode';
+  String get dbOnlineSubscriptionWashMode => 'Wash';
+
+  @override
+  String get dbOnlineSubscriptionDownloadMode => 'Download mode';
+
+  @override
+  String get dbOnlineSubscriptionStrictMode => 'Strict';
+
+  @override
+  String get dbOnlineSubscriptionFileSize => 'File size';
+
+  @override
+  String get dbOnlineSubscriptionOtherLimits => 'Other limits';
 
   @override
   String get dbOnlineSubscriptionMinimumSize => 'Minimum size (MB)';

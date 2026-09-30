@@ -1920,15 +1920,6 @@ class _DbOnlineSubscriptionEditorState
   late final TextEditingController _excludeCategories = TextEditingController(
     text: _stringList(widget.initial['exclude_categories']),
   );
-  late final TextEditingController _downloader = TextEditingController(
-    text: _value(const ['downloader']),
-  );
-  late final TextEditingController _savePath = TextEditingController(
-    text: _value(const ['save_path']),
-  );
-  late final TextEditingController _deviceTarget = TextEditingController(
-    text: _value(const ['device_target']),
-  );
   late String _quality = _value(const ['quality']);
   late bool _active =
       (widget.initial['enabled'] ?? widget.initial['active']) != false;
@@ -1957,9 +1948,6 @@ class _DbOnlineSubscriptionEditorState
       _overdueDays,
       _includeCategories,
       _excludeCategories,
-      _downloader,
-      _savePath,
-      _deviceTarget,
     ]) {
       controller.dispose();
     }
@@ -2010,40 +1998,57 @@ class _DbOnlineSubscriptionEditorState
                   readOnly: widget.isEdit,
                 ),
               ],
-              _field(_startDate, l.dbOnlineSubscriptionStartDate),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              _sectionTitle(l.dbOnlineSubscriptionDownloadMode),
+              Row(
                 children: [
-                  Text(
-                    l.dbOnlineSubscriptionQuality,
-                    style: AppText.meta(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
+                  Expanded(
+                    child: _choiceButton(
+                      l.dbOnlineSubscriptionStrictMode,
+                      !_preDownload,
+                      _qualityColor('primary'),
+                      () => setState(() => _preDownload = false),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<String>(
-                    showSelectedIcon: false,
-                    segments: [
-                      ButtonSegment(
-                        value: '',
-                        label: Text(l.dbOnlineSubscriptionQualityNormal),
-                      ),
-                      ButtonSegment(
-                        value: 'hd',
-                        label: Text(l.dbOnlineSubscriptionQualityHd),
-                      ),
-                      ButtonSegment(
-                        value: 'uhd',
-                        label: Text(l.dbOnlineSubscriptionQualityUhd),
-                      ),
-                    ],
-                    selected: {
-                      const ['', 'hd', 'uhd'].contains(_quality)
-                          ? _quality
-                          : '',
-                    },
-                    onSelectionChanged: (selection) =>
-                        setState(() => _quality = selection.first),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _choiceButton(
+                      l.dbOnlineSubscriptionPreDownload,
+                      _preDownload,
+                      _qualityColor('info'),
+                      () => setState(() => _preDownload = true),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _sectionTitle(l.dbOnlineSubscriptionQuality),
+              Row(
+                children: [
+                  Expanded(
+                    child: _choiceButton(
+                      l.dbOnlineSubscriptionQualityNormal,
+                      _quality.isEmpty,
+                      _qualityColor('neutral'),
+                      () => setState(() => _quality = ''),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _choiceButton(
+                      l.dbOnlineSubscriptionQualityHd,
+                      _quality == 'hd',
+                      _qualityColor('primary'),
+                      () => setState(() => _quality = 'hd'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _choiceButton(
+                      l.dbOnlineSubscriptionQualityUhd,
+                      _quality == 'uhd',
+                      _qualityColor('info'),
+                      () => setState(() => _quality = 'uhd'),
+                    ),
                   ),
                 ],
               ),
@@ -2061,43 +2066,62 @@ class _DbOnlineSubscriptionEditorState
                   _toggleButton(
                     l.dbOnlineSubscriptionSubtitle,
                     _requireSub,
-                    const Color(0xFFFFC107),
+                    _qualityColor('warning'),
                     () => setState(() => _requireSub = !_requireSub),
                   ),
                   _toggleButton(
                     l.dbOnlineSubscriptionUncensored,
                     _requireUncensored,
-                    const Color(0xFFFF4081),
+                    _qualityColor('danger'),
                     () => setState(
                       () => _requireUncensored = !_requireUncensored,
                     ),
                   ),
                   _toggleButton(
-                    l.dbOnlineSubscriptionPreDownload,
-                    _preDownload,
-                    const Color(0xFF00C878),
-                    () => setState(() => _preDownload = !_preDownload),
-                  ),
-                  _toggleButton(
                     l.dbOnlineSubscriptionWashMode,
                     _washMode,
-                    const Color(0xFFA855F7),
+                    _qualityColor('secondary'),
                     () => setState(() => _washMode = !_washMode),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              _field(
-                _minimum,
-                l.dbOnlineSubscriptionMinimumSize,
-                numeric: true,
+              _sectionTitle(l.dbOnlineSubscriptionFileSize),
+              Row(
+                children: [
+                  Expanded(
+                    child: _field(
+                      _minimum,
+                      l.dbOnlineSubscriptionMinimumSize,
+                      numeric: true,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _field(
+                      _maximum,
+                      l.dbOnlineSubscriptionMaximumSize,
+                      numeric: true,
+                    ),
+                  ),
+                ],
               ),
-              _field(
-                _maximum,
-                l.dbOnlineSubscriptionMaximumSize,
-                numeric: true,
+              _sectionTitle(l.dbOnlineSubscriptionOtherLimits),
+              Row(
+                children: [
+                  Expanded(
+                    child: _field(
+                      _fileCount,
+                      l.dbOnlineSubscriptionMaxFiles,
+                      numeric: true,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _field(_startDate, l.dbOnlineSubscriptionStartDate),
+                  ),
+                ],
               ),
-              _field(_fileCount, l.dbOnlineSubscriptionMaxFiles, numeric: true),
               _field(
                 _overdueDays,
                 l.dbOnlineSubscriptionOverdueDays,
@@ -2113,9 +2137,6 @@ class _DbOnlineSubscriptionEditorState
                   l.dbOnlineSubscriptionExcludeCategories,
                 ),
               ],
-              _field(_downloader, l.dbOnlineSubscriptionDownloader),
-              _field(_savePath, l.dbOnlineSubscriptionSavePath),
-              _field(_deviceTarget, l.dbOnlineSubscriptionDevice),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _save,
@@ -2137,27 +2158,52 @@ class _DbOnlineSubscriptionEditorState
     bool selected,
     Color color,
     VoidCallback onPressed,
+  ) => _choiceButton(label, selected, color, onPressed);
+
+  Widget _choiceButton(
+    String label,
+    bool selected,
+    Color color,
+    VoidCallback onPressed,
   ) {
-    final colors = appColors(context);
-    return OutlinedButton.icon(
+    return OutlinedButton(
       onPressed: onPressed,
-      icon: Icon(
-        selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-        size: 18,
-      ),
-      label: Text(label),
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       style: OutlinedButton.styleFrom(
-        foregroundColor: selected ? color : colors.muted,
+        foregroundColor: selected ? color : color.withValues(alpha: 0.55),
         backgroundColor: selected
             ? color.withValues(alpha: 0.12)
             : Colors.transparent,
         side: BorderSide(
-          color: selected ? color.withValues(alpha: 0.75) : colors.divider,
+          color: selected
+              ? color.withValues(alpha: 0.75)
+              : color.withValues(alpha: 0.3),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+  }
+
+  Widget _sectionTitle(String title) => Padding(
+    padding: const EdgeInsets.only(top: 8, bottom: 8),
+    child: Text(
+      title,
+      style: AppText.meta(context).copyWith(fontWeight: FontWeight.w700),
+    ),
+  );
+
+  Color _qualityColor(String tone) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return switch (tone) {
+      'primary' => isDark ? const Color(0xFF00F3FF) : const Color(0xFF0099AA),
+      'info' => isDark ? const Color(0xFF4A9EFF) : const Color(0xFF3B82F6),
+      'neutral' => const Color(0xFF8B95A8),
+      'warning' => isDark ? const Color(0xFFFFC107) : const Color(0xFFF59E0B),
+      'danger' => const Color(0xFFFF0050),
+      'secondary' => isDark ? const Color(0xFFA855F7) : const Color(0xFF9333EA),
+      _ => appColors(context).accent,
+    };
   }
 
   Widget _field(
@@ -2199,9 +2245,6 @@ class _DbOnlineSubscriptionEditorState
       'max_size_mb': double.tryParse(_maximum.text) ?? 0,
       'max_file_count': int.tryParse(_fileCount.text) ?? 0,
       'overdue_days': int.tryParse(_overdueDays.text) ?? 0,
-      'downloader': _downloader.text.trim(),
-      'save_path': _savePath.text.trim(),
-      'device_target': _deviceTarget.text.trim(),
       if (widget.kind == 'video') 'after_date': _startDate.text.trim(),
       if (widget.kind != 'video') 'start_date': _startDate.text.trim(),
       if (widget.kind == 'actor')

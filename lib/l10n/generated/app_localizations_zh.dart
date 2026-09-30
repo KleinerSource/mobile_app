@@ -7057,10 +7057,10 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionQuality => '画质';
 
   @override
-  String get dbOnlineSubscriptionSubtitle => '需要字幕';
+  String get dbOnlineSubscriptionSubtitle => '字幕';
 
   @override
-  String get dbOnlineSubscriptionUncensored => '需要无码';
+  String get dbOnlineSubscriptionUncensored => '破解';
 
   @override
   String get dbOnlineSubscriptionSave => '保存';
@@ -7156,7 +7156,7 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionQualityUhd => '超高清';
 
   @override
-  String get dbOnlineSubscriptionStartDate => '开始日期';
+  String get dbOnlineSubscriptionStartDate => '起始日期';
 
   @override
   String get dbOnlineSubscriptionSettings => '打开设置';
@@ -7172,10 +7172,22 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionTitle => '订阅操作';
 
   @override
-  String get dbOnlineSubscriptionPreDownload => '预下载模式';
+  String get dbOnlineSubscriptionPreDownload => '预下载';
 
   @override
-  String get dbOnlineSubscriptionWashMode => '洗版模式';
+  String get dbOnlineSubscriptionWashMode => '洗版';
+
+  @override
+  String get dbOnlineSubscriptionDownloadMode => '下载模式';
+
+  @override
+  String get dbOnlineSubscriptionStrictMode => '严格';
+
+  @override
+  String get dbOnlineSubscriptionFileSize => '文件大小';
+
+  @override
+  String get dbOnlineSubscriptionOtherLimits => '其他限制';
 
   @override
   String get dbOnlineSubscriptionMinimumSize => '最小体积（MB）';
@@ -7187,7 +7199,7 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionMaxFiles => '最大文件数';
 
   @override
-  String get dbOnlineSubscriptionOverdueDays => '逾期天数';
+  String get dbOnlineSubscriptionOverdueDays => '超期天数';
 
   @override
   String get dbOnlineSubscriptionIncludeCategories => '包含类别（逗号分隔）';

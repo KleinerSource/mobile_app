@@ -12969,13 +12969,13 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'需要字幕'**
+  /// **'字幕'**
   String get dbOnlineSubscriptionSubtitle;
 
   /// No description provided for @dbOnlineSubscriptionUncensored.
   ///
   /// In zh, this message translates to:
-  /// **'需要无码'**
+  /// **'破解'**
   String get dbOnlineSubscriptionUncensored;
 
   /// No description provided for @dbOnlineSubscriptionSave.
@@ -13167,7 +13167,7 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionStartDate.
   ///
   /// In zh, this message translates to:
-  /// **'开始日期'**
+  /// **'起始日期'**
   String get dbOnlineSubscriptionStartDate;
 
   /// No description provided for @dbOnlineSubscriptionSettings.
@@ -13197,14 +13197,38 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionPreDownload.
   ///
   /// In zh, this message translates to:
-  /// **'预下载模式'**
+  /// **'预下载'**
   String get dbOnlineSubscriptionPreDownload;
 
   /// No description provided for @dbOnlineSubscriptionWashMode.
   ///
   /// In zh, this message translates to:
-  /// **'洗版模式'**
+  /// **'洗版'**
   String get dbOnlineSubscriptionWashMode;
+
+  /// No description provided for @dbOnlineSubscriptionDownloadMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载模式'**
+  String get dbOnlineSubscriptionDownloadMode;
+
+  /// No description provided for @dbOnlineSubscriptionStrictMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'严格'**
+  String get dbOnlineSubscriptionStrictMode;
+
+  /// No description provided for @dbOnlineSubscriptionFileSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大小'**
+  String get dbOnlineSubscriptionFileSize;
+
+  /// No description provided for @dbOnlineSubscriptionOtherLimits.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他限制'**
+  String get dbOnlineSubscriptionOtherLimits;
 
   /// No description provided for @dbOnlineSubscriptionMinimumSize.
   ///
@@ -13227,7 +13251,7 @@ abstract class AppL10n {
   /// No description provided for @dbOnlineSubscriptionOverdueDays.
   ///
   /// In zh, this message translates to:
-  /// **'逾期天数'**
+  /// **'超期天数'**
   String get dbOnlineSubscriptionOverdueDays;
 
   /// No description provided for @dbOnlineSubscriptionIncludeCategories.
