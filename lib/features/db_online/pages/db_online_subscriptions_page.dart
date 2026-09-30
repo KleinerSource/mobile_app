@@ -1801,12 +1801,18 @@ class _DbOnlineSubscriptionVideosSheetState
     final meta = releaseDate;
     final menuEntries = [
       for (final status in _statuses.where(
-        (value) => value != item.status && value != 'skipped',
+        (value) =>
+            value != item.status &&
+            (value != 'skipped' || item.status == 'pending'),
       ))
         _subscriptionMenuEntry(
           status,
           _subscriptionQueueStatusLabel(status, l),
-          status == 'pending' ? Icons.schedule_rounded : Icons.done_all_rounded,
+          switch (status) {
+            'pending' => Icons.schedule_rounded,
+            'skipped' => Icons.skip_next_rounded,
+            _ => Icons.done_all_rounded,
+          },
         ),
     ];
     final overlays = _subscriptionMovieBadges(item, l);
