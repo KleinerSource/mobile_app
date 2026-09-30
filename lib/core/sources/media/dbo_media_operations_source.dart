@@ -26,6 +26,16 @@ abstract interface class DboMediaOperationsSource {
   Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
   getDownloadHistory(String code);
 
+  Future<List<({String name, String displayName, bool? ed2kEnabled})>>
+  getDownloaders();
+
+  Future<({String message, String downloader})> pushDownload({
+    required List<String> urls,
+    required String downloader,
+    required Map<String, dynamic> videoInfo,
+    required List<Map<String, dynamic>> recordResources,
+  });
+
   Future<DbOnlineActorSearchResult> searchActors({required String query});
 
   Future<DbOnlineSearchEntityPage> searchSeriesPage({

@@ -42,29 +42,86 @@ class DbOnlineResourcesSheet extends ConsumerStatefulWidget {
 class _DbOnlineResourcesSheetState
     extends ConsumerState<DbOnlineResourcesSheet> {
   _ResourceTab _tab = _ResourceTab.magnet;
+  late List<DbOnlineMagnet> _javdbMagnets;
+  late List<DbOnlineEd2k> _javdbEd2ks;
   final List<DbOnlineMagnet> _customMagnets = [];
   final List<DbOnlineEd2k> _customEd2ks = [];
   final List<DbOnlineMagnet> _nyaaMagnets = [];
   final Set<String> _loadingSources = {'custom', 'nyaa'};
   final Map<String, String> _sourceErrors = {};
+  List<({String name, String displayName, bool? ed2kEnabled})> _downloaders =
+      const [];
+  bool _downloadersLoading = true;
+  String? _pushingKey;
   Map<String, String> _downloadedMagnets = const {};
   Map<String, String> _downloadedEd2ks = const {};
 
   List<DbOnlineMagnet> get _magnets => mergeDbOnlineMagnets({
-    'javdb': widget.movie.magnets,
+    'javdb': _javdbMagnets,
     'custom': _customMagnets,
     'nyaa': _nyaaMagnets,
   });
 
   List<DbOnlineEd2k> get _ed2ks =>
-      mergeDbOnlineEd2ks({'javdb': widget.movie.ed2ks, 'custom': _customEd2ks});
+      mergeDbOnlineEd2ks({'javdb': _javdbEd2ks, 'custom': _customEd2ks});
+
+  bool get _loadingResources => _loadingSources.isNotEmpty;
+
+  List<({String name, String displayName, bool? ed2kEnabled})>
+  get _ed2kDownloaders => _downloaders
+      .where((downloader) => downloader.ed2kEnabled == true)
+      .toList(growable: false);
+
+  List<({String name, String displayName, bool? ed2kEnabled})>
+  get _activeDownloaders =>
+      _tab == _ResourceTab.magnet ? _downloaders : _ed2kDownloaders;
 
   @override
   void initState() {
     super.initState();
+    _javdbMagnets = widget.movie.magnets;
+    _javdbEd2ks = widget.movie.ed2ks;
     unawaited(_loadExternalSource('custom'));
     unawaited(_loadExternalSource('nyaa'));
     unawaited(_loadDownloadHistory());
+    unawaited(_loadDownloaders());
+  }
+
+  Future<void> _loadResources() async {
+    if (_loadingResources) return;
+    setState(() {
+      _loadingSources.addAll({'detail', 'custom', 'nyaa'});
+      _sourceErrors.clear();
+      _downloadersLoading = true;
+    });
+    unawaited(_loadDetailSource());
+    unawaited(_loadExternalSource('custom'));
+    unawaited(_loadExternalSource('nyaa'));
+    unawaited(_loadDownloadHistory());
+    unawaited(_loadDownloaders());
+  }
+
+  Future<void> _loadDetailSource() async {
+    try {
+      final movie = await ref
+          .read(dboMediaRepositoryProvider)
+          .getMovieByCode(widget.movie.code, videoId: widget.movie.videoId);
+      if (!mounted) return;
+      setState(() {
+        _javdbMagnets = movie.magnets;
+        _javdbEd2ks = movie.ed2ks;
+        _sourceErrors.remove('detail');
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        final l = AppL10n.of(context);
+        _sourceErrors['detail'] =
+            '${l.resourceSourceDetail}: ${localizedErrorMessage(l, error)}';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingSources.remove('detail'));
+    }
   }
 
   Future<void> _loadDownloadHistory() async {
@@ -82,10 +139,164 @@ class _DbOnlineResourcesSheetState
     }
   }
 
+  Future<void> _loadDownloaders() async {
+    try {
+      final downloaders = await ref
+          .read(dboMediaRepositoryProvider)
+          .getDownloaders();
+      if (!mounted) return;
+      setState(() => _downloaders = downloaders);
+    } catch (_) {
+      // 下载器配置失败不应阻塞资源列表。
+    } finally {
+      if (mounted) setState(() => _downloadersLoading = false);
+    }
+  }
+
   String? _downloadedAt(Map<String, String> history, String hash) {
     if (hash.isEmpty) return null;
     final value = history[hash];
     return value == null || value.isEmpty ? null : value;
+  }
+
+  Future<void> _onPush({
+    required String url,
+    required String protocol,
+    required String name,
+    required String? site,
+    required String? date,
+    required List<String> tags,
+  }) async {
+    if (_pushingKey != null) return;
+    final l = AppL10n.of(context);
+    final downloaders = _activeDownloaders;
+    if (downloaders.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.resourceNoDownloaders)));
+      return;
+    }
+
+    String? selected;
+    if (downloaders.length == 1) {
+      selected = downloaders.first.name;
+    } else {
+      selected = await showGlassSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.download_outlined,
+                title: l.resourceSelectDownloader,
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+              ),
+              for (final downloader in downloaders)
+                ListTile(
+                  leading: const Icon(Icons.download_outlined, size: 20),
+                  title: Text(downloader.displayName),
+                  onTap: () => Navigator.pop(ctx, downloader.name),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      );
+    }
+    if (selected == null || !mounted) return;
+    await _push(
+      url: url,
+      protocol: protocol,
+      name: name,
+      site: site,
+      date: date,
+      tags: tags,
+      downloader: selected,
+    );
+  }
+
+  Future<void> _push({
+    required String url,
+    required String protocol,
+    required String name,
+    required String? site,
+    required String? date,
+    required List<String> tags,
+    required String downloader,
+  }) async {
+    if (url.trim().isEmpty) return;
+    final l = AppL10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _pushingKey = url);
+    try {
+      final result = await ref
+          .read(dboMediaRepositoryProvider)
+          .pushDownload(
+            urls: [url],
+            downloader: downloader,
+            videoInfo: {
+              'code': widget.movie.code.trim(),
+              'title': widget.movie.title.trim(),
+              'date': widget.movie.date?.trim() ?? '',
+              'actors': widget.movie.actors
+                  .map((actor) => actor.name)
+                  .toList(growable: false),
+            },
+            recordResources: [
+              {
+                'url': url,
+                'name': name,
+                'resource_protocol': protocol,
+                'resource_site': site ?? '',
+                'resource_flags': _buildResourceFlags(tags),
+                'resource_date': date ?? '',
+                'video_code': widget.movie.code.trim(),
+                'video_title': widget.movie.title.trim(),
+              },
+            ],
+          );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.message.isEmpty ? l.resourcePushDownload : result.message,
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      await _loadDownloadHistory();
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l.resourcePushFailed(localizedErrorMessage(l, error))),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _pushingKey = null);
+    }
+  }
+
+  int _buildResourceFlags(List<String> tags) {
+    final lowered = tags.map((tag) => tag.toLowerCase()).toList();
+    var flags = 1;
+    if (lowered.any((tag) => tag == 'uhd' || tag.contains('4k'))) {
+      flags = 4;
+    } else if (lowered.any(
+      (tag) =>
+          (tag.contains('hd') && !tag.contains('uhd')) || tag.contains('高清'),
+    )) {
+      flags = 2;
+    }
+    if (lowered.any((tag) => tag.contains('字幕') || tag.contains('sub'))) {
+      flags |= 8;
+    }
+    if (lowered.any((tag) => tag.contains('破解') || tag.contains('无码'))) {
+      flags |= 16;
+    }
+    return flags;
   }
 
   Future<void> _loadExternalSource(String source) async {
@@ -113,10 +324,9 @@ class _DbOnlineResourcesSheetState
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        final sourceLabel = source == 'custom' ? 'Custom' : 'Nyaa';
         final l = AppL10n.of(context);
         _sourceErrors[source] =
-            '${l.resourceFrom(sourceLabel)}: ${localizedErrorMessage(l, error)}';
+            '${source == 'custom' ? l.resourceSourceCustom : l.resourceSourceNyaa}: ${localizedErrorMessage(l, error)}';
       });
     } finally {
       if (mounted) {
@@ -160,6 +370,10 @@ class _DbOnlineResourcesSheetState
               icon: Icons.cloud_download_outlined,
               title: l.detailFetchResources,
               subtitle: widget.movie.code,
+              trailing: IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                onPressed: _loadingResources ? null : _loadResources,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -190,10 +404,23 @@ class _DbOnlineResourcesSheetState
               ),
             ),
             const SizedBox(height: 10),
-            if (_loadingSources.isNotEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 22),
-                child: LinearProgressIndicator(minHeight: 2),
+            if (_loadingResources)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(l.resourceLoadingOnline, style: AppText.meta(context)),
+                  ],
+                ),
               ),
             if (_sourceErrors.isNotEmpty)
               Padding(
@@ -206,16 +433,15 @@ class _DbOnlineResourcesSheetState
                   ),
                 ),
               ),
-            if (count == 0 && _loadingSources.isNotEmpty)
-              const SizedBox(
-                height: 112,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (count == 0)
+            if (count == 0)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
                 child: Text(
-                  isMagnet ? l.resourceNoMagnet : l.resourceNoEd2k,
+                  _loadingResources
+                      ? l.resourceWaitingSources
+                      : isMagnet
+                      ? l.resourceNoMagnet
+                      : l.resourceNoEd2k,
                   textAlign: TextAlign.center,
                   style: AppText.body(context),
                 ),
@@ -232,17 +458,43 @@ class _DbOnlineResourcesSheetState
                   itemBuilder: (context, index) => isMagnet
                       ? _MagnetRow(
                           item: magnetItems[index],
+                          pushing: _pushingKey == magnetItems[index].magnet,
+                          pushDisabled:
+                              _pushingKey != null ||
+                              _downloadersLoading ||
+                              _activeDownloaders.isEmpty,
                           downloadedAt: _downloadedAt(
                             _downloadedMagnets,
                             dbOnlineMagnetHash(magnetItems[index].magnet),
+                          ),
+                          onPush: () => _onPush(
+                            url: magnetItems[index].magnet,
+                            protocol: 'magnet',
+                            name: magnetItems[index].name,
+                            site: magnetItems[index].site,
+                            date: magnetItems[index].date,
+                            tags: magnetItems[index].tags,
                           ),
                           onCopy: () => _copy(magnetItems[index].magnet),
                         )
                       : _Ed2kRow(
                           item: ed2kItems[index],
+                          pushing: _pushingKey == ed2kItems[index].ed2k,
+                          pushDisabled:
+                              _pushingKey != null ||
+                              _downloadersLoading ||
+                              _activeDownloaders.isEmpty,
                           downloadedAt: _downloadedAt(
                             _downloadedEd2ks,
                             dbOnlineEd2kHash(ed2kItems[index].ed2k),
+                          ),
+                          onPush: () => _onPush(
+                            url: ed2kItems[index].ed2k,
+                            protocol: 'ed2k',
+                            name: ed2kItems[index].name,
+                            site: ed2kItems[index].site,
+                            date: ed2kItems[index].date,
+                            tags: ed2kItems[index].tags,
                           ),
                           onCopy: () => _copy(ed2kItems[index].ed2k),
                         ),
@@ -259,11 +511,17 @@ class _MagnetRow extends StatelessWidget {
   const _MagnetRow({
     required this.item,
     required this.onCopy,
+    required this.onPush,
+    required this.pushing,
+    required this.pushDisabled,
     this.downloadedAt,
   });
 
   final DbOnlineMagnet item;
   final VoidCallback onCopy;
+  final VoidCallback onPush;
+  final bool pushing;
+  final bool pushDisabled;
   final String? downloadedAt;
 
   @override
@@ -276,15 +534,28 @@ class _MagnetRow extends StatelessWidget {
     site: item.site,
     tags: item.tags,
     downloadedAt: downloadedAt,
+    pushing: pushing,
+    pushDisabled: pushDisabled,
+    onPush: onPush,
     onCopy: onCopy,
   );
 }
 
 class _Ed2kRow extends StatelessWidget {
-  const _Ed2kRow({required this.item, required this.onCopy, this.downloadedAt});
+  const _Ed2kRow({
+    required this.item,
+    required this.onCopy,
+    required this.onPush,
+    required this.pushing,
+    required this.pushDisabled,
+    this.downloadedAt,
+  });
 
   final DbOnlineEd2k item;
   final VoidCallback onCopy;
+  final VoidCallback onPush;
+  final bool pushing;
+  final bool pushDisabled;
   final String? downloadedAt;
 
   @override
@@ -296,6 +567,9 @@ class _Ed2kRow extends StatelessWidget {
     site: item.site,
     tags: item.tags,
     downloadedAt: downloadedAt,
+    pushing: pushing,
+    pushDisabled: pushDisabled,
+    onPush: onPush,
     onCopy: onCopy,
   );
 }
@@ -311,6 +585,9 @@ class _ResourceRow extends StatelessWidget {
     this.site,
     this.tags = const [],
     this.downloadedAt,
+    required this.pushing,
+    required this.pushDisabled,
+    required this.onPush,
   });
 
   final String name;
@@ -322,6 +599,9 @@ class _ResourceRow extends StatelessWidget {
   final String? site;
   final List<String> tags;
   final String? downloadedAt;
+  final bool pushing;
+  final bool pushDisabled;
+  final VoidCallback onPush;
 
   @override
   Widget build(BuildContext context) {
@@ -382,13 +662,32 @@ class _ResourceRow extends StatelessWidget {
                 ),
               ),
             ),
-          IconButton(
-            tooltip: l.subtitleCopy,
-            onPressed: value.trim().isEmpty ? null : onCopy,
-            icon: Icon(Icons.copy_rounded, size: 18, color: colors.accent),
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.all(6),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: l.resourceCopy,
+                onPressed: value.trim().isEmpty ? null : onCopy,
+                icon: Icon(Icons.copy_rounded, size: 18, color: colors.accent),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              IconButton(
+                tooltip: pushing ? l.resourcePushing : l.resourcePushDownload,
+                onPressed: pushDisabled || value.trim().isEmpty ? null : onPush,
+                icon: pushing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.send_rounded, size: 18, color: colors.warning),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
           ),
         ],
       ),

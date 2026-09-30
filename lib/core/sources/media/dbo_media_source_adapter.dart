@@ -166,6 +166,25 @@ class DboMediaSourceAdapter implements DboMediaSource {
   getDownloadHistory(String code) => _call(() => api.downloadHistory(code));
 
   @override
+  Future<List<({String name, String displayName, bool? ed2kEnabled})>>
+  getDownloaders() => _call(api.getDownloaders);
+
+  @override
+  Future<({String message, String downloader})> pushDownload({
+    required List<String> urls,
+    required String downloader,
+    required Map<String, dynamic> videoInfo,
+    required List<Map<String, dynamic>> recordResources,
+  }) => _call(
+    () => api.pushDownload(
+      urls: urls,
+      downloader: downloader,
+      videoInfo: videoInfo,
+      recordResources: recordResources,
+    ),
+  );
+
+  @override
   Future<PlaybackDescriptor> resolvePlayback(
     MediaRef ref,
     PlaybackRequest request,

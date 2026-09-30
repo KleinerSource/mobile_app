@@ -288,6 +288,66 @@ class DbOnlineApi {
     });
   }
 
+  Future<List<({String name, String displayName, bool? ed2kEnabled})>>
+  getDownloaders() async {
+    final response = await _dio.get<dynamic>('/downloaders');
+    return unwrapStd<
+      List<({String name, String displayName, bool? ed2kEnabled})>
+    >(response.data, (data) {
+      final items = data is Map && data['downloaders'] is List
+          ? data['downloaders'] as List
+          : data is List
+          ? data
+          : const [];
+      return items
+          .whereType<Map>()
+          .map((item) {
+            final json = Map<String, dynamic>.from(item);
+            final name = (json['name'] ?? '').toString().trim();
+            final displayName =
+                (json['display_name'] ?? json['displayName'] ?? name)
+                    .toString()
+                    .trim();
+            final ed2kEnabled = json['ed2k_enabled'] is bool
+                ? json['ed2k_enabled'] as bool
+                : null;
+            return (
+              name: name,
+              displayName: displayName,
+              ed2kEnabled: ed2kEnabled,
+            );
+          })
+          .where((item) => item.name.isNotEmpty)
+          .toList(growable: false);
+    });
+  }
+
+  Future<({String message, String downloader})> pushDownload({
+    required List<String> urls,
+    required String downloader,
+    required Map<String, dynamic> videoInfo,
+    required List<Map<String, dynamic>> recordResources,
+  }) async {
+    final response = await _dio.post<dynamic>(
+      '/download',
+      data: {
+        'urls': urls,
+        'downloader': downloader,
+        'save_path': '',
+        'video_info': videoInfo,
+        'record_resources': recordResources,
+      },
+    );
+    final data = unwrapStd<Map<String, dynamic>>(
+      response.data,
+      (value) => value is Map ? Map<String, dynamic>.from(value) : const {},
+    );
+    return (
+      message: envelopeMessageOrNull(response.data) ?? '',
+      downloader: (data['downloader'] ?? downloader).toString(),
+    );
+  }
+
   Future<DbOnlineExternalResources> _externalResources(
     String source,
     String code,

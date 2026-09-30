@@ -148,6 +148,21 @@ class DboMediaRepository {
   Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
   getDownloadHistory(String code) => _source.getDownloadHistory(code);
 
+  Future<List<({String name, String displayName, bool? ed2kEnabled})>>
+  getDownloaders() => _source.getDownloaders();
+
+  Future<({String message, String downloader})> pushDownload({
+    required List<String> urls,
+    required String downloader,
+    required Map<String, dynamic> videoInfo,
+    required List<Map<String, dynamic>> recordResources,
+  }) => _source.pushDownload(
+    urls: urls,
+    downloader: downloader,
+    videoInfo: videoInfo,
+    recordResources: recordResources,
+  );
+
   Future<DbOnlinePlayEpisodes> getPlayEpisodes({
     required String code,
     required int sourceId,
