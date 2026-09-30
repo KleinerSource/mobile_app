@@ -1082,8 +1082,18 @@ class _DbOnlineSubscriptionsPageState
         kind: kind,
         sourceId: sourceId,
         title: item.title,
+        pendingCount: int.tryParse(
+          item.data['pending_count']?.toString() ?? '',
+        ),
+        completedCount: int.tryParse(
+          item.data['completed_count']?.toString() ?? '',
+        ),
+        skippedCount: int.tryParse(
+          item.data['skipped_count']?.toString() ?? '',
+        ),
       ),
     );
+    if (mounted) await _refresh();
   }
 
   List<GlassMenuEntry<String>> _rowMenuEntries(AppL10n l) {
@@ -2086,11 +2096,17 @@ class DbOnlineSubscriptionVideosSheet extends ConsumerStatefulWidget {
     required this.kind,
     required this.sourceId,
     required this.title,
+    required this.pendingCount,
+    required this.completedCount,
+    required this.skippedCount,
   });
 
   final String kind;
   final Object sourceId;
   final String title;
+  final int? pendingCount;
+  final int? completedCount;
+  final int? skippedCount;
 
   @override
   ConsumerState<DbOnlineSubscriptionVideosSheet> createState() =>
@@ -2110,6 +2126,11 @@ class _DbOnlineSubscriptionVideosSheetState
   String _keyword = '';
   String _status = 'pending';
   bool _busy = false;
+  late final Map<String, int?> _statusCounts = {
+    'pending': widget.pendingCount,
+    'completed': widget.completedCount,
+    'skipped': widget.skippedCount,
+  };
   bool _pagingListenerAttached = false;
   String? _pagingQueryKey;
   Completer<void>? _refreshCompleter;
@@ -2282,8 +2303,9 @@ class _DbOnlineSubscriptionVideosSheetState
                       'completed' => l.dbOnlineSubscriptionCompleted,
                       _ => l.dbOnlineSubscriptionSkipped,
                     };
+                    final count = _statusCounts[status];
                     return ChoiceChip(
-                      label: Text(label),
+                      label: Text(count == null ? label : '$label($count)'),
                       selected: _status == status,
                       onSelected: (_) {
                         if (_status == status) return;
@@ -2461,6 +2483,7 @@ class _DbOnlineSubscriptionVideosSheetState
             'status': status,
           });
       if (!mounted) return;
+      _adjustStatusCounts(item.status, status);
       await _refreshList();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2475,6 +2498,20 @@ class _DbOnlineSubscriptionVideosSheetState
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _adjustStatusCounts(String previousStatus, String nextStatus) {
+    if (previousStatus == nextStatus) return;
+    setState(() {
+      final previousCount = _statusCounts[previousStatus];
+      if (previousCount != null) {
+        _statusCounts[previousStatus] = previousCount > 0
+            ? previousCount - 1
+            : 0;
+      }
+      final nextCount = _statusCounts[nextStatus];
+      if (nextCount != null) _statusCounts[nextStatus] = nextCount + 1;
+    });
   }
 }
 
