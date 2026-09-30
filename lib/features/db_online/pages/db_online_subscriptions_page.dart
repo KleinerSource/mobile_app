@@ -11,6 +11,7 @@ import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/features/settings/settings_page.dart';
+import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
@@ -380,7 +381,6 @@ class _DbOnlineSubscriptionsPageState
   }
 
   Widget _subscriptionRow(DbOnlineSubscriptionItem item, AppL10n l) {
-    final colors = appColors(context);
     final status = item.status;
     final videoCount = int.tryParse(item.data['video_count']?.toString() ?? '');
     final pendingCount = int.tryParse(
@@ -404,24 +404,49 @@ class _DbOnlineSubscriptionsPageState
       if (completedCount != null && completedCount > 0)
         '${l.dbOnlineSubscriptionCompleted}: $completedCount',
     ].join(' · ');
-    return Material(
-      color: colors.surface,
-      borderRadius: BorderRadius.circular(16),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        title: Text(
-          item.title.isEmpty ? item.id : item.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
+    return Container(
+      decoration: settingsCardDecoration(context),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _section == 'actor' || _section == 'series'
+              ? () => _openEntityVideos(item)
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title.isEmpty ? item.id : item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.cardTitle(context),
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.meta(context),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                _rowActions(item, l),
+              ],
+            ),
+          ),
         ),
-        subtitle: subtitle.isEmpty
-            ? null
-            : Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-        onTap: _section == 'actor' || _section == 'series'
-            ? () => _openEntityVideos(item)
-            : null,
-        trailing: _rowActions(item, l),
       ),
     );
   }
@@ -1471,39 +1496,56 @@ class _DbOnlineSubscriptionVideosSheetState
     AppL10n l,
     DbOnlineSubscriptionQuery query,
   ) {
-    final colors = appColors(context);
-    return Material(
-      color: colors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: ListTile(
-        title: Text(
-          item.title.isEmpty ? item.id : item.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          [
-            if (item.id.isNotEmpty) item.id,
-            if (item.data['release_date']?.toString().isNotEmpty == true)
-              item.data['release_date'].toString(),
-          ].join(' · '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (status) => _updateStatus(item, status, query, l),
-          itemBuilder: (context) => [
-            for (final status in _statuses.where(
-              (value) => value != item.status,
-            ))
-              PopupMenuItem(
-                value: status,
-                child: Text(switch (status) {
-                  'pending' => l.dbOnlineSubscriptionPendingStatus,
-                  'completed' => l.dbOnlineSubscriptionCompleted,
-                  _ => l.dbOnlineSubscriptionSkipped,
-                }),
+    final subtitle = [
+      if (item.id.isNotEmpty) item.id,
+      if (item.data['release_date']?.toString().isNotEmpty == true)
+        item.data['release_date'].toString(),
+    ].join(' · ');
+    return Container(
+      decoration: settingsCardDecoration(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title.isEmpty ? item.id : item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.cardTitle(context),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.meta(context),
+                    ),
+                  ],
+                ],
               ),
+            ),
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              onSelected: (status) => _updateStatus(item, status, query, l),
+              itemBuilder: (context) => [
+                for (final status in _statuses.where(
+                  (value) => value != item.status,
+                ))
+                  PopupMenuItem(
+                    value: status,
+                    child: Text(switch (status) {
+                      'pending' => l.dbOnlineSubscriptionPendingStatus,
+                      'completed' => l.dbOnlineSubscriptionCompleted,
+                      _ => l.dbOnlineSubscriptionSkipped,
+                    }),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1700,8 +1742,13 @@ class _DbOnlineSubscriptionEditorState
                   widget.kind == 'video'
                       ? l.dbOnlineSubscriptionCode
                       : l.dbOnlineSubscriptionId,
+                  readOnly: widget.isEdit,
                 ),
-                _field(_name, l.dbOnlineSubscriptionName),
+                _field(
+                  _name,
+                  l.dbOnlineSubscriptionName,
+                  readOnly: widget.isEdit,
+                ),
               ],
               _field(_startDate, l.dbOnlineSubscriptionStartDate),
               DropdownButtonFormField<String>(
@@ -1807,17 +1854,25 @@ class _DbOnlineSubscriptionEditorState
     TextEditingController controller,
     String label, {
     bool numeric = false,
+    bool readOnly = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: TextField(
       controller: controller,
       keyboardType: numeric ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(labelText: label),
+      readOnly: readOnly,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: readOnly
+            ? const Icon(Icons.lock_outline_rounded, size: 18)
+            : null,
+      ),
     ),
   );
 
   void _save() {
     if (!widget.presetOnly &&
+        !widget.isEdit &&
         (_id.text.trim().isEmpty || _name.text.trim().isEmpty)) {
       return;
     }
@@ -1844,7 +1899,7 @@ class _DbOnlineSubscriptionEditorState
       if (widget.kind == 'actor')
         'exclude_categories': _parseList(_excludeCategories.text),
     };
-    if (!widget.presetOnly) {
+    if (!widget.presetOnly && !widget.isEdit) {
       switch (widget.kind) {
         case 'video':
           values['video_code'] = _id.text.trim();
