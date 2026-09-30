@@ -260,7 +260,15 @@ class _DbOnlineSubscriptionsPageState
             onPressed: () => Navigator.of(context).push<void>(
               MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
             ),
-            icon: Icon(Icons.settings_outlined, color: colors.muted),
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.surface,
+                border: Border.all(color: colors.cardBorder),
+              ),
+              child: Icon(Icons.settings, size: 18, color: colors.text),
+            ),
           ),
           if (capabilities.database || canManageOnlineSync)
             PopupMenuButton<String>(
