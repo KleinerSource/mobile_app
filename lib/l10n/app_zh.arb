@@ -2308,6 +2308,13 @@
   ,"@dboApplyFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"dboTitle": "DB Online 元数据"
   ,"dboUpToDate": "本地元数据已是最新"
+  ,"dbOnlineLocalSubtitles": "本地字幕（{count}）"
+  ,"@dbOnlineLocalSubtitles": {"placeholders":{"count":{"type":"int"}}}
+  ,"dbOnlineThunderSubtitles": "迅雷字幕（{count}）"
+  ,"@dbOnlineThunderSubtitles": {"placeholders":{"count":{"type":"int"}}}
+  ,"dbOnlineResourceFileCount": "{count} 个文件"
+  ,"@dbOnlineResourceFileCount": {"placeholders":{"count":{"type":"int"}}}
+  ,"dbOnlineResourceCopied": "已复制链接"
   ,"dboNoOverridableFields": "没有可覆盖的字段"
   ,"dboSelectAll": "全选"
   ,"dboClear": "清空"

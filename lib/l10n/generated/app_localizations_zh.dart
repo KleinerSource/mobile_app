@@ -6624,6 +6624,24 @@ class AppL10nZh extends AppL10n {
   String get dboUpToDate => '本地元数据已是最新';
 
   @override
+  String dbOnlineLocalSubtitles(int count) {
+    return '本地字幕（$count）';
+  }
+
+  @override
+  String dbOnlineThunderSubtitles(int count) {
+    return '迅雷字幕（$count）';
+  }
+
+  @override
+  String dbOnlineResourceFileCount(int count) {
+    return '$count 个文件';
+  }
+
+  @override
+  String get dbOnlineResourceCopied => '已复制链接';
+
+  @override
   String get dboNoOverridableFields => '没有可覆盖的字段';
 
   @override

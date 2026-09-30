@@ -6761,6 +6761,24 @@ class AppL10nEn extends AppL10n {
   String get dboUpToDate => 'Local metadata is up to date';
 
   @override
+  String dbOnlineLocalSubtitles(int count) {
+    return 'Local subtitles ($count)';
+  }
+
+  @override
+  String dbOnlineThunderSubtitles(int count) {
+    return 'Thunder subtitles ($count)';
+  }
+
+  @override
+  String dbOnlineResourceFileCount(int count) {
+    return '$count files';
+  }
+
+  @override
+  String get dbOnlineResourceCopied => 'Link copied';
+
+  @override
   String get dboNoOverridableFields => 'There are no fields to override';
 
   @override

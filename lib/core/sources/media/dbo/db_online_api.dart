@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_codes.dart';
@@ -272,6 +275,82 @@ class DbOnlineApi {
       (data) =>
           DbOnlinePlayEpisodes.fromJson(Map<String, dynamic>.from(data as Map)),
     );
+  }
+
+  Future<List<DbOnlineSubtitleFile>> findSubtitles(String code) async {
+    final response = await _dio.get<dynamic>(
+      '/subtitle/find/${Uri.encodeComponent(code.trim())}',
+    );
+    return unwrapStd<List<DbOnlineSubtitleFile>>(response.data, (data) {
+      if (data is! Map || data['files'] is! List) {
+        return const <DbOnlineSubtitleFile>[];
+      }
+      return (data['files'] as List)
+          .map(DbOnlineSubtitleFile.fromJson)
+          .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
+          .toList(growable: false);
+    });
+  }
+
+  Future<List<DbOnlineSubtitleCandidate>> searchExternalSubtitles(
+    String code,
+  ) async {
+    final response = await _dio.get<dynamic>(
+      '/subtitle/external/search/${Uri.encodeComponent(code.trim())}',
+    );
+    return unwrapStd<List<DbOnlineSubtitleCandidate>>(response.data, (data) {
+      if (data is! Map || data['items'] is! List) {
+        return const <DbOnlineSubtitleCandidate>[];
+      }
+      return (data['items'] as List)
+          .map(DbOnlineSubtitleCandidate.fromJson)
+          .where((item) => item.name.isNotEmpty && item.url.isNotEmpty)
+          .toList(growable: false);
+    });
+  }
+
+  Future<DbOnlineSubtitlePreview> previewLocalSubtitle(String id) async {
+    final response = await _dio.get<dynamic>(
+      '/subtitle/preview',
+      queryParameters: {'id': id},
+    );
+    return unwrapStd<DbOnlineSubtitlePreview>(
+      response.data,
+      DbOnlineSubtitlePreview.fromJson,
+    );
+  }
+
+  Future<DbOnlineSubtitlePreview> previewExternalSubtitle(String url) async {
+    final response = await _dio.get<dynamic>(
+      '/subtitle/external/preview',
+      queryParameters: {'url': url},
+    );
+    return unwrapStd<DbOnlineSubtitlePreview>(
+      response.data,
+      DbOnlineSubtitlePreview.fromJson,
+    );
+  }
+
+  Future<Uint8List> downloadLocalSubtitle(String id) async {
+    final response = await _dio.get<List<int>>(
+      '/subtitle/download',
+      queryParameters: {'id': id},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(response.data ?? const <int>[]);
+  }
+
+  Future<Uint8List> downloadExternalSubtitle({
+    required String url,
+    required String name,
+    required String extension,
+  }) async {
+    final response = await _dio.get<List<int>>(
+      '/subtitle/external/download',
+      queryParameters: {'url': url, 'name': name, 'ext': extension},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(response.data ?? const <int>[]);
   }
 
   Future<List<DbOnlineMovie>> _movies(

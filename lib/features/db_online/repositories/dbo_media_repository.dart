@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/sources/media/dbo_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart' as source_models;
 
@@ -103,6 +106,32 @@ class DboMediaRepository {
     int page = 1,
     int limit = 24,
   }) => _source.searchSeriesPage(query: query, page: page, limit: limit);
+
+  Future<List<DbOnlineSubtitleFile>> findSubtitles(String code) =>
+      _source.findSubtitles(code);
+
+  Future<List<DbOnlineSubtitleCandidate>> searchExternalSubtitles(
+    String code,
+  ) => _source.searchExternalSubtitles(code);
+
+  Future<DbOnlineSubtitlePreview> previewLocalSubtitle(String id) =>
+      _source.previewLocalSubtitle(id);
+
+  Future<DbOnlineSubtitlePreview> previewExternalSubtitle(String url) =>
+      _source.previewExternalSubtitle(url);
+
+  Future<Uint8List> downloadLocalSubtitle(String id) =>
+      _source.downloadLocalSubtitle(id);
+
+  Future<Uint8List> downloadExternalSubtitle({
+    required String url,
+    required String name,
+    required String extension,
+  }) => _source.downloadExternalSubtitle(
+    url: url,
+    name: name,
+    extension: extension,
+  );
 
   Future<DbOnlineMovieDetail> getMovieByCode(String code, {String? videoId}) =>
       _source.getMovieByCode(code, videoId: videoId);

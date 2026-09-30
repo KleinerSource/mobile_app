@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +13,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
@@ -29,6 +32,7 @@ import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
+import 'package:omm/features/db_online/widgets/db_online_resource_sheets.dart';
 
 class DbOnlineMovieDetailPage extends ConsumerWidget {
   const DbOnlineMovieDetailPage({super.key, required this.code})
@@ -233,6 +237,10 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             ? null
             : Wrap(spacing: 6, runSpacing: 6, children: heroBadges),
       ),
+      actions: [
+        _DbOnlineDetailMoreButton(movie: movie),
+        const SizedBox(width: 6),
+      ],
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
@@ -265,22 +273,6 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
                     'release_date': movie.date ?? '',
                   },
                 ),
-                if (movie.series?.externalId?.trim().isNotEmpty == true)
-                  DbOnlineSubscriptionAction(
-                    kind: 'series',
-                    id: movie.series!.externalId!,
-                    title: movie.series!.name,
-                    showLabel: true,
-                  ),
-                for (final actor in movie.actors.take(3))
-                  if (actor.externalId?.trim().isNotEmpty == true)
-                    DbOnlineSubscriptionAction(
-                      kind: 'actor',
-                      id: actor.externalId!,
-                      title: actor.name,
-                      showLabel: true,
-                      initial: {'actor_avatar': actor.avatarUrl ?? ''},
-                    ),
               ],
             ),
           ),
@@ -390,6 +382,60 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
       ],
+    );
+  }
+}
+
+class _DbOnlineDetailMoreButton extends StatelessWidget {
+  const _DbOnlineDetailMoreButton({required this.movie});
+
+  final DbOnlineMovieDetail movie;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final l = AppL10n.of(context);
+    return GlassMenuAnchor<String>(
+      width: 244,
+      entries: [
+        GlassMenuEntry<String>.action(
+          value: 'resources',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.link_rounded,
+            label: l.detailFetchResources,
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        if (movie.code.trim().isNotEmpty)
+          GlassMenuEntry<String>.action(
+            value: 'subtitles',
+            builder: (context, selected, onTap) => GlassMenuRow(
+              icon: Icons.subtitles_outlined,
+              label: l.detailFetchSubtitles,
+              selected: selected,
+              onTap: onTap,
+            ),
+          ),
+      ],
+      tooltip: l.more,
+      offset: const Offset(0, 8),
+      placement: GlassMenuPlacement.below,
+      onSelected: (value) {
+        if (value == 'resources') {
+          unawaited(DbOnlineResourcesSheet.show(context, movie));
+        } else if (value == 'subtitles') {
+          unawaited(DbOnlineSubtitleSheet.show(context, movie.code));
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.6),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.more_horiz, size: 18),
+      ),
     );
   }
 }

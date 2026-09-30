@@ -2308,6 +2308,13 @@
   ,"@dboApplyFailed": {"placeholders":{"error":{"type":"String"}}}
   ,"dboTitle": "DB Online metadata"
   ,"dboUpToDate": "Local metadata is up to date"
+  ,"dbOnlineLocalSubtitles": "Local subtitles ({count})"
+  ,"@dbOnlineLocalSubtitles": {"placeholders":{"count":{"type":"int"}}}
+  ,"dbOnlineThunderSubtitles": "Thunder subtitles ({count})"
+  ,"@dbOnlineThunderSubtitles": {"placeholders":{"count":{"type":"int"}}}
+  ,"dbOnlineResourceFileCount": "{count} files"
+  ,"@dbOnlineResourceFileCount": {"placeholders":{"count":{"type":"int"}}}
+  ,"dbOnlineResourceCopied": "Link copied"
   ,"dboNoOverridableFields": "There are no fields to override"
   ,"dboSelectAll": "Select all"
   ,"dboClear": "Clear"

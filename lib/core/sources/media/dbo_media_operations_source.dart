@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 
 /// DBO 保留给 Feature 的在线目录扩展能力。
 ///
@@ -22,5 +25,21 @@ abstract interface class DboMediaOperationsSource {
     required String query,
     int page = 1,
     int limit = 24,
+  });
+
+  Future<List<DbOnlineSubtitleFile>> findSubtitles(String code);
+
+  Future<List<DbOnlineSubtitleCandidate>> searchExternalSubtitles(String code);
+
+  Future<DbOnlineSubtitlePreview> previewLocalSubtitle(String id);
+
+  Future<DbOnlineSubtitlePreview> previewExternalSubtitle(String url);
+
+  Future<Uint8List> downloadLocalSubtitle(String id);
+
+  Future<Uint8List> downloadExternalSubtitle({
+    required String url,
+    required String name,
+    required String extension,
   });
 }

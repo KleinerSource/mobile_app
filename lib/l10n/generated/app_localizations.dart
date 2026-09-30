@@ -12192,6 +12192,30 @@ abstract class AppL10n {
   /// **'本地元数据已是最新'**
   String get dboUpToDate;
 
+  /// No description provided for @dbOnlineLocalSubtitles.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地字幕（{count}）'**
+  String dbOnlineLocalSubtitles(int count);
+
+  /// No description provided for @dbOnlineThunderSubtitles.
+  ///
+  /// In zh, this message translates to:
+  /// **'迅雷字幕（{count}）'**
+  String dbOnlineThunderSubtitles(int count);
+
+  /// No description provided for @dbOnlineResourceFileCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个文件'**
+  String dbOnlineResourceFileCount(int count);
+
+  /// No description provided for @dbOnlineResourceCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制链接'**
+  String get dbOnlineResourceCopied;
+
   /// No description provided for @dboNoOverridableFields.
   ///
   /// In zh, this message translates to:

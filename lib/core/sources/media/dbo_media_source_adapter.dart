@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/api/error_codes.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
@@ -259,6 +262,40 @@ class DboMediaSourceAdapter implements DboMediaSource {
     int limit = 24,
   }) =>
       _call(() => api.searchSeriesPage(query: query, page: page, limit: limit));
+
+  @override
+  Future<List<DbOnlineSubtitleFile>> findSubtitles(String code) =>
+      _call(() => api.findSubtitles(code));
+
+  @override
+  Future<List<DbOnlineSubtitleCandidate>> searchExternalSubtitles(
+    String code,
+  ) => _call(() => api.searchExternalSubtitles(code));
+
+  @override
+  Future<DbOnlineSubtitlePreview> previewLocalSubtitle(String id) =>
+      _call(() => api.previewLocalSubtitle(id));
+
+  @override
+  Future<DbOnlineSubtitlePreview> previewExternalSubtitle(String url) =>
+      _call(() => api.previewExternalSubtitle(url));
+
+  @override
+  Future<Uint8List> downloadLocalSubtitle(String id) =>
+      _call(() => api.downloadLocalSubtitle(id));
+
+  @override
+  Future<Uint8List> downloadExternalSubtitle({
+    required String url,
+    required String name,
+    required String extension,
+  }) => _call(
+    () => api.downloadExternalSubtitle(
+      url: url,
+      name: name,
+      extension: extension,
+    ),
+  );
 
   MediaSummary _summaryFromMovie(DbOnlineMovie movie) => MediaSummary(
     ref: MediaRef(
