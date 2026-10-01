@@ -61,7 +61,7 @@ class DboMediaRepository {
   }
 
   Future<DbOnlineMoviePage> taggedMoviesPage({
-    String filterBy = '0:t:p::::',
+    String filterBy = '0:t:::::',
     int page = 1,
     int limit = 24,
     String sortBy = 'update',

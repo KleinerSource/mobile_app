@@ -41,10 +41,10 @@ void main() {
     expect(episodes.episodes.single.url, contains('playlist.m3u8'));
     expect(adapter.requests, <String>[
       '/api/recommend?page=1&limit=9',
-      '/api/latest?page=1&limit=9&type=all&sort=update&sort_by=update&filter_by=can_play',
-      '/api/latest?page=1&limit=9&type=all&sort=release&sort_by=release&filter_by=can_play',
-      '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release&filter_by=can_play',
-      '/api/subs/tags?filter_by=0%3At%3Ap%3A%3A%3A%3A&page=1&limit=24&sort_by=update&order_by=desc',
+      '/api/latest?page=1&limit=9&type=all&sort=update&sort_by=update',
+      '/api/latest?page=1&limit=9&type=all&sort=release&sort_by=release',
+      '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release',
+      '/api/subs/tags?filter_by=0%3At%3A%3A%3A%3A%3A&page=1&limit=24&sort_by=update&order_by=desc',
       '/api/video/ABC-001?refresh=true',
       '/api/video/id/vid-1?refresh=true',
       '/api/video/ABC-001/online-play/episodes?source_id=2&video_id=vid-1',
@@ -79,7 +79,7 @@ void main() {
     expect(page.hasMore, isFalse);
     expect(
       adapter.request,
-      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=can_play',
+      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance',
     );
   });
 
@@ -104,7 +104,7 @@ void main() {
     expect(adapter.actorRequest, '/api/search/actors?q=%E6%BC%94%E5%91%98');
     expect(
       adapter.seriesRequest,
-      '/api/search?q=%E7%B3%BB%E5%88%97&type=series&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=can_play',
+      '/api/search?q=%E7%B3%BB%E5%88%97&type=series&page=2&limit=24&movie_type=all&movie_sort_by=relevance',
     );
   });
 

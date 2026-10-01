@@ -128,7 +128,7 @@ class DbOnlineLibraryPageRequest {
     required this.serverId,
     required this.page,
     required this.limit,
-    this.filterBy = '0:t:p::::',
+    this.filterBy = '0:t:::::',
     this.sortBy = 'update',
     this.orderBy = 'desc',
   });

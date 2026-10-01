@@ -88,7 +88,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(requests, isNotEmpty);
-    expect(requests.last['filter_by'], '0:t:p::::');
+    expect(requests.last['filter_by'], '0:t:::::');
     expect(requests.last['sort_by'], 'update');
     expect(requests.last['order_by'], 'desc');
     expect(find.text('最近更新'), findsNothing);
@@ -100,7 +100,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
-      expect(requests.last['filter_by'], '$value:t:p::::');
+      expect(requests.last['filter_by'], '$value:t:::::');
     }
 
     await tester.tap(find.byIcon(Icons.sort_rounded));

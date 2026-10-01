@@ -74,7 +74,7 @@ class DbOnlineApi {
   ///
   /// `sort` 是移动端新约定；`sort_by` 保留给当前 dbonline 后端，两个
   /// 参数同时发送可兼容已经发布的服务端和使用新参数名的服务端。
-  /// 默认仅返回支持在线播放的影片。
+  /// 不按在线播放能力筛选影片；响应中的 `can_play` 仅供播放入口判断。
   Future<DbOnlineMoviePage> latestPage({
     int page = 1,
     int limit = 9,
@@ -88,16 +88,15 @@ class DbOnlineApi {
       'type': 'all',
       'sort': sortValue,
       'sort_by': sortValue,
-      'filter_by': 'can_play',
     });
   }
 
   /// 获取 dbonline 影片库的一页。
   ///
   /// `/subs/tags` 使用 `filter_by` 的第一段表示影片分类，第二段固定为
-  /// `t`，第三段的 `p` 表示支持在线播放。影片库只开放这条线上筛选链路。
+  /// `t`。不按在线播放能力筛选，`can_play` 仅供播放入口判断。
   Future<DbOnlineMoviePage> taggedMoviesPage({
-    String filterBy = '0:t:p::::',
+    String filterBy = '0:t:::::',
     int page = 1,
     int limit = 24,
     String sortBy = 'update',
@@ -127,8 +126,8 @@ class DbOnlineApi {
   /// 按关键词获取 dbonline 搜索结果的一页。
   ///
   /// 搜索接口的电影类型必须显式传递，避免服务端默认值变化导致结果
-  /// 混入其他实体类型。默认只搜索支持在线播放的影片；DBO/JavDB 使用
-  /// `can_play` 表示在线播。响应沿用首页列表的 `data.movies` 解析逻辑。
+  /// 混入其他实体类型。响应中的 `can_play` 仅供播放入口判断，不作为搜索
+  /// 过滤条件。响应沿用首页列表的 `data.movies` 解析逻辑。
   Future<DbOnlineMoviePage> searchPage({
     required String query,
     int page = 1,
@@ -145,7 +144,6 @@ class DbOnlineApi {
       'limit': limit,
       'movie_type': 'all',
       'movie_sort_by': 'relevance',
-      'movie_filter_by': 'can_play',
     });
   }
 
@@ -198,7 +196,6 @@ class DbOnlineApi {
       'limit': limit,
       'movie_type': 'all',
       'movie_sort_by': 'relevance',
-      'movie_filter_by': 'can_play',
     });
   }
 

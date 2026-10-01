@@ -28,7 +28,7 @@ import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
 /// DBO 影片库。
 ///
-/// 影片库只展示支持在线播放的影片，分类通过 `filter_by` 第一段切换：
+/// 影片库不限制在线播放能力，分类通过 `filter_by` 第一段切换：
 /// 0 有码、1 无码、2 欧美、3 FC2、4 动漫。
 class DbOnlineLibraryPage extends ConsumerStatefulWidget {
   const DbOnlineLibraryPage({super.key});
@@ -65,7 +65,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   MediaViewMode _viewMode = MediaViewMode.portrait;
   int _requestSerial = 0;
 
-  String get _filterBy => '$_category:t:p::::';
+  String get _filterBy => '$_category:t:::::';
 
   @override
   void initState() {

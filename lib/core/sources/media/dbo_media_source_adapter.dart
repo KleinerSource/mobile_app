@@ -63,7 +63,7 @@ class DboMediaSourceAdapter implements DboMediaSource {
                   ),
                 ),
           MediaCatalogMode.tagged => await api.taggedMoviesPage(
-            filterBy: query.tagFilter ?? '0:t:p::::',
+            filterBy: query.tagFilter ?? '0:t:::::',
             page: query.page,
             limit: query.limit,
             sortBy: query.sortBy ?? 'update',
