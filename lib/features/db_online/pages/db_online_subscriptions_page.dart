@@ -18,6 +18,8 @@ import 'package:omm/features/db_online/providers/db_online_subscription_provider
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
+import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -763,6 +765,16 @@ class _DbOnlineSubscriptionsPageState
     final isActor = _section == 'actor';
     final isEntitySubscription = isActor || _section == 'series';
     final isBlacklist = _section == 'blacklist';
+    final privacyScope = isActor ? PrivacyScope.actor : PrivacyScope.movie;
+    final privacyId = isActor
+        ? item.id
+        : 'dbo:subscription:$_section:${_itemKey(item)}';
+    final revealedProvider = isActor
+        ? revealedActorsProvider
+        : revealedMoviesProvider;
+    final hidden =
+        ref.watch(privacyShieldProvider) &&
+        !ref.watch(revealedProvider).contains(privacyId);
     final inactive = isEntitySubscription && !item.active;
     final data = item.data;
     final blacklistRule =
@@ -881,9 +893,14 @@ class _DbOnlineSubscriptionsPageState
                       const SizedBox(width: 10),
                     ],
                     if (isActor) ...[
-                      _SubscriptionCardArtwork(
-                        imageUrl: imageUrl,
-                        isActor: true,
+                      PrivacyMask(
+                        movieId: privacyId,
+                        scope: privacyScope,
+                        radius: 28,
+                        child: _SubscriptionCardArtwork(
+                          imageUrl: imageUrl,
+                          isActor: true,
+                        ),
                       ),
                       const SizedBox(width: 12),
                     ],
@@ -891,8 +908,10 @@ class _DbOnlineSubscriptionsPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item.title.isEmpty ? item.id : item.title,
+                          PrivacyText(
+                            movieId: privacyId,
+                            scope: privacyScope,
+                            text: item.title.isEmpty ? item.id : item.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.cardTitle(context),
@@ -938,8 +957,11 @@ class _DbOnlineSubscriptionsPageState
                               ],
                             ),
                             const SizedBox(height: 7),
-                            Text(
-                              '${l.dbOnlineSubscriptionRemark}: ${blacklistReason.isEmpty ? '—' : blacklistReason}',
+                            PrivacyText(
+                              movieId: privacyId,
+                              scope: privacyScope,
+                              text:
+                                  '${l.dbOnlineSubscriptionRemark}: ${blacklistReason.isEmpty ? '—' : blacklistReason}',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: AppText.meta(context),
@@ -1020,6 +1042,13 @@ class _DbOnlineSubscriptionsPageState
         ),
       ),
     );
+    if (hidden) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => ref.read(revealedProvider.notifier).reveal(privacyId),
+        child: IgnorePointer(child: card),
+      );
+    }
     if (selectingBlacklist) {
       return Material(
         color: Colors.transparent,
@@ -1087,7 +1116,13 @@ class _DbOnlineSubscriptionsPageState
         ? item.data['number']?.toString().trim()
         : null;
     final meta = item.data['release_date']?.toString().trim() ?? '';
-    final entries = _rowMenuEntries(l);
+    final privacyId = _subscriptionMoviePrivacyId(item);
+    final hidden =
+        ref.watch(privacyShieldProvider) &&
+        !ref.watch(revealedMoviesProvider).contains(privacyId);
+    final entries = hidden
+        ? const <GlassMenuEntry<String>>[]
+        : _rowMenuEntries(l);
     final overlays = _subscriptionMovieBadges(item, l);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1097,8 +1132,9 @@ class _DbOnlineSubscriptionsPageState
           imageUrl: imageUrl,
           meta: meta,
           width: constraints.maxWidth,
+          privacyId: privacyId,
           onTap: entries.isEmpty
-              ? () => _openSubscriptionMovieDetail(context, item)
+              ? () => _openSubscriptionMovieDetail(context, ref, item)
               : null,
           coverTopLeftOverlay: overlays.status,
           coverBottomLeftOverlay: overlays.filters,
@@ -1108,7 +1144,7 @@ class _DbOnlineSubscriptionsPageState
           width: 232,
           entries: entries,
           onSelected: (action) => _handleItemAction(action, item, l),
-          onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
+          onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),
           child: card,
         );
       },
@@ -1125,6 +1161,9 @@ class _DbOnlineSubscriptionsPageState
         kind: kind,
         sourceId: sourceId,
         title: item.title,
+        privacyId: item.kind == 'actor'
+            ? item.id
+            : 'dbo:subscription:$kind:${_itemKey(item)}',
         pendingCount: int.tryParse(
           item.data['pending_count']?.toString() ?? '',
         ),
@@ -1999,10 +2038,30 @@ class _DbOnlineSubscriptionsPageState
   }
 }
 
+String _subscriptionMoviePrivacyId(DbOnlineSubscriptionItem item) {
+  final videoId = item.data['video_id']?.toString().trim() ?? '';
+  if (videoId.isNotEmpty) return videoId;
+  // 在线订阅的 id 是影片 ID；本地队列的 id 通常为番号。
+  if (item.kind == 'online') {
+    final id = item.data['id']?.toString().trim() ?? '';
+    if (id.isNotEmpty) return id;
+    final number = item.data['number']?.toString().trim() ?? '';
+    if (number.isNotEmpty) return number;
+  }
+  return item.id;
+}
+
 void _openSubscriptionMovieDetail(
   BuildContext context,
+  WidgetRef ref,
   DbOnlineSubscriptionItem item,
 ) {
+  final privacyId = _subscriptionMoviePrivacyId(item);
+  if (ref.read(privacyShieldProvider) &&
+      !ref.read(revealedMoviesProvider).contains(privacyId)) {
+    ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
+    return;
+  }
   final videoId = item.data['video_id']?.toString().trim() ?? '';
   final code = [item.data['number'], item.data['video_code'], item.data['code']]
       .map((value) => value?.toString().trim() ?? '')
@@ -2154,6 +2213,7 @@ class DbOnlineSubscriptionVideosSheet extends ConsumerStatefulWidget {
     required this.pendingCount,
     required this.completedCount,
     required this.skippedCount,
+    this.privacyId,
   });
 
   final String kind;
@@ -2162,6 +2222,7 @@ class DbOnlineSubscriptionVideosSheet extends ConsumerStatefulWidget {
   final int? pendingCount;
   final int? completedCount;
   final int? skippedCount;
+  final String? privacyId;
 
   @override
   ConsumerState<DbOnlineSubscriptionVideosSheet> createState() =>
@@ -2331,6 +2392,15 @@ class _DbOnlineSubscriptionVideosSheetState
     final serverId = serverConfig?.activeServerId ?? '';
     _syncPagingQuery(serverId);
     final l = AppL10n.of(context);
+    final privacyId =
+        widget.privacyId ??
+        'dbo:subscription:${widget.kind}:${widget.sourceId}';
+    final revealedProvider = widget.kind == 'actor'
+        ? revealedActorsProvider
+        : revealedMoviesProvider;
+    final hidden =
+        ref.watch(privacyShieldProvider) &&
+        !ref.watch(revealedProvider).contains(privacyId);
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -2339,11 +2409,17 @@ class _DbOnlineSubscriptionVideosSheetState
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
           child: Column(
             children: [
-              SheetHeader(
-                icon: widget.kind == 'actor'
-                    ? Icons.person_outline_rounded
-                    : Icons.layers_outlined,
-                title: widget.title,
+              GestureDetector(
+                onTap: hidden
+                    ? () =>
+                          ref.read(revealedProvider.notifier).reveal(privacyId)
+                    : null,
+                child: SheetHeader(
+                  icon: widget.kind == 'actor'
+                      ? Icons.person_outline_rounded
+                      : Icons.layers_outlined,
+                  title: hidden ? '▆▆▆▆▆' : widget.title,
+                ),
               ),
               SizedBox(
                 height: 42,
@@ -2501,18 +2577,23 @@ class _DbOnlineSubscriptionVideosSheetState
         ),
     ];
     final overlays = _subscriptionMovieBadges(item, l);
+    final privacyId = _subscriptionMoviePrivacyId(item);
+    final hidden =
+        ref.watch(privacyShieldProvider) &&
+        !ref.watch(revealedMoviesProvider).contains(privacyId);
     return LayoutBuilder(
       builder: (context, constraints) => GlassMenuAnchor<String>(
         width: 232,
-        entries: menuEntries,
+        entries: hidden ? const [] : menuEntries,
         onSelected: (status) => _updateStatus(item, status, l),
-        onAnchorTap: () => _openSubscriptionMovieDetail(context, item),
+        onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),
         child: CatalogMovieCard(
           title: item.title,
           code: item.id,
           imageUrl: imageUrl,
           meta: meta,
           width: constraints.maxWidth,
+          privacyId: privacyId,
           coverTopLeftOverlay: overlays.status,
           coverBottomLeftOverlay: overlays.filters,
         ),
