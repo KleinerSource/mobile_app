@@ -2538,6 +2538,7 @@
   ,"dbOnlineLibraryNoResources": "无资源"
   ,"dbOnlineLibraryInLibrary": "已入库"
   ,"dbOnlineLibraryUserRating": "评分"
+  ,"dbOnlineLibraryCommunityRating": "众评"
   ,"dbOnlineLibraryUnrated": "无评分"
   ,"dbOnlineLibraryStars": "星"
   ,"dbOnlineLibrarySortCreated": "入库时间"

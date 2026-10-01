@@ -25,6 +25,7 @@ import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/shared/filter_chip.dart';
 
 /// DBO 影片库。
 ///
@@ -55,6 +56,12 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           (value: score, label: (l) => '$score ${l.dbOnlineLibraryStars}'),
         (value: '-1', label: (l) => l.dbOnlineLibraryUnrated),
       ];
+  static final _minScoreOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: '', label: (l) => l.filterAll),
+        for (final score in const ['5', '4', '3', '2', '1'])
+          (value: score, label: (l) => '$score ${l.dbOnlineLibraryStars}'),
+      ];
   static final _sortOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: 'created', label: (l) => l.dbOnlineLibrarySortCreated),
@@ -68,6 +75,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   Completer<void>? _refreshCompleter;
   String _resourceFilter = '';
   String _userScore = '';
+  String _minScore = '';
   String _sortBy = 'created';
   String _orderBy = 'desc';
   MediaViewMode _viewMode = MediaViewMode.portrait;
@@ -103,6 +111,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
             limit: _pageSize,
             resourceFilter: _resourceFilter,
             userScore: _userScore,
+            minScore: _minScore,
             sortBy: _sortBy,
             orderBy: _orderBy,
           ),
@@ -177,15 +186,18 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   void _reloadWith({
     String? resourceFilter,
     String? userScore,
+    String? minScore,
     String? sortBy,
     String? orderBy,
   }) {
     final nextResourceFilter = resourceFilter ?? _resourceFilter;
     final nextUserScore = userScore ?? _userScore;
+    final nextMinScore = minScore ?? _minScore;
     final nextSortBy = sortBy ?? _sortBy;
     final nextOrderBy = orderBy ?? _orderBy;
     if (nextResourceFilter == _resourceFilter &&
         nextUserScore == _userScore &&
+        nextMinScore == _minScore &&
         nextSortBy == _sortBy &&
         nextOrderBy == _orderBy) {
       return;
@@ -193,6 +205,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     setState(() {
       _resourceFilter = nextResourceFilter;
       _userScore = nextUserScore;
+      _minScore = nextMinScore;
       _sortBy = nextSortBy;
       _orderBy = nextOrderBy;
     });
@@ -206,59 +219,56 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   }
 
   Future<void> _openFilterMenu(BuildContext context) async {
-    final colors = appColors(context);
-    final l = AppL10n.of(context);
     await showGlassSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SheetHeader(
-                icon: Icons.tune_rounded,
-                title: l.dbOnlineLibraryFilters,
-                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          final l = AppL10n.of(sheetContext);
+          return SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SheetHeader(
+                    icon: Icons.tune_rounded,
+                    title: l.dbOnlineLibraryFilters,
+                    padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+                  ),
+                  _FilterSectionTitle(title: l.dbOnlineLibraryResourceType),
+                  _FilterButtonRow(
+                    options: _resourceOptions,
+                    selectedValue: _resourceFilter,
+                    onSelected: (value) {
+                      _reloadWith(resourceFilter: value);
+                      setSheetState(() {});
+                    },
+                  ),
+                  _FilterSectionTitle(title: l.dbOnlineLibraryUserRating),
+                  _FilterButtonRow(
+                    options: _userScoreOptions,
+                    selectedValue: _userScore,
+                    onSelected: (value) {
+                      _reloadWith(userScore: value);
+                      setSheetState(() {});
+                    },
+                  ),
+                  _FilterSectionTitle(title: l.dbOnlineLibraryCommunityRating),
+                  _FilterButtonRow(
+                    options: _minScoreOptions,
+                    selectedValue: _minScore,
+                    onSelected: (value) {
+                      _reloadWith(minScore: value);
+                      setSheetState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ),
-              _FilterSectionTitle(title: l.dbOnlineLibraryResourceType),
-              for (final option in _resourceOptions)
-                ListTile(
-                  dense: true,
-                  title: Text(option.label(l)),
-                  trailing: option.value == _resourceFilter
-                      ? Icon(
-                          Icons.check_rounded,
-                          color: colors.accent,
-                          size: 18,
-                        )
-                      : null,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _reloadWith(resourceFilter: option.value);
-                  },
-                ),
-              _FilterSectionTitle(title: l.dbOnlineLibraryUserRating),
-              for (final option in _userScoreOptions)
-                ListTile(
-                  dense: true,
-                  title: Text(option.label(l)),
-                  trailing: option.value == _userScore
-                      ? Icon(
-                          Icons.check_rounded,
-                          color: colors.accent,
-                          size: 18,
-                        )
-                      : null,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _reloadWith(userScore: option.value);
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -410,7 +420,10 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                   ),
                   const SizedBox(width: 8),
                   _LibraryFilterButton(
-                    active: _resourceFilter.isNotEmpty || _userScore.isNotEmpty,
+                    active:
+                        _resourceFilter.isNotEmpty ||
+                        _userScore.isNotEmpty ||
+                        _minScore.isNotEmpty,
                     onTap: () => _openFilterMenu(context),
                   ),
                   const SizedBox(width: 8),
@@ -473,10 +486,43 @@ class _FilterSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 14, 22, 2),
+      padding: const EdgeInsets.fromLTRB(22, 8, 22, 4),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(title, style: AppText.eyebrow(context)),
+      ),
+    );
+  }
+}
+
+class _FilterButtonRow extends StatelessWidget {
+  const _FilterButtonRow({
+    required this.options,
+    required this.selectedValue,
+    required this.onSelected,
+  });
+
+  final List<({String value, String Function(AppL10n l) label})> options;
+  final String selectedValue;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: Row(
+        children: [
+          for (var index = 0; index < options.length; index++) ...[
+            if (index > 0) const SizedBox(width: 7),
+            CompactFilterButton(
+              label: options[index].label(l),
+              active: options[index].value == selectedValue,
+              onTap: () => onSelected(options[index].value),
+            ),
+          ],
+        ],
       ),
     );
   }

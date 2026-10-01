@@ -13434,6 +13434,12 @@ abstract class AppL10n {
   /// **'评分'**
   String get dbOnlineLibraryUserRating;
 
+  /// No description provided for @dbOnlineLibraryCommunityRating.
+  ///
+  /// In zh, this message translates to:
+  /// **'众评'**
+  String get dbOnlineLibraryCommunityRating;
+
   /// No description provided for @dbOnlineLibraryUnrated.
   ///
   /// In zh, this message translates to:

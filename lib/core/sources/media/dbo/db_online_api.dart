@@ -131,6 +131,7 @@ class DbOnlineApi {
     String order = 'desc',
     String resourceFilter = '',
     String userScore = '',
+    String minScore = '',
   }) async {
     final query = <String, dynamic>{
       'page': page,
@@ -139,6 +140,7 @@ class DbOnlineApi {
       'order': order,
       if (resourceFilter.isNotEmpty) 'filter': resourceFilter,
       if (userScore.isNotEmpty) 'user_score': userScore,
+      if (minScore.isNotEmpty) 'min_score': minScore,
     };
     final response = await _dio.get<dynamic>('/videos', queryParameters: query);
     return unwrapStd<DbOnlineMoviePage>(response.data, (data) {

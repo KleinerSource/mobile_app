@@ -7,14 +7,14 @@ class CompactFilterButton extends StatelessWidget {
   const CompactFilterButton({
     super.key,
     required this.label,
-    required this.icon,
     required this.active,
     required this.onTap,
+    this.icon,
     this.trailingIcon,
   });
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
   final bool active;
   final VoidCallback onTap;
   final IconData? trailingIcon;
@@ -24,6 +24,7 @@ class CompactFilterButton extends StatelessWidget {
     final c = appColors(context);
     final fg = active ? c.accent : c.text;
     final iconColor = active ? c.accent : c.muted;
+    final icon = this.icon;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -39,8 +40,10 @@ class CompactFilterButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: iconColor),
-            const SizedBox(width: 5),
+            if (icon != null) ...[
+              Icon(icon, size: 15, color: iconColor),
+              const SizedBox(width: 5),
+            ],
             Text(
               label,
               strutStyle: const StrutStyle(

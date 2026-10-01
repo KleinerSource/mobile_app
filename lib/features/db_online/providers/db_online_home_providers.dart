@@ -63,6 +63,7 @@ final dbOnlineLibraryPageProvider = FutureProvider.autoDispose
             order: request.orderBy,
             resourceFilter: request.resourceFilter,
             userScore: request.userScore,
+            minScore: request.minScore,
           );
     });
 
@@ -133,6 +134,7 @@ class DbOnlineLibraryPageRequest {
     required this.limit,
     this.resourceFilter = '',
     this.userScore = '',
+    this.minScore = '',
     this.sortBy = 'created',
     this.orderBy = 'desc',
   });
@@ -142,6 +144,7 @@ class DbOnlineLibraryPageRequest {
   final int limit;
   final String resourceFilter;
   final String userScore;
+  final String minScore;
   final String sortBy;
   final String orderBy;
 
@@ -153,6 +156,7 @@ class DbOnlineLibraryPageRequest {
       other.limit == limit &&
       other.resourceFilter == resourceFilter &&
       other.userScore == userScore &&
+      other.minScore == minScore &&
       other.sortBy == sortBy &&
       other.orderBy == orderBy;
 
@@ -163,6 +167,7 @@ class DbOnlineLibraryPageRequest {
     limit,
     resourceFilter,
     userScore,
+    minScore,
     sortBy,
     orderBy,
   );

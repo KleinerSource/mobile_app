@@ -7440,6 +7440,9 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineLibraryUserRating => 'Rating';
 
   @override
+  String get dbOnlineLibraryCommunityRating => 'Community rating';
+
+  @override
   String get dbOnlineLibraryUnrated => 'Unrated';
 
   @override

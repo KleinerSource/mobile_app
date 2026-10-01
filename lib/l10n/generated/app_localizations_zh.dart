@@ -7292,6 +7292,9 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineLibraryUserRating => '评分';
 
   @override
+  String get dbOnlineLibraryCommunityRating => '众评';
+
+  @override
   String get dbOnlineLibraryUnrated => '无评分';
 
   @override
