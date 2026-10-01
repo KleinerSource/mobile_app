@@ -16,6 +16,7 @@ import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -2029,9 +2030,10 @@ void _openSubscriptionMovieDetail(
   Widget? statusBadge;
 
   if (overdue) {
-    statusBadge = _subscriptionBadge(
-      l.dbOnlineSubscriptionOverdue,
-      const Color(0xFFF97316),
+    statusBadge = DbOnlineSubscriptionStatusBadge(
+      label: l.dbOnlineSubscriptionOverdue,
+      color: const Color(0xFFF97316),
+      icon: Icons.schedule_rounded,
     );
   } else if (status == 'completed') {
     statusBadge = Semantics(
@@ -2048,14 +2050,16 @@ void _openSubscriptionMovieDetail(
       ),
     );
   } else if (status == 'pending') {
-    statusBadge = _subscriptionBadge(
-      l.dbOnlineSubscriptionPendingBadge,
-      const Color(0xFFFACC15),
+    statusBadge = DbOnlineSubscriptionStatusBadge(
+      label: l.dbOnlineSubscriptionPendingBadge,
+      color: const Color(0xFFEAB308),
+      icon: Icons.notifications_active_outlined,
     );
   } else if (status == 'skipped') {
-    statusBadge = _subscriptionBadge(
-      l.dbOnlineSubscriptionSkipped,
-      const Color(0xFFEF4444),
+    statusBadge = DbOnlineSubscriptionStatusBadge(
+      label: l.dbOnlineSubscriptionSkipped,
+      color: const Color(0xFFEF4444),
+      icon: Icons.skip_next_rounded,
     );
   }
 

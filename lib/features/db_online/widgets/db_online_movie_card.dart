@@ -6,6 +6,7 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
@@ -191,32 +192,10 @@ Widget? _subscriptionStatusBadge(
       ),
     );
   }
-  return Semantics(
-    container: true,
+  return DbOnlineSubscriptionStatusBadge(
     label: label,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: Colors.white),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    ),
+    color: color,
+    icon: icon,
   );
 }
 
