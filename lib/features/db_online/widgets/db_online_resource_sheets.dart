@@ -240,7 +240,14 @@ class _DbOnlineResourcesSheetState
               'title': widget.movie.title.trim(),
               'date': widget.movie.date?.trim() ?? '',
               'actors': widget.movie.actors
-                  .map((actor) => actor.name)
+                  .map(
+                    (actor) => {
+                      if (actor.externalId != null)
+                        'external_id': actor.externalId,
+                      'name': actor.name,
+                      'gender': actor.gender ?? '',
+                    },
+                  )
                   .toList(growable: false),
             },
             recordResources: [
