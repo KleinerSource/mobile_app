@@ -7507,6 +7507,9 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineFollowingPresets => 'Following presets';
 
   @override
+  String get dbOnlineFollowingManage => 'Manage';
+
+  @override
   String get dbOnlineFollowingSavePreset => 'Save current preset';
 
   @override

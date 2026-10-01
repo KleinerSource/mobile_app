@@ -2566,6 +2566,7 @@
   "dbOnlineFollowingNoMovies": "没有符合条件的影片",
   "dbOnlineFollowingRequiresOnlineQuery": "请先在 DBO 后台启用在线查询",
   "dbOnlineFollowingPresets": "关注预设",
+  "dbOnlineFollowingManage": "管理",
   "dbOnlineFollowingSavePreset": "保存当前预设",
   "dbOnlineFollowingEditPreset": "编辑预设",
   "dbOnlineFollowingDeletePreset": "删除预设",

@@ -7357,6 +7357,9 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineFollowingPresets => '关注预设';
 
   @override
+  String get dbOnlineFollowingManage => '管理';
+
+  @override
   String get dbOnlineFollowingSavePreset => '保存当前预设';
 
   @override
