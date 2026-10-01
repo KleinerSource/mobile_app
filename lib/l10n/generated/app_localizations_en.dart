@@ -1719,6 +1719,12 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSort => 'Sort';
 
   @override
+  String get dbOnlineSourceDatabase => 'Database';
+
+  @override
+  String get dbOnlineSourceOnline => 'Online';
+
+  @override
   String get dbOnlineTestConnection => 'Test connection';
 
   @override

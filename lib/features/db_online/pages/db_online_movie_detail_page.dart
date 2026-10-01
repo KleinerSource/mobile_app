@@ -210,7 +210,19 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         ? null
         : resolveServerUrl(config, image);
     final posterBadgeVisibility = ref.watch(posterBadgeVisibilityProvider);
+    final isDatabaseSource = movie.source == 'database';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sourceBadgeColor = isDatabaseSource
+        ? (isDark ? const Color(0xFF00FF80) : const Color(0xFF059669))
+        : (isDark ? const Color(0xFFFF3232) : const Color(0xFFDC2626));
     final heroBadges = <Widget>[
+      CoverBadgePill(
+        icon: isDatabaseSource ? Icons.storage_rounded : Icons.cloud_rounded,
+        label: isDatabaseSource
+            ? l.dbOnlineSourceDatabase
+            : l.dbOnlineSourceOnline,
+        color: sourceBadgeColor,
+      ),
       if (movie.hasCnsub &&
           posterBadgeVisibility.isEnabled(PosterBadgeKind.subtitle))
         CoverBadgePill(

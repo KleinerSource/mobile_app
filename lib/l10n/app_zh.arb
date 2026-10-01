@@ -580,6 +580,8 @@
   "dbOnlineSeriesSection": "系列",
   "dbOnlineShowPassword": "显示密码",
   "dbOnlineSort": "排序",
+  "dbOnlineSourceDatabase": "数据库",
+  "dbOnlineSourceOnline": "在线",
   "dbOnlineTestConnection": "测试连接",
   "dbOnlineUncensored": "无码",
   "homeBadgeNew": "新",

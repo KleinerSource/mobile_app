@@ -200,10 +200,10 @@ class DbOnlineApi {
   }
 
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
-  /// 转换为 Oh My Media 的整数影片 ID。每次请求都会强制携带 refresh=true。
+  /// 转换为 Oh My Media 的整数影片 ID。refresh 控制是否强制访问在线 API。
   Future<DbOnlineMovieDetail> detail(
     String code, {
-    bool refresh = false,
+    bool refresh = true,
     String? videoId,
   }) async {
     final normalized = code.trim();
@@ -211,25 +211,21 @@ class DbOnlineApi {
       throw ArgumentError.value(code, 'code', AppErrorCode.validationFailed);
     }
     final query = <String, dynamic>{
-      'refresh': true,
+      'refresh': refresh,
       if (videoId?.trim().isNotEmpty == true) 'video_id': videoId!.trim(),
     };
     final response = await _dio.get<dynamic>(
       '/video/${Uri.encodeComponent(normalized)}',
       queryParameters: query.isEmpty ? null : query,
     );
-    return unwrapStd<DbOnlineMovieDetail>(
-      response.data,
-      (data) =>
-          DbOnlineMovieDetail.fromJson(Map<String, dynamic>.from(data as Map)),
-    );
+    return _movieDetailFromResponse(response.data);
   }
 
   /// 通过 dbonline/JavDB 的 video_id 获取详情，适用于番号尚未写入本地
-  /// 数据库的推荐结果。每次请求都会强制携带 refresh=true。
+  /// 数据库的推荐结果。refresh 控制是否强制访问在线 API。
   Future<DbOnlineMovieDetail> detailByVideoId(
     String videoId, {
-    bool refresh = false,
+    bool refresh = true,
   }) async {
     final normalized = videoId.trim();
     if (normalized.isEmpty) {
@@ -237,13 +233,9 @@ class DbOnlineApi {
     }
     final response = await _dio.get<dynamic>(
       '/video/id/${Uri.encodeComponent(normalized)}',
-      queryParameters: const {'refresh': true},
+      queryParameters: {'refresh': refresh},
     );
-    return unwrapStd<DbOnlineMovieDetail>(
-      response.data,
-      (data) =>
-          DbOnlineMovieDetail.fromJson(Map<String, dynamic>.from(data as Map)),
-    );
+    return _movieDetailFromResponse(response.data);
   }
 
   Future<DbOnlineExternalResources> customResources(String code) =>
@@ -360,6 +352,16 @@ class DbOnlineApi {
       response.data,
       DbOnlineExternalResources.fromJson,
     );
+  }
+
+  DbOnlineMovieDetail _movieDetailFromResponse(Object? raw) {
+    final source = raw is Map ? raw['source']?.toString() : null;
+    return unwrapStd<DbOnlineMovieDetail>(raw, (data) {
+      return DbOnlineMovieDetail.fromJson(
+        Map<String, dynamic>.from(data as Map),
+        source: source,
+      );
+    });
   }
 
   /// 获取 dbonline 在线播放剧集和清晰度。source_id 必须是详情接口返回

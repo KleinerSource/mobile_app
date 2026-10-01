@@ -146,12 +146,17 @@ class DboMediaSourceAdapter implements DboMediaSource {
   });
 
   @override
-  Future<DbOnlineMovieDetail> getMovieByCode(String code, {String? videoId}) =>
-      _call(() => api.detail(code, refresh: true, videoId: videoId));
+  Future<DbOnlineMovieDetail> getMovieByCode(
+    String code, {
+    String? videoId,
+    bool refresh = true,
+  }) => _call(() => api.detail(code, refresh: refresh, videoId: videoId));
 
   @override
-  Future<DbOnlineMovieDetail> getMovieByVideoId(String videoId) =>
-      _call(() => api.detailByVideoId(videoId, refresh: true));
+  Future<DbOnlineMovieDetail> getMovieByVideoId(
+    String videoId, {
+    bool refresh = true,
+  }) => _call(() => api.detailByVideoId(videoId, refresh: refresh));
 
   @override
   Future<DbOnlineExternalResources> getCustomResources(String code) =>

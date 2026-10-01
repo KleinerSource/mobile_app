@@ -224,20 +224,50 @@ class DbOnlineMovieDetailRequest {
   int get hashCode => Object.hash(serverId, value);
 }
 
-final dbOnlineMovieDetailProvider = FutureProvider.autoDispose
-    .family<DbOnlineMovieDetail, DbOnlineMovieDetailRequest>((ref, request) {
+final dbOnlineMovieDetailProvider = StreamProvider.autoDispose
+    .family<DbOnlineMovieDetail, DbOnlineMovieDetailRequest>((
+      ref,
+      request,
+    ) async* {
       _checkServerScope(ref, request.serverId);
-      return ref
-          .watch(dboMediaRepositoryProvider)
-          .getMovieByCode(request.value);
+      final repository = ref.watch(dboMediaRepositoryProvider);
+      final movie = await repository.getMovieByCode(
+        request.value,
+        refresh: false,
+      );
+      yield movie;
+      if (movie.source != 'database') return;
+
+      try {
+        yield await repository.getMovieByCode(
+          movie.code.trim().isNotEmpty ? movie.code : request.value,
+          videoId: movie.videoId,
+          refresh: true,
+        );
+      } catch (_) {
+        // 后台在线刷新失败时继续保留数据库详情。
+      }
     });
 
-final dbOnlineMovieDetailByVideoIdProvider = FutureProvider.autoDispose
-    .family<DbOnlineMovieDetail, DbOnlineMovieDetailRequest>((ref, request) {
+final dbOnlineMovieDetailByVideoIdProvider = StreamProvider.autoDispose
+    .family<DbOnlineMovieDetail, DbOnlineMovieDetailRequest>((
+      ref,
+      request,
+    ) async* {
       _checkServerScope(ref, request.serverId);
-      return ref
-          .watch(dboMediaRepositoryProvider)
-          .getMovieByVideoId(request.value);
+      final repository = ref.watch(dboMediaRepositoryProvider);
+      final movie = await repository.getMovieByVideoId(
+        request.value,
+        refresh: false,
+      );
+      yield movie;
+      if (movie.source != 'database') return;
+
+      try {
+        yield await repository.getMovieByVideoId(request.value, refresh: true);
+      } catch (_) {
+        // 后台在线刷新失败时继续保留数据库详情。
+      }
     });
 
 final dbOnlinePlayEpisodesProvider = FutureProvider.autoDispose

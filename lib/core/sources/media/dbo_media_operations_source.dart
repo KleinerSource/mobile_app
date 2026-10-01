@@ -9,9 +9,16 @@ import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 /// 这些方法返回 DBO 自有 DTO，供 DBO 专属页面使用；请求仍由 Source
 /// Adapter 负责，页面和 Provider 不直接接触 `DbOnlineApi`。
 abstract interface class DboMediaOperationsSource {
-  Future<DbOnlineMovieDetail> getMovieByCode(String code, {String? videoId});
+  Future<DbOnlineMovieDetail> getMovieByCode(
+    String code, {
+    String? videoId,
+    bool refresh = true,
+  });
 
-  Future<DbOnlineMovieDetail> getMovieByVideoId(String videoId);
+  Future<DbOnlineMovieDetail> getMovieByVideoId(
+    String videoId, {
+    bool refresh = true,
+  });
 
   Future<DbOnlinePlayEpisodes> getPlayEpisodes({
     required String code,

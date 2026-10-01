@@ -3253,6 +3253,18 @@ abstract class AppL10n {
   /// **'排序'**
   String get dbOnlineSort;
 
+  /// No description provided for @dbOnlineSourceDatabase.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库'**
+  String get dbOnlineSourceDatabase;
+
+  /// No description provided for @dbOnlineSourceOnline.
+  ///
+  /// In zh, this message translates to:
+  /// **'在线'**
+  String get dbOnlineSourceOnline;
+
   /// No description provided for @dbOnlineTestConnection.
   ///
   /// In zh, this message translates to:

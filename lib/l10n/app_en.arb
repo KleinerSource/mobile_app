@@ -580,6 +580,8 @@
   "dbOnlineSeriesSection": "Series",
   "dbOnlineShowPassword": "Show password",
   "dbOnlineSort": "Sort",
+  "dbOnlineSourceDatabase": "Database",
+  "dbOnlineSourceOnline": "Online",
   "dbOnlineTestConnection": "Test connection",
   "dbOnlineUncensored": "Uncensored",
   "homeBadgeNew": "New",

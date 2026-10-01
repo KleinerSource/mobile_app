@@ -133,11 +133,16 @@ class DboMediaRepository {
     extension: extension,
   );
 
-  Future<DbOnlineMovieDetail> getMovieByCode(String code, {String? videoId}) =>
-      _source.getMovieByCode(code, videoId: videoId);
+  Future<DbOnlineMovieDetail> getMovieByCode(
+    String code, {
+    String? videoId,
+    bool refresh = true,
+  }) => _source.getMovieByCode(code, videoId: videoId, refresh: refresh);
 
-  Future<DbOnlineMovieDetail> getMovieByVideoId(String videoId) =>
-      _source.getMovieByVideoId(videoId);
+  Future<DbOnlineMovieDetail> getMovieByVideoId(
+    String videoId, {
+    bool refresh = true,
+  }) => _source.getMovieByVideoId(videoId, refresh: refresh);
 
   Future<DbOnlineExternalResources> getCustomResources(String code) =>
       _source.getCustomResources(code);

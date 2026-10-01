@@ -1667,6 +1667,12 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSort => '排序';
 
   @override
+  String get dbOnlineSourceDatabase => '数据库';
+
+  @override
+  String get dbOnlineSourceOnline => '在线';
+
+  @override
   String get dbOnlineTestConnection => '测试连接';
 
   @override

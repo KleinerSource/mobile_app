@@ -340,6 +340,7 @@ class DbOnlineMovieDetail {
     this.canPlay = false,
     this.hasCnsub = false,
     this.playSources = const <DbOnlinePlaySource>[],
+    this.source = 'database',
   });
 
   final String code;
@@ -369,8 +370,12 @@ class DbOnlineMovieDetail {
   final bool canPlay;
   final bool hasCnsub;
   final List<DbOnlinePlaySource> playSources;
+  final String source;
 
-  factory DbOnlineMovieDetail.fromJson(Map<String, dynamic> json) {
+  factory DbOnlineMovieDetail.fromJson(
+    Map<String, dynamic> json, {
+    String? source,
+  }) {
     return DbOnlineMovieDetail(
       code: json['code']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
@@ -403,6 +408,7 @@ class DbOnlineMovieDetail {
       canPlay: _boolValue(json['can_play']),
       hasCnsub: json['has_cnsub'] == true,
       playSources: _playSourceList(json['play_sources']),
+      source: _stringOrNull(source ?? json['source']) ?? 'database',
     );
   }
 }
