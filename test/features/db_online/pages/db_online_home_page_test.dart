@@ -37,6 +37,8 @@ void main() {
     bool privacyOn = false,
     bool hasCnsub = false,
     String? duration,
+    bool compact = false,
+    DbOnlineLibraryInfo? libraryInfo,
     BadgePositions? badgePositions,
   }) async {
     await tester.pumpWidget(
@@ -62,8 +64,10 @@ void main() {
                 canPlay: canPlay,
                 hasCnsub: hasCnsub,
                 duration: duration,
+                libraryInfo: libraryInfo,
               ),
               config: config,
+              compact: compact,
               onTap: onTap,
             ),
           ),
@@ -91,6 +95,21 @@ void main() {
     await pumpCard(tester, canPlay: false, duration: '90m');
 
     expect(find.text('90 分钟'), findsOneWidget);
+  });
+
+  testWidgets('已入库圆点不显示在影片卡片上', (tester) async {
+    const libraryInfo = DbOnlineLibraryInfo(inLibrary: true, name: 'Emby');
+
+    await pumpCard(tester, canPlay: false, libraryInfo: libraryInfo);
+    expect(find.bySemanticsLabel('已入库: Emby'), findsNothing);
+
+    await pumpCard(
+      tester,
+      canPlay: false,
+      compact: true,
+      libraryInfo: libraryInfo,
+    );
+    expect(find.bySemanticsLabel('已入库: Emby'), findsNothing);
   });
 
   testWidgets('can_play=false 时不显示在线播放角标', (tester) async {

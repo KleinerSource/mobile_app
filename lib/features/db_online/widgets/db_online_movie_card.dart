@@ -81,7 +81,6 @@ class DbOnlineMovieCard extends ConsumerWidget {
       context,
       subscriptionStatus,
     );
-    final libraryBadge = _libraryBadge(context, movie.libraryInfo);
     final playBadge = movie.canPlay
         ? const OnlinePlayBadge(iconOnly: true)
         : null;
@@ -106,7 +105,6 @@ class DbOnlineMovieCard extends ConsumerWidget {
         privacyId: privacyId,
         additional: _compactBadges(
           subscription: subscriptionBadge,
-          library: libraryBadge,
           play: playBadge,
         ),
         onTap: handleTap,
@@ -133,7 +131,6 @@ class DbOnlineMovieCard extends ConsumerWidget {
         hasSubtitle: movie.hasCnsub,
         privacyId: privacyId,
         coverTopLeftOverlay: subscriptionBadge,
-        coverTopRightBadge: libraryBadge,
         showTitle: !codeOnly,
         showMeta: !codeOnly,
         landscape: landscape,
@@ -199,40 +196,9 @@ Widget? _subscriptionStatusBadge(
   );
 }
 
-Widget? _libraryBadge(BuildContext context, DbOnlineLibraryInfo? library) {
-  if (library?.inLibrary != true) return null;
-  final l = AppL10n.of(context);
-  final source = [library?.source, library?.name]
-      .whereType<String>()
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toSet()
-      .join(' · ');
-  return Semantics(
-    container: true,
-    label: source.isEmpty
-        ? l.dbOnlineInLibrary
-        : '${l.dbOnlineInLibrary}: $source',
-    child: Container(
-      width: 11,
-      height: 11,
-      decoration: BoxDecoration(
-        color: const Color(0xFF22C55E),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.5),
-      ),
-    ),
-  );
-}
-
-Widget? _compactBadges({
-  required Widget? subscription,
-  required Widget? library,
-  required Widget? play,
-}) {
+Widget? _compactBadges({required Widget? subscription, required Widget? play}) {
   final badges = [
     if (subscription != null) subscription,
-    if (library != null) library,
     if (play != null) play,
   ];
   if (badges.isEmpty) return null;
