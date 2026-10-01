@@ -589,7 +589,7 @@ class CatalogMovieCard extends ConsumerWidget {
     };
     if (canPlay && showOnlinePlayBadge) {
       badgesByCorner[BadgeCorner.bottomRight]!.add(
-        const OnlinePlayBadge(iconOnly: true, large: true),
+        const OnlinePlayBadge(iconOnly: true),
       );
     }
     if (coverTopRightBadge != null) {

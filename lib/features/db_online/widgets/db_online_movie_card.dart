@@ -82,7 +82,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     );
     final libraryBadge = _libraryBadge(context, movie.libraryInfo);
     final playBadge = movie.canPlay
-        ? const OnlinePlayBadge(iconOnly: true, large: true)
+        ? const OnlinePlayBadge(iconOnly: true)
         : null;
     void handleTap() {
       if (privacyEnabled && !revealed) {
@@ -235,18 +235,12 @@ Widget? _libraryBadge(BuildContext context, DbOnlineLibraryInfo? library) {
         ? l.dbOnlineInLibrary
         : '${l.dbOnlineInLibrary}: $source',
     child: Container(
-      width: 23,
-      height: 23,
-      alignment: Alignment.center,
+      width: 11,
+      height: 11,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
+        color: const Color(0xFF22C55E),
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF22C55E), width: 1),
-      ),
-      child: const Icon(
-        Icons.check_rounded,
-        size: 15,
-        color: Color(0xFF22C55E),
+        border: Border.all(color: Colors.white, width: 1.5),
       ),
     ),
   );
