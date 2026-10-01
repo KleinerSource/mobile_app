@@ -478,7 +478,6 @@
   "commonSaving": "Saving…",
   "commonUnknown": "Unknown",
   "dbOnlineAscending": "Ascending",
-  "dbOnlineAutoLoadMoreHint": "Load more automatically",
   "dbOnlineBackendConfigSubtitle": "Configure the DB Online backend",
   "dbOnlineBackendConfigTitle": "DB Online backend",
   "dbOnlineBadgeSubtitle": "DB Online data",

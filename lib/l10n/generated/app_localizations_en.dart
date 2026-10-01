@@ -1412,9 +1412,6 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineAscending => 'Ascending';
 
   @override
-  String get dbOnlineAutoLoadMoreHint => 'Load more automatically';
-
-  @override
   String get dbOnlineBackendConfigSubtitle => 'Configure the DB Online backend';
 
   @override

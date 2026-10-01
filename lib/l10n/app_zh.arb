@@ -478,7 +478,6 @@
   "commonSaving": "保存中...",
   "commonUnknown": "未知",
   "dbOnlineAscending": "升序",
-  "dbOnlineAutoLoadMoreHint": "滚动到底部自动加载更多。",
   "dbOnlineBackendConfigSubtitle": "配置 DB Online 后端",
   "dbOnlineBackendConfigTitle": "DB Online 后端",
   "dbOnlineBadgeSubtitle": "DB Online 数据",

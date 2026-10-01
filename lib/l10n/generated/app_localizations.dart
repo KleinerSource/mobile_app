@@ -2659,12 +2659,6 @@ abstract class AppL10n {
   /// **'升序'**
   String get dbOnlineAscending;
 
-  /// No description provided for @dbOnlineAutoLoadMoreHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'滚动到底部自动加载更多。'**
-  String get dbOnlineAutoLoadMoreHint;
-
   /// No description provided for @dbOnlineBackendConfigSubtitle.
   ///
   /// In zh, this message translates to:

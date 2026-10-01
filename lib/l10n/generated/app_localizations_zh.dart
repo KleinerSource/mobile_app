@@ -1364,9 +1364,6 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineAscending => '升序';
 
   @override
-  String get dbOnlineAutoLoadMoreHint => '滚动到底部自动加载更多。';
-
-  @override
   String get dbOnlineBackendConfigSubtitle => '配置 DB Online 后端';
 
   @override
