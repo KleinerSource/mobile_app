@@ -135,7 +135,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         hasSubtitle: movie.hasCnsub,
         privacyId: privacyId,
         coverTopLeftOverlay: subscriptionBadge,
-        coverTopRightBadge: magnetBadge,
+        coverBottomLeftBadge: magnetBadge,
         showTitle: !codeOnly,
         showMeta: !codeOnly,
         landscape: landscape,

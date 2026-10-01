@@ -522,7 +522,7 @@ class CatalogMovieCard extends ConsumerWidget {
     this.imageHeaders,
     this.landscape = false,
     this.coverTopLeftOverlay,
-    this.coverTopRightBadge,
+    this.coverBottomLeftBadge,
     this.coverBottomLeftOverlay,
   });
 
@@ -561,8 +561,8 @@ class CatalogMovieCard extends ConsumerWidget {
   /// 海报左上角的自定义覆盖内容。
   final Widget? coverTopLeftOverlay;
 
-  /// 追加到海报右上角角标组中的自定义徽章。
-  final Widget? coverTopRightBadge;
+  /// 追加到海报左下角角标组中、位于字幕徽章之后的自定义徽章。
+  final Widget? coverBottomLeftBadge;
 
   /// 海报左下角的自定义覆盖内容。
   final Widget? coverBottomLeftOverlay;
@@ -592,9 +592,6 @@ class CatalogMovieCard extends ConsumerWidget {
         const OnlinePlayBadge(iconOnly: true),
       );
     }
-    if (coverTopRightBadge != null) {
-      badgesByCorner[BadgeCorner.topRight]!.add(coverTopRightBadge!);
-    }
     if (hasSubtitle && positions.contentBadgeEnabled) {
       badgesByCorner[positions.contentBadge]!.add(
         _SubtitleBadge(
@@ -602,6 +599,9 @@ class CatalogMovieCard extends ConsumerWidget {
           tooltip: l.movieCardSubChinese,
         ),
       );
+    }
+    if (coverBottomLeftBadge != null) {
+      badgesByCorner[BadgeCorner.bottomLeft]!.add(coverBottomLeftBadge!);
     }
     if (displayRating != null && positions.ratingEnabled) {
       badgesByCorner[positions.rating]!.add(RatingBadge(rating: displayRating));
