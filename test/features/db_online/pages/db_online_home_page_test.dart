@@ -73,7 +73,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('can_play=true 时显示在线播放角标', (tester) async {
+  testWidgets('can_play=true 时在封面右下角显示在线播放角标', (tester) async {
     await pumpCard(tester, canPlay: true);
 
     expect(find.text('在线播放'), findsNothing);
@@ -81,8 +81,10 @@ void main() {
 
     final poster = tester.getRect(find.byType(Poster));
     final badgeIcon = tester.getRect(find.byIcon(Icons.play_arrow_rounded));
-    expect(badgeIcon.left, lessThan(poster.center.dx));
-    expect(badgeIcon.top, lessThan(poster.center.dy));
+    expect(badgeIcon.left, greaterThan(poster.center.dx));
+    expect(badgeIcon.top, greaterThan(poster.center.dy));
+    expect(poster.contains(badgeIcon.topLeft), isTrue);
+    expect(poster.contains(badgeIcon.bottomRight), isTrue);
   });
 
   testWidgets('时长统一显示为分钟', (tester) async {
@@ -95,6 +97,7 @@ void main() {
     await pumpCard(tester, canPlay: false);
 
     expect(find.text('在线播放'), findsNothing);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
   });
 
   testWidgets('has_cnsub=true 时显示字幕 badge，元数据不再显示中字', (tester) async {
