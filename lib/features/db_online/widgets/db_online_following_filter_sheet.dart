@@ -58,6 +58,9 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    final dateMenuMaxHeight = (sheetMaxHeight(context) * 0.4)
+        .clamp(0.0, 280.0)
+        .toDouble();
     Widget label(String value) => Padding(
       padding: const EdgeInsets.fromLTRB(22, 10, 22, 3),
       child: Text(value, style: AppText.eyebrow(context)),
@@ -159,6 +162,7 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _filter.year,
+                      menuMaxHeight: dateMenuMaxHeight,
                       decoration: sheetInputDecoration(
                         context,
                         labelText: l.dbOnlineFollowingYear,
@@ -183,6 +187,7 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _filter.month,
+                      menuMaxHeight: dateMenuMaxHeight,
                       decoration: sheetInputDecoration(
                         context,
                         labelText: l.dbOnlineFollowingMonth,
