@@ -70,14 +70,13 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           child: Text(l.dbOnlineSubscriptionCancel),
         ),
         TextButton(
           onPressed: () {
             if (form.currentState!.validate()) {
-              Navigator.pop(
-                context,
+              Navigator.of(context, rootNavigator: true).pop(
                 DbOnlineFollowingPreset(
                   id: preset?.id ?? 0,
                   name: name.text.trim(),
@@ -111,11 +110,12 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
       content: Text(l.dbOnlineFollowingDeletePresetConfirm(preset.name)),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () =>
+              Navigator.of(context, rootNavigator: true).pop(false),
           child: Text(l.dbOnlineSubscriptionCancel),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
           child: Text(l.dbOnlineFollowingDeletePreset),
         ),
       ],

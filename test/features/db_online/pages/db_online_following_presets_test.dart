@@ -1,13 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/features/db_online/pages/db_online_following_page.dart';
+import 'package:omm/features/db_online/widgets/db_online_following_presets_sheet.dart';
 
 import '../support/following_test_support.dart';
 
 void main() {
+  testWidgets('嵌套导航中取消保存或编辑预设只关闭弹窗，不保存或退出列表', (tester) async {
+    final backend = FollowingTestBackend()
+      ..presets.add({'id': 1, 'name': '原预设', 'category': '0', 'basic': 'm'});
+    await pumpFollowingTest(
+      tester,
+      backend,
+      Navigator(
+        onGenerateRoute: (_) => MaterialPageRoute<void>(
+          builder: (_) => const DbOnlineFollowingPage(),
+        ),
+      ),
+    );
+    await tester.tap(find.text('关注预设'));
+    await pumpFollowingFrames(tester);
+
+    for (final tooltip in ['保存当前预设', '编辑预设']) {
+      await tester.tap(find.byTooltip(tooltip));
+      await pumpFollowingFrames(tester);
+      await tester.enterText(find.byType(TextFormField).first, '未保存名称');
+      await tester.enterText(find.byType(TextFormField).last, '未保存备注');
+      await tester.tap(find.text('取消'));
+      await pumpFollowingFrames(tester);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.byType(DbOnlineFollowingPresetsSheet), findsOneWidget);
+      expect(find.text('原预设'), findsOneWidget);
+      expect(
+        backend.requests.where((request) => request.method != 'GET'),
+        isEmpty,
+      );
+      expect(backend.presets.single['name'], '原预设');
+      expect(backend.to('/subs/tags'), isEmpty);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('预设保存、修改名称备注和确认删除', (tester) async {
     final backend = FollowingTestBackend();
-    await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
+    await pumpFollowingTest(
+      tester,
+      backend,
+      Navigator(
+        onGenerateRoute: (_) => MaterialPageRoute<void>(
+          builder: (_) => const DbOnlineFollowingPage(),
+        ),
+      ),
+    );
     await tester.tap(find.text('关注预设'));
     await pumpFollowingFrames(tester);
     await tester.tap(find.byTooltip('保存当前预设'));
