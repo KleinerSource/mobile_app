@@ -199,10 +199,27 @@ class _DbOnlineLatestMoviesPageState
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
-            header: SettingsSubPageHeader(
-              eyebrow: 'dbonline',
-              title: title,
-              subtitle: l.dbOnlineAutoLoadMoreHint,
+            header: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('DBONLINE', style: AppText.eyebrow(context)),
+                        const SizedBox(height: 3),
+                        Text(title, style: AppText.pageTitle(context)),
+                      ],
+                    ),
+                  ),
+                  MediaViewModeToggle(
+                    mode: _viewMode,
+                    onChanged: (mode) => unawaited(_setViewMode(mode)),
+                  ),
+                ],
+              ),
             ),
             body: RefreshIndicator(
               onRefresh: _refresh,
@@ -210,18 +227,6 @@ class _DbOnlineLatestMoviesPageState
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverToBoxAdapter(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                        child: MediaViewModeToggle(
-                          mode: _viewMode,
-                          onChanged: (mode) => unawaited(_setViewMode(mode)),
-                        ),
-                      ),
-                    ),
-                  ),
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     sliver: isPortrait
