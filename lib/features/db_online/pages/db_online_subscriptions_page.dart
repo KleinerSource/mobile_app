@@ -1062,11 +1062,9 @@ class _DbOnlineSubscriptionsPageState
           const SizedBox(width: 4),
           Text(
             iconOnly || label.isEmpty ? '$count' : '$label $count',
-            style: AppText.meta(context).copyWith(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
+            style: AppText.meta(
+              context,
+            ).copyWith(color: color, fontSize: 10, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -2036,9 +2034,18 @@ void _openSubscriptionMovieDetail(
       const Color(0xFFF97316),
     );
   } else if (status == 'completed') {
-    statusBadge = _subscriptionBadge(
-      l.dbOnlineSubscriptionCompleted,
-      const Color(0xFF22C55E),
+    statusBadge = Semantics(
+      container: true,
+      label: l.dbOnlineSubscriptionCompleted,
+      child: Container(
+        width: 11,
+        height: 11,
+        decoration: BoxDecoration(
+          color: const Color(0xFF22C55E),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 1.5),
+        ),
+      ),
     );
   } else if (status == 'pending') {
     statusBadge = _subscriptionBadge(

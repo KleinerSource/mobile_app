@@ -618,8 +618,8 @@ class CatalogMovieCard extends ConsumerWidget {
         ),
         if (coverTopLeftOverlay != null)
           Positioned(
-            top: 5,
-            left: 5,
+            top: 6,
+            left: 6,
             child: IgnorePointer(child: coverTopLeftOverlay!),
           ),
         if (coverBottomLeftOverlay != null)
