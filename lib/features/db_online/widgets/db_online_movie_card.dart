@@ -5,10 +5,13 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
+import 'package:omm/shared/poster.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 
 /// dbonline 字段适配器。
 ///
@@ -48,6 +51,39 @@ class DbOnlineMovieCard extends ConsumerWidget {
         : movie.id.trim();
     final privacyEnabled = ref.watch(privacyShieldProvider);
     final revealed = ref.watch(revealedMoviesProvider).contains(privacyId);
+    final serverId = config?.activeServerId?.trim() ?? '';
+    DbOnlineSubscriptionStatus? subscriptionStatus;
+    if (serverId.isNotEmpty && movie.number.trim().isNotEmpty) {
+      final capabilities = ref.watch(
+        dbOnlineSubscriptionCapabilitiesProvider(serverId),
+      );
+      if (capabilities.asData?.value.database == true) {
+        final code = movie.number.trim();
+        subscriptionStatus = ref.watch(
+          dbOnlineMovieSubscriptionStatusesProvider(
+            serverId,
+          ).select((statuses) => statuses[code.toUpperCase()]),
+        );
+        if (subscriptionStatus == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            ref
+                .read(
+                  dbOnlineMovieSubscriptionStatusesProvider(serverId).notifier,
+                )
+                .check(code);
+          });
+        }
+      }
+    }
+    final subscriptionBadge = _subscriptionStatusBadge(
+      context,
+      subscriptionStatus,
+    );
+    final libraryBadge = _libraryBadge(context, movie.libraryInfo);
+    final playBadge = movie.canPlay
+        ? const OnlinePlayBadge(iconOnly: true, large: true)
+        : null;
     void handleTap() {
       if (privacyEnabled && !revealed) {
         ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
@@ -67,6 +103,11 @@ class DbOnlineMovieCard extends ConsumerWidget {
         meta: _metaText(context, movie),
         width: width,
         privacyId: privacyId,
+        additional: _compactBadges(
+          subscription: subscriptionBadge,
+          library: libraryBadge,
+          play: playBadge,
+        ),
         onTap: handleTap,
       );
     }
@@ -90,12 +131,139 @@ class DbOnlineMovieCard extends ConsumerWidget {
         showOnlinePlayBadge: true,
         hasSubtitle: movie.hasCnsub,
         privacyId: privacyId,
+        coverTopLeftOverlay: subscriptionBadge,
+        coverTopRightBadge: libraryBadge,
         showTitle: !codeOnly,
         showMeta: !codeOnly,
         landscape: landscape,
       ),
     );
   }
+}
+
+Widget? _subscriptionStatusBadge(
+  BuildContext context,
+  DbOnlineSubscriptionStatus? subscription,
+) {
+  if (subscription?.subscribed != true) return null;
+  final l = AppL10n.of(context);
+  final status = subscription!.overdue
+      ? 'overdue'
+      : switch (subscription.status) {
+          'completed' => 'completed',
+          'skipped' => 'skipped',
+          _ => 'pending',
+        };
+  final (label, color, icon) = switch (status) {
+    'overdue' => (
+      l.dbOnlineSubscriptionOverdue,
+      const Color(0xFFF97316),
+      Icons.schedule_rounded,
+    ),
+    'completed' => (
+      l.dbOnlineSubscriptionCompleted,
+      const Color(0xFF22C55E),
+      Icons.check_circle_rounded,
+    ),
+    'skipped' => (
+      l.dbOnlineSubscriptionSkipped,
+      const Color(0xFFEF4444),
+      Icons.skip_next_rounded,
+    ),
+    _ => (
+      l.dbOnlineSubscriptionPendingBadge,
+      const Color(0xFFEAB308),
+      Icons.notifications_active_outlined,
+    ),
+  };
+  if (status == 'completed') {
+    return Semantics(
+      container: true,
+      label: label,
+      child: Container(
+        width: 11,
+        height: 11,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 1.5),
+        ),
+      ),
+    );
+  }
+  return Semantics(
+    container: true,
+    label: label,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: Colors.white),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget? _libraryBadge(BuildContext context, DbOnlineLibraryInfo? library) {
+  if (library?.inLibrary != true) return null;
+  final l = AppL10n.of(context);
+  final source = [library?.source, library?.name]
+      .whereType<String>()
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .join(' · ');
+  return Semantics(
+    container: true,
+    label: source.isEmpty
+        ? l.dbOnlineInLibrary
+        : '${l.dbOnlineInLibrary}: $source',
+    child: Container(
+      width: 23,
+      height: 23,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF22C55E), width: 1),
+      ),
+      child: const Icon(
+        Icons.check_rounded,
+        size: 15,
+        color: Color(0xFF22C55E),
+      ),
+    ),
+  );
+}
+
+Widget? _compactBadges({
+  required Widget? subscription,
+  required Widget? library,
+  required Widget? play,
+}) {
+  final badges = [
+    if (subscription != null) subscription,
+    if (library != null) library,
+    if (play != null) play,
+  ];
+  if (badges.isEmpty) return null;
+  return Wrap(spacing: 5, runSpacing: 4, children: badges);
 }
 
 String _metaText(BuildContext context, DbOnlineMovie movie) {

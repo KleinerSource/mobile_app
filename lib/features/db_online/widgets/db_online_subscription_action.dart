@@ -258,6 +258,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       }
       if (!context.mounted) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
+      ref.invalidate(dbOnlineMovieSubscriptionStatusesProvider(query.serverId));
       ref.invalidate(dbOnlineSubscriptionListProvider);
       _notify(context, l.dbOnlineSubscriptionActionCompleted);
     } catch (error) {
@@ -294,6 +295,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       }
       if (!context.mounted) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
+      ref.invalidate(dbOnlineMovieSubscriptionStatusesProvider(query.serverId));
       ref.invalidate(dbOnlineSubscriptionListProvider);
       _notify(context, l.dbOnlineSubscriptionActionCompleted);
     } catch (error) {
@@ -365,6 +367,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       }
       if (!context.mounted) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
+      ref.invalidate(dbOnlineMovieSubscriptionStatusesProvider(query.serverId));
       ref.invalidate(dbOnlineSubscriptionListProvider);
       _notify(context, l.dbOnlineSubscriptionActionCompleted);
     } catch (error) {

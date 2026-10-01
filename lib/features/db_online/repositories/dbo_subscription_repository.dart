@@ -30,26 +30,25 @@ class DboSubscriptionRepository {
     final value = result is Map
         ? result[query.id] ?? result[query.id.toUpperCase()]
         : null;
-    if (value is Map) {
-      final data = Map<String, dynamic>.from(value);
-      return DbOnlineSubscriptionStatus(
-        subscribed: data['subscribed'] == true,
-        id: (data['id'] as num?)?.toInt(),
-        sourceType: data['source_type']?.toString() ?? query.kind,
-        sourceId: (data['source_id'] as num?)?.toInt(),
-        status: data['status']?.toString() ?? 'pending',
-        active: data['active'] == true,
-        overdue: data['overdue'] == true,
-      );
-    }
-    final subscribed = value == true;
-    return DbOnlineSubscriptionStatus(
-      subscribed: subscribed,
-      sourceType: query.kind,
-      sourceId: query.kind == 'video' ? null : int.tryParse(query.id),
-      status: subscribed ? 'pending' : '',
-      active: subscribed,
-    );
+    return _subscriptionStatusFromValue(value, sourceType: query.kind);
+  }
+
+  Future<Map<String, DbOnlineSubscriptionStatus>> videoSubscriptionStatuses({
+    required String serverId,
+    required List<String> codes,
+  }) async {
+    checkServer(serverId);
+    final result = await api.videoSubscriptionStatuses(codes);
+    final data = result is Map
+        ? Map<String, dynamic>.from(result)
+        : <String, dynamic>{};
+    return {
+      for (final code in codes)
+        code: _subscriptionStatusFromValue(
+          data[code] ?? data[code.toUpperCase()],
+          sourceType: 'video',
+        ),
+    };
   }
 
   Future<DbOnlineSubscriptionPage> list(DbOnlineSubscriptionQuery query) async {
@@ -126,6 +125,49 @@ class DboSubscriptionRepository {
     );
   }
 }
+
+DbOnlineSubscriptionStatus _subscriptionStatusFromValue(
+  Object? value, {
+  required String sourceType,
+}) {
+  if (value is Map) {
+    final data = Map<String, dynamic>.from(value);
+    final rawStatus = data['status']?.toString().trim() ?? '';
+    final completed =
+        rawStatus == 'completed' ||
+        (data['completed_at']?.toString().trim().isNotEmpty ?? false);
+    final subscribed =
+        data['subscribed'] == true ||
+        data['active'] == true ||
+        completed ||
+        rawStatus == 'skipped';
+    return DbOnlineSubscriptionStatus(
+      subscribed: subscribed,
+      id: _intValue(data['id']),
+      sourceType: data['source_type']?.toString() ?? sourceType,
+      sourceId: _intValue(data['source_id']),
+      status: subscribed
+          ? rawStatus.isNotEmpty
+                ? rawStatus
+                : completed
+                ? 'completed'
+                : 'pending'
+          : '',
+      active: data['active'] == true,
+      overdue: data['overdue'] == true,
+    );
+  }
+  final subscribed = value == true;
+  return DbOnlineSubscriptionStatus(
+    subscribed: subscribed,
+    sourceType: sourceType,
+    status: subscribed ? 'pending' : '',
+    active: subscribed,
+  );
+}
+
+int? _intValue(Object? value) =>
+    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');
 
 class DbOnlineSubscriptionQuery {
   const DbOnlineSubscriptionQuery({

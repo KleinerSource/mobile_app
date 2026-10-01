@@ -522,6 +522,7 @@ class CatalogMovieCard extends ConsumerWidget {
     this.imageHeaders,
     this.landscape = false,
     this.coverTopLeftOverlay,
+    this.coverTopRightBadge,
     this.coverBottomLeftOverlay,
   });
 
@@ -560,6 +561,9 @@ class CatalogMovieCard extends ConsumerWidget {
   /// 海报左上角的自定义覆盖内容。
   final Widget? coverTopLeftOverlay;
 
+  /// 追加到海报右上角角标组中的自定义徽章。
+  final Widget? coverTopRightBadge;
+
   /// 海报左下角的自定义覆盖内容。
   final Widget? coverBottomLeftOverlay;
 
@@ -584,9 +588,12 @@ class CatalogMovieCard extends ConsumerWidget {
       for (final corner in BadgeCorner.values) corner: <Widget>[],
     };
     if (canPlay && showOnlinePlayBadge) {
-      badgesByCorner[BadgeCorner.topLeft]!.add(
-        const OnlinePlayBadge(iconOnly: true),
+      badgesByCorner[BadgeCorner.bottomRight]!.add(
+        const OnlinePlayBadge(iconOnly: true, large: true),
       );
+    }
+    if (coverTopRightBadge != null) {
+      badgesByCorner[BadgeCorner.topRight]!.add(coverTopRightBadge!);
     }
     if (hasSubtitle && positions.contentBadgeEnabled) {
       badgesByCorner[positions.contentBadge]!.add(
@@ -738,6 +745,7 @@ class CatalogListMovieCard extends ConsumerWidget {
     this.onTap,
     this.privacyId,
     this.imageHeaders,
+    this.additional,
   });
 
   final String title;
@@ -748,6 +756,7 @@ class CatalogListMovieCard extends ConsumerWidget {
   final VoidCallback? onTap;
   final Object? privacyId;
   final Map<String, String>? imageHeaders;
+  final Widget? additional;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -809,6 +818,7 @@ class CatalogListMovieCard extends ConsumerWidget {
         ),
       ),
       meta: text(value: meta, style: AppText.meta(context)),
+      additional: additional,
       onTap: onTap,
     );
   }

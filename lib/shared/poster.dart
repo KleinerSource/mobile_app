@@ -262,9 +262,10 @@ class RatingBadge extends StatelessWidget {
 
 /// 在线播放徽章 · 影片卡片与详情页共用。
 class OnlinePlayBadge extends StatelessWidget {
-  const OnlinePlayBadge({super.key, this.iconOnly = false});
+  const OnlinePlayBadge({super.key, this.iconOnly = false, this.large = false});
 
   final bool iconOnly;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -282,15 +283,19 @@ class OnlinePlayBadge extends StatelessWidget {
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: iconOnly ? 5 : 7,
-              vertical: 4,
+              horizontal: large
+                  ? 7
+                  : iconOnly
+                  ? 5
+                  : 7,
+              vertical: large ? 6 : 4,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.play_arrow_rounded,
-                  size: 12,
+                  size: large ? 18 : 12,
                   color: Colors.white,
                 ),
                 if (!iconOnly) ...[

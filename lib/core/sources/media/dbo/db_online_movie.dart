@@ -13,6 +13,7 @@ class DbOnlineMovie {
     this.magnetsCount = 0,
     this.hasCnsub = false,
     this.library,
+    this.libraryInfo,
     this.score,
     this.canPlay = false,
   });
@@ -27,6 +28,7 @@ class DbOnlineMovie {
   final int magnetsCount;
   final bool hasCnsub;
   final String? library;
+  final DbOnlineLibraryInfo? libraryInfo;
   final double? score;
   final bool canPlay;
 
@@ -48,6 +50,9 @@ class DbOnlineMovie {
           json['has_subtitle'] == true ||
           json['has_magnet_subtitle'] == true,
       library: _libraryLabel(json['library']),
+      libraryInfo: json['library'] is Map
+          ? DbOnlineLibraryInfo.fromJson(json['library'])
+          : null,
       score: scoreValue is num
           ? scoreValue.toDouble()
           : double.tryParse('$scoreValue'),

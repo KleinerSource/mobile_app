@@ -111,6 +111,13 @@ class DbOnlineSubscriptionApi {
     ),
   );
 
+  Future<dynamic> videoSubscriptionStatuses(List<String> codes) => _send(
+    () => _dio.post<dynamic>(
+      '/subs/status',
+      data: {'type': 'video', 'codes': codes, 'detail': true},
+    ),
+  );
+
   Future<dynamic> onlineSubscriptions({
     Map<String, dynamic> query = const {},
   }) =>
