@@ -94,27 +94,60 @@ void main() {
     expect(find.text('最近更新'), findsNothing);
     expect(find.text('筛选'), findsNothing);
 
-    const resources = [('下载', 'm'), ('字幕', 'c'), ('无资源', 'n'), ('已入库', 'l')];
+    const resources = [
+      ('全部', ''),
+      ('下载', 'm'),
+      ('字幕', 'c'),
+      ('无资源', 'n'),
+      ('已入库', 'l'),
+    ];
+    await tester.tap(find.byIcon(Icons.tune_rounded).first);
+    await tester.pumpAndSettle();
     for (final (label, value) in resources) {
-      await tester.tap(find.byIcon(Icons.tune_rounded));
+      await tester.ensureVisible(find.text(label).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(label));
+      await tester.tap(find.text(label).first);
       await tester.pumpAndSettle();
-      expect(requests.last['filter'], value);
+      expect(requests.last['filter'], value.isEmpty ? isNull : value);
       expect(requests.last.containsKey('user_score'), isFalse);
     }
 
-    const scores = [('5 星', '5'), ('1 星', '1'), ('无评分', '-1')];
+    const scores = [
+      ('5 星', '5'),
+      ('4 星', '4'),
+      ('3 星', '3'),
+      ('2 星', '2'),
+      ('1 星', '1'),
+      ('无评分', '-1'),
+    ];
     for (final (label, value) in scores) {
-      await tester.tap(find.byIcon(Icons.tune_rounded));
+      await tester.ensureVisible(find.text(label).first);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text(label));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(label));
+      await tester.tap(find.text(label).first);
       await tester.pumpAndSettle();
       expect(requests.last['user_score'], value);
       expect(requests.last['filter'], 'l');
     }
+
+    const communityScores = [
+      ('5 星', '5'),
+      ('4 星', '4'),
+      ('3 星', '3'),
+      ('2 星', '2'),
+      ('1 星', '1'),
+    ];
+    for (final (label, value) in communityScores) {
+      await tester.ensureVisible(find.text(label).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+      expect(requests.last['min_score'], value);
+      expect(requests.last['user_score'], '-1');
+      expect(requests.last['filter'], 'l');
+    }
+
+    Navigator.of(tester.element(find.text('资源类型').first)).pop();
+    await tester.pumpAndSettle();
 
     const sorts = [('发布日期', 'date'), ('更新时间', 'updated'), ('入库时间', 'created')];
     for (final (label, value) in sorts) {
@@ -126,6 +159,7 @@ void main() {
       expect(requests.last['order'], 'desc');
       expect(requests.last['filter'], 'l');
       expect(requests.last['user_score'], '-1');
+      expect(requests.last['min_score'], '1');
     }
 
     await tester.tap(find.byIcon(Icons.sort_rounded));
