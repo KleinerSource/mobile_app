@@ -11,7 +11,7 @@ void main() {
     );
     expect(
       mediaManagerAccentForProject(ServerProject.dbOnline),
-      const Color(0xFF0E7490),
+      const Color(0xFF12B8C2),
     );
     expect(
       mediaManagerAccentForProject(ServerProject.emby),
@@ -97,7 +97,7 @@ void main() {
 
     project.value = ServerProject.dbOnline;
     await tester.pumpAndSettle();
-    expect(resolvedAccent, const Color(0xFF0E7490));
+    expect(resolvedAccent, const Color(0xFF12B8C2));
     project.dispose();
   });
 

@@ -151,7 +151,7 @@ class AppColors {
 /// 当前媒体管理器的主题强调色，复用服务器头像徽标使用的品牌色。
 Color mediaManagerAccentForProject(ServerProject? project) {
   return switch (project) {
-    ServerProject.dbOnline => const Color(0xFF0E7490),
+    ServerProject.dbOnline => const Color(0xFF12B8C2),
     ServerProject.emby => const Color(0xFF52B54B),
     ServerProject.jellyfin => const Color(0xFFAA5CC3),
     ServerProject.feiniu => const Color(0xFF2979FF),
