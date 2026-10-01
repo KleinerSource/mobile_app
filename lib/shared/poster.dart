@@ -280,11 +280,13 @@ class OnlinePlayBadge extends StatelessWidget {
             color: color.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(999),
           ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: iconOnly ? 5 : 7,
-              vertical: 4,
-            ),
+          child: Container(
+            width: iconOnly ? 18 : null,
+            height: iconOnly ? 18 : null,
+            alignment: Alignment.center,
+            padding: iconOnly
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
