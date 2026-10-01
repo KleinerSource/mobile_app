@@ -7250,10 +7250,6 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineSubscriptionAutoSyncOn => 'ON';
 
   @override
-  String get dbOnlineSubscriptionSelectBlacklistItems =>
-      'Select blacklist rules to delete';
-
-  @override
   String get dbOnlineSubscriptionDeleteBlacklistConfirm =>
       'Delete the selected blacklist rules?';
 
@@ -7280,12 +7276,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get dbOnlineSubscriptionWildcard => 'Wildcard';
-
-  @override
-  String get dbOnlineSubscriptionYes => 'Yes';
-
-  @override
-  String get dbOnlineSubscriptionNo => 'No';
 
   @override
   String get dbOnlineSubscriptionRemark => 'Note';
@@ -7427,4 +7417,40 @@ class AppL10nEn extends AppL10n {
   @override
   String get dbOnlineSubscriptionOverwriteConfirm =>
       'Apply the preset to all active video subscriptions?';
+
+  @override
+  String get dbOnlineLibraryFilters => 'Filters';
+
+  @override
+  String get dbOnlineLibraryResourceType => 'Resource type';
+
+  @override
+  String get dbOnlineLibraryDownload => 'Download';
+
+  @override
+  String get dbOnlineLibrarySubtitle => 'Subtitles';
+
+  @override
+  String get dbOnlineLibraryNoResources => 'No resources';
+
+  @override
+  String get dbOnlineLibraryInLibrary => 'In library';
+
+  @override
+  String get dbOnlineLibraryUserRating => 'Rating';
+
+  @override
+  String get dbOnlineLibraryUnrated => 'Unrated';
+
+  @override
+  String get dbOnlineLibraryStars => 'stars';
+
+  @override
+  String get dbOnlineLibrarySortCreated => 'Date added';
+
+  @override
+  String get dbOnlineLibrarySortDate => 'Release date';
+
+  @override
+  String get dbOnlineLibrarySortUpdated => 'Last updated';
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/error_codes.dart';
+import 'package:omm/core/api/providers.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
@@ -48,18 +49,20 @@ final dbOnlineLatestPageProvider = FutureProvider.autoDispose
           );
     });
 
-/// DBO 影片库按分类、排序方式和顺序读取一页数据。
+/// DBO 本地影片库按资源、用户评分和排序读取一页数据。
 final dbOnlineLibraryPageProvider = FutureProvider.autoDispose
     .family<DbOnlineMoviePage, DbOnlineLibraryPageRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref
-          .watch(dboMediaRepositoryProvider)
-          .taggedMoviesPage(
-            filterBy: request.filterBy,
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .videoLibraryPage(
             page: request.page,
-            limit: request.limit,
-            sortBy: request.sortBy,
-            orderBy: request.orderBy,
+            pageSize: request.limit,
+            sort: request.sortBy,
+            order: request.orderBy,
+            resourceFilter: request.resourceFilter,
+            userScore: request.userScore,
           );
     });
 
@@ -128,15 +131,17 @@ class DbOnlineLibraryPageRequest {
     required this.serverId,
     required this.page,
     required this.limit,
-    this.filterBy = '0:t:::::',
-    this.sortBy = 'update',
+    this.resourceFilter = '',
+    this.userScore = '',
+    this.sortBy = 'created',
     this.orderBy = 'desc',
   });
 
   final String serverId;
   final int page;
   final int limit;
-  final String filterBy;
+  final String resourceFilter;
+  final String userScore;
   final String sortBy;
   final String orderBy;
 
@@ -146,13 +151,21 @@ class DbOnlineLibraryPageRequest {
       other.serverId == serverId &&
       other.page == page &&
       other.limit == limit &&
-      other.filterBy == filterBy &&
+      other.resourceFilter == resourceFilter &&
+      other.userScore == userScore &&
       other.sortBy == sortBy &&
       other.orderBy == orderBy;
 
   @override
-  int get hashCode =>
-      Object.hash(serverId, page, limit, filterBy, sortBy, orderBy);
+  int get hashCode => Object.hash(
+    serverId,
+    page,
+    limit,
+    resourceFilter,
+    userScore,
+    sortBy,
+    orderBy,
+  );
 }
 
 class DbOnlineSearchPageRequest {

@@ -7108,9 +7108,6 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineSubscriptionAutoSyncOn => 'ON';
 
   @override
-  String get dbOnlineSubscriptionSelectBlacklistItems => '请选择要删除的黑名单规则';
-
-  @override
   String get dbOnlineSubscriptionDeleteBlacklistConfirm => '确定删除选中的黑名单规则吗？';
 
   @override
@@ -7136,12 +7133,6 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get dbOnlineSubscriptionWildcard => '通配符';
-
-  @override
-  String get dbOnlineSubscriptionYes => '是';
-
-  @override
-  String get dbOnlineSubscriptionNo => '否';
 
   @override
   String get dbOnlineSubscriptionRemark => '备注';
@@ -7278,4 +7269,40 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get dbOnlineSubscriptionOverwriteConfirm => '将预设应用到当前启用的影片订阅？';
+
+  @override
+  String get dbOnlineLibraryFilters => '筛选';
+
+  @override
+  String get dbOnlineLibraryResourceType => '资源类型';
+
+  @override
+  String get dbOnlineLibraryDownload => '下载';
+
+  @override
+  String get dbOnlineLibrarySubtitle => '字幕';
+
+  @override
+  String get dbOnlineLibraryNoResources => '无资源';
+
+  @override
+  String get dbOnlineLibraryInLibrary => '已入库';
+
+  @override
+  String get dbOnlineLibraryUserRating => '评分';
+
+  @override
+  String get dbOnlineLibraryUnrated => '无评分';
+
+  @override
+  String get dbOnlineLibraryStars => '星';
+
+  @override
+  String get dbOnlineLibrarySortCreated => '入库时间';
+
+  @override
+  String get dbOnlineLibrarySortDate => '发布日期';
+
+  @override
+  String get dbOnlineLibrarySortUpdated => '更新时间';
 }

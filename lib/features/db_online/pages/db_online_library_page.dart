@@ -28,8 +28,7 @@ import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
 /// DBO 影片库。
 ///
-/// 影片库不限制在线播放能力，分类通过 `filter_by` 第一段切换：
-/// 0 有码、1 无码、2 欧美、3 FC2、4 动漫。
+/// DBO 本地影片库复用网页版的资源筛选、用户评分和排序参数。
 class DbOnlineLibraryPage extends ConsumerStatefulWidget {
   const DbOnlineLibraryPage({super.key});
 
@@ -41,31 +40,38 @@ class DbOnlineLibraryPage extends ConsumerStatefulWidget {
 class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   static const _pageSize = 24;
   static const _viewModeKey = 'db_online.library.view_mode.v1';
-  static final _categoryOptions =
+  static final _resourceOptions =
       <({String value, String Function(AppL10n l) label})>[
-        (value: '0', label: (l) => l.dbOnlineCategoryCensored),
-        (value: '1', label: (l) => l.dbOnlineCategoryUncensored),
-        (value: '2', label: (l) => l.dbOnlineCategoryWestern),
-        (value: '3', label: (l) => 'FC2'),
-        (value: '4', label: (l) => l.dbOnlineCategoryAnime),
+        (value: '', label: (l) => l.filterAll),
+        (value: 'm', label: (l) => l.dbOnlineLibraryDownload),
+        (value: 'c', label: (l) => l.dbOnlineLibrarySubtitle),
+        (value: 'n', label: (l) => l.dbOnlineLibraryNoResources),
+        (value: 'l', label: (l) => l.dbOnlineLibraryInLibrary),
+      ];
+  static final _userScoreOptions =
+      <({String value, String Function(AppL10n l) label})>[
+        (value: '', label: (l) => l.filterAll),
+        for (final score in const ['5', '4', '3', '2', '1'])
+          (value: score, label: (l) => '$score ${l.dbOnlineLibraryStars}'),
+        (value: '-1', label: (l) => l.dbOnlineLibraryUnrated),
       ];
   static final _sortOptions =
       <({String value, String Function(AppL10n l) label})>[
-        (value: 'update', label: (l) => l.dbOnlineRecentUpdated),
-        (value: 'release', label: (l) => l.dbOnlineLatestReleased),
+        (value: 'created', label: (l) => l.dbOnlineLibrarySortCreated),
+        (value: 'date', label: (l) => l.dbOnlineLibrarySortDate),
+        (value: 'updated', label: (l) => l.dbOnlineLibrarySortUpdated),
       ];
 
   final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
-  String _category = '0';
-  String _sortBy = 'update';
+  String _resourceFilter = '';
+  String _userScore = '';
+  String _sortBy = 'created';
   String _orderBy = 'desc';
   MediaViewMode _viewMode = MediaViewMode.portrait;
   int _requestSerial = 0;
-
-  String get _filterBy => '$_category:t:::::';
 
   @override
   void initState() {
@@ -95,7 +101,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                 ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
             page: page,
             limit: _pageSize,
-            filterBy: _filterBy,
+            resourceFilter: _resourceFilter,
+            userScore: _userScore,
             sortBy: _sortBy,
             orderBy: _orderBy,
           ),
@@ -167,17 +174,25 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
-  void _reloadWith({String? category, String? sortBy, String? orderBy}) {
-    final nextCategory = category ?? _category;
+  void _reloadWith({
+    String? resourceFilter,
+    String? userScore,
+    String? sortBy,
+    String? orderBy,
+  }) {
+    final nextResourceFilter = resourceFilter ?? _resourceFilter;
+    final nextUserScore = userScore ?? _userScore;
     final nextSortBy = sortBy ?? _sortBy;
     final nextOrderBy = orderBy ?? _orderBy;
-    if (nextCategory == _category &&
+    if (nextResourceFilter == _resourceFilter &&
+        nextUserScore == _userScore &&
         nextSortBy == _sortBy &&
         nextOrderBy == _orderBy) {
       return;
     }
     setState(() {
-      _category = nextCategory;
+      _resourceFilter = nextResourceFilter;
+      _userScore = nextUserScore;
       _sortBy = nextSortBy;
       _orderBy = nextOrderBy;
     });
@@ -190,7 +205,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     );
   }
 
-  Future<void> _openCategoryMenu(BuildContext context) async {
+  Future<void> _openFilterMenu(BuildContext context) async {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     await showGlassSheet<void>(
@@ -203,15 +218,15 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
             children: [
               SheetHeader(
                 icon: Icons.tune_rounded,
-                title: l.dbOnlineFilterMovieType,
-                subtitle: l.dbOnlineOnlineOnly,
+                title: l.dbOnlineLibraryFilters,
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
-              for (final option in _categoryOptions)
+              _FilterSectionTitle(title: l.dbOnlineLibraryResourceType),
+              for (final option in _resourceOptions)
                 ListTile(
                   dense: true,
                   title: Text(option.label(l)),
-                  trailing: option.value == _category
+                  trailing: option.value == _resourceFilter
                       ? Icon(
                           Icons.check_rounded,
                           color: colors.accent,
@@ -220,7 +235,24 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                       : null,
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    _reloadWith(category: option.value);
+                    _reloadWith(resourceFilter: option.value);
+                  },
+                ),
+              _FilterSectionTitle(title: l.dbOnlineLibraryUserRating),
+              for (final option in _userScoreOptions)
+                ListTile(
+                  dense: true,
+                  title: Text(option.label(l)),
+                  trailing: option.value == _userScore
+                      ? Icon(
+                          Icons.check_rounded,
+                          color: colors.accent,
+                          size: 18,
+                        )
+                      : null,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _reloadWith(userScore: option.value);
                   },
                 ),
               const SizedBox(height: 8),
@@ -378,8 +410,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                   ),
                   const SizedBox(width: 8),
                   _LibraryFilterButton(
-                    active: _category != '0',
-                    onTap: () => _openCategoryMenu(context),
+                    active: _resourceFilter.isNotEmpty || _userScore.isNotEmpty,
+                    onTap: () => _openFilterMenu(context),
                   ),
                   const SizedBox(width: 8),
                   MediaViewModeToggle(
@@ -428,6 +460,23 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FilterSectionTitle extends StatelessWidget {
+  const _FilterSectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(title, style: AppText.eyebrow(context)),
       ),
     );
   }

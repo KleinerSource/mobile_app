@@ -123,6 +123,60 @@ class DbOnlineApi {
     });
   }
 
+  /// 获取本地影片库的一页，与网页版影片库共享筛选与排序参数。
+  Future<DbOnlineMoviePage> videoLibraryPage({
+    int page = 1,
+    int pageSize = 24,
+    String sort = 'created',
+    String order = 'desc',
+    String resourceFilter = '',
+    String userScore = '',
+  }) async {
+    final query = <String, dynamic>{
+      'page': page,
+      'pageSize': pageSize,
+      'sort': sort,
+      'order': order,
+      if (resourceFilter.isNotEmpty) 'filter': resourceFilter,
+      if (userScore.isNotEmpty) 'user_score': userScore,
+    };
+    final response = await _dio.get<dynamic>('/videos', queryParameters: query);
+    return unwrapStd<DbOnlineMoviePage>(response.data, (data) {
+      if (data is! Map) {
+        return DbOnlineMoviePage(
+          movies: const <DbOnlineMovie>[],
+          page: page,
+          limit: pageSize,
+          hasMore: false,
+        );
+      }
+      final rawVideos = data['videos'];
+      final videos = rawVideos is List
+          ? rawVideos
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList(growable: false)
+          : const <DbOnlineMovie>[];
+      final currentPage = _intValue(data['page']) ?? page;
+      final currentPageSize =
+          _intValue(data['page_size'] ?? data['pageSize']) ?? pageSize;
+      final total = _intValue(data['total']);
+      final totalPages = _intValue(data['total_pages']);
+      return DbOnlineMoviePage(
+        movies: videos,
+        page: currentPage,
+        limit: currentPageSize,
+        total: total,
+        hasMore: totalPages != null
+            ? currentPage < totalPages
+            : videos.length >= currentPageSize && currentPageSize > 0,
+      );
+    });
+  }
+
   /// 按关键词获取 dbonline 搜索结果的一页。
   ///
   /// 搜索接口的电影类型必须显式传递，避免服务端默认值变化导致结果

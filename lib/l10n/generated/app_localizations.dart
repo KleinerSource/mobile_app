@@ -13068,12 +13068,6 @@ abstract class AppL10n {
   /// **'ON'**
   String get dbOnlineSubscriptionAutoSyncOn;
 
-  /// No description provided for @dbOnlineSubscriptionSelectBlacklistItems.
-  ///
-  /// In zh, this message translates to:
-  /// **'请选择要删除的黑名单规则'**
-  String get dbOnlineSubscriptionSelectBlacklistItems;
-
   /// No description provided for @dbOnlineSubscriptionDeleteBlacklistConfirm.
   ///
   /// In zh, this message translates to:
@@ -13127,18 +13121,6 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'通配符'**
   String get dbOnlineSubscriptionWildcard;
-
-  /// No description provided for @dbOnlineSubscriptionYes.
-  ///
-  /// In zh, this message translates to:
-  /// **'是'**
-  String get dbOnlineSubscriptionYes;
-
-  /// No description provided for @dbOnlineSubscriptionNo.
-  ///
-  /// In zh, this message translates to:
-  /// **'否'**
-  String get dbOnlineSubscriptionNo;
 
   /// No description provided for @dbOnlineSubscriptionRemark.
   ///
@@ -13409,6 +13391,78 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'将预设应用到当前启用的影片订阅？'**
   String get dbOnlineSubscriptionOverwriteConfirm;
+
+  /// No description provided for @dbOnlineLibraryFilters.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get dbOnlineLibraryFilters;
+
+  /// No description provided for @dbOnlineLibraryResourceType.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源类型'**
+  String get dbOnlineLibraryResourceType;
+
+  /// No description provided for @dbOnlineLibraryDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get dbOnlineLibraryDownload;
+
+  /// No description provided for @dbOnlineLibrarySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕'**
+  String get dbOnlineLibrarySubtitle;
+
+  /// No description provided for @dbOnlineLibraryNoResources.
+  ///
+  /// In zh, this message translates to:
+  /// **'无资源'**
+  String get dbOnlineLibraryNoResources;
+
+  /// No description provided for @dbOnlineLibraryInLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'已入库'**
+  String get dbOnlineLibraryInLibrary;
+
+  /// No description provided for @dbOnlineLibraryUserRating.
+  ///
+  /// In zh, this message translates to:
+  /// **'评分'**
+  String get dbOnlineLibraryUserRating;
+
+  /// No description provided for @dbOnlineLibraryUnrated.
+  ///
+  /// In zh, this message translates to:
+  /// **'无评分'**
+  String get dbOnlineLibraryUnrated;
+
+  /// No description provided for @dbOnlineLibraryStars.
+  ///
+  /// In zh, this message translates to:
+  /// **'星'**
+  String get dbOnlineLibraryStars;
+
+  /// No description provided for @dbOnlineLibrarySortCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'入库时间'**
+  String get dbOnlineLibrarySortCreated;
+
+  /// No description provided for @dbOnlineLibrarySortDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'发布日期'**
+  String get dbOnlineLibrarySortDate;
+
+  /// No description provided for @dbOnlineLibrarySortUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新时间'**
+  String get dbOnlineLibrarySortUpdated;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
