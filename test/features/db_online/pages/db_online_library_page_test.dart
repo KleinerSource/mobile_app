@@ -53,6 +53,7 @@ void main() {
                       'id': 'movie-1',
                       'number': 'ABC-001',
                       'title': '影片库测试影片',
+                      'score': 4.5,
                       'can_play': true,
                     },
                   ],
@@ -91,6 +92,7 @@ void main() {
       'order': 'desc',
     });
     expect(find.text('影片库测试影片'), findsOneWidget);
+    expect(find.text('4.5'), findsNothing);
     expect(find.text('最近更新'), findsNothing);
     expect(find.text('筛选'), findsNothing);
 

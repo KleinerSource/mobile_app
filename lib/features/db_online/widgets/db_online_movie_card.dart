@@ -28,6 +28,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     this.codeOnly = false,
     this.landscape = false,
     this.compact = false,
+    this.showRating = true,
   });
 
   final DbOnlineMovie movie;
@@ -37,6 +38,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
   final bool codeOnly;
   final bool landscape;
   final bool compact;
+  final bool showRating;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -81,6 +83,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
       context,
       subscriptionStatus,
     );
+    final magnetBadge = _magnetBadge(l, movie.magnetsCount);
     final playBadge = movie.canPlay
         ? const OnlinePlayBadge(iconOnly: true)
         : null;
@@ -105,6 +108,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         privacyId: privacyId,
         additional: _compactBadges(
           subscription: subscriptionBadge,
+          magnet: magnetBadge,
           play: playBadge,
         ),
         onTap: handleTap,
@@ -125,12 +129,13 @@ class DbOnlineMovieCard extends ConsumerWidget {
         imageUrl: imageUrl,
         meta: _metaText(context, movie),
         width: width,
-        rating: normalizeMediaRating(movie.score),
+        rating: showRating ? normalizeMediaRating(movie.score) : null,
         canPlay: movie.canPlay,
         showOnlinePlayBadge: true,
         hasSubtitle: movie.hasCnsub,
         privacyId: privacyId,
         coverTopLeftOverlay: subscriptionBadge,
+        coverTopRightBadge: magnetBadge,
         showTitle: !codeOnly,
         showMeta: !codeOnly,
         landscape: landscape,
@@ -196,9 +201,57 @@ Widget? _subscriptionStatusBadge(
   );
 }
 
-Widget? _compactBadges({required Widget? subscription, required Widget? play}) {
+Widget? _magnetBadge(AppL10n l, int count) {
+  if (count <= 0) return null;
+  final label = l.resourceMagnetCount(count);
+  return Semantics(
+    container: true,
+    label: label,
+    child: Tooltip(
+      message: label,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF12B8C2),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.link_rounded, color: Colors.white, size: 11),
+            const SizedBox(width: 2),
+            Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'Inter',
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget? _compactBadges({
+  required Widget? subscription,
+  required Widget? magnet,
+  required Widget? play,
+}) {
   final badges = [
     if (subscription != null) subscription,
+    if (magnet != null) magnet,
     if (play != null) play,
   ];
   if (badges.isEmpty) return null;

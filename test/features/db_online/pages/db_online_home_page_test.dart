@@ -37,6 +37,7 @@ void main() {
     bool privacyOn = false,
     bool hasCnsub = false,
     String? duration,
+    int magnetsCount = 0,
     bool compact = false,
     DbOnlineLibraryInfo? libraryInfo,
     BadgePositions? badgePositions,
@@ -64,6 +65,7 @@ void main() {
                 canPlay: canPlay,
                 hasCnsub: hasCnsub,
                 duration: duration,
+                magnetsCount: magnetsCount,
                 libraryInfo: libraryInfo,
               ),
               config: config,
@@ -110,6 +112,20 @@ void main() {
       libraryInfo: libraryInfo,
     );
     expect(find.bySemanticsLabel('已入库: Emby'), findsNothing);
+  });
+
+  testWidgets('有磁链时卡片显示磁链数量徽标', (tester) async {
+    await pumpCard(tester, canPlay: false, magnetsCount: 3);
+
+    expect(find.byIcon(Icons.link_rounded), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+
+    await pumpCard(tester, canPlay: false, compact: true, magnetsCount: 3);
+    expect(find.byIcon(Icons.link_rounded), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+
+    await pumpCard(tester, canPlay: false);
+    expect(find.byIcon(Icons.link_rounded), findsNothing);
   });
 
   testWidgets('can_play=false 时不显示在线播放角标', (tester) async {
