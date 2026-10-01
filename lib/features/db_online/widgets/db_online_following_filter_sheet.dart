@@ -270,21 +270,25 @@ class _StylesState extends ConsumerState<_FollowingStylesSheet> {
               ),
             ),
             if (_selected.isNotEmpty)
-              Padding(
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Wrap(
-                  spacing: 6,
+                child: Row(
                   children: [
                     for (final id in _selected)
-                      InputChip(
-                        label: Text(
-                          styles.asData?.value
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: CompactFilterButton(
+                          label:
+                              styles.asData?.value
                                   .where((item) => item.id == id)
                                   .firstOrNull
                                   ?.name ??
                               id,
+                          active: true,
+                          trailingIcon: Icons.close_rounded,
+                          onTap: () => setState(() => _selected.remove(id)),
                         ),
-                        onDeleted: () => setState(() => _selected.remove(id)),
                       ),
                   ],
                 ),
