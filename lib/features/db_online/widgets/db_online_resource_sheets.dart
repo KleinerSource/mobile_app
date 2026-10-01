@@ -18,6 +18,8 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/resource_panel_components.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
+import 'db_online_resource_download.dart';
+
 enum _ResourceTab { magnet, ed2k }
 
 class DbOnlineResourcesSheet extends ConsumerStatefulWidget {
@@ -168,142 +170,35 @@ class _DbOnlineResourcesSheetState
     required List<String> tags,
   }) async {
     if (_pushingKey != null) return;
-    final l = AppL10n.of(context);
-    final downloaders = _activeDownloaders;
-    if (downloaders.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l.resourceNoDownloaders)));
-      return;
-    }
-
-    String? selected;
-    if (downloaders.length == 1) {
-      selected = downloaders.first.name;
-    } else {
-      selected = await showGlassSheet<String>(
-        context: context,
-        builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SheetHeader(
-                icon: Icons.download_outlined,
-                title: l.resourceSelectDownloader,
-                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              ),
-              for (final downloader in downloaders)
-                ListTile(
-                  leading: const Icon(Icons.download_outlined, size: 20),
-                  title: Text(downloader.displayName),
-                  onTap: () => Navigator.pop(ctx, downloader.name),
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      );
-    }
-    if (selected == null || !mounted) return;
-    await _push(
+    final pushed = await pushDbOnlineResource(
+      context: context,
+      repository: ref.read(dboMediaRepositoryProvider),
+      downloaders: _downloaders,
+      videoInfo: {
+        'code': widget.movie.code.trim(),
+        'title': widget.movie.title.trim(),
+        'date': widget.movie.date?.trim() ?? '',
+        'actors': widget.movie.actors
+            .map(
+              (actor) => {
+                if (actor.externalId != null) 'external_id': actor.externalId,
+                'name': actor.name,
+                'gender': actor.gender ?? '',
+              },
+            )
+            .toList(growable: false),
+      },
       url: url,
       protocol: protocol,
       name: name,
       site: site,
       date: date,
       tags: tags,
-      downloader: selected,
+      isCurrent: () => mounted,
+      onPushing: (pushing) =>
+          setState(() => _pushingKey = pushing ? url : null),
     );
-  }
-
-  Future<void> _push({
-    required String url,
-    required String protocol,
-    required String name,
-    required String? site,
-    required String? date,
-    required List<String> tags,
-    required String downloader,
-  }) async {
-    if (url.trim().isEmpty) return;
-    final l = AppL10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _pushingKey = url);
-    try {
-      final result = await ref
-          .read(dboMediaRepositoryProvider)
-          .pushDownload(
-            urls: [url],
-            downloader: downloader,
-            videoInfo: {
-              'code': widget.movie.code.trim(),
-              'title': widget.movie.title.trim(),
-              'date': widget.movie.date?.trim() ?? '',
-              'actors': widget.movie.actors
-                  .map(
-                    (actor) => {
-                      if (actor.externalId != null)
-                        'external_id': actor.externalId,
-                      'name': actor.name,
-                      'gender': actor.gender ?? '',
-                    },
-                  )
-                  .toList(growable: false),
-            },
-            recordResources: [
-              {
-                'url': url,
-                'name': name,
-                'resource_protocol': protocol,
-                'resource_site': site ?? '',
-                'resource_flags': _buildResourceFlags(tags),
-                'resource_date': date ?? '',
-                'video_code': widget.movie.code.trim(),
-                'video_title': widget.movie.title.trim(),
-              },
-            ],
-          );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            result.message.isEmpty ? l.resourcePushDownload : result.message,
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      await _loadDownloadHistory();
-    } catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(l.resourcePushFailed(localizedErrorMessage(l, error))),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _pushingKey = null);
-    }
-  }
-
-  int _buildResourceFlags(List<String> tags) {
-    final lowered = tags.map((tag) => tag.toLowerCase()).toList();
-    var flags = 1;
-    if (lowered.any((tag) => tag == 'uhd' || tag.contains('4k'))) {
-      flags = 4;
-    } else if (lowered.any(
-      (tag) =>
-          (tag.contains('hd') && !tag.contains('uhd')) || tag.contains('高清'),
-    )) {
-      flags = 2;
-    }
-    if (lowered.any((tag) => tag.contains('字幕') || tag.contains('sub'))) {
-      flags |= 8;
-    }
-    if (lowered.any((tag) => tag.contains('破解') || tag.contains('无码'))) {
-      flags |= 16;
-    }
-    return flags;
+    if (pushed && mounted) await _loadDownloadHistory();
   }
 
   Future<void> _loadExternalSource(String source) async {
@@ -532,7 +427,7 @@ class _MagnetRow extends StatelessWidget {
   final String? downloadedAt;
 
   @override
-  Widget build(BuildContext context) => _ResourceRow(
+  Widget build(BuildContext context) => DbOnlineResourceRow(
     name: item.name,
     value: item.magnet,
     sizeMb: item.sizeMb,
@@ -566,7 +461,7 @@ class _Ed2kRow extends StatelessWidget {
   final String? downloadedAt;
 
   @override
-  Widget build(BuildContext context) => _ResourceRow(
+  Widget build(BuildContext context) => DbOnlineResourceRow(
     name: item.name,
     value: item.ed2k,
     sizeMb: item.sizeMb,
@@ -581,8 +476,9 @@ class _Ed2kRow extends StatelessWidget {
   );
 }
 
-class _ResourceRow extends StatelessWidget {
-  const _ResourceRow({
+class DbOnlineResourceRow extends StatelessWidget {
+  const DbOnlineResourceRow({
+    super.key,
     required this.name,
     required this.value,
     required this.onCopy,

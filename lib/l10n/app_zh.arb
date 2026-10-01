@@ -2543,5 +2543,73 @@
   ,"dbOnlineLibraryStars": "星"
   ,"dbOnlineLibrarySortCreated": "入库时间"
   ,"dbOnlineLibrarySortDate": "发布日期"
-  ,"dbOnlineLibrarySortUpdated": "更新时间"
+  ,"dbOnlineLibrarySortUpdated": "更新时间",
+  "dbOnlineFollowingTitle": "关注列表",
+  "dbOnlineFollowingFilters": "筛选",
+  "dbOnlineFollowingConditions": "资源条件",
+  "dbOnlineFollowingSingleActor": "单人",
+  "dbOnlineFollowingStyles": "风格",
+  "dbOnlineFollowingStyleCount": "风格（{count}）",
+  "@dbOnlineFollowingStyleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dbOnlineFollowingStyleLimit": "最多选择 5 个风格",
+  "dbOnlineFollowingSearchStyles": "搜索风格",
+  "dbOnlineFollowingTime": "时间",
+  "dbOnlineFollowingYear": "年份",
+  "dbOnlineFollowingMonth": "月份",
+  "dbOnlineFollowingChooseFilters": "请选择筛选条件或预设，开始加载关注影片",
+  "dbOnlineFollowingNoMovies": "没有符合条件的影片",
+  "dbOnlineFollowingRequiresOnlineQuery": "请先在 DBO 后台启用在线查询",
+  "dbOnlineFollowingPresets": "关注预设",
+  "dbOnlineFollowingSavePreset": "保存当前预设",
+  "dbOnlineFollowingEditPreset": "编辑预设",
+  "dbOnlineFollowingDeletePreset": "删除预设",
+  "dbOnlineFollowingDeletePresetConfirm": "确定删除预设“{name}”吗？",
+  "@dbOnlineFollowingDeletePresetConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dbOnlineFollowingNameRequired": "请输入预设名称",
+  "dbOnlineFollowingReorderHint": "拖动左侧手柄调整顺序",
+  "dbOnlineFollowingNoPresets": "暂无关注预设",
+  "dbOnlineFollowingUsers": "关注用户",
+  "dbOnlineFollowingAddUser": "添加关注用户",
+  "dbOnlineFollowingUserId": "用户 ID",
+  "dbOnlineFollowingUserIdRequired": "请输入用户 ID",
+  "dbOnlineFollowingFollowUser": "关注",
+  "dbOnlineFollowingUnfollowUser": "取消关注",
+  "dbOnlineFollowingUnfollowConfirm": "确定取消关注选中的 {count} 位用户吗？",
+  "@dbOnlineFollowingUnfollowConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dbOnlineFollowingUserAdded": "已关注用户",
+  "dbOnlineFollowingUserExists": "已关注该用户，无需重复添加",
+  "dbOnlineFollowingNoUsers": "暂无关注用户，长按用户可批量选择",
+  "dbOnlineFollowingLatestReviews": "最新评论",
+  "dbOnlineFollowingUpdatedToday": "今天有评论更新",
+  "dbOnlineFollowingRefreshUsers": "刷新用户评论",
+  "dbOnlineFollowingRefreshSuccess": "关注用户已刷新",
+  "dbOnlineFollowingRefreshPartialFailed": "刷新完成，{count} 位用户刷新失败",
+  "@dbOnlineFollowingRefreshPartialFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dbOnlineFollowingMetadataLoading": "正在补全磁链信息",
+  "dbOnlineFollowingNoResources": "暂无评论资源"
+
 }

@@ -6,16 +6,19 @@ import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
+import 'package:omm/core/sources/media/dbo/db_online_following_api.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_codes.dart';
 
 class DbOnlineApi {
   DbOnlineApi(Dio dio)
     : _dio = dio,
-      subscriptions = DbOnlineSubscriptionApi(dio);
+      subscriptions = DbOnlineSubscriptionApi(dio),
+      following = DbOnlineFollowingApi(dio);
 
   final Dio _dio;
   final DbOnlineSubscriptionApi subscriptions;
+  final DbOnlineFollowingApi following;
 
   /// 读取 DBO 后台配置。配置接口返回完整配置，但未鉴权时只包含公开字段。
   Future<Map<String, dynamic>> getBackendConfig() async {

@@ -7456,4 +7456,133 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get dbOnlineLibrarySortUpdated => 'Last updated';
+
+  @override
+  String get dbOnlineFollowingTitle => 'Following';
+
+  @override
+  String get dbOnlineFollowingFilters => 'Filters';
+
+  @override
+  String get dbOnlineFollowingConditions => 'Resource conditions';
+
+  @override
+  String get dbOnlineFollowingSingleActor => 'Solo';
+
+  @override
+  String get dbOnlineFollowingStyles => 'Styles';
+
+  @override
+  String dbOnlineFollowingStyleCount(int count) {
+    return 'Styles ($count)';
+  }
+
+  @override
+  String get dbOnlineFollowingStyleLimit => 'Select up to 5 styles';
+
+  @override
+  String get dbOnlineFollowingSearchStyles => 'Search styles';
+
+  @override
+  String get dbOnlineFollowingTime => 'Date';
+
+  @override
+  String get dbOnlineFollowingYear => 'Year';
+
+  @override
+  String get dbOnlineFollowingMonth => 'Month';
+
+  @override
+  String get dbOnlineFollowingChooseFilters =>
+      'Choose filters or a preset to load movies';
+
+  @override
+  String get dbOnlineFollowingNoMovies => 'No movies match these filters';
+
+  @override
+  String get dbOnlineFollowingRequiresOnlineQuery =>
+      'Enable online queries in DB Online settings';
+
+  @override
+  String get dbOnlineFollowingPresets => 'Following presets';
+
+  @override
+  String get dbOnlineFollowingSavePreset => 'Save current preset';
+
+  @override
+  String get dbOnlineFollowingEditPreset => 'Edit preset';
+
+  @override
+  String get dbOnlineFollowingDeletePreset => 'Delete preset';
+
+  @override
+  String dbOnlineFollowingDeletePresetConfirm(String name) {
+    return 'Delete preset “$name”?';
+  }
+
+  @override
+  String get dbOnlineFollowingNameRequired => 'Enter a preset name';
+
+  @override
+  String get dbOnlineFollowingReorderHint =>
+      'Drag the handles to reorder presets';
+
+  @override
+  String get dbOnlineFollowingNoPresets => 'No following presets';
+
+  @override
+  String get dbOnlineFollowingUsers => 'Followed users';
+
+  @override
+  String get dbOnlineFollowingAddUser => 'Add followed user';
+
+  @override
+  String get dbOnlineFollowingUserId => 'User ID';
+
+  @override
+  String get dbOnlineFollowingUserIdRequired => 'Enter a user ID';
+
+  @override
+  String get dbOnlineFollowingFollowUser => 'Follow';
+
+  @override
+  String get dbOnlineFollowingUnfollowUser => 'Unfollow';
+
+  @override
+  String dbOnlineFollowingUnfollowConfirm(int count) {
+    return 'Unfollow the $count selected users?';
+  }
+
+  @override
+  String get dbOnlineFollowingUserAdded => 'User followed';
+
+  @override
+  String get dbOnlineFollowingUserExists => 'This user is already followed';
+
+  @override
+  String get dbOnlineFollowingNoUsers =>
+      'No followed users. Long press a user to select multiple';
+
+  @override
+  String get dbOnlineFollowingLatestReviews => 'Latest reviews';
+
+  @override
+  String get dbOnlineFollowingUpdatedToday => 'New reviews today';
+
+  @override
+  String get dbOnlineFollowingRefreshUsers => 'Refresh user reviews';
+
+  @override
+  String get dbOnlineFollowingRefreshSuccess => 'Followed users refreshed';
+
+  @override
+  String dbOnlineFollowingRefreshPartialFailed(int count) {
+    return 'Refresh completed; $count users failed';
+  }
+
+  @override
+  String get dbOnlineFollowingMetadataLoading => 'Loading magnet metadata';
+
+  @override
+  String get dbOnlineFollowingNoResources => 'No review resources';
 }

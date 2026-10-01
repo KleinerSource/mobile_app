@@ -13469,6 +13469,240 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'更新时间'**
   String get dbOnlineLibrarySortUpdated;
+
+  /// No description provided for @dbOnlineFollowingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注列表'**
+  String get dbOnlineFollowingTitle;
+
+  /// No description provided for @dbOnlineFollowingFilters.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get dbOnlineFollowingFilters;
+
+  /// No description provided for @dbOnlineFollowingConditions.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源条件'**
+  String get dbOnlineFollowingConditions;
+
+  /// No description provided for @dbOnlineFollowingSingleActor.
+  ///
+  /// In zh, this message translates to:
+  /// **'单人'**
+  String get dbOnlineFollowingSingleActor;
+
+  /// No description provided for @dbOnlineFollowingStyles.
+  ///
+  /// In zh, this message translates to:
+  /// **'风格'**
+  String get dbOnlineFollowingStyles;
+
+  /// No description provided for @dbOnlineFollowingStyleCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'风格（{count}）'**
+  String dbOnlineFollowingStyleCount(int count);
+
+  /// No description provided for @dbOnlineFollowingStyleLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'最多选择 5 个风格'**
+  String get dbOnlineFollowingStyleLimit;
+
+  /// No description provided for @dbOnlineFollowingSearchStyles.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索风格'**
+  String get dbOnlineFollowingSearchStyles;
+
+  /// No description provided for @dbOnlineFollowingTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间'**
+  String get dbOnlineFollowingTime;
+
+  /// No description provided for @dbOnlineFollowingYear.
+  ///
+  /// In zh, this message translates to:
+  /// **'年份'**
+  String get dbOnlineFollowingYear;
+
+  /// No description provided for @dbOnlineFollowingMonth.
+  ///
+  /// In zh, this message translates to:
+  /// **'月份'**
+  String get dbOnlineFollowingMonth;
+
+  /// No description provided for @dbOnlineFollowingChooseFilters.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择筛选条件或预设，开始加载关注影片'**
+  String get dbOnlineFollowingChooseFilters;
+
+  /// No description provided for @dbOnlineFollowingNoMovies.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有符合条件的影片'**
+  String get dbOnlineFollowingNoMovies;
+
+  /// No description provided for @dbOnlineFollowingRequiresOnlineQuery.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在 DBO 后台启用在线查询'**
+  String get dbOnlineFollowingRequiresOnlineQuery;
+
+  /// No description provided for @dbOnlineFollowingPresets.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注预设'**
+  String get dbOnlineFollowingPresets;
+
+  /// No description provided for @dbOnlineFollowingSavePreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存当前预设'**
+  String get dbOnlineFollowingSavePreset;
+
+  /// No description provided for @dbOnlineFollowingEditPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑预设'**
+  String get dbOnlineFollowingEditPreset;
+
+  /// No description provided for @dbOnlineFollowingDeletePreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除预设'**
+  String get dbOnlineFollowingDeletePreset;
+
+  /// No description provided for @dbOnlineFollowingDeletePresetConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除预设“{name}”吗？'**
+  String dbOnlineFollowingDeletePresetConfirm(String name);
+
+  /// No description provided for @dbOnlineFollowingNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入预设名称'**
+  String get dbOnlineFollowingNameRequired;
+
+  /// No description provided for @dbOnlineFollowingReorderHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动左侧手柄调整顺序'**
+  String get dbOnlineFollowingReorderHint;
+
+  /// No description provided for @dbOnlineFollowingNoPresets.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无关注预设'**
+  String get dbOnlineFollowingNoPresets;
+
+  /// No description provided for @dbOnlineFollowingUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注用户'**
+  String get dbOnlineFollowingUsers;
+
+  /// No description provided for @dbOnlineFollowingAddUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加关注用户'**
+  String get dbOnlineFollowingAddUser;
+
+  /// No description provided for @dbOnlineFollowingUserId.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户 ID'**
+  String get dbOnlineFollowingUserId;
+
+  /// No description provided for @dbOnlineFollowingUserIdRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入用户 ID'**
+  String get dbOnlineFollowingUserIdRequired;
+
+  /// No description provided for @dbOnlineFollowingFollowUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注'**
+  String get dbOnlineFollowingFollowUser;
+
+  /// No description provided for @dbOnlineFollowingUnfollowUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消关注'**
+  String get dbOnlineFollowingUnfollowUser;
+
+  /// No description provided for @dbOnlineFollowingUnfollowConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定取消关注选中的 {count} 位用户吗？'**
+  String dbOnlineFollowingUnfollowConfirm(int count);
+
+  /// No description provided for @dbOnlineFollowingUserAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关注用户'**
+  String get dbOnlineFollowingUserAdded;
+
+  /// No description provided for @dbOnlineFollowingUserExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关注该用户，无需重复添加'**
+  String get dbOnlineFollowingUserExists;
+
+  /// No description provided for @dbOnlineFollowingNoUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无关注用户，长按用户可批量选择'**
+  String get dbOnlineFollowingNoUsers;
+
+  /// No description provided for @dbOnlineFollowingLatestReviews.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新评论'**
+  String get dbOnlineFollowingLatestReviews;
+
+  /// No description provided for @dbOnlineFollowingUpdatedToday.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天有评论更新'**
+  String get dbOnlineFollowingUpdatedToday;
+
+  /// No description provided for @dbOnlineFollowingRefreshUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新用户评论'**
+  String get dbOnlineFollowingRefreshUsers;
+
+  /// No description provided for @dbOnlineFollowingRefreshSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注用户已刷新'**
+  String get dbOnlineFollowingRefreshSuccess;
+
+  /// No description provided for @dbOnlineFollowingRefreshPartialFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新完成，{count} 位用户刷新失败'**
+  String dbOnlineFollowingRefreshPartialFailed(int count);
+
+  /// No description provided for @dbOnlineFollowingMetadataLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在补全磁链信息'**
+  String get dbOnlineFollowingMetadataLoading;
+
+  /// No description provided for @dbOnlineFollowingNoResources.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无评论资源'**
+  String get dbOnlineFollowingNoResources;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

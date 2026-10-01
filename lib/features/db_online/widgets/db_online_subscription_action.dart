@@ -119,6 +119,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     required bool subscribed,
     required DbOnlineSubscriptionStatus? subscription,
   }) async {
+    if (!context.mounted || !_isCurrent(context, ref, query)) return;
     var editing = false;
     if (subscribed) {
       final state = subscription;
@@ -181,7 +182,11 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           ),
         ),
       );
-      if (!context.mounted || action == null) return;
+      if (!context.mounted ||
+          !_isCurrent(context, ref, query) ||
+          action == null) {
+        return;
+      }
       if (action == 'remove') {
         await _deleteSubscription(context, ref, query, l);
         return;
@@ -209,7 +214,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       final existing = editing
           ? await _loadSubscription(repository.api, query)
           : <String, dynamic>{};
-      if (!context.mounted) return;
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
       final details = <String, dynamic>{
         ...existing,
         ...initial,
@@ -231,7 +236,11 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
         initial: details,
         isEdit: editing,
       );
-      if (result == null || !context.mounted) return;
+      if (result == null ||
+          !context.mounted ||
+          !_isCurrent(context, ref, query)) {
+        return;
+      }
       switch (kind) {
         case 'video':
           if (editing) {
@@ -256,13 +265,13 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
             await repository.api.createSeriesSubscription(result);
           }
       }
-      if (!context.mounted) return;
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
       ref.invalidate(dbOnlineMovieSubscriptionStatusesProvider(query.serverId));
       ref.invalidate(dbOnlineSubscriptionListProvider);
       _notify(context, l.dbOnlineSubscriptionActionCompleted);
     } catch (error) {
-      if (context.mounted) {
+      if (context.mounted && _isCurrent(context, ref, query)) {
         _notify(context, localizedErrorMessage(l, error));
       }
     }
@@ -293,13 +302,13 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           'status': nextStatus,
         });
       }
-      if (!context.mounted) return;
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
       ref.invalidate(dbOnlineMovieSubscriptionStatusesProvider(query.serverId));
       ref.invalidate(dbOnlineSubscriptionListProvider);
       _notify(context, l.dbOnlineSubscriptionActionCompleted);
     } catch (error) {
-      if (context.mounted) {
+      if (context.mounted && _isCurrent(context, ref, query)) {
         _notify(context, localizedErrorMessage(l, error));
       }
     }
@@ -354,7 +363,11 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true ||
+        !context.mounted ||
+        !_isCurrent(context, ref, query)) {
+      return;
+    }
     try {
       final api = ref.read(dboSubscriptionRepositoryProvider).api;
       switch (kind) {
@@ -365,17 +378,25 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
         case 'series':
           await api.deleteSeriesSubscription(id, subType: query.subType);
       }
-      if (!context.mounted) return;
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
       ref.invalidate(dbOnlineSubscriptionStatusProvider(query));
       ref.invalidate(dbOnlineMovieSubscriptionStatusesProvider(query.serverId));
       ref.invalidate(dbOnlineSubscriptionListProvider);
       _notify(context, l.dbOnlineSubscriptionActionCompleted);
     } catch (error) {
-      if (context.mounted) {
+      if (context.mounted && _isCurrent(context, ref, query)) {
         _notify(context, localizedErrorMessage(l, error));
       }
     }
   }
+
+  bool _isCurrent(
+    BuildContext context,
+    WidgetRef ref,
+    DbOnlineSubscriptionStatusQuery query,
+  ) =>
+      context.mounted &&
+      ref.read(mediaRuntimeConfigProvider)?.activeServerId == query.serverId;
 
   void _notify(BuildContext context, String message) {
     ScaffoldMessenger.of(

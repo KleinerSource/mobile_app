@@ -2543,5 +2543,73 @@
   ,"dbOnlineLibraryStars": "stars"
   ,"dbOnlineLibrarySortCreated": "Date added"
   ,"dbOnlineLibrarySortDate": "Release date"
-  ,"dbOnlineLibrarySortUpdated": "Last updated"
+  ,"dbOnlineLibrarySortUpdated": "Last updated",
+  "dbOnlineFollowingTitle": "Following",
+  "dbOnlineFollowingFilters": "Filters",
+  "dbOnlineFollowingConditions": "Resource conditions",
+  "dbOnlineFollowingSingleActor": "Solo",
+  "dbOnlineFollowingStyles": "Styles",
+  "dbOnlineFollowingStyleCount": "Styles ({count})",
+  "@dbOnlineFollowingStyleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dbOnlineFollowingStyleLimit": "Select up to 5 styles",
+  "dbOnlineFollowingSearchStyles": "Search styles",
+  "dbOnlineFollowingTime": "Date",
+  "dbOnlineFollowingYear": "Year",
+  "dbOnlineFollowingMonth": "Month",
+  "dbOnlineFollowingChooseFilters": "Choose filters or a preset to load movies",
+  "dbOnlineFollowingNoMovies": "No movies match these filters",
+  "dbOnlineFollowingRequiresOnlineQuery": "Enable online queries in DB Online settings",
+  "dbOnlineFollowingPresets": "Following presets",
+  "dbOnlineFollowingSavePreset": "Save current preset",
+  "dbOnlineFollowingEditPreset": "Edit preset",
+  "dbOnlineFollowingDeletePreset": "Delete preset",
+  "dbOnlineFollowingDeletePresetConfirm": "Delete preset “{name}”?",
+  "@dbOnlineFollowingDeletePresetConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dbOnlineFollowingNameRequired": "Enter a preset name",
+  "dbOnlineFollowingReorderHint": "Drag the handles to reorder presets",
+  "dbOnlineFollowingNoPresets": "No following presets",
+  "dbOnlineFollowingUsers": "Followed users",
+  "dbOnlineFollowingAddUser": "Add followed user",
+  "dbOnlineFollowingUserId": "User ID",
+  "dbOnlineFollowingUserIdRequired": "Enter a user ID",
+  "dbOnlineFollowingFollowUser": "Follow",
+  "dbOnlineFollowingUnfollowUser": "Unfollow",
+  "dbOnlineFollowingUnfollowConfirm": "Unfollow the {count} selected users?",
+  "@dbOnlineFollowingUnfollowConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dbOnlineFollowingUserAdded": "User followed",
+  "dbOnlineFollowingUserExists": "This user is already followed",
+  "dbOnlineFollowingNoUsers": "No followed users. Long press a user to select multiple",
+  "dbOnlineFollowingLatestReviews": "Latest reviews",
+  "dbOnlineFollowingUpdatedToday": "New reviews today",
+  "dbOnlineFollowingRefreshUsers": "Refresh user reviews",
+  "dbOnlineFollowingRefreshSuccess": "Followed users refreshed",
+  "dbOnlineFollowingRefreshPartialFailed": "Refresh completed; {count} users failed",
+  "@dbOnlineFollowingRefreshPartialFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dbOnlineFollowingMetadataLoading": "Loading magnet metadata",
+  "dbOnlineFollowingNoResources": "No review resources"
+
 }

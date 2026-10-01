@@ -2410,6 +2410,7 @@ class _DbOnlineSubscriptionVideosSheetState
           child: Column(
             children: [
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: hidden
                     ? () =>
                           ref.read(revealedProvider.notifier).reveal(privacyId)

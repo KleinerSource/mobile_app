@@ -7308,4 +7308,129 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get dbOnlineLibrarySortUpdated => '更新时间';
+
+  @override
+  String get dbOnlineFollowingTitle => '关注列表';
+
+  @override
+  String get dbOnlineFollowingFilters => '筛选';
+
+  @override
+  String get dbOnlineFollowingConditions => '资源条件';
+
+  @override
+  String get dbOnlineFollowingSingleActor => '单人';
+
+  @override
+  String get dbOnlineFollowingStyles => '风格';
+
+  @override
+  String dbOnlineFollowingStyleCount(int count) {
+    return '风格（$count）';
+  }
+
+  @override
+  String get dbOnlineFollowingStyleLimit => '最多选择 5 个风格';
+
+  @override
+  String get dbOnlineFollowingSearchStyles => '搜索风格';
+
+  @override
+  String get dbOnlineFollowingTime => '时间';
+
+  @override
+  String get dbOnlineFollowingYear => '年份';
+
+  @override
+  String get dbOnlineFollowingMonth => '月份';
+
+  @override
+  String get dbOnlineFollowingChooseFilters => '请选择筛选条件或预设，开始加载关注影片';
+
+  @override
+  String get dbOnlineFollowingNoMovies => '没有符合条件的影片';
+
+  @override
+  String get dbOnlineFollowingRequiresOnlineQuery => '请先在 DBO 后台启用在线查询';
+
+  @override
+  String get dbOnlineFollowingPresets => '关注预设';
+
+  @override
+  String get dbOnlineFollowingSavePreset => '保存当前预设';
+
+  @override
+  String get dbOnlineFollowingEditPreset => '编辑预设';
+
+  @override
+  String get dbOnlineFollowingDeletePreset => '删除预设';
+
+  @override
+  String dbOnlineFollowingDeletePresetConfirm(String name) {
+    return '确定删除预设“$name”吗？';
+  }
+
+  @override
+  String get dbOnlineFollowingNameRequired => '请输入预设名称';
+
+  @override
+  String get dbOnlineFollowingReorderHint => '拖动左侧手柄调整顺序';
+
+  @override
+  String get dbOnlineFollowingNoPresets => '暂无关注预设';
+
+  @override
+  String get dbOnlineFollowingUsers => '关注用户';
+
+  @override
+  String get dbOnlineFollowingAddUser => '添加关注用户';
+
+  @override
+  String get dbOnlineFollowingUserId => '用户 ID';
+
+  @override
+  String get dbOnlineFollowingUserIdRequired => '请输入用户 ID';
+
+  @override
+  String get dbOnlineFollowingFollowUser => '关注';
+
+  @override
+  String get dbOnlineFollowingUnfollowUser => '取消关注';
+
+  @override
+  String dbOnlineFollowingUnfollowConfirm(int count) {
+    return '确定取消关注选中的 $count 位用户吗？';
+  }
+
+  @override
+  String get dbOnlineFollowingUserAdded => '已关注用户';
+
+  @override
+  String get dbOnlineFollowingUserExists => '已关注该用户，无需重复添加';
+
+  @override
+  String get dbOnlineFollowingNoUsers => '暂无关注用户，长按用户可批量选择';
+
+  @override
+  String get dbOnlineFollowingLatestReviews => '最新评论';
+
+  @override
+  String get dbOnlineFollowingUpdatedToday => '今天有评论更新';
+
+  @override
+  String get dbOnlineFollowingRefreshUsers => '刷新用户评论';
+
+  @override
+  String get dbOnlineFollowingRefreshSuccess => '关注用户已刷新';
+
+  @override
+  String dbOnlineFollowingRefreshPartialFailed(int count) {
+    return '刷新完成，$count 位用户刷新失败';
+  }
+
+  @override
+  String get dbOnlineFollowingMetadataLoading => '正在补全磁链信息';
+
+  @override
+  String get dbOnlineFollowingNoResources => '暂无评论资源';
 }

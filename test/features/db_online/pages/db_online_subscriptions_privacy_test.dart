@@ -116,6 +116,12 @@ Future<void> _selectSection(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+// 海报备用标题在 ImageFiltered 内继续渲染；这里只检查外部文字。
+Finder _privateText(String text) => find.descendant(
+  of: find.byType(PrivacyText),
+  matching: find.textContaining(text),
+);
+
 void main() {
   for (final section in ['订阅中', '已完成', '在线订阅']) {
     testWidgets('$section 遮罩影片，首次点击只揭示当前条目，再次点击进入详情', (tester) async {
@@ -123,28 +129,27 @@ void main() {
       final container = await _pumpPage(tester, observer: observer);
       if (section != '订阅中') await _selectSection(tester, section);
 
-      expect(find.textContaining('私人影片'), findsNothing);
+      expect(_privateText('私人影片'), findsNothing);
       expect(find.text('2026-01-01'), findsNothing);
       expect(find.byType(ImageFiltered), findsNWidgets(2));
-      await tester.longPress(find.byType(CatalogMovieCard).first);
-      await tester.pumpAndSettle();
       expect(find.byType(GlassMenuPanel), findsNothing);
+      expect(find.byType(GlassMenuAnchor<String>), findsNothing);
 
       await tester.tap(find.byType(CatalogMovieCard).first);
       await tester.pumpAndSettle();
       expect(observer.pushes, 1);
       expect(container.read(revealedMoviesProvider), contains('movie-1'));
-      expect(find.textContaining('私人影片1'), findsOneWidget);
-      expect(find.textContaining('私人影片2'), findsNothing);
+      expect(_privateText('私人影片1'), findsOneWidget);
+      expect(_privateText('私人影片2'), findsNothing);
       expect(find.byType(ImageFiltered), findsOneWidget);
 
       await container.read(privacyShieldProvider.notifier).setEnabled(false);
       await tester.pumpAndSettle();
-      expect(find.textContaining('私人影片2'), findsOneWidget);
+      expect(_privateText('私人影片2'), findsOneWidget);
       expect(find.byType(ImageFiltered), findsNothing);
       await container.read(privacyShieldProvider.notifier).setEnabled(true);
       await tester.pumpAndSettle();
-      expect(find.textContaining('私人影片'), findsNothing);
+      expect(_privateText('私人影片'), findsNothing);
 
       await tester.tap(find.byType(CatalogMovieCard).first);
       await tester.pumpAndSettle();
@@ -166,12 +171,12 @@ void main() {
     await tester.tap(find.byType(CatalogMovieCard).first);
     await tester.pumpAndSettle();
     expect(container.read(revealedMoviesProvider), contains('movie-1'));
-    expect(find.textContaining('私人影片1'), findsOneWidget);
+    expect(_privateText('私人影片1'), findsOneWidget);
   });
 
   for (final (section, title) in [
-    ('演员', '私人演员'),
-    ('系列', '私人系列'),
+    ('演员订阅', '私人演员'),
+    ('综合订阅', '私人系列'),
     ('黑名单', 'PRIVATE-*'),
   ]) {
     testWidgets('$section 隐藏名称和备注，揭示与影片域隔离', (tester) async {
@@ -181,16 +186,16 @@ void main() {
       await _selectSection(tester, section);
       expect(find.text(title), findsNothing);
       expect(find.textContaining('私人备注'), findsNothing);
-      if (section == '演员') {
+      if (section == '演员订阅') {
         expect(find.byType(ImageFiltered), findsOneWidget);
       }
 
-      await tester.tap(find.byType(PrivacyText).first);
+      await tester.tapAt(tester.getCenter(find.byType(PrivacyText).first));
       await tester.pumpAndSettle();
       expect(find.text(title), findsOneWidget);
       expect(find.byType(DbOnlineSubscriptionVideosSheet), findsNothing);
       expect(observer.pushes, 1);
-      if (section == '演员') {
+      if (section == '演员订阅') {
         expect(container.read(revealedActorsProvider), contains('movie-1'));
         expect(find.byType(ImageFiltered), findsNothing);
       } else if (section == '黑名单') {
@@ -220,21 +225,21 @@ void main() {
       ),
     );
     expect(find.text('私人演员'), findsNothing);
-    expect(find.textContaining('私人影片'), findsNothing);
-    await tester.tap(find.byType(SheetHeader));
+    expect(_privateText('私人影片'), findsNothing);
+    await tester.tapAt(tester.getCenter(find.byType(SheetHeader)));
     await tester.pumpAndSettle();
     expect(find.text('私人演员'), findsOneWidget);
     await tester.tap(find.byType(CatalogMovieCard).first);
     await tester.pumpAndSettle();
     expect(observer.pushes, 1);
-    expect(find.textContaining('私人影片1'), findsOneWidget);
-    expect(find.textContaining('私人影片2'), findsNothing);
+    expect(_privateText('私人影片1'), findsOneWidget);
+    expect(_privateText('私人影片2'), findsNothing);
     await container.read(privacyShieldProvider.notifier).setEnabled(false);
     await tester.pumpAndSettle();
-    expect(find.textContaining('私人影片2'), findsOneWidget);
+    expect(_privateText('私人影片2'), findsOneWidget);
     await container.read(privacyShieldProvider.notifier).setEnabled(true);
     await tester.pumpAndSettle();
     expect(find.text('私人演员'), findsNothing);
-    expect(find.textContaining('私人影片'), findsNothing);
+    expect(_privateText('私人影片'), findsNothing);
   });
 }
