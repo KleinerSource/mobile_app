@@ -53,7 +53,10 @@ class PageHeader extends StatelessWidget {
                 ),
                 if (trailing != null) ...[
                   const SizedBox(width: 8),
-                  SizedBox(height: 48, child: trailing),
+                  SizedBox(
+                    height: 48,
+                    child: Center(widthFactor: 1, child: trailing),
+                  ),
                 ],
               ],
             ),

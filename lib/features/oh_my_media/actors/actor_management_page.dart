@@ -63,7 +63,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   int _totalCount = 0;
   bool _hasLoaded = false;
   bool _lastPageComplete = false;
-  int _requestSerial = 0;
   late final PagedSelectionController<int> _selection;
 
   /// 当前左滑展开的行（演员 id 或 'member:演员id:成员id'），同一时刻只展开一个。
@@ -106,7 +105,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
-    final requestSerial = _requestSerial;
     try {
       final query = <String, dynamic>{
         'limit': _pageSize,
@@ -130,7 +128,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         );
       }
       final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
 
       final rows = ActorRow.parseRows(raw, page.items);
       setState(() {
@@ -149,7 +147,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       setState(() => _lastPageComplete = !hasMore);
     } catch (error) {
       if (!pageRequest.isCurrent) return;
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
@@ -162,7 +160,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   void _resetPaging({bool preserveScroll = false}) {
-    _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     if (mounted) {
       setState(() {

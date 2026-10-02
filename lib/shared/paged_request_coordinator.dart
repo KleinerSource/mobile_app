@@ -2,6 +2,9 @@ import 'dart:async';
 
 /// 只协调请求生命周期；页码、末页和条目合并策略由调用方决定。
 class PagedRequestCoordinator {
+  PagedRequestCoordinator({this.firstPageKey = 0});
+
+  final Object firstPageKey;
   int _generation = 0;
   bool _disposed = false;
   final Set<Object> _inFlight = {};
@@ -62,7 +65,7 @@ class PagedRequest {
   void finish() {
     if (isCurrent) {
       _owner._inFlight.remove(_key);
-      if (_key == 0) _owner._completeRefresh();
+      if (_key == _owner.firstPageKey) _owner._completeRefresh();
     }
     _finished = true;
   }

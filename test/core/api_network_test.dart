@@ -834,6 +834,53 @@ class _MemoryTokenStore implements AuthTokenStore {
 
 // ==================== 原 test/core/envelope_test.dart ====================
 void _main_3() {
+  final decoders = <String, Object? Function(Object?)>{
+    'standard': (raw) => unwrapStd<Object?>(raw, (data) => data),
+    'movies': (raw) => unwrapMovieList<int>(raw, (item) => item['id'] as int),
+    'topLevel': (raw) =>
+        unwrapTopLevelList<int>(raw, (item) => item['id'] as int),
+    'options': (raw) => unwrapOptions<int>(raw, (item) => item['id'] as int),
+  };
+  for (final entry in decoders.entries) {
+    test('${entry.key} 保留公共响应校验及业务错误详情', () {
+      expect(
+        () => entry.value(null),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.code,
+            'code',
+            AppErrorCode.responseFormatInvalid,
+          ),
+        ),
+      );
+      const details = {'message': '内部说明', 'code': 'INNER'};
+      expect(
+        () => entry.value({
+          'success': false,
+          'message': '外部说明',
+          'code': 'OUTER',
+          'data': details,
+        }),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.message, 'message', '外部说明')
+              .having((error) => error.code, 'code', 'OUTER')
+              .having((error) => error.data, 'data', details),
+        ),
+      );
+      expect(
+        () => entry.value({'success': false}),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.code,
+            'code',
+            AppErrorCode.operationFailed,
+          ),
+        ),
+      );
+    });
+  }
+
   group('unwrapStd', () {
     test('二进制或纯文本中的 JSON 对象可以被识别为业务 envelope', () {
       expect(decodeJsonMap('{"success":false,"message":"失败"}'), {

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'api_exception.dart';
 import 'error_codes.dart';
 
-const requiredServerProjectName = 'oh-my-media';
 const defaultOmmPort = 8001;
 const defaultOmmHttpsPort = 443;
 const defaultDboPort = 9090;

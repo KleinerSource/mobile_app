@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
@@ -18,7 +17,6 @@ import 'shake_detector.dart';
 ///
 /// - 监听 [AppLifecycleState.inactive] / [paused] → 显示全屏遮罩
 /// - resumed 时移除
-/// - Android 设置 FLAG_SECURE 让 Recents 截图被系统抹黑 (双重保险)
 class PrivacyShield extends ConsumerStatefulWidget {
   const PrivacyShield({super.key, required this.child});
 
@@ -229,19 +227,5 @@ class _Brand extends StatelessWidget {
       alignment: Alignment.center,
       child: const Icon(Icons.lock, color: Colors.white, size: 26),
     );
-  }
-}
-
-/// Android 启用 FLAG_SECURE 让系统 Recents 缩略图自动抹黑
-///
-/// 在 main.dart 启动后调用一次,与 PrivacyShield 双重保险
-Future<void> applyAndroidFlagSecure(bool enabled) async {
-  if (kIsWeb || !Platform.isAndroid) return;
-  try {
-    // 通过 MethodChannel 设置 Activity flag
-    const channel = MethodChannel('omm/privacy');
-    await channel.invokeMethod(enabled ? 'enableSecure' : 'disableSecure');
-  } catch (_) {
-    // 没注册 native handler 也不影响 widget 层遮罩
   }
 }

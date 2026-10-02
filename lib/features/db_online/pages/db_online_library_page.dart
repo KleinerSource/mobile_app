@@ -1,3 +1,4 @@
+import 'package:omm/shared/library_sort_buttons.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/error_view.dart';
@@ -289,7 +290,10 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                 icon: Icons.sort_rounded,
                 title: l.dbOnlineSort,
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-                trailing: _LibraryOrderButton(
+                trailing: LibraryOrderButton(
+                  label: _orderBy == 'asc'
+                      ? AppL10n.of(context).dbOnlineAscending
+                      : AppL10n.of(context).dbOnlineDescending,
                   ascending: _orderBy == 'asc',
                   onTap: () {
                     Navigator.pop(sheetContext);
@@ -388,12 +392,14 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _LibrarySortButton(
+                  LibrarySortButton(
                     ascending: _orderBy == 'asc',
                     onTap: () => _openSortMenu(context),
                   ),
                   const SizedBox(width: 8),
-                  _LibraryFilterButton(
+                  CompactFilterButton(
+                    label: '',
+                    icon: Icons.tune_rounded,
                     active:
                         _resourceFilter.isNotEmpty ||
                         _userScore.isNotEmpty ||
@@ -501,121 +507,5 @@ class _LibraryListEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EmptyView(message: AppL10n.of(context).noResultFound);
-  }
-}
-
-class _LibraryFilterButton extends StatelessWidget {
-  const _LibraryFilterButton({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? colors.accent.withValues(alpha: 0.15) : colors.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active
-                ? colors.accent.withValues(alpha: 0.5)
-                : colors.cardBorder,
-          ),
-        ),
-        child: Icon(
-          Icons.tune_rounded,
-          size: 15,
-          color: active ? colors.accent : colors.muted,
-        ),
-      ),
-    );
-  }
-}
-
-class _LibrarySortButton extends StatelessWidget {
-  const _LibrarySortButton({required this.ascending, required this.onTap});
-
-  final bool ascending;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: colors.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colors.cardBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.sort_rounded, size: 15, color: colors.muted),
-            const SizedBox(width: 5),
-            Icon(
-              ascending
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              size: 12,
-              color: colors.muted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LibraryOrderButton extends StatelessWidget {
-  const _LibraryOrderButton({required this.ascending, required this.onTap});
-
-  final bool ascending;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: colors.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colors.cardBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              ascending
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              size: 14,
-              color: colors.accent,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              ascending
-                  ? AppL10n.of(context).dbOnlineAscending
-                  : AppL10n.of(context).dbOnlineDescending,
-              style: TextStyle(
-                color: colors.accent,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 11.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

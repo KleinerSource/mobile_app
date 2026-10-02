@@ -1,3 +1,4 @@
+import 'media_browser_home_metadata.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,7 +26,7 @@ class MediaBrowserContinueWatchingSection extends ConsumerWidget {
           ContinueWatchingEntry(
             privacyId: item.id,
             title: _displayTitle(item),
-            meta: _metaText(l, item),
+            meta: mediaBrowserHomeMetaText(l, item),
             coverUrl: urls?.heroImage(item),
             imageHeaders: urls?.imageHeaders,
             progress: _progressOf(item),
@@ -48,25 +49,6 @@ int? _minutesLeft(MediaBrowserItem item) {
   final runtimeMinutes = item.runtimeMinutes;
   if (runtimeMinutes <= 0) return null;
   return (runtimeMinutes * (1 - _progressOf(item))).round();
-}
-
-String _metaText(AppL10n l, MediaBrowserItem item) {
-  final parts = <String>[];
-  final series = item.seriesName?.trim();
-  if (series?.isNotEmpty == true) parts.add(series!);
-  if (item.isEpisode) {
-    final season = item.parentIndexNumber ?? 0;
-    final episode = item.indexNumber ?? 0;
-    parts.add(
-      'S${season.toString().padLeft(2, '0')}'
-      'E${episode.toString().padLeft(2, '0')}',
-    );
-  } else if (item.productionYear != null) {
-    parts.add('${item.productionYear}');
-  }
-  final minutes = item.runtimeMinutes;
-  if (minutes > 0) parts.add(l.mediaDurationMinutes(minutes));
-  return parts.join(' · ');
 }
 
 String _displayTitle(MediaBrowserItem item) {

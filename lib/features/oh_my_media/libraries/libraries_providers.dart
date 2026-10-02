@@ -67,19 +67,3 @@ final librariesAllProvider = FutureProvider<List<LibraryItem>>((ref) async {
       .watch(librariesRepositoryProvider)
       .list(enabledOnly: false, withCover: true);
 });
-
-/// 单个媒体库详情 (含 directories)
-final libraryDetailProvider = FutureProvider.family<LibraryItem, int>((
-  ref,
-  id,
-) async {
-  return ref.watch(librariesRepositoryProvider).detail(id);
-});
-
-/// 单个媒体库的目录列表
-final directoriesProvider = FutureProvider.family<List<DirectoryItem>, int>((
-  ref,
-  libId,
-) async {
-  return ref.watch(librariesRepositoryProvider).listDirectories(libId);
-});

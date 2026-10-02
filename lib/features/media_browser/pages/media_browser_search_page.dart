@@ -1,3 +1,4 @@
+import 'package:omm/shared/preview/auto_preview_controller.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -258,8 +259,16 @@ class _MediaBrowserSearchResultsState
   final _scrollController = ScrollController();
   late final PagedSelectionController<MediaBrowserItem> _selection;
   bool _batchBusy = false;
-  String? _autoPreviewId;
-  bool _autoPreviewUpdateScheduled = false;
+  late final _autoPreview = AutoPreviewController<String>(
+    candidate: _nextAutoPreviewId,
+    debounce: Duration.zero,
+  )..addListener(_onAutoPreviewChanged);
+  String? get _autoPreviewId => _autoPreview.value;
+
+  void _onAutoPreviewChanged() {
+    if (mounted) setState(() {});
+  }
+
   final _listViewportKey = GlobalKey();
   final _itemKeys = <String, GlobalKey>{};
 
@@ -277,6 +286,7 @@ class _MediaBrowserSearchResultsState
 
   @override
   void dispose() {
+    _autoPreview.dispose();
     _requests.dispose();
     _pagingController.dispose();
     _scrollController.removeListener(_scheduleAutoPreviewUpdate);
@@ -398,16 +408,7 @@ class _MediaBrowserSearchResultsState
     }
   }
 
-  void _scheduleAutoPreviewUpdate() {
-    if (_autoPreviewUpdateScheduled) return;
-    _autoPreviewUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _autoPreviewUpdateScheduled = false;
-      if (!mounted) return;
-      final next = _nextAutoPreviewId();
-      if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
-    });
-  }
+  void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   String? _nextAutoPreviewId() {
     if (!_isStash) return null;

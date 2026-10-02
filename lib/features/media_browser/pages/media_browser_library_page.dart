@@ -1,3 +1,6 @@
+import 'package:omm/shared/preview/auto_preview_controller.dart';
+import 'package:omm/shared/library_sort_buttons.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
@@ -125,8 +128,16 @@ class _MediaBrowserLibraryPageState
   int _requestSerial = 0;
   bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
-  String? _autoPreviewId;
-  Timer? _autoPreviewDebounce;
+  late final _autoPreview = AutoPreviewController<String>(
+    candidate: _nextAutoPreviewId,
+    debounce: const Duration(milliseconds: 240),
+  )..addListener(_onAutoPreviewChanged);
+  String? get _autoPreviewId => _autoPreview.value;
+
+  void _onAutoPreviewChanged() {
+    if (mounted) setState(() {});
+  }
+
   final _listViewportKey = GlobalKey();
   final _itemKeys = <String, GlobalKey>{};
 
@@ -184,7 +195,7 @@ class _MediaBrowserLibraryPageState
   @override
   void dispose() {
     _completeRefresh();
-    _autoPreviewDebounce?.cancel();
+    _autoPreview.dispose();
     _requests.dispose();
     _controller.dispose();
     _scrollController.removeListener(_scheduleAutoPreviewUpdate);
@@ -340,27 +351,14 @@ class _MediaBrowserLibraryPageState
       _yearFilter = nextYears;
       _sortBy = nextSortBy;
       _sortOrder = nextSortOrder;
-      _autoPreviewId = null;
     });
-    _autoPreviewDebounce?.cancel();
-    _autoPreviewDebounce = null;
+    _autoPreview.reset();
     _selection.exit();
     _requestSerial++;
     _refreshController();
   }
 
-  void _scheduleAutoPreviewUpdate() {
-    _autoPreviewDebounce?.cancel();
-    _autoPreviewDebounce = Timer(const Duration(milliseconds: 240), () {
-      _autoPreviewDebounce = null;
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final next = _nextAutoPreviewId();
-        if (next != _autoPreviewId) setState(() => _autoPreviewId = next);
-      });
-    });
-  }
+  void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   String? _nextAutoPreviewId() {
     if (!_isStash) return null;
@@ -514,7 +512,10 @@ class _MediaBrowserLibraryPageState
                 icon: Icons.sort_rounded,
                 title: l.mediaBrowserSort,
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-                trailing: _LibraryOrderButton(
+                trailing: LibraryOrderButton(
+                  label: _sortOrder == 'Ascending'
+                      ? AppL10n.of(context).mediaBrowserAscending
+                      : AppL10n.of(context).mediaBrowserDescending,
                   ascending: _sortOrder == 'Ascending',
                   onTap: () {
                     Navigator.pop(sheetContext);
@@ -694,13 +695,15 @@ class _MediaBrowserLibraryPageState
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _LibrarySortButton(
+                            LibrarySortButton(
                               ascending: _sortOrder == 'Ascending',
                               onTap: () => _openSortMenu(context),
                             ),
                             const SizedBox(width: 8),
                             if (!isStash && !isFeiniu)
-                              _LibraryFilterButton(
+                              CompactFilterButton(
+                                label: '',
+                                icon: Icons.tune_rounded,
                                 active:
                                     _genreFilter.isNotEmpty ||
                                     _tagFilter.isNotEmpty ||
@@ -1317,122 +1320,6 @@ class _MediaBrowserDropdownField extends StatelessWidget {
                 ],
               )
             : Text(hint, style: TextStyle(color: colors.muted)),
-      ),
-    );
-  }
-}
-
-class _LibraryFilterButton extends StatelessWidget {
-  const _LibraryFilterButton({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? colors.accent.withValues(alpha: 0.15) : colors.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active
-                ? colors.accent.withValues(alpha: 0.5)
-                : colors.cardBorder,
-          ),
-        ),
-        child: Icon(
-          Icons.tune_rounded,
-          size: 15,
-          color: active ? colors.accent : colors.muted,
-        ),
-      ),
-    );
-  }
-}
-
-class _LibrarySortButton extends StatelessWidget {
-  const _LibrarySortButton({required this.ascending, required this.onTap});
-
-  final bool ascending;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: colors.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colors.cardBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.sort_rounded, size: 15, color: colors.muted),
-            const SizedBox(width: 5),
-            Icon(
-              ascending
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              size: 12,
-              color: colors.muted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LibraryOrderButton extends StatelessWidget {
-  const _LibraryOrderButton({required this.ascending, required this.onTap});
-
-  final bool ascending;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: colors.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colors.cardBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              ascending
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              size: 14,
-              color: colors.accent,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              ascending
-                  ? AppL10n.of(context).mediaBrowserAscending
-                  : AppL10n.of(context).mediaBrowserDescending,
-              style: TextStyle(
-                color: colors.accent,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 11.5,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -12,7 +12,7 @@ import 'package:omm/core/models/resource.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/oh_my_media/movie_detail/dbo_metadata_diff.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
+import 'package:omm/shared/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_quick_flag.dart';
 import 'package:omm/features/oh_my_media/movie_detail/resources_sheet.dart';
 

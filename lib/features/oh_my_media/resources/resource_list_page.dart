@@ -74,7 +74,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   String _sortBy = 'name';
   String _sortOrder = 'asc';
   int? _totalCount;
-  int _requestSerial = 0;
   bool _lastPageComplete = false;
   bool _hasReachedEnd = false;
   late final PagedSelectionController<int> _selection;
@@ -161,7 +160,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
-    final requestSerial = _requestSerial;
     try {
       final page = await ref
           .read(resourcesRepositoryProvider)
@@ -174,7 +172,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
             sortOrder: _sortOrder,
           );
       if (!pageRequest.isCurrent) return;
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
 
       setState(() => _totalCount = page.totalCount);
       // 末页标记：连排列表只有最后一行需要底部圆角。
@@ -189,7 +187,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       setState(() => _lastPageComplete = !hasMore);
     } catch (error) {
       if (!pageRequest.isCurrent) return;
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
@@ -202,7 +200,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   }
 
   void _resetPaging({bool preserveScroll = false}) {
-    _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     _lastPageComplete = false;
     _hasReachedEnd = false;

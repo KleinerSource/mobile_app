@@ -1,9 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 
 void main() {
+  test('实际分页与详情请求键保留服务器隔离', () {
+    const query = MediaQuery();
+    expect(
+      const MediaBrowserItemPageRequest(serverId: 'a', query: query),
+      isNot(const MediaBrowserItemPageRequest(serverId: 'b', query: query)),
+    );
+    expect(
+      const MediaBrowserItemDetailRequest(serverId: 'a', itemId: '1'),
+      isNot(const MediaBrowserItemDetailRequest(serverId: 'b', itemId: '1')),
+    );
+    final requests = ['a', 'a', 'b'].map(
+      (serverId) => MediaBrowserItemPageRequest(serverId: serverId, query: query),
+    );
+    expect(requests.toSet(), hasLength(2));
+  });
+
   test('MediaBrowserServerUrls.thumbnail Thumb 优先、Primary 兜底、无图为 null', () {
     final urls = MediaBrowserServerUrls(
       config: MediaBrowserConfig.jellyfin,

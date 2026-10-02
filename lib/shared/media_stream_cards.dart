@@ -477,11 +477,6 @@ String audioCodecLabel(String? codec) => _mapLabel(_audioCodecNames, codec);
 String subtitleCodecLabel(String? codec) =>
     _mapLabel(_subtitleCodecNames, codec);
 
-String languageLabel(String? lang) {
-  if (lang == null || lang.isEmpty) return '-';
-  return lang.toUpperCase();
-}
-
 String localizedLanguageLabel(AppL10n l, String? lang) {
   if (lang == null || lang.isEmpty) return '-';
   return switch (lang.toLowerCase()) {

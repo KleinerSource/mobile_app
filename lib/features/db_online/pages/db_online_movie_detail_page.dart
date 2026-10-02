@@ -1,3 +1,4 @@
+import 'package:omm/shared/error_view.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -76,7 +77,8 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
         ),
         error: (error, _) => MovieDetailStateBody(
           title: AppL10n.of(context).detailMoviePageTitle,
-          child: _ErrorBody(
+          child: DetailErrorBody(
+            retryLabel: AppL10n.of(context).dbOnlineRetry,
             message: localizedErrorMessage(AppL10n.of(context), error),
             onRetry: () {
               if (code?.trim().isNotEmpty == true) {
@@ -119,30 +121,6 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
                 .getMovieByVideoId(videoId);
           },
         ),
-      ),
-    );
-  }
-}
-
-class _ErrorBody extends StatelessWidget {
-  const _ErrorBody({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(l.loadFailed, style: AppText.sectionTitle(context)),
-          const SizedBox(height: 8),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: Text(l.dbOnlineRetry)),
-        ],
       ),
     );
   }
@@ -639,9 +617,7 @@ Future<void> _openDbOnlinePlayback(
           .toList(growable: false);
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(localizedErrorMessage(AppL10n.of(context), error)),
           ),
@@ -847,8 +823,12 @@ class _DbOnlinePlaybackSheetState
                   ),
                   error: (error, _) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: _ErrorBody(
-                      message: localizedErrorMessage(AppL10n.of(context), error),
+                    child: DetailErrorBody(
+                      retryLabel: AppL10n.of(context).dbOnlineRetry,
+                      message: localizedErrorMessage(
+                        AppL10n.of(context),
+                        error,
+                      ),
                       onRetry: _refreshEpisodes,
                     ),
                   ),

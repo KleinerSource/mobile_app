@@ -658,29 +658,6 @@ void _main_0() {
       );
     },
   );
-
-  test('generic media provider request keys include server scope', () {
-    const movie = MediaRef(sourceId: SourceId('omm'), value: '1');
-    const query = MediaQuery();
-    expect(
-      const MediaCatalogRequest(
-        serverId: 'server-a',
-        sourceId: SourceId('omm'),
-        query: query,
-      ),
-      isNot(
-        const MediaCatalogRequest(
-          serverId: 'server-b',
-          sourceId: SourceId('omm'),
-          query: query,
-        ),
-      ),
-    );
-    expect(
-      const MediaMovieDetailRequest(serverId: 'server-a', movie: movie),
-      isNot(const MediaMovieDetailRequest(serverId: 'server-b', movie: movie)),
-    );
-  });
 }
 
 ServerConfig _serverConfig(String id, String projectName) {

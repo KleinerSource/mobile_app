@@ -67,7 +67,7 @@ Map<String, dynamic>? decodeJsonMap(Object? raw) {
   }
 }
 
-T unwrapStd<T>(Object? raw, T Function(Object?) decode) {
+Map _validateEnvelope(Object? raw) {
   if (raw is! Map) {
     throw ApiException(
       AppErrorCode.responseFormatInvalid,
@@ -83,29 +83,20 @@ T unwrapStd<T>(Object? raw, T Function(Object?) decode) {
       data: raw['data'],
     );
   }
-  return decode(raw['data']);
+  return raw;
+}
+
+T unwrapStd<T>(Object? raw, T Function(Object?) decode) {
+  final envelope = _validateEnvelope(raw);
+  return decode(envelope['data']);
 }
 
 PagedResult<T> unwrapMovieList<T>(
   Object? raw,
   T Function(Map<String, dynamic>) decodeItem,
 ) {
-  if (raw is! Map) {
-    throw ApiException(
-      AppErrorCode.responseFormatInvalid,
-      code: AppErrorCode.responseFormatInvalid,
-    );
-  }
-  if (raw['success'] != true) {
-    final message = envelopeMessageOrNull(raw);
-    final code = envelopeCodeOrNull(raw);
-    throw ApiException(
-      message ?? code ?? AppErrorCode.operationFailed,
-      code: code ?? (message == null ? AppErrorCode.operationFailed : null),
-      data: raw['data'],
-    );
-  }
-  final data = raw['data'];
+  final envelope = _validateEnvelope(raw);
+  final data = envelope['data'];
   if (data is! Map) {
     throw ApiException(
       AppErrorCode.responseDataMissing,
@@ -131,22 +122,8 @@ PagedResult<T> unwrapTopLevelList<T>(
   Object? raw,
   T Function(Map<String, dynamic>) decodeItem,
 ) {
-  if (raw is! Map) {
-    throw ApiException(
-      AppErrorCode.responseFormatInvalid,
-      code: AppErrorCode.responseFormatInvalid,
-    );
-  }
-  if (raw['success'] != true) {
-    final message = envelopeMessageOrNull(raw);
-    final code = envelopeCodeOrNull(raw);
-    throw ApiException(
-      message ?? code ?? AppErrorCode.operationFailed,
-      code: code ?? (message == null ? AppErrorCode.operationFailed : null),
-      data: raw['data'],
-    );
-  }
-  final dataRaw = raw['data'];
+  final envelope = _validateEnvelope(raw);
+  final dataRaw = envelope['data'];
   final items = (dataRaw is List)
       ? dataRaw
             .whereType<Map>()
@@ -155,9 +132,9 @@ PagedResult<T> unwrapTopLevelList<T>(
       : <T>[];
   return PagedResult<T>(
     items: items,
-    totalCount: (raw['total_count'] as num?)?.toInt() ?? items.length,
-    limit: (raw['limit'] as num?)?.toInt() ?? items.length,
-    offset: (raw['offset'] as num?)?.toInt() ?? 0,
+    totalCount: (envelope['total_count'] as num?)?.toInt() ?? items.length,
+    limit: (envelope['limit'] as num?)?.toInt() ?? items.length,
+    offset: (envelope['offset'] as num?)?.toInt() ?? 0,
   );
 }
 
@@ -165,22 +142,8 @@ OptionsResult<T> unwrapOptions<T>(
   Object? raw,
   T Function(Map<String, dynamic>) decodeItem,
 ) {
-  if (raw is! Map) {
-    throw ApiException(
-      AppErrorCode.responseFormatInvalid,
-      code: AppErrorCode.responseFormatInvalid,
-    );
-  }
-  if (raw['success'] != true) {
-    final message = envelopeMessageOrNull(raw);
-    final code = envelopeCodeOrNull(raw);
-    throw ApiException(
-      message ?? code ?? AppErrorCode.operationFailed,
-      code: code ?? (message == null ? AppErrorCode.operationFailed : null),
-      data: raw['data'],
-    );
-  }
-  final dataRaw = raw['data'];
+  final envelope = _validateEnvelope(raw);
+  final dataRaw = envelope['data'];
   final items = (dataRaw is List)
       ? dataRaw
             .whereType<Map>()
@@ -189,8 +152,8 @@ OptionsResult<T> unwrapOptions<T>(
       : <T>[];
   return OptionsResult<T>(
     items: items,
-    hasMore: raw['has_more'] == true,
-    limit: (raw['limit'] as num?)?.toInt() ?? items.length,
-    offset: (raw['offset'] as num?)?.toInt() ?? 0,
+    hasMore: envelope['has_more'] == true,
+    limit: (envelope['limit'] as num?)?.toInt() ?? items.length,
+    offset: (envelope['offset'] as num?)?.toInt() ?? 0,
   );
 }

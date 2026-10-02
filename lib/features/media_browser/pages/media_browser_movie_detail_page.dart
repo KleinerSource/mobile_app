@@ -1,3 +1,4 @@
+import 'package:omm/shared/error_view.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,8 +15,8 @@ import 'package:omm/features/media_browser/widgets/media_browser_cast_section.da
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
-import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
+import 'package:omm/shared/movie_detail_formatters.dart';
+import 'package:omm/shared/media_stream_cards.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -57,7 +58,8 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
         ),
         error: (error, _) => MovieDetailStateBody(
           title: AppL10n.of(context).detailMoviePageTitle,
-          child: _ErrorBody(
+          child: DetailErrorBody(
+            retryLabel: AppL10n.of(context).mediaBrowserRetry,
             message: localizedErrorMessage(AppL10n.of(context), error),
             onRetry: () => ref.invalidate(
               mediaBrowserItemDetailProvider(
@@ -70,30 +72,6 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
           ),
         ),
         data: (item) => _MediaBrowserDetailBody(item: item, similar: similar),
-      ),
-    );
-  }
-}
-
-class _ErrorBody extends StatelessWidget {
-  const _ErrorBody({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(l.loadFailed, style: AppText.sectionTitle(context)),
-          const SizedBox(height: 8),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: Text(l.mediaBrowserRetry)),
-        ],
       ),
     );
   }
@@ -206,8 +184,7 @@ class _MediaBrowserDetailBodyState
   }
 
   void _invalidateDetail() {
-    final serverId =
-        ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(

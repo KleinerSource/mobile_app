@@ -567,8 +567,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
+                            iconSize: 36,
+                            padding: const EdgeInsets.all(6),
                             icon: Container(
-                              padding: const EdgeInsets.all(8),
+                              width: 36,
+                              height: 36,
+                              alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: c.surface,
@@ -595,8 +599,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                 : _startResourceScan,
                           ),
                           IconButton(
+                            iconSize: 36,
+                            padding: const EdgeInsets.all(6),
                             icon: Container(
-                              padding: const EdgeInsets.all(8),
+                              width: 36,
+                              height: 36,
+                              alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: c.surface,

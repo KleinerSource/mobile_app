@@ -256,20 +256,8 @@ final mediaBrowserSimilarProvider = FutureProvider.autoDispose
           .toList(growable: false);
     });
 
-/// 库浏览/搜索共用的分页查询。
-final mediaBrowserItemPageProvider = FutureProvider.autoDispose
-    .family<MediaBrowserItemPage, MediaBrowserItemPageRequest>((ref, request) {
-      _checkServerScope(ref, request.serverId);
-      return ref
-          .watch(mediaBrowserMediaRepositoryProvider)
-          .itemPage(request.query);
-    });
-
-/// 命令式读取一页媒体条目（分页控件回调等 build 之外的场景）。
-///
-/// 不能用 `ref.read(mediaBrowserItemPageProvider(...).future)`：它是
-/// autoDispose family，命令式读取不建立监听，element 会在帧末被销毁，
-/// in-flight future 永不完成也不抛错，页面表现为无限加载。
+/// 命令式读取一页媒体条目，供分页控件等 build 之外的场景使用。
+/// 直接读取仓库，避免依赖没有监听者的 autoDispose family。
 Future<MediaBrowserItemPage> readMediaBrowserItemPage(
   WidgetRef ref,
   MediaBrowserItemPageRequest request,

@@ -41,6 +41,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/page_header.dart';
+import 'package:omm/shared/media_view_mode.dart';
 
 class _ServerConfigState extends ServerConfigNotifier {
   _ServerConfigState(this.value);
@@ -288,6 +289,7 @@ void main() {
         Rect? referenceHeader;
         Rect? referenceSmall;
         Rect? referenceLarge;
+        Size? referenceToggle;
         for (final project in [
           'oh-my-media',
           'db_online',
@@ -375,6 +377,57 @@ void main() {
             final headerRect = tester.getRect(header);
             final smallRect = tester.getRect(small);
             final largeRect = tester.getRect(large);
+            final toggle = find.descendant(
+              of: header,
+              matching: find.byType(MediaViewModeToggle),
+            );
+            if (toggle.evaluate().isNotEmpty) {
+              final toggleSize = tester.getSize(toggle);
+              referenceToggle ??= toggleSize;
+              expect(toggleSize, referenceToggle, reason: '$project/$index');
+              expect(
+                tester.getCenter(toggle).dy,
+                closeTo(largeRect.center.dy, 0.01),
+              );
+            }
+            if (index == 2 &&
+                (project == 'oh-my-media' ||
+                    project == 'emby' ||
+                    project == 'jellyfin' ||
+                    project == 'feiniu')) {
+              final buttons = find.descendant(
+                of: header,
+                matching: find.byType(IconButton),
+              );
+              for (final element in buttons.evaluate()) {
+                final button = find.byWidget(element.widget);
+                final circle = find.descendant(
+                  of: button,
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Container &&
+                        widget.decoration is BoxDecoration &&
+                        (widget.decoration! as BoxDecoration).shape ==
+                            BoxShape.circle,
+                  ),
+                );
+                final icon = find.descendant(
+                  of: circle,
+                  matching: find.byType(Icon),
+                );
+                final circleRect = tester.getRect(circle);
+                expect(circleRect.width, circleRect.height);
+                expect(
+                  tester.getCenter(icon).dx,
+                  closeTo(circleRect.center.dx, 0.01),
+                );
+                expect(
+                  tester.getCenter(icon).dy,
+                  closeTo(circleRect.center.dy, 0.01),
+                );
+                expect(tester.getCenter(button), circleRect.center);
+              }
+            }
             referenceHeader ??= headerRect;
             referenceSmall ??= smallRect;
             referenceLarge ??= largeRect;

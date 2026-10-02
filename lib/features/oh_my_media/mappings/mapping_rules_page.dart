@@ -56,7 +56,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   String? _search;
   String _status = 'all';
   int? _totalCount;
-  int _requestSerial = 0;
   bool _lastPageComplete = false;
   late final PagedSelectionController<int> _selection;
 
@@ -123,7 +122,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
-    final requestSerial = _requestSerial;
     try {
       final page = await ref
           .read(mappingsRepositoryProvider)
@@ -135,7 +133,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
             status: _status,
           );
       if (!pageRequest.isCurrent) return;
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
 
       setState(() => _totalCount = page.totalCount);
       // 末页标记：连排列表只有最后一行需要底部圆角。
@@ -150,7 +148,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       setState(() => _lastPageComplete = !hasMore);
     } catch (error) {
       if (!pageRequest.isCurrent) return;
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
@@ -163,7 +161,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   }
 
   void _resetPaging({bool preserveScroll = false}) {
-    _requestSerial++;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     refreshPagedController(
       controller: _controller,

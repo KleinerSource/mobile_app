@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
-const securityPinMinLength = 6;
 const securityPinMaxLength = 6;
 
 /// 本地数字密码固定为 6 位 ASCII 数字。

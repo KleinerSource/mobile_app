@@ -1,3 +1,4 @@
+import 'package:omm/shared/see_all_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -536,7 +537,7 @@ class _MediaBrowserViewLatestRow extends ConsumerWidget {
           ),
         ),
       ),
-      trailing: _SeeAllButton(
+      trailing: SeeAllButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => MediaBrowserLibraryPage(
@@ -705,35 +706,6 @@ class _MediaBrowserStatDivider extends StatelessWidget {
 }
 
 /// 「查看全部」入口按钮，样式与 OMM 首页一致。
-class _SeeAllButton extends StatelessWidget {
-  const _SeeAllButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return TextButton.icon(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: colors.accent,
-        padding: EdgeInsets.zero,
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-      ),
-      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-      label: Text(
-        AppL10n.of(context).homeSeeAll,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
 
 class _MediaBrowserHeroFallback extends StatelessWidget {
   const _MediaBrowserHeroFallback({

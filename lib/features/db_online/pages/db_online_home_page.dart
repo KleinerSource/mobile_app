@@ -1,3 +1,4 @@
+import 'package:omm/shared/see_all_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -146,7 +147,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
             value: updated,
             itemsOf: (items) => items,
             onRetry: () => ref.invalidate(dbOnlineLatestUpdatedProvider),
-            trailing: _SeeAllButton(
+            trailing: SeeAllButton(
               onPressed: () => unawaited(
                 _openDbOnlineLatestMovies(context, sortBy: 'update'),
               ),
@@ -167,7 +168,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
             value: released,
             itemsOf: (items) => items,
             onRetry: () => ref.invalidate(dbOnlineLatestReleasedProvider),
-            trailing: _SeeAllButton(
+            trailing: SeeAllButton(
               onPressed: () => unawaited(
                 _openDbOnlineLatestMovies(context, sortBy: 'release'),
               ),
@@ -184,36 +185,6 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
         ),
       ],
       heroMaxHeight: heroMaxHeight,
-    );
-  }
-}
-
-class _SeeAllButton extends StatelessWidget {
-  const _SeeAllButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return TextButton.icon(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: colors.accent,
-        padding: EdgeInsets.zero,
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-      ),
-      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-      label: Text(
-        AppL10n.of(context).homeSeeAll,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-      ),
     );
   }
 }

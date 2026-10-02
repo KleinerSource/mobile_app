@@ -65,3 +65,33 @@ class ErrorView extends StatelessWidget {
     );
   }
 }
+
+class DetailErrorBody extends StatelessWidget {
+  const DetailErrorBody({
+    super.key,
+    required this.retryLabel,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String retryLabel;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l.loadFailed, style: AppText.sectionTitle(context)),
+          const SizedBox(height: 8),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+        ],
+      ),
+    );
+  }
+}
