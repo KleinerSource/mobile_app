@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
@@ -378,24 +379,15 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
         bottom: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+            PageHeader(
+              eyebrow: 'DBONLINE',
+              title: Text(
+                AppL10n.of(context).libraryTitle,
+                style: AppText.pageTitle(context),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('DBONLINE', style: AppText.eyebrow(context)),
-                        const SizedBox(height: 3),
-                        Text(
-                          AppL10n.of(context).libraryTitle,
-                          style: AppText.pageTitle(context),
-                        ),
-                      ],
-                    ),
-                  ),
                   _LibrarySortButton(
                     ascending: _orderBy == 'asc',
                     onTap: () => _openSortMenu(context),

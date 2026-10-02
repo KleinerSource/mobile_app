@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -453,28 +454,17 @@ class _MediaBrowserFavoritesPageState
                 Column(
                   children: [
                     // ===== 固定 header：收藏夹 + 条目数量 + 设置入口 =====
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
-                      child: Row(
+                    PageHeader(
+                      eyebrow: l.favoritesTitle,
+                      title: Text(
+                        l.mediaBrowserItemCount(_totalCount),
+                        style: AppText.pageTitle(context),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l.favoritesTitle,
-                                  style: AppText.eyebrow(context),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  l.mediaBrowserItemCount(_totalCount),
-                                  style: AppText.pageTitle(context),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
                           _HeaderIconButton(
                             icon: Icons.settings_outlined,
                             tooltip: AppL10n.of(context).settingsTitle,

@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/preview/auto_preview_controller.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -556,26 +557,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 // 统计条、集合卡片与收藏网格在下方滚动区内。
                 child: Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
-                      child: Row(
+                    PageHeader(
+                      eyebrow: AppL10n.of(context).tabYou.toUpperCase(),
+                      title: Text(
+                        AppL10n.of(context).favoritesTitle,
+                        style: AppText.pageTitle(context),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppL10n.of(context).tabYou.toUpperCase(),
-                                  style: AppText.eyebrow(context),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  AppL10n.of(context).favoritesTitle,
-                                  style: AppText.pageTitle(context),
-                                ),
-                              ],
-                            ),
-                          ),
                           IconButton(
                             icon: Container(
                               padding: const EdgeInsets.all(8),

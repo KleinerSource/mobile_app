@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/preview/auto_preview_controller.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -363,60 +364,40 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                 // 固定 header:标题行 + 筛选按钮行,不随内容滚动。
                 Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (widget.showBackButton)
-                            BackButton(
+                    PageHeader(
+                      eyebrow: AppL10n.of(context).libraryTitle.toUpperCase(),
+                      title: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: _controller.itemList == null
+                                  ? '—'
+                                  : '$_totalCount',
+                            ),
+                            const WidgetSpan(child: SizedBox(width: 8)),
+                            TextSpan(
+                              text: AppL10n.of(context).libraryCountSuffix,
+                              style: TextStyle(
+                                color: c.muted,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        style: AppText.pageTitle(context),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      leading: widget.showBackButton
+                          ? BackButton(
                               onPressed: () => Navigator.of(context).maybePop(),
-                            ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppL10n.of(
-                                    context,
-                                  ).libraryTitle.toUpperCase(),
-                                  style: AppText.eyebrow(context),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 3),
-                                Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: _controller.itemList == null
-                                            ? '—'
-                                            : '$_totalCount',
-                                      ),
-                                      const WidgetSpan(
-                                        child: SizedBox(width: 8),
-                                      ),
-                                      TextSpan(
-                                        text: AppL10n.of(
-                                          context,
-                                        ).libraryCountSuffix,
-                                        style: TextStyle(
-                                          color: c.muted,
-                                          fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  style: AppText.pageTitle(context),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
+                            )
+                          : null,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           _SortButton(
                             sortBy: _currentFilter.sortBy,
                             sortOrder: _currentFilter.sortOrder,
@@ -442,7 +423,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     ),
                     // 底部边距放在固定区内,滚动内容始终与按钮行保持间距。
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.only(bottom: 16),
                       child: SizedBox(
                         height: 36,
                         child: ListView(

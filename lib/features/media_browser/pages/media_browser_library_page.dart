@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -660,64 +661,39 @@ class _MediaBrowserLibraryPageState
                 children: [
                   Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (widget.showBackButton)
-                              BackButton(
+                      PageHeader(
+                        eyebrow:
+                            ref.watch(mediaBrowserConfigProvider)?.brandLabel ??
+                            '',
+                        title: Text(
+                          _isGenreMode
+                              ? (widget.genreName?.trim().isNotEmpty == true
+                                    ? widget.genreName!.trim()
+                                    : AppL10n.of(context).mediaBrowserGenres)
+                              : _isTagMode
+                              ? (widget.tagName?.trim().isNotEmpty == true
+                                    ? widget.tagName!.trim()
+                                    : AppL10n.of(context).movieEditorTag)
+                              : _isPersonMode
+                              ? (widget.personName?.trim().isNotEmpty == true
+                                    ? widget.personName!.trim()
+                                    : AppL10n.of(
+                                        context,
+                                      ).mediaBrowserActorWorks)
+                              : AppL10n.of(context).mediaBrowserLibrariesTitle,
+                          style: AppText.pageTitle(context),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        leading: widget.showBackButton
+                            ? BackButton(
                                 onPressed: () =>
                                     Navigator.of(context).maybePop(),
-                              ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    ref
-                                            .watch(mediaBrowserConfigProvider)
-                                            ?.brandLabel ??
-                                        '',
-                                    style: AppText.eyebrow(context),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _isGenreMode
-                                        ? (widget.genreName
-                                                      ?.trim()
-                                                      .isNotEmpty ==
-                                                  true
-                                              ? widget.genreName!.trim()
-                                              : AppL10n.of(
-                                                  context,
-                                                ).mediaBrowserGenres)
-                                        : _isTagMode
-                                        ? (widget.tagName?.trim().isNotEmpty ==
-                                                  true
-                                              ? widget.tagName!.trim()
-                                              : AppL10n.of(
-                                                  context,
-                                                ).movieEditorTag)
-                                        : _isPersonMode
-                                        ? (widget.personName
-                                                      ?.trim()
-                                                      .isNotEmpty ==
-                                                  true
-                                              ? widget.personName!.trim()
-                                              : AppL10n.of(
-                                                  context,
-                                                ).mediaBrowserActorWorks)
-                                        : AppL10n.of(
-                                            context,
-                                          ).mediaBrowserLibrariesTitle,
-                                    style: AppText.pageTitle(context),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
+                              )
+                            : null,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             _LibrarySortButton(
                               ascending: _sortOrder == 'Ascending',
                               onTap: () => _openSortMenu(context),
@@ -750,49 +726,51 @@ class _MediaBrowserLibraryPageState
                                 isFeiniu ||
                                 list.isEmpty
                             ? const SizedBox.shrink()
-                            : SizedBox(
-                                height: 38,
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: list.length + 1,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(width: 8),
-                                  itemBuilder: (context, index) {
-                                    if (index == 0) {
+                            : Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  height: 38,
+                                  child: ListView.separated(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 22,
+                                    ),
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: list.length + 1,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(width: 8),
+                                    itemBuilder: (context, index) {
+                                      if (index == 0) {
+                                        return _ViewChip(
+                                          key: const ValueKey(
+                                            'media-browser-all-libraries',
+                                          ),
+                                          privacyId: null,
+                                          label: AppL10n.of(context).filterAll,
+                                          selected: _parentId == null,
+                                          onTap: () => _reloadWith(
+                                            clearParent: true,
+                                            includeItemTypes: 'Movie',
+                                          ),
+                                        );
+                                      }
+                                      final view = list[index - 1];
+                                      final selected = view.id == _parentId;
                                       return _ViewChip(
-                                        key: const ValueKey(
-                                          'media-browser-all-libraries',
+                                        key: ValueKey(
+                                          'media-browser-library-${view.id}',
                                         ),
-                                        privacyId: null,
-                                        label: AppL10n.of(context).filterAll,
-                                        selected: _parentId == null,
-                                        onTap: () => _reloadWith(
-                                          clearParent: true,
-                                          includeItemTypes: 'Movie',
-                                        ),
+                                        privacyId: view.id,
+                                        label: view.name,
+                                        selected: selected,
+                                        onTap: () =>
+                                            _reloadWith(parentId: view.id),
                                       );
-                                    }
-                                    final view = list[index - 1];
-                                    final selected = view.id == _parentId;
-                                    return _ViewChip(
-                                      key: ValueKey(
-                                        'media-browser-library-${view.id}',
-                                      ),
-                                      privacyId: view.id,
-                                      label: view.name,
-                                      selected: selected,
-                                      onTap: () =>
-                                          _reloadWith(parentId: view.id),
-                                    );
-                                  },
+                                    },
+                                  ),
                                 ),
                               ),
                         orElse: () => const SizedBox.shrink(),
                       ),
-                      const SizedBox(height: 6),
                       Expanded(
                         child: StatusBarScrollToTop(
                           scrollController: _scrollController,

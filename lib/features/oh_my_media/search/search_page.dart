@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/preview/auto_preview_controller.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -218,33 +219,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppL10n.of(context).searchTitle.toUpperCase(),
-                          style: AppText.eyebrow(context),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          AppL10n.of(context).searchFind,
-                          style: AppText.pageTitle(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  MediaViewModeToggle(
-                    mode: _viewMode,
-                    onChanged: (mode) => unawaited(_setViewMode(mode)),
-                  ),
-                ],
+            PageHeader(
+              eyebrow: AppL10n.of(context).searchTitle.toUpperCase(),
+              title: Text(
+                AppL10n.of(context).searchFind,
+                style: AppText.pageTitle(context),
+              ),
+              trailing: MediaViewModeToggle(
+                mode: _viewMode,
+                onChanged: (mode) => unawaited(_setViewMode(mode)),
               ),
             ),
             Padding(

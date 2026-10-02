@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
@@ -142,33 +143,15 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l.searchTitle.toUpperCase(),
-                          style: AppText.eyebrow(context),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(l.searchFind, style: AppText.pageTitle(context)),
-                      ],
-                    ),
-                  ),
-                  if (_searchType == DbOnlineSearchType.list) ...[
-                    const SizedBox(width: 8),
-                    MediaViewModeToggle(
+            PageHeader(
+              eyebrow: l.searchTitle.toUpperCase(),
+              title: Text(l.searchFind, style: AppText.pageTitle(context)),
+              trailing: _searchType == DbOnlineSearchType.list
+                  ? MediaViewModeToggle(
                       mode: _viewMode,
                       onChanged: (mode) => unawaited(_setViewMode(mode)),
-                    ),
-                  ],
-                ],
-              ),
+                    )
+                  : null,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),

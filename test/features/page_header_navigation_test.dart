@@ -17,16 +17,19 @@ import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/features/db_online/pages/db_online_latest_movies_page.dart';
+import 'package:omm/features/db_online/pages/db_online_library_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/files/file_manager_shell.dart';
 import 'package:omm/features/main/media_manager_shell.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
+import 'package:omm/features/media_browser/pages/media_browser_favorites_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_search_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/features/oh_my_media/lists/list_detail_page.dart';
+import 'package:omm/features/oh_my_media/favorites/favorites_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -37,6 +40,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/page_header.dart';
 
 class _ServerConfigState extends ServerConfigNotifier {
   _ServerConfigState(this.value);
@@ -70,7 +74,7 @@ ServerConfig _config(String project) => ServerConfig(
   ],
 );
 
-ApiClient _client() {
+ApiClient _client({bool emptyMovies = false}) {
   final dio = Dio(BaseOptions(baseUrl: 'https://headers.test/api'));
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -84,10 +88,10 @@ ApiClient _client() {
               'data': isMovieList
                   ? {
                       'items': [
-                        for (var id = 1; id <= 9; id++)
+                        for (var id = 1; !emptyMovies && id <= 9; id++)
                           {'id': id, 'title': '影片 $id'},
                       ],
-                      'total_count': 9,
+                      'total_count': emptyMovies ? 0 : 9,
                       'offset': 0,
                       'limit': 50,
                     }
@@ -108,13 +112,16 @@ Future<void> _open(
   bool configured = true,
   double scale = 1,
   bool settle = true,
+  double topInset = 0,
+  bool emptyMovies = false,
+  List<MediaBrowserItem> browserViews = const [],
   Future<DbOnlineSubscriptionCapabilities> Function()? capabilitiesLoader,
 }) async {
   SharedPreferences.setMockInitialValues({
     'privacy.app_switcher_shield': false,
   });
   final prefs = await SharedPreferences.getInstance();
-  final api = _client();
+  final api = _client(emptyMovies: emptyMovies);
   final config = _config(project);
   await tester.pumpWidget(
     ProviderScope(
@@ -134,7 +141,7 @@ Future<void> _open(
         mediaBrowserMediaRepositoryProvider.overrideWithValue(
           _EmptyBrowserRepository(),
         ),
-        mediaBrowserViewsProvider.overrideWith((ref) async => []),
+        mediaBrowserViewsProvider.overrideWith((ref) async => browserViews),
         mediaBrowserLatestProvider.overrideWith((ref) async => []),
         mediaBrowserResumeProvider.overrideWith((ref) async => []),
         mediaBrowserNextUpProvider.overrideWith((ref) async => []),
@@ -148,9 +155,11 @@ Future<void> _open(
       ],
       child: MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            padding: EdgeInsets.only(top: topInset),
+            viewPadding: EdgeInsets.only(top: topInset),
+          ),
           child: child!,
         ),
         locale: const Locale('zh'),
@@ -214,6 +223,227 @@ void _expectDoubleHeader(
 }
 
 void main() {
+  for (final size in [const Size(320, 720), const Size(844, 390)]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('工具栏与搜索框按需显示，在 $size/$scale 下间距统一并固定', (tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        for (final entry in <(Widget, String, bool)>[
+          (
+            const MoviesPage(showBackButton: false, maxItems: 0),
+            'oh-my-media',
+            true,
+          ),
+          (const SearchPage(), 'oh-my-media', true),
+          (const DbOnlineSearchPage(), 'db_online', true),
+          (const MediaBrowserSearchPage(), 'emby', true),
+          (const DbOnlineLibraryPage(), 'db_online', false),
+          (const MediaBrowserLibraryPage(showBackButton: false), 'emby', true),
+          (
+            const MediaBrowserLibraryPage(showBackButton: false),
+            'feiniu',
+            false,
+          ),
+        ]) {
+          await _open(
+            tester,
+            entry.$1,
+            project: entry.$2,
+            scale: scale,
+            emptyMovies: true,
+            browserViews: [
+              MediaBrowserItem.fromJson(const {
+                'Id': 'library',
+                'Name': '测试媒体库',
+                'Type': 'CollectionFolder',
+              }),
+            ],
+          );
+          final header = find.byType(PageHeader);
+          final headerRect = tester.getRect(header);
+          final column = tester.widget<Column>(
+            find.ancestor(of: header, matching: find.byType(Column)).first,
+          );
+          final body = find.byWidget(column.children.last);
+          if (entry.$3) {
+            final toolbar = column.children[1] as Padding;
+            final toolbarContent = find.byWidget(toolbar.child!);
+            final toolbarRect = tester.getRect(toolbarContent);
+            expect(toolbarRect.top, headerRect.bottom);
+            expect(tester.getRect(body).top - toolbarRect.bottom, 16);
+            await tester.drag(body, const Offset(0, -250));
+            await tester.pumpAndSettle();
+            expect(tester.getRect(toolbarContent), toolbarRect);
+          } else {
+            expect(tester.getRect(body).top, headerRect.bottom);
+          }
+          expect(tester.getRect(header), headerRect);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      });
+
+      testWidgets('六种媒体源底部双行抬头在 $size/$scale 下高度与位置统一', (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        Rect? referenceHeader;
+        Rect? referenceSmall;
+        Rect? referenceLarge;
+        for (final project in [
+          'oh-my-media',
+          'db_online',
+          'emby',
+          'jellyfin',
+          'feiniu',
+          'stash',
+        ]) {
+          final pages = switch (project) {
+            'oh-my-media' => const [
+              MoviesPage(showBackButton: false),
+              SearchPage(),
+              FavoritesPage(),
+            ],
+            'db_online' => const [
+              DbOnlineLibraryPage(),
+              DbOnlineSearchPage(),
+              DbOnlineSubscriptionsPage(),
+            ],
+            'stash' => const [
+              MediaBrowserLibraryPage(showBackButton: false),
+              MediaBrowserSearchPage(),
+              SettingsPage(showBackButton: false),
+            ],
+            _ => const [
+              MediaBrowserLibraryPage(showBackButton: false),
+              MediaBrowserSearchPage(),
+              MediaBrowserFavoritesPage(),
+            ],
+          };
+          for (var index = 0; index < pages.length; index++) {
+            await tester.binding.setSurfaceSize(const Size(390, 844));
+            await _open(tester, pages[index], project: project, topInset: 24);
+            final pageHeader = tester.widget<PageHeader>(
+              find.byType(PageHeader),
+            );
+            await tester.binding.setSurfaceSize(size);
+            // 使用真实页面的抬头配置独立渲染，避免正文卡片影响抬头几何验证。
+            await tester.pumpWidget(
+              MaterialApp(
+                locale: const Locale('zh'),
+                localizationsDelegates: AppL10n.localizationsDelegates,
+                supportedLocales: AppL10n.supportedLocales,
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(scale),
+                    padding: const EdgeInsets.only(top: 24),
+                    viewPadding: const EdgeInsets.only(top: 24),
+                  ),
+                  child: child!,
+                ),
+                home: Scaffold(
+                  body: SafeArea(
+                    child: Column(
+                      children: [
+                        pageHeader,
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: 50,
+                            itemBuilder: (_, index) =>
+                                SizedBox(height: 44, child: Text('条目 $index')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final header = find.byType(PageHeader).hitTestable();
+            expect(header, findsOneWidget, reason: '$project/$index');
+            final small = find.descendant(
+              of: header,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is Text && widget.style?.fontSize == 11,
+              ),
+            );
+            final large = find.descendant(
+              of: header,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is Text && widget.style?.fontSize == 28,
+              ),
+            );
+            final headerRect = tester.getRect(header);
+            final smallRect = tester.getRect(small);
+            final largeRect = tester.getRect(large);
+            referenceHeader ??= headerRect;
+            referenceSmall ??= smallRect;
+            referenceLarge ??= largeRect;
+            expect(
+              headerRect.top,
+              referenceHeader.top,
+              reason: '$project/$index',
+            );
+            expect(
+              headerRect.height,
+              closeTo(referenceHeader.height, 0.01),
+              reason: '$project/$index',
+            );
+            expect(
+              smallRect.top,
+              closeTo(referenceSmall.top, 0.01),
+              reason: '$project/$index',
+            );
+            expect(
+              largeRect.top,
+              closeTo(referenceLarge.top, 0.01),
+              reason: '$project/$index',
+            );
+            expect(smallRect.left, 22);
+            expect(largeRect.left, 22);
+            expect(smallRect.top, 40);
+            expect(find.byTooltip('返回').hitTestable(), findsNothing);
+            await tester.drag(find.byType(ListView), const Offset(0, -250));
+            await tester.pumpAndSettle();
+            expect(tester.getRect(header), headerRect);
+            expect(tester.takeException(), isNull);
+            await tester.pumpWidget(const SizedBox.shrink());
+          }
+        }
+      });
+    }
+  }
+
+  testWidgets('DBO 订阅管理保留分区工具栏与搜索框，切换在线分区后不留搜索框占位', (tester) async {
+    await _open(
+      tester,
+      const DbOnlineSubscriptionsPage(),
+      project: 'db_online',
+      emptyMovies: true,
+      capabilitiesLoader: () async => const DbOnlineSubscriptionCapabilities(
+        database: true,
+        onlineAccount: true,
+        onlineQuery: true,
+      ),
+    );
+    final header = find.byType(PageHeader);
+    final titleRect = tester.getRect(header);
+    final search = find.byType(TextField);
+    expect(search, findsOneWidget);
+    final searchRect = tester.getRect(search);
+    final beforeBody = tester.getRect(find.byType(RefreshIndicator));
+    final online = find.widgetWithText(ChoiceChip, '在线订阅');
+    await tester.ensureVisible(online);
+    await tester.tap(online);
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    expect(tester.getRect(header), titleRect);
+    expect(
+      tester.getRect(find.byType(RefreshIndicator)).top,
+      lessThan(beforeBody.top - searchRect.height),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final project in [
     'oh-my-media',
     'db_online',

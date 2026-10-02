@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/page_header.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 
@@ -397,66 +398,34 @@ class SettingsSubPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleInset = showBackButton ? 48.0 : 0.0;
     final hasCount = countSuffix != null;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(left: titleInset),
-            child: Text(
-              hasCount ? title : eyebrow.toUpperCase(),
-              style: AppText.eyebrow(context),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Row(
-            children: [
-              if (showBackButton)
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: IconButton(
-                    tooltip: backTooltip ?? AppL10n.of(context).back,
-                    icon: Icon(backIcon),
-                    onPressed:
-                        onBackPressed ?? () => Navigator.of(context).maybePop(),
-                  ),
-                ),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: hasCount
-                        ? [
-                            TextSpan(text: count?.toString() ?? '—'),
-                            TextSpan(
-                              text: ' $countSuffix',
-                              style: AppText.meta(context),
-                            ),
-                          ]
-                        : [TextSpan(text: title)],
-                  ),
-                  style: AppText.pageTitle(context),
-                  maxLines: titleMaxLines ?? 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-            ],
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 8),
-            Padding(
-              padding: EdgeInsets.only(left: titleInset),
-              child: Text(subtitle!, style: AppText.meta(context)),
-            ),
-          ],
-        ],
+    return PageHeader(
+      eyebrow: hasCount ? title : eyebrow.toUpperCase(),
+      leading: showBackButton
+          ? IconButton(
+              tooltip: backTooltip ?? AppL10n.of(context).back,
+              icon: Icon(backIcon),
+              onPressed:
+                  onBackPressed ?? () => Navigator.of(context).maybePop(),
+            )
+          : null,
+      title: Text.rich(
+        TextSpan(
+          children: hasCount
+              ? [
+                  TextSpan(text: count?.toString() ?? '—'),
+                  TextSpan(text: ' $countSuffix', style: AppText.meta(context)),
+                ]
+              : [TextSpan(text: title)],
+        ),
+        style: AppText.pageTitle(context),
+        maxLines: titleMaxLines ?? 1,
+        overflow: TextOverflow.ellipsis,
       ),
+      trailing: trailing,
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: AppText.meta(context)),
     );
   }
 }

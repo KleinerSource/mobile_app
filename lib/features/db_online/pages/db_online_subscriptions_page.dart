@@ -1,3 +1,4 @@
+import 'package:omm/shared/page_header.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -224,7 +225,10 @@ class _DbOnlineSubscriptionsPageState
           if (!capabilities.database || !capabilities.onlineAccount)
             _capabilityNotice(capabilities, l),
           if (sections.isNotEmpty) _sectionPicker(sections),
-          if (sections.isNotEmpty && _section != 'online') _searchField(l),
+          if (sections.isNotEmpty && _section != 'online')
+            _searchField(l)
+          else if (sections.isNotEmpty)
+            const SizedBox(height: 16),
         ],
       ),
       body: RefreshIndicator(
@@ -553,30 +557,17 @@ class _DbOnlineSubscriptionsPageState
           error: (_, _) => false,
         ) ??
         false;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 8, 14, 8),
-      child: Row(
+    return PageHeader(
+      eyebrow: l.tabYou.toUpperCase(),
+      title: Text(
+        l.dbOnlineSubscriptionsManageTitle,
+        style: AppText.pageTitle(context),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.tabYou.toUpperCase(),
-                  style: AppText.eyebrow(context),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  l.dbOnlineSubscriptionsManageTitle,
-                  style: AppText.pageTitle(context),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
           if (actions.isNotEmpty)
             PopupMenuButton<String>(
               tooltip: l.dbOnlineSubscriptionTitle,
@@ -711,7 +702,7 @@ class _DbOnlineSubscriptionsPageState
   Widget _searchField(AppL10n l) {
     final colors = appColors(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 4, 22, 10),
+      padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
       child: Container(
         decoration: BoxDecoration(
           color: colors.surface,
