@@ -65,7 +65,6 @@ class _MediaBrowserLibrarySettingsPageState
             header: SettingsSubPageHeader(
               eyebrow: config.brandLabel,
               title: l.mediaBrowserLibraryManageTitle,
-              subtitle: l.mediaBrowserLibraryManageSubtitle,
               trailing: user.value?.isAdmin == true ? _headerActions() : null,
             ),
             body: user.when(
@@ -718,9 +717,6 @@ class _MediaBrowserLibraryEditorPageState
               title: _editing
                   ? l.mediaBrowserEditLibraryTitle
                   : l.mediaBrowserNewLibraryTitle,
-              subtitle: _editing
-                  ? l.mediaBrowserEditLibrarySubtitle
-                  : l.mediaBrowserNewLibrarySubtitle,
             ),
             body: ListView(
               primary: true,

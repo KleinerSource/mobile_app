@@ -33,22 +33,12 @@ class DbOnlineFollowingLayout extends StatelessWidget {
           scrollController: scrollController,
           header: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
-                child: Row(
-                  children: [
-                    const BackButton(),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: AppText.pageTitle(context),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    ...actions,
-                  ],
-                ),
+              SettingsSubPageHeader(
+                eyebrow: 'DB ONLINE',
+                title: title,
+                trailing: actions.isEmpty
+                    ? null
+                    : Row(mainAxisSize: MainAxisSize.min, children: actions),
               ),
               if (filters != null) filters!,
             ],

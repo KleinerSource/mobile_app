@@ -33,7 +33,6 @@ class SecuritySettingsPage extends ConsumerWidget {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsAppSettings,
               title: AppL10n.of(context).settingsSecurity,
-              subtitle: AppL10n.of(context).securitySettingsSub,
             ),
             body: security.when(
               loading: () => const Center(child: CircularProgressIndicator()),

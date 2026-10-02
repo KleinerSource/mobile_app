@@ -3546,7 +3546,7 @@ class AppL10nEn extends AppL10n {
   String get audioActionRetryTranscription => 'Retry transcription';
 
   @override
-  String get audioAssetCountSuffix => 'audio assets';
+  String get audioAssetCountSuffix => 'assets';
 
   @override
   String audioCancelExtractionFailed(String error) {
@@ -5356,7 +5356,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String taskCenterSubtitleIdle(int total) {
-    return '$total tasks';
+    return '$total records';
   }
 
   @override
@@ -7610,4 +7610,10 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get taskCountSuffix => 'tasks';
+
+  @override
+  String get dbOnlineSubscriptionsManageTitle => 'Subscription management';
+
+  @override
+  String get actorAssociationCountSuffix => 'associations';
 }

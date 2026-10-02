@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,21 +10,27 @@ import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/features/db_online/pages/db_online_latest_movies_page.dart';
+import 'package:omm/features/db_online/pages/db_online_search_page.dart';
+import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
+import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/files/file_manager_shell.dart';
 import 'package:omm/features/main/media_manager_shell.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
+import 'package:omm/features/media_browser/pages/media_browser_search_page.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/features/oh_my_media/lists/list_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/search/search_page.dart';
 import 'package:omm/features/settings/server_lines_page.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -99,6 +107,8 @@ Future<void> _open(
   String project = 'oh-my-media',
   bool configured = true,
   double scale = 1,
+  bool settle = true,
+  Future<DbOnlineSubscriptionCapabilities> Function()? capabilitiesLoader,
 }) async {
   SharedPreferences.setMockInitialValues({
     'privacy.app_switcher_shield': false,
@@ -117,6 +127,10 @@ Future<void> _open(
           () => _ServerConfigState(configured ? config : null),
         ),
         mediaRuntimeConfigProvider.overrideWithValue(config),
+        if (capabilitiesLoader != null)
+          dbOnlineSubscriptionCapabilitiesProvider.overrideWith(
+            (ref, serverId) => capabilitiesLoader(),
+          ),
         mediaBrowserMediaRepositoryProvider.overrideWithValue(
           _EmptyBrowserRepository(),
         ),
@@ -156,7 +170,12 @@ Future<void> _open(
     ),
   );
   await tester.tap(find.text('上一页'));
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+  }
   expect(
     Navigator.of(tester.element(find.byType(page.runtimeType).first)).canPop(),
     isTrue,
@@ -167,6 +186,30 @@ Future<void> _return(WidgetTester tester) async {
   await tester.tap(find.byTooltip('返回').hitTestable());
   await tester.pumpAndSettle();
   expect(find.text('上一页'), findsOneWidget);
+  expect(tester.takeException(), isNull);
+}
+
+void _expectDoubleHeader(
+  WidgetTester tester,
+  Finder page,
+  String eyebrow,
+  String title,
+) {
+  final small = find.descendant(of: page, matching: find.text(eyebrow));
+  final large = find.descendant(of: page, matching: find.text(title));
+  expect(small, findsOneWidget);
+  expect(large, findsOneWidget);
+  expect(
+    tester.widget<Text>(small).style!.fontSize,
+    lessThan(tester.widget<Text>(large).style!.fontSize!),
+  );
+  expect(tester.getTopLeft(small).dx, tester.getTopLeft(large).dx);
+  expect(
+    tester.getBottomRight(small).dy,
+    lessThan(tester.getTopLeft(large).dy),
+  );
+  expect(find.byType(BackButton).hitTestable(), findsNothing);
+  expect(find.byTooltip('返回').hitTestable(), findsNothing);
   expect(tester.takeException(), isNull);
 }
 
@@ -191,10 +234,60 @@ void main() {
         expect(find.byTooltip('返回').hitTestable(), findsNothing);
         expect(find.byType(BackButton).hitTestable(), findsNothing);
         expect(find.byIcon(Icons.arrow_back).hitTestable(), findsNothing);
+        if (index == 2) {
+          final searchPage = switch (project) {
+            'oh-my-media' => find.byType(SearchPage),
+            'db_online' => find.byType(DbOnlineSearchPage),
+            _ => find.byType(MediaBrowserSearchPage),
+          };
+          _expectDoubleHeader(tester, searchPage, '搜索', '查找内容');
+        }
+        if (index == 3 && project == 'db_online') {
+          _expectDoubleHeader(
+            tester,
+            find.byType(DbOnlineSubscriptionsPage),
+            '我的',
+            '订阅管理',
+          );
+        }
         expect(tester.takeException(), isNull);
       }
     });
   }
+
+  testWidgets('DBO 我的双抬头在加载、失败、重试和成功时保留，支持窄屏双倍字体', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final first = Completer<DbOnlineSubscriptionCapabilities>();
+    final retry = Completer<DbOnlineSubscriptionCapabilities>();
+    var attempts = 0;
+    await _open(
+      tester,
+      const DbOnlineSubscriptionsPage(),
+      project: 'db_online',
+      scale: 2,
+      settle: false,
+      capabilitiesLoader: () => ++attempts == 1 ? first.future : retry.future,
+    );
+    final page = find.byType(DbOnlineSubscriptionsPage);
+    _expectDoubleHeader(tester, page, '我的', '订阅管理');
+    first.completeError(StateError('模拟加载失败'));
+    await tester.pumpAndSettle();
+    _expectDoubleHeader(tester, page, '我的', '订阅管理');
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    _expectDoubleHeader(tester, page, '我的', '订阅管理');
+    retry.complete(
+      const DbOnlineSubscriptionCapabilities(
+        database: false,
+        onlineAccount: false,
+        onlineQuery: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+    _expectDoubleHeader(tester, page, '我的', '订阅管理');
+    expect(attempts, 2);
+  });
 
   testWidgets('文件管理器底部设置隐藏返回，独立设置显示返回', (tester) async {
     await _open(tester, const FileManagerShell());

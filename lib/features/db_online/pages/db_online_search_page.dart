@@ -151,7 +151,10 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('DBONLINE', style: AppText.eyebrow(context)),
+                        Text(
+                          l.searchTitle.toUpperCase(),
+                          style: AppText.eyebrow(context),
+                        ),
                         const SizedBox(height: 3),
                         Text(l.searchFind, style: AppText.pageTitle(context)),
                       ],

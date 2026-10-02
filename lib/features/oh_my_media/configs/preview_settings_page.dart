@@ -154,7 +154,6 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
               title: AppL10n.of(context).previewSettingsTitle,
-              subtitle: AppL10n.of(context).previewSettingsSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

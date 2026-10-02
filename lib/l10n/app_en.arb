@@ -1195,7 +1195,7 @@
   "audioActionDeleteAudio": "Delete audio",
   "audioActionEnqueueTranscription": "Enqueue transcription",
   "audioActionRetryTranscription": "Retry transcription",
-  "audioAssetCountSuffix": "audio assets",
+  "audioAssetCountSuffix": "assets",
   "audioCancelExtractionFailed": "Failed to cancel extraction: {error}",
   "@audioCancelExtractionFailed": {"placeholders":{"error":{"type":"String"}}},
   "audioCancelExtractionSubmitted": "Cancel extraction submitted",
@@ -1822,7 +1822,7 @@
   "taskCenterEyebrow": "Background tasks",
   "taskCenterSubtitleActive": "{active}/{total} tasks active",
   "@taskCenterSubtitleActive": {"placeholders":{"active":{"type":"int"},"total":{"type":"int"}}},
-  "taskCenterSubtitleIdle": "{total} tasks",
+  "taskCenterSubtitleIdle": "{total} records",
   "@taskCenterSubtitleIdle": {"placeholders":{"total":{"type":"int"}}},
   "taskRecoveryReplay": "Automatically replayed",
   "taskRecoveryReplayed": "Original execution archived",
@@ -2618,5 +2618,7 @@
   "resourceGenreCountSuffix": "genres",
   "resourceTagCountSuffix": "tags",
   "resourceSeriesCountSuffix": "series",
-  "taskCountSuffix": "tasks"
+  "taskCountSuffix": "tasks",
+  "dbOnlineSubscriptionsManageTitle": "Subscription management",
+  "actorAssociationCountSuffix": "associations"
 }

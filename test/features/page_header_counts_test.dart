@@ -8,9 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/features/oh_my_media/actors/actor_management_page.dart';
+import 'package:omm/features/oh_my_media/actor_associations/actor_associations_page.dart';
 import 'package:omm/features/oh_my_media/audio/audio_management_page.dart';
 import 'package:omm/features/oh_my_media/audio/audio_models.dart';
 import 'package:omm/features/oh_my_media/audio/audio_providers.dart';
@@ -18,7 +20,9 @@ import 'package:omm/features/oh_my_media/audio/audio_repository.dart';
 import 'package:omm/features/oh_my_media/mappings/mapping_rules_page.dart';
 import 'package:omm/features/oh_my_media/mappings/mappings_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
+import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resource_list_page.dart';
+import 'package:omm/features/oh_my_media/resources/resource_movies_page.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
@@ -35,6 +39,10 @@ class _Tasks extends TaskCenterNotifier {
 class _TaskMeta extends TaskCenterMetaNotifier {
   @override
   TaskCenterMeta build() => const TaskCenterMeta(total: 321);
+
+  void setRunning(int running) {
+    state = TaskCenterMeta(total: 321, stats: {'running': running});
+  }
 }
 
 class _Audio extends Fake implements AudioRepository {
@@ -57,8 +65,9 @@ Future<void> _pumpPage(
   WidgetTester tester,
   Widget page,
   Completer<bool> ready,
-  int total,
-) async {
+  int total, {
+  double scale = 1,
+}) async {
   SharedPreferences.setMockInitialValues({
     'privacy.app_switcher_shield': false,
   });
@@ -77,7 +86,9 @@ Future<void> _pumpPage(
               requestOptions: options,
               data: {
                 'success': true,
-                'data': options.path.endsWith('/movies')
+                'data':
+                    options.path.endsWith('/movies') ||
+                        options.queryParameters['scope'] == 'association'
                     ? {
                         'items': [],
                         'total_count': total,
@@ -102,6 +113,7 @@ Future<void> _pumpPage(
         sharedPrefsProvider.overrideWithValue(prefs),
         requiredApiClientProvider.overrideWithValue(client),
         ommMediaSourceProvider.overrideWithValue(OmmMediaSourceAdapter(client)),
+        imageUrlBuilderProvider.overrideWithValue((_) => ''),
         audioRepositoryProvider.overrideWithValue(_Audio(ready.future, total)),
         taskCenterProvider.overrideWith(_Tasks.new),
         taskCenterMetaProvider.overrideWith(_TaskMeta.new),
@@ -110,6 +122,12 @@ Future<void> _pumpPage(
         ),
       ],
       child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
         locale: const Locale('zh'),
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
@@ -174,7 +192,8 @@ void main() {
     (const ResourceListPage(kind: ResourceKind.tag), '标签管理', '个标签'),
     (const ResourceListPage(kind: ResourceKind.series), '系列管理', '个系列'),
     (const ActorManagementPage(), '演员管理', '位演员'),
-    (const AudioManagementPage(), '音频管理', '个音频资产'),
+    (const AudioManagementPage(), '音频管理', '个资产'),
+    (const ActorAssociationsPage(), '演员关联', '个关联'),
     (const MappingRulesPage(type: MappingType.tag), '标签映射', '条映射'),
   ];
   for (final (page, section, suffix) in pages) {
@@ -203,11 +222,107 @@ void main() {
     _expectHeader(tester, '类型管理', '— 个类型');
   });
 
+  testWidgets('演员关联请求失败时统计保持未知', (tester) async {
+    final ready = Completer<bool>();
+    await _pumpPage(tester, const ActorAssociationsPage(), ready, 321);
+    ready.complete(true);
+    await tester.pumpAndSettle();
+    _expectHeader(tester, '演员关联', '— 个关联');
+  });
+
+  for (final kind in ResourceKind.values) {
+    for (final total in [0, 321]) {
+      testWidgets('${kind.value} 作品横幅只有分类和大字数量，窄屏双倍字体仍保留固定名称：$total', (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final ready = Completer<bool>();
+        await _pumpPage(
+          tester,
+          ResourceMoviesPage(
+            kind: kind,
+            resource: const ResourceItem(id: 1, name: '资源名称', movieCount: 5),
+          ),
+          ready,
+          total,
+          scale: 2,
+        );
+        final hero = find.byType(FlexibleSpaceBar);
+        expect(
+          find.descendant(of: hero, matching: find.text('5 部影片')),
+          findsOneWidget,
+        );
+        ready.complete(false);
+        await tester.pumpAndSettle();
+        final label = find.descendant(of: hero, matching: find.text(kind.icon));
+        final count = find.descendant(
+          of: hero,
+          matching: find.text('$total 部影片'),
+        );
+        expect(
+          find.descendant(of: hero, matching: find.byType(Text)),
+          findsNWidgets(2),
+        );
+        expect(
+          tester.widget<Text>(count).style!.fontSize,
+          greaterThan(tester.widget<Text>(label).style!.fontSize!),
+        );
+        expect(find.text('资源名称'), findsOneWidget);
+        expect(
+          tester.widget<SliverAppBar>(find.byType(SliverAppBar)).pinned,
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('返回').hitTestable(), findsOneWidget);
+        expect(find.text('资源名称').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('任务中心使用服务端总数而非已加载任务条数', (tester) async {
     final ready = Completer<bool>();
     await _pumpPage(tester, const TaskCenterPage(), ready, 0);
     await tester.pumpAndSettle();
     _expectHeader(tester, '任务中心', '321 项任务');
+    expect(
+      tester
+          .widget<SettingsSubPageHeader>(find.byType(SettingsSubPageHeader))
+          .subtitle,
+      '共 321 条记录',
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TaskCenterPage)),
+    );
+    (container.read(taskCenterMetaProvider.notifier) as _TaskMeta).setRunning(
+      2,
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<SettingsSubPageHeader>(find.byType(SettingsSubPageHeader))
+          .subtitle,
+      '2 条任务正在执行 · 共 321 条记录',
+    );
     ready.complete(false);
+  });
+
+  testWidgets('音频管理仅在搜索时显示第三行关键词，清空后隐藏', (tester) async {
+    final ready = Completer<bool>();
+    await _pumpPage(tester, const AudioManagementPage(), ready, 321);
+    ready.complete(false);
+    await tester.pumpAndSettle();
+    final header = find.byType(SettingsSubPageHeader);
+    expect(tester.widget<SettingsSubPageHeader>(header).subtitle, isNull);
+    await tester.enterText(find.byType(TextField), '  关键词  ');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    _expectHeader(tester, '音频管理', '321 个资产');
+    expect(tester.widget<SettingsSubPageHeader>(header).subtitle, '搜索：关键词');
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SettingsSubPageHeader>(header).subtitle, isNull);
   });
 }

@@ -120,7 +120,6 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
               title: AppL10n.of(context).settingsDbo,
-              subtitle: AppL10n.of(context).dboSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

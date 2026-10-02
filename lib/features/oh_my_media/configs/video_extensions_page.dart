@@ -91,7 +91,6 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
               title: AppL10n.of(context).settingsExtensions,
-              subtitle: AppL10n.of(context).videoExtensionsSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

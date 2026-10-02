@@ -96,7 +96,6 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
               title: AppL10n.of(context).ffmpegTitle,
-              subtitle: AppL10n.of(context).ffmpegSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

@@ -124,8 +124,10 @@ class _DbOnlineSubscriptionsPageState
         child: SafeArea(
           bottom: false,
           child: capabilities.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => _capabilityError(error, serverId),
+            loading: () =>
+                _stateContent(const Center(child: CircularProgressIndicator())),
+            error: (error, _) =>
+                _stateContent(_capabilityError(error, serverId)),
             data: (value) => _content(value, serverId, serverConfig),
           ),
         ),
@@ -162,6 +164,11 @@ class _DbOnlineSubscriptionsPageState
       _pagingController.itemList ?? const <DbOnlineSubscriptionItem>[],
     );
   }
+
+  Widget _stateContent(Widget body) => SettingsFixedHeaderLayout(
+    header: _header(AppL10n.of(context), null, null),
+    body: body,
+  );
 
   Widget _capabilityError(Object error, String serverId) {
     final l = AppL10n.of(context);
@@ -515,26 +522,30 @@ class _DbOnlineSubscriptionsPageState
 
   Widget _header(
     AppL10n l,
-    DbOnlineSubscriptionCapabilities capabilities,
+    DbOnlineSubscriptionCapabilities? capabilities,
     AsyncValue<Map<String, dynamic>>? autoSync,
   ) {
     final colors = appColors(context);
     final canManageOnlineSync =
-        capabilities.database && capabilities.onlineAccount;
-    final actions = switch (_section) {
-      'pending' => <String>['run', 'preset', 'share'],
-      'completed' => <String>['share'],
-      'online' => <String>[
-        if (canManageOnlineSync) 'sync-preset',
-        if (canManageOnlineSync) 'autosync',
-        if (canManageOnlineSync) 'sync',
-        if (capabilities.database) 'share',
-      ],
-      'actor' => <String>['fetch-list', 'run', 'share'],
-      'series' => <String>['fetch-list', 'run', 'prefix'],
-      'blacklist' => <String>['blacklist-test', 'blacklist-add', 'share'],
-      _ => const <String>[],
-    };
+        capabilities != null &&
+        capabilities.database &&
+        capabilities.onlineAccount;
+    final actions = capabilities == null
+        ? const <String>[]
+        : switch (_section) {
+            'pending' => <String>['run', 'preset', 'share'],
+            'completed' => <String>['share'],
+            'online' => <String>[
+              if (canManageOnlineSync) 'sync-preset',
+              if (canManageOnlineSync) 'autosync',
+              if (canManageOnlineSync) 'sync',
+              if (capabilities.database) 'share',
+            ],
+            'actor' => <String>['fetch-list', 'run', 'share'],
+            'series' => <String>['fetch-list', 'run', 'prefix'],
+            'blacklist' => <String>['blacklist-test', 'blacklist-add', 'share'],
+            _ => const <String>[],
+          };
     final autoSyncEnabled =
         autoSync?.when(
           data: (value) => value['enabled'] == true,
@@ -547,11 +558,23 @@ class _DbOnlineSubscriptionsPageState
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              l.dbOnlineSubscriptionsTitle,
-              style: AppText.pageTitle(context),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.tabYou.toUpperCase(),
+                  style: AppText.eyebrow(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  l.dbOnlineSubscriptionsManageTitle,
+                  style: AppText.pageTitle(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
           if (actions.isNotEmpty)

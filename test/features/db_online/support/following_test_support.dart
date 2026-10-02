@@ -207,12 +207,14 @@ class _PrivacyState extends PrivacyShieldNotifier {
 Future<ProviderContainer> pumpFollowingTest(
   WidgetTester tester,
   FollowingTestBackend backend,
-  Widget page,
-) async {
+  Widget page, {
+  Duration? Function(int, Object)? retry,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
+      retry: retry,
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         serverConfigProvider.overrideWith(FollowingTestServerState.new),

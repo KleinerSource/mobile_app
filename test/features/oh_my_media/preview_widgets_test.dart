@@ -38,7 +38,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('预览生成'), findsOneWidget);
-    expect(find.text('配置预览视频、Sprite 和 VTT 的生成策略。'), findsOneWidget);
+    expect(find.text('配置预览视频、Sprite 和 VTT 的生成策略。'), findsNothing);
     final fields = tester
         .widgetList<TextField>(find.byType(TextField))
         .toList();

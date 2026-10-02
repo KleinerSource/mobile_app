@@ -80,7 +80,6 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupServer,
               title: l.settingsServerList,
-              subtitle: l.serverListSubtitle,
               trailing: SettingsAddButton(onPressed: () => _showServerEditor()),
             ),
             // 服务器数量少且有界：设置页式分组卡，行间细分隔线；与收藏

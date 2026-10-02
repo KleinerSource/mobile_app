@@ -93,7 +93,6 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
               title: AppL10n.of(context).avdbTitle,
-              subtitle: AppL10n.of(context).avdbSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

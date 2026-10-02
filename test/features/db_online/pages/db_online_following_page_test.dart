@@ -42,7 +42,7 @@ void main() {
     expect(find.byType(DbOnlineFollowingPage), findsOneWidget);
     expect(find.byType(DbOnlineMovieCard), findsOneWidget);
     expect(find.text('请选择筛选条件或预设，开始加载关注影片'), findsNothing);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byTooltip('返回'));
     await pumpFollowingFrames(tester);
     expect(
       tester

@@ -106,7 +106,6 @@ class DboBackendSettingsPage extends StatelessWidget {
             header: SettingsSubPageHeader(
               eyebrow: 'DB ONLINE',
               title: AppL10n.of(context).dbOnlineBackendConfigTitle,
-              subtitle: AppL10n.of(context).dbOnlineBackendConfigSubtitle,
             ),
             body: const DboBackendSettingsContent(scrollable: true),
           ),
@@ -289,9 +288,8 @@ class _DboBackendConfigDetailPageState
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: 'DB ONLINE · ${l.dbOnlineBackendConfigTitle}',
+              eyebrow: 'DB ONLINE',
               title: widget.section.title(l),
-              subtitle: l.dbOnlineSectionScopeHint,
             ),
             body: ListView(
               primary: true,

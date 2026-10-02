@@ -342,7 +342,6 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupSystem,
               title: AppL10n.of(context).accessControlTitle,
-              subtitle: AppL10n.of(context).accessControlSubtitle,
             ),
             body: _buildBody(c),
           ),

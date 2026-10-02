@@ -88,7 +88,6 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppSettings,
               title: l.settingsAppUpdate,
-              subtitle: l.settingsAppUpdateSub,
             ),
             body: ListView(
               primary: true,

@@ -269,7 +269,6 @@ class _TranslationSettingsPageState
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupSystem,
               title: AppL10n.of(context).translationTitle,
-              subtitle: AppL10n.of(context).translationSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

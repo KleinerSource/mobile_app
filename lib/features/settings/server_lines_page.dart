@@ -117,7 +117,6 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             header: SettingsSubPageHeader(
               eyebrow: l.serverLinesEyebrow(server.name),
               title: l.serverLinesTitle,
-              subtitle: l.serverLinesSubtitle,
             ),
             body: ListView(
               controller: _scrollController,

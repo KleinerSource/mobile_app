@@ -1195,7 +1195,7 @@
   "audioActionDeleteAudio": "删除音频",
   "audioActionEnqueueTranscription": "加入转译",
   "audioActionRetryTranscription": "重试转录",
-  "audioAssetCountSuffix": "个音频资产",
+  "audioAssetCountSuffix": "个资产",
   "audioCancelExtractionFailed": "取消提取失败：{error}",
   "@audioCancelExtractionFailed": {"placeholders":{"error":{"type":"String"}}},
   "audioCancelExtractionSubmitted": "已提交取消提取",
@@ -1822,7 +1822,7 @@
   "taskCenterEyebrow": "后台任务",
   "taskCenterSubtitleActive": "{active} 条任务正在执行 · 共 {total} 条记录",
   "@taskCenterSubtitleActive": {"placeholders":{"active":{"type":"int"},"total":{"type":"int"}}},
-  "taskCenterSubtitleIdle": "暂无进行中的任务 · 共 {total} 条记录",
+  "taskCenterSubtitleIdle": "共 {total} 条记录",
   "@taskCenterSubtitleIdle": {"placeholders":{"total":{"type":"int"}}},
   "taskRecoveryReplay": "已自动重放",
   "taskRecoveryReplayed": "原执行已归档",
@@ -2618,5 +2618,7 @@
   "resourceGenreCountSuffix": "个类型",
   "resourceTagCountSuffix": "个标签",
   "resourceSeriesCountSuffix": "个系列",
-  "taskCountSuffix": "项任务"
+  "taskCountSuffix": "项任务",
+  "dbOnlineSubscriptionsManageTitle": "订阅管理",
+  "actorAssociationCountSuffix": "个关联"
 }

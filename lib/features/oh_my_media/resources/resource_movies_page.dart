@@ -264,10 +264,10 @@ class _Hero extends StatelessWidget {
                       letterSpacing: 2.4,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 6),
                   Text(
-                    item.name,
-                    maxLines: 2,
+                    l.resourceMovieCount(overrideCount ?? item.movieCount),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
@@ -276,16 +276,6 @@ class _Hero extends StatelessWidget {
                       fontSize: 30,
                       letterSpacing: -0.9,
                       height: 1.05,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l.resourceMovieCount(overrideCount ?? item.movieCount),
-                    style: const TextStyle(
-                      color: Color(0xCCFFFFFF),
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
                     ),
                   ),
                 ],

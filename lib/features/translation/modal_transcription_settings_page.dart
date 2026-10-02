@@ -250,7 +250,6 @@ class _ModalTranscriptionSettingsPageState
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupSystem,
               title: AppL10n.of(context).transcriptionTitle,
-              subtitle: AppL10n.of(context).transcriptionSubtitle,
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

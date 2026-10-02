@@ -120,8 +120,7 @@ class _MediaBrowserSearchPageState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            ref.watch(mediaBrowserConfigProvider)?.brandLabel ??
-                                '',
+                            l.searchTitle.toUpperCase(),
                             style: AppText.eyebrow(context),
                           ),
                           const SizedBox(height: 3),

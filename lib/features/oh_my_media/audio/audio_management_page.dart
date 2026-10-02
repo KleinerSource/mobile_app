@@ -829,7 +829,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                     count: _controller.itemList == null ? null : _totalCount,
                     countSuffix: l.audioAssetCountSuffix,
                     subtitle: _search == null
-                        ? l.audioSubtitle
+                        ? null
                         : l.audioSearchSubtitle(_search!),
                   ),
                   body: RefreshIndicator(

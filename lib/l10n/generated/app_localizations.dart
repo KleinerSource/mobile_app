@@ -6573,7 +6573,7 @@ abstract class AppL10n {
   /// No description provided for @audioAssetCountSuffix.
   ///
   /// In zh, this message translates to:
-  /// **'个音频资产'**
+  /// **'个资产'**
   String get audioAssetCountSuffix;
 
   /// No description provided for @audioCancelExtractionFailed.
@@ -9759,7 +9759,7 @@ abstract class AppL10n {
   /// No description provided for @taskCenterSubtitleIdle.
   ///
   /// In zh, this message translates to:
-  /// **'暂无进行中的任务 · 共 {total} 条记录'**
+  /// **'共 {total} 条记录'**
   String taskCenterSubtitleIdle(int total);
 
   /// No description provided for @taskRecoveryReplay.
@@ -13757,6 +13757,18 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'项任务'**
   String get taskCountSuffix;
+
+  /// No description provided for @dbOnlineSubscriptionsManageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅管理'**
+  String get dbOnlineSubscriptionsManageTitle;
+
+  /// No description provided for @actorAssociationCountSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'个关联'**
+  String get actorAssociationCountSuffix;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

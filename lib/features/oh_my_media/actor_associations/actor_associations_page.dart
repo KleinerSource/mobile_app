@@ -43,6 +43,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   String _search = '';
   final _searchDebounce = Debouncer();
   bool _lastPageComplete = false;
+  int? _totalCount;
 
   /// 当前左滑展开的行（规则 id），同一时刻只展开一个。
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
@@ -92,7 +93,12 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
         restorer: _scrollRestorer,
         scrollController: _scrollController,
       );
-      if (mounted) setState(() => _lastPageComplete = !hasMore);
+      if (mounted) {
+        setState(() {
+          _lastPageComplete = !hasMore;
+          _totalCount = r.totalCount;
+        });
+      }
     } catch (e) {
       if (!pageRequest.isCurrent) return;
       _controller.error = localizedErrorMessage(l, e);
@@ -213,7 +219,9 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupLibrary,
-              title: l.actorAssocTitle,
+              title: l.settingsActorAssociations,
+              count: _controller.itemList == null ? null : _totalCount,
+              countSuffix: l.actorAssociationCountSuffix,
               trailing: SettingsAddButton(onPressed: _create),
             ),
             body: Column(

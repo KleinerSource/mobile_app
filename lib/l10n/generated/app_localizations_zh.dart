@@ -3459,7 +3459,7 @@ class AppL10nZh extends AppL10n {
   String get audioActionRetryTranscription => '重试转录';
 
   @override
-  String get audioAssetCountSuffix => '个音频资产';
+  String get audioAssetCountSuffix => '个资产';
 
   @override
   String audioCancelExtractionFailed(String error) {
@@ -5245,7 +5245,7 @@ class AppL10nZh extends AppL10n {
 
   @override
   String taskCenterSubtitleIdle(int total) {
-    return '暂无进行中的任务 · 共 $total 条记录';
+    return '共 $total 条记录';
   }
 
   @override
@@ -7458,4 +7458,10 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get taskCountSuffix => '项任务';
+
+  @override
+  String get dbOnlineSubscriptionsManageTitle => '订阅管理';
+
+  @override
+  String get actorAssociationCountSuffix => '个关联';
 }

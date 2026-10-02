@@ -186,27 +186,12 @@ class _DbOnlineLatestMoviesPageState
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
-            header: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  BackButton(onPressed: () => Navigator.of(context).maybePop()),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('DBONLINE', style: AppText.eyebrow(context)),
-                        const SizedBox(height: 3),
-                        Text(title, style: AppText.pageTitle(context)),
-                      ],
-                    ),
-                  ),
-                  MediaViewModeToggle(
-                    mode: _viewMode,
-                    onChanged: (mode) => unawaited(_setViewMode(mode)),
-                  ),
-                ],
+            header: SettingsSubPageHeader(
+              eyebrow: 'DB ONLINE',
+              title: title,
+              trailing: MediaViewModeToggle(
+                mode: _viewMode,
+                onChanged: (mode) => unawaited(_setViewMode(mode)),
               ),
             ),
             body: RefreshIndicator(

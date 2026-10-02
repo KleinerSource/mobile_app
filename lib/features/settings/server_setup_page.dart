@@ -813,9 +813,6 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                   (editing
                       ? l.serverSetupReplaceTitle
                       : l.serverSetupConnectTitle),
-              subtitle: editing
-                  ? l.serverSetupEditSubtitle
-                  : l.serverSetupNewSubtitle,
               showBackButton: Navigator.of(context).canPop(),
             ),
             body: ListView(

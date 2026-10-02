@@ -23,7 +23,6 @@ class AppLogPage extends StatelessWidget {
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppUpdate,
               title: l.appLogTitle,
-              subtitle: l.appLogSubtitle,
             ),
             body: ValueListenableBuilder<List<String>>(
               valueListenable: AppLogStore.instance.listenable,
