@@ -171,6 +171,9 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
           child: Text(l.dbOnlineSubscriptionCancel),
         ),
         TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: appColors(context).danger,
+          ),
           onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
           child: Text(l.dbOnlineFollowingUnfollowUser),
         ),
@@ -355,6 +358,7 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
                                       : IconButton(
                                           tooltip:
                                               l.dbOnlineFollowingUnfollowUser,
+                                          color: appColors(context).danger,
                                           icon: const Icon(
                                             Icons.person_remove_outlined,
                                             size: 20,
