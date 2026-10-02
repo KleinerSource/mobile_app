@@ -13560,6 +13560,18 @@ abstract class AppL10n {
   /// **'关注预设'**
   String get dbOnlineFollowingPresets;
 
+  /// No description provided for @dbOnlineFollowingAddPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加预设'**
+  String get dbOnlineFollowingAddPreset;
+
+  /// No description provided for @dbOnlineFollowingManagePresets.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理预设'**
+  String get dbOnlineFollowingManagePresets;
+
   /// No description provided for @dbOnlineFollowingSavePreset.
   ///
   /// In zh, this message translates to:

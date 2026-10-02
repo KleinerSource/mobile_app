@@ -2566,6 +2566,8 @@
   "dbOnlineFollowingNoMovies": "No movies match these filters",
   "dbOnlineFollowingRequiresOnlineQuery": "Enable online queries in DB Online settings",
   "dbOnlineFollowingPresets": "Following presets",
+  "dbOnlineFollowingAddPreset": "Add preset",
+  "dbOnlineFollowingManagePresets": "Manage presets",
   "dbOnlineFollowingSavePreset": "Save current preset",
   "dbOnlineFollowingEditPreset": "Edit preset",
   "dbOnlineFollowingDeletePreset": "Delete preset",

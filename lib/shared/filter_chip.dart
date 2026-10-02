@@ -42,22 +42,23 @@ class CompactFilterButton extends StatelessWidget {
           children: [
             if (icon != null) ...[
               Icon(icon, size: 15, color: iconColor),
-              const SizedBox(width: 5),
+              if (label.isNotEmpty) const SizedBox(width: 5),
             ],
-            Text(
-              label,
-              strutStyle: const StrutStyle(
-                fontSize: 11.5,
-                height: 1.0,
-                forceStrutHeight: true,
+            if (label.isNotEmpty)
+              Text(
+                label,
+                strutStyle: const StrutStyle(
+                  fontSize: 11.5,
+                  height: 1.0,
+                  forceStrutHeight: true,
+                ),
+                style: TextStyle(
+                  color: fg,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11.5,
+                ),
               ),
-              style: TextStyle(
-                color: fg,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 11.5,
-              ),
-            ),
             if (trailingIcon != null) ...[
               const SizedBox(width: 4),
               Icon(trailingIcon!, size: 12, color: iconColor),

@@ -121,6 +121,7 @@ class _DbOnlineSubscriptionsPageState
           if (!didPop && _selectingBlacklist) _blacklistSelection.exit();
         },
         child: SafeArea(
+          bottom: false,
           child: capabilities.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => _capabilityError(error, serverId),
