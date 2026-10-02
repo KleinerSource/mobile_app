@@ -686,7 +686,7 @@ class _DbOnlineSubscriptionsPageState
   Widget _searchField(AppL10n l) {
     final colors = appColors(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
       child: Container(
         decoration: BoxDecoration(
           color: colors.surface,

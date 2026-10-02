@@ -203,11 +203,11 @@ class _DbOnlineSubscriptionVideosSheetState
                 ),
               ),
               SizedBox(
-                height: 42,
+                height: 32,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _statuses.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
                   itemBuilder: (context, index) {
                     final status = _statuses[index];
                     final label = switch (status) {
@@ -216,10 +216,10 @@ class _DbOnlineSubscriptionVideosSheetState
                       _ => l.dbOnlineSubscriptionSkipped,
                     };
                     final count = _statusCounts[status];
-                    return ChoiceChip(
-                      label: Text(count == null ? label : '$label($count)'),
+                    return MediaSectionTab(
+                      label: count == null ? label : '$label($count)',
                       selected: _status == status,
-                      onSelected: (_) {
+                      onTap: () {
                         if (_status == status) return;
                         setState(() => _status = status);
                         _reloadForQuery();
@@ -228,7 +228,7 @@ class _DbOnlineSubscriptionVideosSheetState
                   },
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextField(
                 controller: _searchController,
                 textInputAction: TextInputAction.search,

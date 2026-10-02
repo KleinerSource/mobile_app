@@ -34,6 +34,7 @@ Future<ProviderContainer> _pumpPage(
   bool emptyContent = false,
   ThemeData? theme,
   double textScale = 1,
+  void Function(RequestOptions)? onRequest,
 }) async {
   SharedPreferences.setMockInitialValues({'privacy.app_switcher_shield': true});
   final prefs = await SharedPreferences.getInstance();
@@ -43,6 +44,7 @@ Future<ProviderContainer> _pumpPage(
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (request, handler) {
+        onRequest?.call(request);
         if (emptyContent && request.path != '/health') {
           handler.resolve(
             Response<dynamic>(
@@ -175,6 +177,18 @@ void main() {
           final tabRect = tester.getRect(tab);
           expect(tabRect.height, 32);
           expect(tester.widget<MediaSectionTab>(tab).selected, isTrue);
+          if (label == '在线订阅') {
+            expect(find.byType(TextField), findsNothing);
+          } else {
+            final searchBox = find.ancestor(
+              of: find.byType(TextField),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container && widget.decoration is BoxDecoration,
+              ),
+            );
+            expect(tester.getRect(searchBox).top - tabRect.bottom, 12);
+          }
           final box = tester.widget<Container>(
             find.descendant(
               of: tab,
@@ -216,6 +230,112 @@ void main() {
           expect(tester.takeException(), isNull);
         }
       });
+    }
+  }
+
+  for (final kind in ['actor', 'series']) {
+    for (final brightness in Brightness.values) {
+      for (final size in [const Size(320, 844), const Size(844, 390)]) {
+        for (final scale in [1.0, 2.0]) {
+          testWidgets(
+            '订阅影片 tags 样式、留白与筛选 $kind/${brightness.name}/$size/$scale',
+            (tester) async {
+              await tester.binding.setSurfaceSize(size);
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+              final requests = <RequestOptions>[];
+              await _pumpPage(
+                tester,
+                observer: _NavigationObserver(),
+                emptyContent: true,
+                theme: buildAppTheme(
+                  brightness,
+                  project: ServerProject.dbOnline,
+                ),
+                textScale: scale,
+                onRequest: requests.add,
+                page: DbOnlineSubscriptionVideosSheet(
+                  kind: kind,
+                  sourceId: 7,
+                  title: '订阅影片',
+                  pendingCount: 12345,
+                  completedCount: 0,
+                  skippedCount: null,
+                ),
+              );
+              final pending = find.widgetWithText(
+                MediaSectionTab,
+                '订阅中(12345)',
+              );
+              expect(pending, findsOneWidget);
+              expect(tester.getRect(pending).height, 32);
+              final search = find.byType(TextField);
+              expect(
+                tester.getRect(search).top - tester.getRect(pending).bottom,
+                12,
+              );
+              await tester.enterText(search, '  ABC  ');
+              await tester.testTextInput.receiveAction(TextInputAction.search);
+              await tester.pumpAndSettle();
+              for (final (label, status) in [
+                ('已完成(0)', 'completed'),
+                ('已跳过', 'skipped'),
+                ('订阅中(12345)', 'pending'),
+              ]) {
+                final tab = find.widgetWithText(MediaSectionTab, label);
+                await tester.scrollUntilVisible(
+                  tab,
+                  status == 'pending' ? -120 : 120,
+                  scrollable: find.descendant(
+                    of: find.byType(ListView),
+                    matching: find.byType(Scrollable),
+                  ),
+                );
+                await tester.pumpAndSettle();
+                await tester.tap(tab);
+                await tester.pumpAndSettle();
+                expect(tester.widget<MediaSectionTab>(tab).selected, isTrue);
+                final box = tester.widget<Container>(
+                  find.descendant(
+                    of: tab,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is Container &&
+                          widget.decoration is BoxDecoration,
+                    ),
+                  ),
+                );
+                const accent = Color(0xFF12B8C2);
+                final decoration = box.decoration! as BoxDecoration;
+                expect(decoration.color, accent.withValues(alpha: 0.15));
+                expect(
+                  (decoration.border! as Border).top.color,
+                  accent.withValues(alpha: 0.5),
+                );
+                expect(tester.getRect(tab).height, 32);
+                expect(
+                  tester.getCenter(find.text(label)).dy,
+                  closeTo(tester.getRect(tab).center.dy, 0.01),
+                );
+                final query = requests.last.queryParameters;
+                expect(requests.last.path, '/subscription-videos');
+                expect(query['source_type'], kind);
+                expect(query['source_id'], 7);
+                expect(query['status'], status);
+                expect(query['keyword'], 'ABC');
+                expect(query['page'], 1);
+                expect(tester.takeException(), isNull);
+              }
+              await tester.tap(find.byTooltip('取消'));
+              await tester.pumpAndSettle();
+              expect(
+                requests.last.queryParameters.containsKey('keyword'),
+                isFalse,
+              );
+              expect(requests.last.queryParameters['status'], 'pending');
+            },
+          );
+        }
+      }
     }
   }
 
