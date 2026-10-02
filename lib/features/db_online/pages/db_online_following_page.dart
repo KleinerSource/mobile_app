@@ -68,7 +68,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
   final _requests = PagedRequestCoordinator();
   final _scroll = ScrollController();
   DbOnlineFollowingFilter _filter = const DbOnlineFollowingFilter();
-  bool _applied = false;
   int? _presetId;
   Completer<void>? _refreshCompleter;
 
@@ -91,7 +90,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
       mounted && isDbOnlineFollowingServer(ref, widget.serverId);
 
   Future<void> _fetch(int page) async {
-    if (!_applied || !_current) return;
+    if (!_current) return;
     final request = _requests.begin(page);
     if (request == null) return;
     final filter = _filter;
@@ -136,7 +135,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     _completeRefresh();
     setState(() {
       _filter = filter;
-      _applied = true;
       _presetId = presetId;
     });
     _requests.invalidate();
@@ -145,7 +143,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
   }
 
   Future<void> _refresh() {
-    if (!_applied) return Future.value();
     _completeRefresh();
     _refreshCompleter = Completer<void>();
     final future = _refreshCompleter!.future;
@@ -361,8 +358,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
         ),
         data: (capabilities) => !capabilities.onlineQuery
             ? EmptyView(message: l.dbOnlineFollowingRequiresOnlineQuery)
-            : !_applied
-            ? EmptyView(message: l.dbOnlineFollowingChooseFilters)
             : RefreshIndicator(
                 onRefresh: _refresh,
                 child: CustomScrollView(

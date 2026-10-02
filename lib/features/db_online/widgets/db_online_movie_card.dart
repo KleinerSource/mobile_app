@@ -28,6 +28,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     this.codeOnly = false,
     this.landscape = false,
     this.compact = false,
+    this.listTitleMaxLines = 1,
     this.showRating = true,
   });
 
@@ -38,6 +39,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
   final bool codeOnly;
   final bool landscape;
   final bool compact;
+  final int listTitleMaxLines;
   final bool showRating;
 
   @override
@@ -97,6 +99,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
 
     if (compact) {
       return CatalogListMovieCard(
+        titleMaxLines: listTitleMaxLines,
         title: movie.title.trim().isEmpty
             ? l.movieCardUntitledTitle
             : movie.title,

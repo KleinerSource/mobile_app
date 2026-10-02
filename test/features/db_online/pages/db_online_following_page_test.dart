@@ -40,7 +40,8 @@ void main() {
     await gesture.up();
     await pumpFollowingFrames(tester);
     expect(find.byType(DbOnlineFollowingPage), findsOneWidget);
-    expect(find.text('请选择筛选条件或预设，开始加载关注影片'), findsOneWidget);
+    expect(find.byType(DbOnlineMovieCard), findsOneWidget);
+    expect(find.text('请选择筛选条件或预设，开始加载关注影片'), findsNothing);
     await tester.tap(find.byType(BackButton));
     await pumpFollowingFrames(tester);
     expect(
@@ -60,10 +61,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('首次不查询，切换筛选使用网页参数和共享卡片', (tester) async {
+  testWidgets('首次自动加载有码影片，切换筛选使用网页参数和共享卡片', (tester) async {
     final backend = FollowingTestBackend();
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
-    expect(backend.to('/subs/tags'), isEmpty);
+    expect(backend.to('/subs/tags').single.queryParameters, {
+      'filter_by': '0:t:m::::',
+      'page': 1,
+      'limit': 24,
+      'sort_by': 'update',
+      'order_by': 'desc',
+    });
+    expect(find.byType(DbOnlineMovieCard), findsOneWidget);
+    expect(find.text('请选择筛选条件或预设，开始加载关注影片'), findsNothing);
     await tester.tap(find.byTooltip('筛选'));
     await pumpFollowingFrames(tester);
     await tester.tap(find.text('无码'));
@@ -130,7 +139,12 @@ void main() {
         .select('b');
     await pumpFollowingFrames(tester);
     expect(find.text('资源条件'), findsNothing);
-    expect(find.text('请选择筛选条件或预设，开始加载关注影片'), findsOneWidget);
+    expect(find.byType(DbOnlineMovieCard), findsOneWidget);
+    expect(backend.to('/subs/tags').last.uri.host, 'b.test');
+    expect(
+      backend.to('/subs/tags').last.queryParameters['filter_by'],
+      '0:t:m::::',
+    );
     await tester.tap(find.byTooltip('筛选'));
     await pumpFollowingFrames(tester);
     await tester.tap(find.text('FC2'));
@@ -166,12 +180,6 @@ void main() {
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
     expect(find.byTooltip('手动编辑筛选'), findsNothing);
     expect(find.textContaining('每页数量'), findsNothing);
-    await tester.tap(find.byTooltip('筛选'));
-    await pumpFollowingFrames(tester);
-    await tester.tap(find.text('无码'));
-    await pumpFollowingFrames(tester);
-    Navigator.of(tester.element(find.text('资源条件'))).pop();
-    await pumpFollowingFrames(tester);
     for (
       var index = 0;
       index < 5 && backend.to('/subs/tags').length < 2;
@@ -203,19 +211,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('影片查询失败后可重试相同筛选', (tester) async {
+  testWidgets('默认影片查询失败后可重试相同筛选', (tester) async {
     final backend = FollowingTestBackend();
     var failed = true;
     backend.respond = (request) => request.path == '/subs/tags' && failed
         ? {'success': false, 'error': '查询失败'}
         : null;
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
-    await tester.tap(find.byTooltip('筛选'));
-    await pumpFollowingFrames(tester);
-    await tester.tap(find.text('无码'));
-    await pumpFollowingFrames(tester);
-    Navigator.of(tester.element(find.text('资源条件'))).pop();
-    await pumpFollowingFrames(tester);
     expect(find.text('查询失败'), findsOneWidget);
     failed = false;
     await tester.tap(find.text('重试'));
@@ -225,7 +227,7 @@ void main() {
       backend
           .to('/subs/tags')
           .map((request) => request.queryParameters['filter_by']),
-      ['1:t:m::::', '1:t:m::::'],
+      ['0:t:m::::', '0:t:m::::'],
     );
   });
 
@@ -307,6 +309,28 @@ void main() {
     expect(backend.subscribed, isFalse);
     expect(find.byTooltip('添加订阅'), findsOneWidget);
     expect(subscriptionReloads, greaterThan(beforeDelete));
+  });
+
+  testWidgets('确认在线查询能力后自动加载，未启用数据库也能浏览', (tester) async {
+    final backend = FollowingTestBackend()..database = false;
+    final health = Completer<Object?>();
+    backend.respond = (request) =>
+        request.path == '/health' ? health.future : null;
+    await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
+    expect(backend.to('/subs/tags'), isEmpty);
+    expect(find.byType(DbOnlineMovieCard), findsNothing);
+
+    health.complete(backend.response(backend.to('/health').single));
+    await pumpFollowingFrames(tester);
+    expect(
+      backend.to('/subs/tags').single.queryParameters['filter_by'],
+      '0:t:m::::',
+    );
+    expect(find.byType(DbOnlineMovieCard), findsOneWidget);
+    expect(find.byTooltip('添加预设'), findsNothing);
+    expect(backend.to('/following/presets'), isEmpty);
+    expect(backend.to('/options/categories'), isEmpty);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('无数据库和在线查询时隐藏数据库操作并停止影片查询', (tester) async {

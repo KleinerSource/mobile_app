@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -11,6 +12,47 @@ import 'package:omm/features/db_online/widgets/db_online_resource_sheets.dart';
 import '../support/following_test_support.dart';
 
 void main() {
+  testWidgets('关注用户影片长标题在窄屏换行，第三行省略且没有布局溢出', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(375, 812);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final title = List.filled(8, '关注用户发布的影片标题需要自然换行显示').join();
+    final backend = FollowingTestBackend();
+    backend.respond = (request) => request.path == '/users/one/resources'
+        ? {
+            'success': true,
+            'data': {
+              'items': [followingReview(1, title)],
+              'page': 1,
+              'has_next': false,
+            },
+          }
+        : null;
+    await pumpFollowingTest(
+      tester,
+      backend,
+      const DbOnlineReviewResourcesPage(serverId: 'a', userId: 'one'),
+    );
+    for (final width in [375.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 812);
+      await pumpFollowingFrames(tester);
+      final displayTitle = '[ABC-001] $title';
+      final finder = find.text(displayTitle);
+      final paragraph = tester.renderObject<RenderParagraph>(finder);
+      final lines = paragraph
+          .getBoxesForSelection(
+            TextSelection(baseOffset: 0, extentOffset: displayTitle.length),
+          )
+          .map((box) => box.top)
+          .toSet();
+      expect(lines, hasLength(3));
+      expect(paragraph.didExceedMaxLines, isTrue);
+      expect(tester.widget<Text>(finder).overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('资源先显示，再按评论补全去重，共用下载记录、复制和下载器选择', (tester) async {
     final metadata = Completer<Object?>();
     final backend = FollowingTestBackend();

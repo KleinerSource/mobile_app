@@ -746,6 +746,7 @@ class CatalogListMovieCard extends ConsumerWidget {
     this.privacyId,
     this.imageHeaders,
     this.additional,
+    this.titleMaxLines = 1,
   });
 
   final String title;
@@ -757,6 +758,7 @@ class CatalogListMovieCard extends ConsumerWidget {
   final Object? privacyId;
   final Map<String, String>? imageHeaders;
   final Widget? additional;
+  final int titleMaxLines;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -770,11 +772,15 @@ class CatalogListMovieCard extends ConsumerWidget {
         ? '[${displayCode!}] $displayTitle'
         : displayTitle;
 
-    Widget text({required String value, required TextStyle style}) {
+    Widget text({
+      required String value,
+      required TextStyle style,
+      int maxLines = 1,
+    }) {
       if (privacyId == null) {
         return Text(
           value,
-          maxLines: 1,
+          maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
           style: style,
         );
@@ -782,7 +788,7 @@ class CatalogListMovieCard extends ConsumerWidget {
       return PrivacyText(
         movieId: privacyId!,
         text: value,
-        maxLines: 1,
+        maxLines: maxLines,
         overflow: TextOverflow.ellipsis,
         style: style,
       );
@@ -809,6 +815,7 @@ class CatalogListMovieCard extends ConsumerWidget {
             ),
       title: text(
         value: displayText,
+        maxLines: titleMaxLines,
         style: TextStyle(
           color: colors.text,
           fontFamily: 'Inter',

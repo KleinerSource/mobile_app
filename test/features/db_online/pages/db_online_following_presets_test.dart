@@ -29,7 +29,7 @@ void main() {
           },
       ]);
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
-    expect(backend.to('/subs/tags'), isEmpty);
+    expect(backend.to('/subs/tags'), hasLength(1));
     expect(find.byType(DbOnlineFollowingPresetsSheet), findsNothing);
     final buttons = tester
         .widgetList<CompactFilterButton>(find.byType(CompactFilterButton))
@@ -137,11 +137,15 @@ void main() {
         expect(find.byType(DbOnlineFollowingPresetsSheet), findsNothing);
       }
       expect(
-        backend.requests.where((request) => request.method != 'GET'),
+        backend.requests.where(
+          (request) =>
+              request.path.startsWith('/following/presets') &&
+              request.method != 'GET',
+        ),
         isEmpty,
       );
       expect(backend.presets.single['name'], '原预设');
-      expect(backend.to('/subs/tags'), isEmpty);
+      expect(backend.to('/subs/tags'), hasLength(1));
       expect(tester.takeException(), isNull);
     }
   });
