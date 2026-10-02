@@ -39,7 +39,7 @@ const _viewModeKey = 'media_browser.favorites.view_mode.v1';
 
 /// MediaBrowser 收藏夹 · You Tab（与 OMM FavoritesPage 同构）。
 ///
-/// - 顶部: 品牌 + 标题 + 设置入口
+/// - 顶部: 收藏夹 + 条目数量 + 设置入口
 /// - 筛选行: 类型 chips + 排序 + Grid/List 切换
 /// - 收藏网格/列表（分页 + 长按拖选多选 + 批量移除 + 列表左滑移除 + 下拉刷新）
 ///
@@ -452,7 +452,7 @@ class _MediaBrowserFavoritesPageState
               children: [
                 Column(
                   children: [
-                    // ===== 固定 header：品牌 + 标题 + 设置入口 =====
+                    // ===== 固定 header：收藏夹 + 条目数量 + 设置入口 =====
                     Padding(
                       padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
                       child: Row(
@@ -462,16 +462,15 @@ class _MediaBrowserFavoritesPageState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  ref
-                                          .watch(mediaBrowserConfigProvider)
-                                          ?.brandLabel ??
-                                      '',
+                                  l.favoritesTitle,
                                   style: AppText.eyebrow(context),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  AppL10n.of(context).favoritesTitle,
+                                  l.mediaBrowserItemCount(_totalCount),
                                   style: AppText.pageTitle(context),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -505,36 +504,6 @@ class _MediaBrowserFavoritesPageState
                               controller: _scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
                               slivers: [
-                                // ===== 全部收藏 + 计数 =====
-                                SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      22,
-                                      0,
-                                      22,
-                                      14,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          l.allFavorites,
-                                          style: AppText.eyebrow(context),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          _totalCount > 0
-                                              ? l.mediaBrowserItemCount(
-                                                  _totalCount,
-                                                )
-                                              : l.mediaBrowserNoFavorites,
-                                          style: AppText.sectionTitle(context),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
                                 // ===== 筛选行：类型 chips + 排序 + 视图切换 =====
                                 SliverToBoxAdapter(
                                   child: Padding(

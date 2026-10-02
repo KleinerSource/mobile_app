@@ -91,7 +91,11 @@ MediaBrowserItemPage _page(List<MediaBrowserItem> items) {
   );
 }
 
-Future<void> _pumpFavorites(WidgetTester tester, _RecordingRepo repo) async {
+Future<void> _pumpFavorites(
+  WidgetTester tester,
+  _RecordingRepo repo, {
+  MediaBrowserConfig config = MediaBrowserConfig.emby,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
 
@@ -103,10 +107,10 @@ Future<void> _pumpFavorites(WidgetTester tester, _RecordingRepo repo) async {
     ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
-        mediaBrowserConfigProvider.overrideWithValue(MediaBrowserConfig.emby),
+        mediaBrowserConfigProvider.overrideWithValue(config),
         mediaBrowserServerUrlsProvider.overrideWith(
           (ref) async => MediaBrowserServerUrls(
-            config: MediaBrowserConfig.emby,
+            config: config,
             baseUrl: 'http://mb.test',
             token: 't',
           ),
@@ -136,25 +140,49 @@ Future<void> _longPress(WidgetTester tester, Finder target) async {
 }
 
 void main() {
-  testWidgets('加载收藏列表：请求带 IsFavorite 过滤，展示条目与计数', (tester) async {
-    final repo = _RecordingRepo(
-      page: _page([_item('a', '收藏条目 A'), _item('b', '收藏条目 B')]),
-    );
-    await _pumpFavorites(tester, repo);
+  testWidgets('三类媒体源收藏夹显示小字名称与大字数量，请求保留 IsFavorite 过滤', (tester) async {
+    for (final config in [
+      MediaBrowserConfig.emby,
+      MediaBrowserConfig.jellyfin,
+      MediaBrowserConfig.feiniu,
+    ]) {
+      final repo = _RecordingRepo(
+        page: _page([_item('a', '收藏条目 A'), _item('b', '收藏条目 B')]),
+      );
+      await _pumpFavorites(tester, repo, config: config);
 
-    expect(find.text('收藏条目 A'), findsWidgets);
-    expect(find.text('收藏条目 B'), findsWidgets);
-    expect(find.text('2 个条目'), findsOneWidget);
+      expect(find.text('收藏条目 A'), findsWidgets);
+      expect(find.text('收藏条目 B'), findsWidgets);
+      final name = find.text('收藏夹');
+      final count = find.text('2 个条目');
+      expect(name, findsOneWidget);
+      expect(count, findsOneWidget);
+      expect(
+        tester.widget<Text>(name).style!.fontSize,
+        lessThan(tester.widget<Text>(count).style!.fontSize!),
+      );
+      expect(tester.getTopLeft(name).dx, tester.getTopLeft(count).dx);
+      expect(
+        tester.getBottomRight(name).dy,
+        lessThan(tester.getTopLeft(count).dy),
+      );
+      expect(find.text(config.brandLabel), findsNothing);
+      expect(find.text('全部收藏'), findsNothing);
+      expect(find.text('暂无收藏内容'), findsNothing);
+      expect(find.byTooltip('返回'), findsNothing);
 
-    expect(repo.pageRequests, hasLength(1));
-    expect(repo.pageRequests.single['isFavorite'], isTrue);
-    expect(repo.pageRequests.single['recursive'], isTrue);
-    expect(repo.pageRequests.single['sortBy'], 'DateCreated');
-    expect(repo.pageRequests.single['sortOrder'], 'desc');
-    expect(
-      repo.pageRequests.single['includeItemTypes'],
-      'Movie,Series,Episode,MusicAlbum,Audio',
-    );
+      expect(repo.pageRequests, hasLength(1));
+      expect(repo.pageRequests.single['isFavorite'], isTrue);
+      expect(repo.pageRequests.single['recursive'], isTrue);
+      expect(repo.pageRequests.single['sortBy'], 'DateCreated');
+      expect(repo.pageRequests.single['sortOrder'], 'desc');
+      expect(
+        repo.pageRequests.single['includeItemTypes'],
+        'Movie,Series,Episode,MusicAlbum,Audio',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('类型 chip 切换后按新类型重新请求', (tester) async {
@@ -168,12 +196,23 @@ void main() {
     expect(repo.pageRequests.last['includeItemTypes'], 'Movie');
   });
 
-  testWidgets('空收藏显示空态引导', (tester) async {
-    final repo = _RecordingRepo(page: _page(const []));
-    await _pumpFavorites(tester, repo);
+  testWidgets('三类媒体源空收藏显示 0 个条目并保留正文空态引导', (tester) async {
+    for (final config in [
+      MediaBrowserConfig.emby,
+      MediaBrowserConfig.jellyfin,
+      MediaBrowserConfig.feiniu,
+    ]) {
+      final repo = _RecordingRepo(page: _page(const []));
+      await _pumpFavorites(tester, repo, config: config);
 
-    expect(find.text('在详情页点击 ♡ 加入收藏'), findsOneWidget);
-    expect(find.text('暂无收藏'), findsOneWidget);
+      expect(find.text('收藏夹'), findsOneWidget);
+      expect(find.text('0 个条目'), findsOneWidget);
+      expect(find.text('全部收藏'), findsNothing);
+      expect(find.text('暂无收藏内容'), findsNothing);
+      expect(find.text('在详情页点击 ♡ 加入收藏'), findsOneWidget);
+      expect(find.text('暂无收藏'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('长按进入多选，批量移除调用 markFavorite 并乐观更新', (tester) async {
