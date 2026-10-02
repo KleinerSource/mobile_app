@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -315,7 +316,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
     final disabled =
         _pushing != null || _downloadersLoading || _downloaders.isEmpty;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: MediaListLayout.mainAxisSpacing),
       child: GlassPanel(
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -327,7 +328,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
                 config: ref.watch(mediaRuntimeConfigProvider),
                 compact: true,
                 showRating: false,
-                width: MediaQuery.sizeOf(context).width - 64,
+                width: double.infinity,
                 onTap: () => openDbOnlineMovieUnawaited(context, item.movie),
               ),
               Padding(
@@ -438,7 +439,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
               child: ListView.builder(
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
+                padding: MediaListLayout.padding.copyWith(top: 8, bottom: 32),
                 itemCount: _items.length + 1,
                 itemBuilder: (context, index) {
                   if (index < _items.length) return _item(_items[index]);

@@ -15,11 +15,11 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -304,46 +304,29 @@ class _MediaBrowserCollectionDetailPageState
   ) {
     return urls.maybeWhen(
       data: (value) {
-        final width = MediaQuery.sizeOf(context).width;
-        final crossAxisCount = width >= 1100
-            ? 6
-            : width >= 820
-            ? 5
-            : width >= 600
-            ? 4
-            : 3;
-        const horizontalPadding = 44.0;
-        const spacing = 10.0;
-        final itemWidth =
-            ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
-            crossAxisCount;
         final delegate = PagedChildBuilderDelegate<MediaBrowserItem>(
           itemBuilder: (context, item, index) {
             if (_viewMode == MediaViewMode.landscape) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
+              return MediaLandscapeListItem(
                 child: MediaBrowserLandscapeCard(
                   item: item,
                   urls: value,
-                  width: width - horizontalPadding,
+                  width: double.infinity,
                   onTap: () => unawaited(_openItem(item)),
                 ),
               );
             }
             if (_viewMode == MediaViewMode.list) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: MediaBrowserListRow(
-                  item: item,
-                  urls: value,
-                  onTap: () => unawaited(_openItem(item)),
-                ),
+              return MediaBrowserListRow(
+                item: item,
+                urls: value,
+                onTap: () => unawaited(_openItem(item)),
               );
             }
             return MediaBrowserItemCard(
               item: item,
               urls: value,
-              width: itemWidth,
+              width: double.infinity,
               onTap: () => unawaited(_openItem(item)),
             );
           },
@@ -374,22 +357,17 @@ class _MediaBrowserCollectionDetailPageState
         );
         if (_viewMode == MediaViewMode.portrait) {
           return SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
+            padding: MediaListLayout.padding,
             sliver: PagedSliverGrid<int, MediaBrowserItem>(
               pagingController: _controller,
               showNoMoreItemsIndicatorAsGridChild: false,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: spacing,
-              ),
+              gridDelegate: const MediaGridDelegate(),
               builderDelegate: delegate,
             ),
           );
         }
         return SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 22),
+          padding: MediaListLayout.padding,
           sliver: PagedSliverList<int, MediaBrowserItem>(
             pagingController: _controller,
             builderDelegate: delegate,

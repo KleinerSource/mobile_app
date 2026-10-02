@@ -57,6 +57,7 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
   bool _previewing = false;
   bool _previewLoading = false;
   int _previewGeneration = 0;
+  double _layoutWidth = 0;
   late final PreviewScrubController _scrubController = PreviewScrubController(
     ensurePreview: () => _startPreview(autoplay: false, manual: true),
     isReady: _isPreviewReady,
@@ -217,7 +218,7 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
     if (player == null) return;
     final target = previewSeekPositionForLocalOffset(
       localPosition: localPosition,
-      width: widget.width,
+      width: _layoutWidth,
       duration: player.duration.value,
     );
     if (target == null) return;
@@ -265,36 +266,41 @@ class _StashSceneCardState extends ConsumerState<StashSceneCard> {
     final l = AppL10n.of(context);
     final hasPreviewVideo =
         widget.urls.preview(widget.item.previewPath)?.trim().isNotEmpty == true;
-    return LandscapeMediaCard(
-      width: widget.width,
-      cover: PrivacyMask(
-        movieId: widget.item.id,
-        radius: 0,
-        child: previewReady
-            ? previewPlayer.buildVideo()
-            : _CoverImage(url: imageUrl, headers: widget.urls.imageHeaders),
-      ),
-      coverOverlay: PreviewGestureSurface(
-        onTap: _onTap,
-        loading: _previewLoading,
-        showHint: previewReady,
-        showAvailabilityBadge: hasPreviewVideo && !_previewing,
-        availabilityLabel: l.previewVideoAsset,
-        bottomOverlay: _ProgressBar(
-          value: _itemProgress(widget.item),
-          color: colors.accent,
-        ),
-        onHorizontalDragStart: _onHorizontalDragStart,
-        onHorizontalDragUpdate: _onHorizontalDragUpdate,
-        onHorizontalDragEnd: _onHorizontalDragEnd,
-        onHorizontalDragCancel: _onHorizontalDragCancel,
-        child: const SizedBox.expand(),
-      ),
-      info: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _onTap,
-        child: StashSceneInfo(item: widget.item, landscape: true),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _layoutWidth = constraints.constrainWidth(widget.width);
+        return LandscapeMediaCard(
+          width: _layoutWidth,
+          cover: PrivacyMask(
+            movieId: widget.item.id,
+            radius: 0,
+            child: previewReady
+                ? previewPlayer.buildVideo()
+                : _CoverImage(url: imageUrl, headers: widget.urls.imageHeaders),
+          ),
+          coverOverlay: PreviewGestureSurface(
+            onTap: _onTap,
+            loading: _previewLoading,
+            showHint: previewReady,
+            showAvailabilityBadge: hasPreviewVideo && !_previewing,
+            availabilityLabel: l.previewVideoAsset,
+            bottomOverlay: _ProgressBar(
+              value: _itemProgress(widget.item),
+              color: colors.accent,
+            ),
+            onHorizontalDragStart: _onHorizontalDragStart,
+            onHorizontalDragUpdate: _onHorizontalDragUpdate,
+            onHorizontalDragEnd: _onHorizontalDragEnd,
+            onHorizontalDragCancel: _onHorizontalDragCancel,
+            child: const SizedBox.expand(),
+          ),
+          info: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onTap,
+            child: StashSceneInfo(item: widget.item, landscape: true),
+          ),
+        );
+      },
     );
   }
 }

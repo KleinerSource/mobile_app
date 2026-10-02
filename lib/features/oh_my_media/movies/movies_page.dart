@@ -11,6 +11,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -155,10 +156,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     if (_viewMode != MediaViewMode.landscape || _selectionMode) return null;
     final items = _controller.itemList ?? const <MovieListItem>[];
     if (items.isEmpty) return null;
-    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
-      1.0,
-      double.infinity,
-    );
+    final width = MediaListLayout.contentWidth(
+      context,
+    ).clamp(1.0, double.infinity);
     final coverHeight = width * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _previewItemKeys[item.id]),
@@ -172,7 +172,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
               ? _scrollController.offset
               : 0,
           cardHeight: coverHeight,
-          itemGap: 14,
+          itemGap: MediaListLayout.mainAxisSpacing,
           itemCount: items.length,
         );
     return index == null ? null : items[index].id;
@@ -344,8 +344,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final w = MediaQuery.of(context).size.width;
-    final crossAxisCount = w > 600 ? 4 : 3;
 
     return DefaultTextStyle.merge(
       // 影片库会被底部导航和首页路由复用,不要继承入口按钮的文字装饰。
@@ -510,26 +508,16 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                               physics: const AlwaysScrollableScrollPhysics(),
                               slivers: [
                                 SliverPadding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
+                                  padding: MediaListLayout.padding,
                                   sliver: _viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,
                                           showNoMoreItemsIndicatorAsGridChild:
                                               false,
                                           gridDelegate:
-                                              SliverGridDelegateWithFixedCrossAxisCount(
-                                                crossAxisCount: crossAxisCount,
-                                                childAspectRatio:
-                                                    MediaCardTemplate
-                                                        .gridChildAspectRatio,
-                                                mainAxisSpacing: 14,
-                                                crossAxisSpacing: 10,
-                                              ),
+                                              const MediaGridDelegate(),
                                           builderDelegate: _buildDelegate(
                                             urlBuilder,
-                                            crossAxisCount: crossAxisCount,
                                           ),
                                         )
                                       : _viewMode == MediaViewMode.landscape
@@ -537,7 +525,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                           pagingController: _controller,
                                           builderDelegate: _buildDelegate(
                                             urlBuilder,
-                                            crossAxisCount: crossAxisCount,
                                             landscape: true,
                                           ),
                                         )
@@ -617,7 +604,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   PagedChildBuilderDelegate<MovieListItem> _buildDelegate(
     String Function(String) urlBuilder, {
-    required int crossAxisCount,
     bool landscape = false,
   }) {
     final l = AppL10n.of(context);
@@ -653,9 +639,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                   ),
           ),
         );
-        return landscape
-            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
-            : card;
+        return landscape ? MediaLandscapeListItem(child: card) : card;
       },
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error == null
@@ -1255,9 +1239,6 @@ class _ListRow extends ConsumerWidget {
     ].join(' · ');
 
     final row = MediaListRow(
-      thumbnailWidth: 56,
-      thumbnailHeight: 84,
-      thumbnailTextGap: 14,
       thumbnail: PrivacyMask(
         movieId: movie.id,
         radius: 8,
@@ -1277,7 +1258,6 @@ class _ListRow extends ConsumerWidget {
               size: 22,
             )
           : null,
-      leadingGap: 10,
       title: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

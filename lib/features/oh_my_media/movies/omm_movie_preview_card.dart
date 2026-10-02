@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
@@ -313,7 +315,7 @@ class _OmmMoviePreviewCardState extends ConsumerState<OmmMoviePreviewCard> {
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width - 44;
+            : MediaListLayout.contentWidth(context);
         _lastCoverWidth = (width - 2).clamp(1.0, double.infinity).toDouble();
         final allowPreviewGesture = !widget.selecting;
         return Stack(

@@ -17,6 +17,7 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
@@ -25,7 +26,6 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -407,7 +407,10 @@ class _MediaBrowserSearchResultsState
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted) return;
-      _pagingController.error = localizedErrorMessage(AppL10n.of(context), error);
+      _pagingController.error = localizedErrorMessage(
+        AppL10n.of(context),
+        error,
+      );
     } finally {
       pageRequest.finish();
     }
@@ -428,10 +431,9 @@ class _MediaBrowserSearchResultsState
     if (!_isStash) return null;
     final items = _pagingController.itemList ?? const <MediaBrowserItem>[];
     if (items.isEmpty) return null;
-    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
-      1.0,
-      double.infinity,
-    );
+    final width = MediaListLayout.contentWidth(
+      context,
+    ).clamp(1.0, double.infinity);
     final coverHeight = width * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _itemKeys[item.id]),
@@ -445,7 +447,7 @@ class _MediaBrowserSearchResultsState
               ? _scrollController.offset
               : 0,
           cardHeight: coverHeight,
-          itemGap: 14,
+          itemGap: MediaListLayout.mainAxisSpacing,
           itemCount: items.length,
           leadingPadding: 4,
         );
@@ -458,8 +460,6 @@ class _MediaBrowserSearchResultsState
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final isStash =
         ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
-    final width = MediaQuery.sizeOf(context).width;
-    final itemWidth = (width - 44 - 20) / 3;
     final isPortrait = widget.viewMode == MediaViewMode.portrait;
     final isLandscape = widget.viewMode == MediaViewMode.landscape;
     final content = PagedSelectionPopScope<MediaBrowserItem>(
@@ -469,7 +469,7 @@ class _MediaBrowserSearchResultsState
           PagedSelectionScope<MediaBrowserItem>(
             selection: _selection,
             scrollController: _scrollController,
-            layout: isStash
+            layout: isStash || !isPortrait
                 ? DragSelectionLayout.list
                 : DragSelectionLayout.grid,
             child: CustomScrollView(
@@ -478,14 +478,16 @@ class _MediaBrowserSearchResultsState
               primary: false,
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+                  padding: MediaListLayout.padding.copyWith(
+                    top: 4,
+                    bottom: 120,
+                  ),
                   sliver: urls.maybeWhen(
                     data: (value) {
                       final delegate =
                           PagedChildBuilderDelegate<MediaBrowserItem>(
                             itemBuilder: (context, item, index) => isStash
-                                ? Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
+                                ? MediaLandscapeListItem(
                                     child: StashSceneCard(
                                       key: _itemKeys.putIfAbsent(
                                         item.id,
@@ -493,7 +495,7 @@ class _MediaBrowserSearchResultsState
                                       ),
                                       item: item,
                                       urls: value,
-                                      width: width - 44,
+                                      width: double.infinity,
                                       autoPlayPreview:
                                           item.id == _autoPreviewId,
                                       onTap: () => unawaited(_openItem(item)),
@@ -504,7 +506,7 @@ class _MediaBrowserSearchResultsState
                                     selection: _selection,
                                     item: item,
                                     urls: value,
-                                    width: width - 44,
+                                    width: double.infinity,
                                     showFavoriteBadge: true,
                                     onOpen: _openItem,
                                   )
@@ -519,7 +521,7 @@ class _MediaBrowserSearchResultsState
                                     selection: _selection,
                                     item: item,
                                     urls: value,
-                                    width: itemWidth,
+                                    width: double.infinity,
                                     index: index,
                                     showFavoriteBadge: !isStash,
                                     selectionEnabled: !isStash,
@@ -561,14 +563,7 @@ class _MediaBrowserSearchResultsState
                       return PagedSliverGrid<int, MediaBrowserItem>(
                         pagingController: _pagingController,
                         showNoMoreItemsIndicatorAsGridChild: false,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              childAspectRatio:
-                                  MediaCardTemplate.gridChildAspectRatio,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 14,
-                            ),
+                        gridDelegate: const MediaGridDelegate(),
                         builderDelegate: delegate,
                       );
                     },

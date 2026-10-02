@@ -9,6 +9,7 @@ import 'package:omm/features/media_browser/widgets/media_browser_selectable_item
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/paged_selection.dart';
+import 'package:omm/shared/media_list_layout.dart';
 
 /// MediaBrowser 条目的拖选控制器（选择键 = 条目 id）。
 PagedSelectionController<MediaBrowserItem> createMediaBrowserItemSelection() {
@@ -76,8 +77,7 @@ Widget mediaBrowserSelectableLandscapeItem({
   required Future<void> Function(MediaBrowserItem item) onOpen,
 }) {
   if (!selectionEnabled) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    return MediaLandscapeListItem(
       child: MediaBrowserSelectableItemCard(
         item: item,
         urls: urls,
@@ -90,8 +90,7 @@ Widget mediaBrowserSelectableLandscapeItem({
       ),
     );
   }
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 14),
+  return MediaLandscapeListItem(
     child: PagedSelectionItem<MediaBrowserItem>(
       selection: selection,
       item: item,

@@ -9,6 +9,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/localized_error_message.dart';
@@ -175,16 +176,11 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 80),
+              padding: MediaListLayout.padding.copyWith(top: 18, bottom: 80),
               sliver: PagedSliverGrid<int, MovieListItem>(
                 pagingController: _controller,
                 showNoMoreItemsIndicatorAsGridChild: false,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 14,
-                ),
+                gridDelegate: const MediaGridDelegate(),
                 builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                   itemBuilder: (ctx, m, idx) => MovieCard(
                     movie: m,

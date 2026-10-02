@@ -11,6 +11,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -170,10 +171,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     if (_viewMode != MediaViewMode.landscape || _selecting) return null;
     final items = _controller.itemList ?? const <MovieListItem>[];
     if (items.isEmpty) return null;
-    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
-      1.0,
-      double.infinity,
-    );
+    final width = MediaListLayout.contentWidth(
+      context,
+    ).clamp(1.0, double.infinity);
     final coverHeight = width * 9 / 16;
     final index = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _previewItemKeys[item.id]),
@@ -750,23 +750,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
                                 // ===== 收藏网格 / 列表 =====
                                 SliverPadding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
+                                  padding: MediaListLayout.padding,
                                   sliver: _viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,
                                           showNoMoreItemsIndicatorAsGridChild:
                                               false,
                                           gridDelegate:
-                                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                                crossAxisCount: 3,
-                                                childAspectRatio:
-                                                    MediaCardTemplate
-                                                        .gridChildAspectRatio,
-                                                crossAxisSpacing: 10,
-                                                mainAxisSpacing: 14,
-                                              ),
+                                              const MediaGridDelegate(),
                                           builderDelegate: _buildGridDelegate(
                                             urlBuilder,
                                           ),
@@ -876,9 +867,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   ),
           ),
         );
-        return landscape
-            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
-            : card;
+        return landscape ? MediaLandscapeListItem(child: card) : card;
       },
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),

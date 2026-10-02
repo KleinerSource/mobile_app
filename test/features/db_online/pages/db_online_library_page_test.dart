@@ -7,9 +7,12 @@ import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/pages/db_online_library_page.dart';
+import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_row.dart';
+import 'package:omm/shared/poster.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
@@ -171,5 +174,23 @@ void main() {
     expect(requests.last['sort'], 'created');
     expect(requests.last['order'], 'asc');
     expect(requestPaths, everyElement('/videos'));
+
+    for (final icon in [
+      Icons.crop_landscape_rounded,
+      Icons.view_list_rounded,
+    ]) {
+      await tester.tap(find.byIcon(icon));
+      await tester.pumpAndSettle();
+      final card = tester.getRect(find.byType(DbOnlineMovieCard));
+      final page = tester.getRect(find.byType(DbOnlineLibraryPage));
+      expect(card.left - page.left, 22);
+      expect(page.right - card.right, 22);
+      if (icon == Icons.view_list_rounded) {
+        expect(find.byType(MediaListRow), findsOneWidget);
+        final thumbnail = tester.getSize(find.byType(Poster));
+        expect(thumbnail, const Size(52, 78));
+      }
+      expect(tester.takeException(), isNull);
+    }
   });
 }

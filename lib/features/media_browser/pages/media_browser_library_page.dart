@@ -21,6 +21,7 @@ import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/oh_my_media/movie_detail/entity_picker_sheet.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
@@ -28,7 +29,6 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -363,10 +363,9 @@ class _MediaBrowserLibraryPageState
     if (!_isStash) return null;
     final items = _controller.itemList ?? const <MediaBrowserItem>[];
     if (items.isEmpty) return null;
-    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
-      1.0,
-      double.infinity,
-    );
+    final width = MediaListLayout.contentWidth(
+      context,
+    ).clamp(1.0, double.infinity);
     final coverHeight = width * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _itemKeys[item.id]),
@@ -380,7 +379,7 @@ class _MediaBrowserLibraryPageState
               ? _scrollController.offset
               : 0,
           cardHeight: coverHeight,
-          itemGap: 14,
+          itemGap: MediaListLayout.mainAxisSpacing,
           itemCount: items.length,
         );
     return index == null ? null : items[index].id;
@@ -642,23 +641,6 @@ class _MediaBrowserLibraryPageState
     final views = ref.watch(mediaBrowserViewsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     views.maybeWhen(data: _syncCollectionType, orElse: () {});
-    final width = MediaQuery.sizeOf(context).width;
-    final crossAxisCount = width >= 1100
-        ? 6
-        : width >= 820
-        ? 5
-        : width >= 600
-        ? 4
-        : 3;
-    const horizontalPadding = 44.0;
-    const spacing = 10.0;
-    final itemWidth =
-        ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
-        crossAxisCount;
-    // 影视海报 2:3 + 双行文字；音乐方形封面按实际卡片高度反推比例。
-    final cardAspectRatio = _isMusicGrid
-        ? itemWidth / (itemWidth + 62)
-        : MediaCardTemplate.gridChildAspectRatio;
     final isPortrait = _viewMode == MediaViewMode.portrait;
     final isLandscape = _viewMode == MediaViewMode.landscape;
 
@@ -822,19 +804,13 @@ class _MediaBrowserLibraryPageState
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 slivers: [
                                   SliverPadding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 22,
-                                    ),
+                                    padding: MediaListLayout.padding,
                                     sliver: urls.maybeWhen(
                                       data: (value) {
                                         final delegate = PagedChildBuilderDelegate<MediaBrowserItem>(
                                           itemBuilder: (context, item, index) =>
                                               isStash
-                                              ? Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        bottom: 14,
-                                                      ),
+                                              ? MediaLandscapeListItem(
                                                   child: StashSceneCard(
                                                     key: _itemKeys.putIfAbsent(
                                                       item.id,
@@ -842,7 +818,7 @@ class _MediaBrowserLibraryPageState
                                                     ),
                                                     item: item,
                                                     urls: value,
-                                                    width: width - 44,
+                                                    width: double.infinity,
                                                     autoPlayPreview:
                                                         item.id ==
                                                         _autoPreviewId,
@@ -856,7 +832,7 @@ class _MediaBrowserLibraryPageState
                                                   selection: _selection,
                                                   item: item,
                                                   urls: value,
-                                                  width: width - 44,
+                                                  width: double.infinity,
                                                   showFavoriteBadge: true,
                                                   selectionEnabled: true,
                                                   onOpen: _openItem,
@@ -872,7 +848,7 @@ class _MediaBrowserLibraryPageState
                                                   selection: _selection,
                                                   item: item,
                                                   urls: value,
-                                                  width: itemWidth,
+                                                  width: double.infinity,
                                                   index: index,
                                                   square: _isMusicGrid,
                                                   showFavoriteBadge: true,
@@ -956,14 +932,9 @@ class _MediaBrowserLibraryPageState
                                           // 否则「没有更多内容」会被塞进单个网格单元。
                                           showNoMoreItemsIndicatorAsGridChild:
                                               false,
-                                          gridDelegate:
-                                              SliverGridDelegateWithFixedCrossAxisCount(
-                                                crossAxisCount: crossAxisCount,
-                                                childAspectRatio:
-                                                    cardAspectRatio,
-                                                mainAxisSpacing: 14,
-                                                crossAxisSpacing: spacing,
-                                              ),
+                                          gridDelegate: MediaGridDelegate(
+                                            square: _isMusicGrid,
+                                          ),
                                           builderDelegate: delegate,
                                         );
                                       },

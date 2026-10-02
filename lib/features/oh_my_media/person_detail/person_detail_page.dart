@@ -15,6 +15,7 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/actor_detail_header.dart';
 import 'package:omm/shared/empty_view.dart';
@@ -341,18 +342,11 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                  padding: MediaListLayout.padding.copyWith(top: 0, bottom: 80),
                   sliver: PagedSliverGrid<int, MovieListItem>(
                     pagingController: _controller,
                     showNoMoreItemsIndicatorAsGridChild: false,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio:
-                              MediaCardTemplate.gridChildAspectRatio,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 14,
-                        ),
+                    gridDelegate: const MediaGridDelegate(),
                     builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                       itemBuilder: (ctx, movie, _) => MovieCard(
                         movie: movie,

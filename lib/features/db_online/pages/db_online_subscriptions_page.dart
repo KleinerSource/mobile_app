@@ -23,6 +23,7 @@ import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/drag_selection.dart';
@@ -248,9 +249,13 @@ class _DbOnlineSubscriptionsPageState
                     ),
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
-                      _section == 'blacklist' ? 22 : 18,
+                      _usesMovieCards || _section == 'blacklist'
+                          ? MediaListLayout.horizontalInset
+                          : 18,
                       4,
-                      _section == 'blacklist' ? 22 : 18,
+                      _usesMovieCards || _section == 'blacklist'
+                          ? MediaListLayout.horizontalInset
+                          : 18,
                       _selectingBlacklist
                           ? 136
                           : floatingTabBarContentBottomInset(context),
@@ -259,14 +264,7 @@ class _DbOnlineSubscriptionsPageState
                         ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
                             pagingController: _pagingController,
                             showNoMoreItemsIndicatorAsGridChild: false,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 14,
-                                  childAspectRatio:
-                                      MediaCardTemplate.gridChildAspectRatio,
-                                ),
+                            gridDelegate: const MediaGridDelegate(),
                             builderDelegate: _pagingDelegate(l, serverConfig),
                           )
                         : PagedSliverList<
@@ -2486,18 +2484,14 @@ class _DbOnlineSubscriptionVideosSheetState
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverPadding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: MediaListLayout.horizontalInset - 18,
+                          vertical: 8,
+                        ),
                         sliver: PagedSliverGrid<int, DbOnlineSubscriptionItem>(
                           pagingController: _pagingController,
                           showNoMoreItemsIndicatorAsGridChild: false,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 14,
-                                childAspectRatio:
-                                    MediaCardTemplate.gridChildAspectRatio,
-                              ),
+                          gridDelegate: const MediaGridDelegate(),
                           builderDelegate:
                               PagedChildBuilderDelegate<
                                 DbOnlineSubscriptionItem

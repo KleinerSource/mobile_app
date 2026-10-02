@@ -11,11 +11,11 @@ import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
@@ -363,7 +363,10 @@ class _DbOnlineSearchResultsState
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted) return;
-      _pagingController.error = localizedErrorMessage(AppL10n.of(context), error);
+      _pagingController.error = localizedErrorMessage(
+        AppL10n.of(context),
+        error,
+      );
     } finally {
       pageRequest.finish();
     }
@@ -378,8 +381,6 @@ class _DbOnlineSearchResultsState
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(mediaRuntimeConfigProvider);
-    final width = MediaQuery.sizeOf(context).width;
-    final itemWidth = (width - 44 - 20) / 3;
     final isPortrait = widget.viewMode == MediaViewMode.portrait;
 
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
@@ -388,13 +389,13 @@ class _DbOnlineSearchResultsState
           key: ValueKey(_movieKey(movie)),
           movie: movie,
           config: config,
-          width: isPortrait ? itemWidth : width - 44,
+          width: double.infinity,
           landscape: widget.viewMode == MediaViewMode.landscape,
           compact: widget.viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
         return widget.viewMode == MediaViewMode.landscape
-            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
+            ? MediaLandscapeListItem(child: card)
             : card;
       },
       firstPageProgressIndicatorBuilder: (_) =>
@@ -417,17 +418,12 @@ class _DbOnlineSearchResultsState
       primary: false,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+          padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
           sliver: isPortrait
               ? PagedSliverGrid<int, DbOnlineMovie>(
                   pagingController: _pagingController,
                   showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 14,
-                  ),
+                  gridDelegate: const MediaGridDelegate(),
                   builderDelegate: delegate,
                 )
               : PagedSliverList<int, DbOnlineMovie>(
@@ -551,7 +547,10 @@ class _DbOnlineSeriesSearchResultsState
       }
     } catch (error) {
       if (!mounted) return;
-      _pagingController.error = localizedErrorMessage(AppL10n.of(context), error);
+      _pagingController.error = localizedErrorMessage(
+        AppL10n.of(context),
+        error,
+      );
     }
   }
 

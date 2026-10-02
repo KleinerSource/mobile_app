@@ -129,6 +129,15 @@ void main() {
       final container = await _pumpPage(tester, observer: observer);
       if (section != '订阅中') await _selectSection(tester, section);
 
+      final card = tester.getRect(find.byType(CatalogMovieCard).first);
+      final nextCard = tester.getRect(find.byType(CatalogMovieCard).last);
+      final pageWidth = tester.getSize(find.byType(Scaffold).first).width;
+      expect(card.left, 22);
+      // 默认测试视口为 800，应与影片库一样使用 4 列。
+      expect(card.width, closeTo((pageWidth - 44 - 30) / 4, 0.001));
+      expect(card.width / card.height, closeTo(0.5, 0.001));
+      expect(nextCard.left - card.right, closeTo(10, 0.001));
+
       expect(_privateText('私人影片'), findsNothing);
       expect(find.text('2026-01-01'), findsNothing);
       expect(find.byType(ImageFiltered), findsNWidgets(2));
@@ -224,6 +233,11 @@ void main() {
         skippedCount: 0,
       ),
     );
+    final card = tester.getRect(find.byType(CatalogMovieCard).first);
+    final nextCard = tester.getRect(find.byType(CatalogMovieCard).last);
+    expect(card.left, 22);
+    expect(card.width / card.height, closeTo(0.5, 0.001));
+    expect(nextCard.left - card.right, closeTo(10, 0.001));
     expect(find.text('私人演员'), findsNothing);
     expect(_privateText('私人影片'), findsNothing);
     await tester.tapAt(tester.getCenter(find.byType(SheetHeader)));

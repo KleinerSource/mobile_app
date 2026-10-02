@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/poster.dart';
+import 'package:omm/core/models/movie.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
-import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'list_labels.dart';
 import 'list_model.dart';
@@ -91,14 +92,9 @@ class ListDetailPage extends ConsumerWidget {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 80),
+                padding: MediaListLayout.padding.copyWith(top: 18, bottom: 80),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.55,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 14,
-                  ),
+                  gridDelegate: const MediaGridDelegate(),
                   delegate: SliverChildBuilderDelegate((ctx, i) {
                     final id = list.movieIds[i];
                     return _ListMovieCell(movieId: id, listId: list.id);
@@ -303,8 +299,21 @@ class _ListMovieCell extends ConsumerWidget {
           ),
         ),
       ),
-      data: (movie) => PrivacyAwareInkWell(
-        movieId: movieId,
+      data: (movie) => MovieCard(
+        movie: MovieListItem(
+          id: movie.id,
+          title: movie.title,
+          year: movie.year,
+          rating: movie.rating,
+          runtime: movie.runtime,
+          posterUuid: movie.posterUuid,
+          resolutionTier: movie.resolutionTier,
+          hasExternalSubtitle: movie.hasExternalSubtitle,
+          hasAiSubtitle: movie.hasAiSubtitle,
+          hasInternalSubtitle: movie.hasInternalSubtitle,
+          watchRecord: movie.watchRecord,
+        ),
+        posterUrlBuilder: urlBuilder,
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
         ),
@@ -313,48 +322,6 @@ class _ListMovieCell extends ConsumerWidget {
           ref,
           movieId: movie.id,
           movieTitle: movie.title,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            PrivacyMask(
-              movieId: movieId,
-              child: Poster(
-                url: movie.posterUuid != null
-                    ? urlBuilder(movie.posterUuid!)
-                    : null,
-                title: movie.title,
-                year: movie.year,
-              ),
-            ),
-            const SizedBox(height: 8),
-            PrivacyText(
-              movieId: movieId,
-              text: movie.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
-                height: 1.2,
-              ),
-            ),
-            if (movie.year != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  '${movie.year}${movie.rating != null && movie.rating! > 0 ? '  ★ ${movie.rating!.toStringAsFixed(1)}' : ''}',
-                  style: TextStyle(
-                    color: c.muted,
-                    fontFamily: 'Inter',
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-          ],
         ),
       ),
     );

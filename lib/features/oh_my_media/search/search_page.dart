@@ -15,6 +15,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
@@ -555,10 +556,9 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     if (widget.viewMode != MediaViewMode.landscape) return null;
     final items = _controller.itemList ?? const <MovieListItem>[];
     if (items.isEmpty) return null;
-    final width = (MediaQuery.sizeOf(context).width - 44).clamp(
-      1.0,
-      double.infinity,
-    );
+    final width = MediaListLayout.contentWidth(
+      context,
+    ).clamp(1.0, double.infinity);
     final coverHeight = width * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _previewItemKeys[item.id]),
@@ -572,7 +572,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               ? _scrollController.offset
               : 0,
           cardHeight: coverHeight,
-          itemGap: 14,
+          itemGap: MediaListLayout.mainAxisSpacing,
           itemCount: items.length,
           leadingPadding: 4,
         );
@@ -642,17 +642,12 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
       primary: false,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+          padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
           sliver: isPortrait
               ? PagedSliverGrid<int, MovieListItem>(
                   pagingController: _controller,
                   showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: MediaCardTemplate.gridChildAspectRatio,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 14,
-                  ),
+                  gridDelegate: const MediaGridDelegate(),
                   builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                     itemBuilder: (ctx, movie, _) => MovieCard(
                       key: ValueKey(movie.id),
@@ -683,16 +678,18 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                   pagingController: _controller,
                   builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                     itemBuilder: (ctx, movie, _) => isLandscape
-                        ? OmmMoviePreviewCard(
-                            key: _previewItemKeys.putIfAbsent(
-                              movie.id,
-                              GlobalKey.new,
+                        ? MediaLandscapeListItem(
+                            child: OmmMoviePreviewCard(
+                              key: _previewItemKeys.putIfAbsent(
+                                movie.id,
+                                GlobalKey.new,
+                              ),
+                              movie: movie,
+                              posterUrlBuilder: urlBuilder,
+                              coordinator: _previewCoordinator,
+                              autoPlayPreview: movie.id == _autoPreviewId,
+                              onTap: () => unawaited(_openMovie(movie.id)),
                             ),
-                            movie: movie,
-                            posterUrlBuilder: urlBuilder,
-                            coordinator: _previewCoordinator,
-                            autoPlayPreview: movie.id == _autoPreviewId,
-                            onTap: () => unawaited(_openMovie(movie.id)),
                           )
                         : CatalogListMovieCard(
                             key: ValueKey(movie.id),

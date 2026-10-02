@@ -19,13 +19,13 @@ import 'package:omm/features/media_browser/widgets/media_browser_selection.dart'
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/media_list_row.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -318,9 +318,7 @@ class _MediaBrowserFavoritesPageState
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).mediaBrowserRemoveFavoriteFailed(
+            AppL10n.of(context).mediaBrowserRemoveFavoriteFailed(
               localizedErrorMessage(AppL10n.of(context), error),
             ),
           ),
@@ -389,9 +387,7 @@ class _MediaBrowserFavoritesPageState
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            AppL10n.of(
-              context,
-            ).mediaBrowserBatchRemoveFailed(
+            AppL10n.of(context).mediaBrowserBatchRemoveFailed(
               localizedErrorMessage(AppL10n.of(context), error),
             ),
           ),
@@ -443,23 +439,6 @@ class _MediaBrowserFavoritesPageState
     final colors = appColors(context);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final l = AppL10n.of(context);
-    final width = MediaQuery.sizeOf(context).width;
-    final crossAxisCount = width >= 1100
-        ? 6
-        : width >= 820
-        ? 5
-        : width >= 600
-        ? 4
-        : 3;
-    const horizontalPadding = 44.0;
-    const spacing = 10.0;
-    final itemWidth =
-        ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
-        crossAxisCount;
-    // 影视海报 2:3 + 双行文字；音乐方形封面按实际卡片高度反推比例（同库页）。
-    final cardAspectRatio = _isMusicGrid
-        ? itemWidth / (itemWidth + 62)
-        : MediaCardTemplate.gridChildAspectRatio;
 
     return Scaffold(
       // 独立路由进入时页面自身就是 Material 根；底色由 GlowBackground 自绘。
@@ -604,9 +583,7 @@ class _MediaBrowserFavoritesPageState
                                 // ===== 收藏网格 / 列表 =====
                                 if (_viewMode == MediaViewMode.landscape)
                                   SliverPadding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 22,
-                                    ),
+                                    padding: MediaListLayout.padding,
                                     sliver: urls.maybeWhen(
                                       data: (value) => PagedSliverList<int, MediaBrowserItem>(
                                         pagingController: _controller,
@@ -619,7 +596,7 @@ class _MediaBrowserFavoritesPageState
                                                     selection: _selection,
                                                     item: item,
                                                     urls: value,
-                                                    width: width - 44,
+                                                    width: double.infinity,
                                                     showFavoriteBadge: false,
                                                     onOpen: _openItem,
                                                   ),
@@ -679,9 +656,7 @@ class _MediaBrowserFavoritesPageState
                                     ),
                                   ),
                                 SliverPadding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
+                                  padding: MediaListLayout.padding,
                                   sliver: urls.maybeWhen(
                                     data: (value) =>
                                         _viewMode == MediaViewMode.landscape
@@ -696,22 +671,16 @@ class _MediaBrowserFavoritesPageState
                                             pagingController: _controller,
                                             showNoMoreItemsIndicatorAsGridChild:
                                                 false,
-                                            gridDelegate:
-                                                SliverGridDelegateWithFixedCrossAxisCount(
-                                                  crossAxisCount:
-                                                      crossAxisCount,
-                                                  childAspectRatio:
-                                                      cardAspectRatio,
-                                                  mainAxisSpacing: 14,
-                                                  crossAxisSpacing: spacing,
-                                                ),
+                                            gridDelegate: MediaGridDelegate(
+                                              square: _isMusicGrid,
+                                            ),
                                             builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
                                               itemBuilder: (context, item, index) =>
                                                   mediaBrowserSelectableGridItem(
                                                     selection: _selection,
                                                     item: item,
                                                     urls: value,
-                                                    width: itemWidth,
+                                                    width: double.infinity,
                                                     index: index,
                                                     square: _isMusicGrid,
                                                     onOpen: _openItem,

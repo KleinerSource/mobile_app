@@ -17,12 +17,12 @@ import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart'
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -240,15 +240,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
               styles?.where((item) => item.id == id).firstOrNull?.name ?? id,
         )
         .join(', ');
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= 1100
-        ? 6
-        : width >= 820
-        ? 5
-        : width >= 600
-        ? 4
-        : 3;
-    final itemWidth = (width - 44 - 10 * (columns - 1)) / columns;
     return DbOnlineFollowingLayout(
       title: l.dbOnlineFollowingTitle,
       scrollController: _scroll,
@@ -379,24 +370,18 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      padding: MediaListLayout.padding,
                       sliver: PagedSliverGrid<int, DbOnlineMovie>(
                         pagingController: _paging,
                         showNoMoreItemsIndicatorAsGridChild: false,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 14,
-                          childAspectRatio:
-                              MediaCardTemplate.gridChildAspectRatio,
-                        ),
+                        gridDelegate: const MediaGridDelegate(),
                         builderDelegate:
                             PagedChildBuilderDelegate<DbOnlineMovie>(
                               itemBuilder: (context, movie, _) =>
                                   DbOnlineMovieCard(
                                     movie: movie,
                                     config: config,
-                                    width: itemWidth,
+                                    width: double.infinity,
                                     onTap: () => openDbOnlineMovieUnawaited(
                                       context,
                                       movie,

@@ -13,12 +13,12 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/empty_view.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
@@ -323,8 +323,6 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   PagedChildBuilderDelegate<DbOnlineMovie> _movieDelegate({
     required BuildContext context,
     required ServerConfig? config,
-    required double itemWidth,
-    required double landscapeWidth,
     required Color progressColor,
   }) {
     return PagedChildBuilderDelegate<DbOnlineMovie>(
@@ -333,16 +331,14 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           key: ValueKey(_movieKey(movie)),
           movie: movie,
           config: config,
-          width: _viewMode == MediaViewMode.landscape
-              ? landscapeWidth
-              : itemWidth,
+          width: double.infinity,
           landscape: _viewMode == MediaViewMode.landscape,
           compact: _viewMode == MediaViewMode.list,
           showRating: false,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
         return _viewMode == MediaViewMode.landscape
-            ? Padding(padding: const EdgeInsets.only(bottom: 14), child: card)
+            ? MediaLandscapeListItem(child: card)
             : card;
       },
       firstPageProgressIndicatorBuilder: (_) => Padding(
@@ -370,25 +366,10 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final config = ref.watch(mediaRuntimeConfigProvider);
-    final width = MediaQuery.sizeOf(context).width;
-    final crossAxisCount = width >= 1100
-        ? 6
-        : width >= 820
-        ? 5
-        : width >= 600
-        ? 4
-        : 3;
-    const horizontalPadding = 44.0;
-    const spacing = 10.0;
-    final itemWidth =
-        ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
-        crossAxisCount;
     final isPortrait = _viewMode == MediaViewMode.portrait;
     final delegate = _movieDelegate(
       context: context,
       config: config,
-      itemWidth: itemWidth,
-      landscapeWidth: width - 44,
       progressColor: colors.accent,
     );
 
@@ -445,20 +426,13 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
+                        padding: MediaListLayout.padding,
                         sliver: isPortrait
                             ? PagedSliverGrid<int, DbOnlineMovie>(
                                 pagingController: _controller,
                                 // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
                                 showNoMoreItemsIndicatorAsGridChild: false,
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: crossAxisCount,
-                                      childAspectRatio: MediaCardTemplate
-                                          .gridChildAspectRatio,
-                                      mainAxisSpacing: 14,
-                                      crossAxisSpacing: spacing,
-                                    ),
+                                gridDelegate: const MediaGridDelegate(),
                                 builderDelegate: delegate,
                               )
                             : PagedSliverList<int, DbOnlineMovie>(

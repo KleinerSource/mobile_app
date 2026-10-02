@@ -343,42 +343,47 @@ void main() {
     expect(player.disposeCount, 1);
   });
 
-  testWidgets('直接横向拖动时暂停预览，松手后继续播放', (tester) async {
-    final player = _FakePreviewPlayer();
-    await tester.pumpWidget(
-      _app(
-        child: PreviewScope(
-          child: StashSceneCard(
-            item: _item(),
-            urls: _urls(),
-            width: 356,
-            playerFactory: () => player,
-            onTap: () {},
+  for (final width in [356.0, double.infinity]) {
+    testWidgets('卡片宽度 $width 横向拖动使用实际宽度定位，松手后继续播放', (tester) async {
+      final player = _FakePreviewPlayer();
+      await tester.pumpWidget(
+        _app(
+          child: PreviewScope(
+            child: SizedBox(
+              width: 356,
+              child: StashSceneCard(
+                item: _item(),
+                urls: _urls(),
+                width: width,
+                playerFactory: () => player,
+                onTap: () {},
+              ),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    final gesture = await tester.startGesture(
-      tester.getTopLeft(find.byType(StashSceneCard)) + const Offset(22, 100),
-    );
-    await gesture.moveBy(const Offset(20, 0));
-    await tester.pump();
-    expect(player.openedUrl, 'http://stash.test:9999/previews/scene-1.mp4');
-    expect(player.openedHeaders, {'ApiKey': 'stash-key'});
-    expect(player.openedAutoplay, isFalse);
-    expect(player.pauseCount, 1);
+      final gesture = await tester.startGesture(
+        tester.getTopLeft(find.byType(StashSceneCard)) + const Offset(22, 100),
+      );
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      expect(player.openedUrl, 'http://stash.test:9999/previews/scene-1.mp4');
+      expect(player.openedHeaders, {'ApiKey': 'stash-key'});
+      expect(player.openedAutoplay, isFalse);
+      expect(player.pauseCount, 1);
 
-    await gesture.moveBy(const Offset(136, 0));
-    await tester.pump();
-    expect(player.lastSeek!.inMilliseconds, closeTo(5000, 100));
-    expect(player.pauseCount, 1);
+      await gesture.moveBy(const Offset(136, 0));
+      await tester.pump();
+      expect(player.lastSeek!.inMilliseconds, closeTo(5000, 100));
+      expect(player.pauseCount, 1);
 
-    await gesture.up();
-    await tester.pump();
-    expect(player.playCount, 1);
-    expect(player.stopCount, 0);
-    expect(player.disposeCount, 0);
-  });
+      await gesture.up();
+      await tester.pump();
+      expect(player.playCount, 1);
+      expect(player.stopCount, 0);
+      expect(player.disposeCount, 0);
+    });
+  }
 }
