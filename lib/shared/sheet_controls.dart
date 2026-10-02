@@ -279,10 +279,33 @@ class SheetDragCoordinator extends StatefulWidget {
   State<SheetDragCoordinator> createState() => _SheetDragCoordinatorState();
 }
 
+/// 阻止从局部控件开始的指针手势拖动弹层，保留控件自身的拖拽行为。
+class SheetDragBlocker extends StatelessWidget {
+  const SheetDragBlocker({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final coordinator = context
+        .findAncestorStateOfType<_SheetDragCoordinatorState>();
+    return Listener(
+      onPointerDown: (event) =>
+          coordinator?._blockedPointers.add(event.pointer),
+      onPointerUp: (event) =>
+          coordinator?._blockedPointers.remove(event.pointer),
+      onPointerCancel: (event) =>
+          coordinator?._blockedPointers.remove(event.pointer),
+      child: child,
+    );
+  }
+}
+
 class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
     with SingleTickerProviderStateMixin {
   late final AnimationController _settleController;
   final List<_SheetScrollableSnapshot> _scrollables = [];
+  final Set<int> _blockedPointers = {};
 
   int? _pointer;
   VelocityTracker? _velocityTracker;
@@ -406,7 +429,11 @@ class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
   }
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (!widget.enabled || _pointer != null) return;
+    if (!widget.enabled ||
+        _pointer != null ||
+        _blockedPointers.contains(event.pointer)) {
+      return;
+    }
 
     _settleController.stop();
     final snapshot = _snapshotForPosition(event.position);

@@ -196,7 +196,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
       context,
       filter: _filter,
     );
-    if (preset == null || !_current) return;
+    if (!mounted || preset == null || !_current) return;
     final l = AppL10n.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {

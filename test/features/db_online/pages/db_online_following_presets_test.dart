@@ -18,19 +18,27 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('关注预设'));
-    await pumpFollowingFrames(tester);
-
     for (final tooltip in ['保存当前预设', '编辑预设']) {
-      await tester.tap(find.byTooltip(tooltip));
+      if (tooltip == '编辑预设') {
+        await tester.tap(find.text('关注预设'));
+        await pumpFollowingFrames(tester);
+        await tester.tap(find.byTooltip(tooltip));
+      } else {
+        await tester.tap(find.text(tooltip));
+      }
       await pumpFollowingFrames(tester);
       await tester.enterText(find.byType(TextFormField).first, '未保存名称');
       await tester.enterText(find.byType(TextFormField).last, '未保存备注');
       await tester.tap(find.text('取消'));
       await pumpFollowingFrames(tester);
       expect(find.byType(TextFormField), findsNothing);
-      expect(find.byType(DbOnlineFollowingPresetsSheet), findsOneWidget);
-      expect(find.text('原预设'), findsOneWidget);
+      expect(find.byType(DbOnlineFollowingPage), findsOneWidget);
+      if (tooltip == '编辑预设') {
+        expect(find.byType(DbOnlineFollowingPresetsSheet), findsOneWidget);
+        expect(find.text('原预设'), findsOneWidget);
+      } else {
+        expect(find.byType(DbOnlineFollowingPresetsSheet), findsNothing);
+      }
       expect(
         backend.requests.where((request) => request.method != 'GET'),
         isEmpty,
@@ -52,9 +60,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('关注预设'));
-    await pumpFollowingFrames(tester);
-    await tester.tap(find.byTooltip('保存当前预设'));
+    await tester.tap(find.text('保存当前预设'));
     await pumpFollowingFrames(tester);
     await tester.enterText(find.byType(TextFormField).first, '我的关注');
     await tester.enterText(find.byType(TextFormField).last, '备注');
@@ -64,6 +70,8 @@ void main() {
     expect(backend.presets.single['category'], '0');
     expect(find.text('我的关注'), findsOneWidget);
 
+    await tester.tap(find.text('我的关注'));
+    await pumpFollowingFrames(tester);
     await tester.tap(find.byTooltip('编辑预设'));
     await pumpFollowingFrames(tester);
     await tester.enterText(find.byType(TextFormField).first, '修改关注');
@@ -110,6 +118,7 @@ void main() {
     await pumpFollowingFrames(tester);
 
     Future<void> reorder() async {
+      final headerY = tester.getTopLeft(find.text('关注预设').last).dy;
       final gesture = await tester.startGesture(
         tester.getCenter(find.byIcon(Icons.drag_handle_rounded).first),
       );
@@ -118,6 +127,7 @@ void main() {
         tester.getBottomLeft(find.text('预设三')) + const Offset(0, 25),
       );
       await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.getTopLeft(find.text('关注预设').last).dy, headerY);
       await gesture.up();
       await pumpFollowingFrames(tester);
     }
@@ -146,6 +156,9 @@ void main() {
       tester.getTopLeft(find.text('预设二')).dy,
       lessThan(tester.getTopLeft(find.text('预设一')).dy),
     );
+    await tester.drag(find.text('关注预设').last, const Offset(0, 180));
+    await pumpFollowingFrames(tester);
+    expect(find.byType(DbOnlineFollowingPresetsSheet), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
