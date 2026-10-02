@@ -4,6 +4,7 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_detail_scaffold.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/shared/filter_chip.dart';
 
 Widget _app(Widget page, {double scale = 1}) => MaterialApp(
   locale: const Locale('zh'),
@@ -19,6 +20,40 @@ Widget _app(Widget page, {double scale = 1}) => MaterialApp(
 void main() {
   for (final size in [const Size(320, 720), const Size(844, 390)]) {
     for (final scale in [1.0, 2.0]) {
+      testWidgets('共享筛选按钮在 ${size.width}/$scale 的拉伸工具栏中仍保持内容居中', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          _app(
+            SizedBox(
+              height: 48,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CompactFilterButton(
+                      label: '筛选',
+                      icon: Icons.tune_rounded,
+                      active: false,
+                      onTap: () {},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            scale: scale,
+          ),
+        );
+        final button = tester.getRect(find.byType(CompactFilterButton));
+        final icon = tester.getRect(find.byIcon(Icons.tune_rounded));
+        final label = tester.getRect(find.text('筛选'));
+        expect((icon.left + label.right) / 2, closeTo(button.center.dx, 0.01));
+        expect(icon.center.dy, closeTo(button.center.dy, 0.01));
+        expect(label.center.dy, closeTo(button.center.dy, 0.01));
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('长标题与操作在 ${size.width}/$scale 下不溢出', (tester) async {
         await tester.binding.setSurfaceSize(size);
         addTearDown(() => tester.binding.setSurfaceSize(null));

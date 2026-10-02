@@ -569,6 +569,8 @@ class _DbOnlineSubscriptionsPageState
           if (actions.isNotEmpty)
             PopupMenuButton<String>(
               tooltip: l.dbOnlineSubscriptionTitle,
+              iconSize: 36,
+              padding: const EdgeInsets.all(6),
               onSelected: (action) => _handleHeaderAction(action, l),
               itemBuilder: (context) => [
                 for (final action in actions)
@@ -593,7 +595,9 @@ class _DbOnlineSubscriptionsPageState
                   ),
               ],
               icon: Container(
-                padding: const EdgeInsets.all(8),
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: colors.surface,
@@ -608,13 +612,17 @@ class _DbOnlineSubscriptionsPageState
             ),
           IconButton(
             tooltip: l.dbOnlineSubscriptionSettings,
+            iconSize: 36,
+            padding: const EdgeInsets.all(6),
             onPressed: () => Navigator.of(context).push<void>(
               MaterialPageRoute<void>(
                 builder: (_) => const SettingsPage(showBackButton: true),
               ),
             ),
             icon: Container(
-              padding: const EdgeInsets.all(8),
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.surface,

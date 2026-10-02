@@ -29,7 +29,6 @@ class CompactFilterButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
           borderRadius: BorderRadius.circular(8),
@@ -39,6 +38,7 @@ class CompactFilterButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
               Icon(icon, size: 15, color: iconColor),

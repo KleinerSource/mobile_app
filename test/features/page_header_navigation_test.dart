@@ -223,6 +223,31 @@ void _expectDoubleHeader(
   expect(tester.takeException(), isNull);
 }
 
+void _expectHeaderIconCenters(WidgetTester tester, Finder header) {
+  final buttons = find.descendant(
+    of: header,
+    matching: find.byType(IconButton),
+  );
+  for (final element in buttons.evaluate()) {
+    final button = find.byWidget(element.widget);
+    final circle = find.descendant(
+      of: button,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
+      ),
+    );
+    final icon = find.descendant(of: circle, matching: find.byType(Icon));
+    final circleRect = tester.getRect(circle);
+    expect(circleRect.width, circleRect.height);
+    expect(tester.getCenter(icon).dx, closeTo(circleRect.center.dx, 0.01));
+    expect(tester.getCenter(icon).dy, closeTo(circleRect.center.dy, 0.01));
+    expect(tester.getCenter(button), circleRect.center);
+  }
+}
+
 void main() {
   for (final size in [const Size(320, 720), const Size(844, 390)]) {
     for (final scale in [1.0, 2.0]) {
@@ -290,6 +315,7 @@ void main() {
         Rect? referenceSmall;
         Rect? referenceLarge;
         Size? referenceToggle;
+        Size? referenceFilter;
         for (final project in [
           'oh-my-media',
           'db_online',
@@ -377,6 +403,24 @@ void main() {
             final headerRect = tester.getRect(header);
             final smallRect = tester.getRect(small);
             final largeRect = tester.getRect(large);
+            final filterIcon = find.descendant(
+              of: header,
+              matching: find.byIcon(Icons.tune_rounded),
+            );
+            if (filterIcon.evaluate().isNotEmpty) {
+              final filter = find
+                  .ancestor(of: filterIcon, matching: find.byType(Container))
+                  .first;
+              final filterRect = tester.getRect(filter);
+              referenceFilter ??= filterRect.size;
+              expect(
+                filterRect.size,
+                referenceFilter,
+                reason: '$project/$index',
+              );
+              expect(tester.getCenter(filterIcon), filterRect.center);
+              expect(filterRect.center.dy, closeTo(largeRect.center.dy, 0.01));
+            }
             final toggle = find.descendant(
               of: header,
               matching: find.byType(MediaViewModeToggle),
@@ -392,41 +436,11 @@ void main() {
             }
             if (index == 2 &&
                 (project == 'oh-my-media' ||
+                    project == 'db_online' ||
                     project == 'emby' ||
                     project == 'jellyfin' ||
                     project == 'feiniu')) {
-              final buttons = find.descendant(
-                of: header,
-                matching: find.byType(IconButton),
-              );
-              for (final element in buttons.evaluate()) {
-                final button = find.byWidget(element.widget);
-                final circle = find.descendant(
-                  of: button,
-                  matching: find.byWidgetPredicate(
-                    (widget) =>
-                        widget is Container &&
-                        widget.decoration is BoxDecoration &&
-                        (widget.decoration! as BoxDecoration).shape ==
-                            BoxShape.circle,
-                  ),
-                );
-                final icon = find.descendant(
-                  of: circle,
-                  matching: find.byType(Icon),
-                );
-                final circleRect = tester.getRect(circle);
-                expect(circleRect.width, circleRect.height);
-                expect(
-                  tester.getCenter(icon).dx,
-                  closeTo(circleRect.center.dx, 0.01),
-                );
-                expect(
-                  tester.getCenter(icon).dy,
-                  closeTo(circleRect.center.dy, 0.01),
-                );
-                expect(tester.getCenter(button), circleRect.center);
-              }
+              _expectHeaderIconCenters(tester, header);
             }
             referenceHeader ??= headerRect;
             referenceSmall ??= smallRect;
@@ -480,6 +494,22 @@ void main() {
     );
     final header = find.byType(PageHeader);
     final titleRect = tester.getRect(header);
+    _expectHeaderIconCenters(tester, header);
+    expect(
+      find.descendant(of: header, matching: find.byType(IconButton)),
+      findsNWidgets(2),
+    );
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuItem<String>), findsWidgets);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开设置'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DbOnlineSubscriptionsPage), findsOneWidget);
     final search = find.byType(TextField);
     expect(search, findsOneWidget);
     final searchRect = tester.getRect(search);
