@@ -81,6 +81,8 @@ class GlassPanel extends StatelessWidget {
 
 /// 显示毛玻璃 AlertDialog
 /// content / actions API 兼容 AlertDialog
+/// 弹窗使用根导航器；actions 若捕获页面 context，关闭时需指定
+/// Navigator.of(context, rootNavigator: true).pop(result)。
 Future<T?> showGlassDialog<T>({
   required BuildContext context,
   required Widget title,

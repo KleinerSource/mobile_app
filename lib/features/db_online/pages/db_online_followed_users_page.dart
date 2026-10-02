@@ -120,13 +120,13 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           child: Text(l.dbOnlineSubscriptionCancel),
         ),
         TextButton(
           onPressed: () {
             if (form.currentState!.validate()) {
-              Navigator.pop(context, id.text.trim());
+              Navigator.of(context, rootNavigator: true).pop(id.text.trim());
             }
           },
           child: Text(l.dbOnlineFollowingFollowUser),
@@ -166,11 +166,12 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
       content: Text(l.dbOnlineFollowingUnfollowConfirm(ids.length)),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () =>
+              Navigator.of(context, rootNavigator: true).pop(false),
           child: Text(l.dbOnlineSubscriptionCancel),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
           child: Text(l.dbOnlineFollowingUnfollowUser),
         ),
       ],

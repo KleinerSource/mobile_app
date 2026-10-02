@@ -13,7 +13,11 @@ void main() {
     matching: find.text(name),
   );
 
-  testWidgets('全部预设单行滚动，末尾加号直接添加，齿轮打开管理并保留影片间距', (tester) async {
+  testWidgets('预设单行滚动，右侧添加和管理按钮固定并保留影片间距', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final backend = FollowingTestBackend()
       ..presets.addAll([
         for (var id = 1; id <= 7; id++)
@@ -37,6 +41,12 @@ void main() {
     ]);
     expect(buttons[7].icon, Icons.add_rounded);
     expect(buttons[8].icon, Icons.settings_outlined);
+    final addButton = find.byTooltip('添加预设');
+    final manageButton = find.byTooltip('管理预设');
+    final addRect = tester.getRect(addButton);
+    final manageRect = tester.getRect(manageButton);
+    expect(addRect.left, greaterThan(0));
+    expect(manageRect.right, closeTo(390 - 22, 0.01));
     expect(
       tester.getCenter(find.text('关注列表1较长名称')).dy,
       tester.getCenter(find.text('关注列表7较长名称')).dy,
@@ -59,6 +69,12 @@ void main() {
     );
     await tester.drag(horizontal, const Offset(-1400, 0));
     await pumpFollowingFrames(tester);
+    expect(tester.getRect(addButton), addRect);
+    expect(tester.getRect(manageButton), manageRect);
+    expect(
+      tester.getRect(find.text('关注列表7较长名称')).right,
+      lessThan(addRect.left),
+    );
     await tester.tap(find.text('关注列表7较长名称'));
     await pumpFollowingFrames(tester);
     expect(

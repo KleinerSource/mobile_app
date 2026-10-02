@@ -6,6 +6,92 @@ import 'package:omm/features/db_online/pages/db_online_review_resources_page.dar
 import '../support/following_test_support.dart';
 
 void main() {
+  Future<void> pumpNestedUsers(
+    WidgetTester tester,
+    FollowingTestBackend backend,
+  ) => pumpFollowingTest(
+    tester,
+    backend,
+    Navigator(
+      onGenerateInitialRoutes: (_, _) => [
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('用户管理入口')),
+        ),
+        MaterialPageRoute<void>(
+          builder: (_) => const DbOnlineFollowedUsersPage(serverId: 'a'),
+        ),
+      ],
+      onGenerateRoute: (_) => MaterialPageRoute<void>(
+        builder: (_) => const DbOnlineFollowedUsersPage(serverId: 'a'),
+      ),
+    ),
+  ).then((_) {});
+
+  testWidgets('嵌套导航中取消添加关注只关闭弹窗，不新增用户或退出列表', (tester) async {
+    final backend = FollowingTestBackend();
+    await pumpNestedUsers(tester, backend);
+    for (final input in ['', '00001']) {
+      await tester.tap(find.byTooltip('添加关注用户'));
+      await pumpFollowingFrames(tester);
+      await tester.enterText(find.byType(TextFormField), input);
+      await tester.tap(find.text('取消'));
+      await pumpFollowingFrames(tester);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.byType(DbOnlineFollowedUsersPage), findsOneWidget);
+      expect(find.text('用户管理入口'), findsNothing);
+      expect(backend.users, isEmpty);
+      expect(
+        backend.requests.where((request) => request.method != 'GET'),
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('嵌套导航中关注和取消关注使用弹窗结果，保留用户列表', (tester) async {
+    final backend = FollowingTestBackend();
+    await pumpNestedUsers(tester, backend);
+    await tester.tap(find.byTooltip('添加关注用户'));
+    await pumpFollowingFrames(tester);
+    await tester.tap(find.text('关注'));
+    await pumpFollowingFrames(tester);
+    expect(find.byType(TextFormField), findsOneWidget);
+    expect(backend.users, isEmpty);
+    await tester.enterText(find.byType(TextFormField), ' 00001 ');
+    await tester.tap(find.text('关注'));
+    await pumpFollowingFrames(tester);
+    expect(find.byType(TextFormField), findsNothing);
+    expect(backend.users.single['user_id'], '00001');
+    expect(find.byType(DbOnlineFollowedUsersPage), findsOneWidget);
+    tester
+        .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+        .hideCurrentSnackBar();
+    await pumpFollowingFrames(tester);
+
+    await tester.tap(find.byTooltip('取消关注'));
+    await pumpFollowingFrames(tester);
+    await tester.tap(find.text('取消'));
+    await pumpFollowingFrames(tester);
+    expect(backend.users, hasLength(1));
+    expect(find.text('确定取消关注 1 位用户吗？'), findsNothing);
+    expect(find.byType(DbOnlineFollowedUsersPage), findsOneWidget);
+    expect(
+      backend
+          .to('/following/users')
+          .where((request) => request.method == 'DELETE'),
+      isEmpty,
+    );
+
+    await tester.tap(find.byTooltip('取消关注'));
+    await pumpFollowingFrames(tester);
+    await tester.tap(find.text('取消关注').last);
+    await pumpFollowingFrames(tester);
+    expect(backend.users, isEmpty);
+    expect(find.byType(DbOnlineFollowedUsersPage), findsOneWidget);
+    expect(find.text('用户管理入口'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('添加用户保留 ID 并反馈重复关注，单个取消需要确认', (tester) async {
     final backend = FollowingTestBackend();
     await pumpFollowingTest(
