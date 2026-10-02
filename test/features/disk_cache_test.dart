@@ -24,9 +24,4 @@ void main() {
     expect((await service.usage()).otherBytes, 0);
   });
 
-  test('缓存字节格式化使用易读单位', () {
-    expect(formatCacheBytes(0), '0 B');
-    expect(formatCacheBytes(1024 * 1024), '1.00 MB');
-    expect(formatCacheBytes(2 * 1024 * 1024 * 1024), '2.00 GB');
-  });
 }

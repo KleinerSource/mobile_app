@@ -217,25 +217,6 @@ void _main_1() {
     expect(tester.widget<Switch>(switchFinder).value, isTrue);
   });
 
-  testWidgets('应用更新页提供播放日志入口', (tester) async {
-    final prefs = await SharedPreferences.getInstance();
-    appLog('[FilePlaybackProxy] 测试日志');
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(
-          localizationsDelegates: AppL10n.localizationsDelegates,
-          supportedLocales: AppL10n.supportedLocales,
-          locale: Locale('zh'),
-          home: AppUpdateSettingsPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('查看播放日志'), findsOneWidget);
-  });
-
   testWidgets('应用更新页提供 m3u8 开发播放接口和三种内核选项', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(

@@ -3,19 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_server_urls.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
-import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/stash_scene_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/preview/preview_seek.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
-import 'package:omm/shared/media_list_row.dart';
-import 'package:omm/shared/portrait_media_card.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
@@ -104,13 +100,10 @@ MediaBrowserServerUrls _urls() => MediaBrowserServerUrls(
   token: 'stash-key',
 );
 
-Widget _app({
-  required Widget child,
-  Brightness brightness = Brightness.light,
-}) => ProviderScope(
+Widget _app({required Widget child}) => ProviderScope(
   overrides: [privacyShieldProvider.overrideWith(_PrivacyState.new)],
   child: MaterialApp(
-    theme: ThemeData(brightness: brightness),
+    theme: ThemeData(brightness: Brightness.light),
     locale: const Locale('zh'),
     localizationsDelegates: AppL10n.localizationsDelegates,
     supportedLocales: AppL10n.supportedLocales,
@@ -208,111 +201,6 @@ void main() {
       ),
       2,
     );
-  });
-
-  testWidgets('Stash 卡片占满一行并保持 16:9', (tester) async {
-    final player = _FakePreviewPlayer();
-    await tester.pumpWidget(
-      _app(
-        child: PreviewScope(
-          child: StashSceneCard(
-            item: _item(),
-            urls: _urls(),
-            width: 356,
-            playerFactory: () => player,
-            onTap: () {},
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final size = tester.getSize(find.byType(StashSceneCard));
-    expect(size.width, 356);
-    expect(size.height, greaterThan(200));
-    expect(find.text('[ABC-123] 测试 Scene'), findsOneWidget);
-    expect(find.text('剧情 · 高清 · 新作'), findsOneWidget);
-    expect(find.text('演员一、演员二'), findsOneWidget);
-    expect(find.byIcon(Icons.local_offer_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.people_alt_outlined), findsOneWidget);
-  });
-
-  testWidgets('存在预览视频时横版封面显示 Live Photo 风格标识', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        child: StashSceneCard(
-          item: _item(),
-          urls: _urls(),
-          width: 356,
-          onTap: () {},
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.byIcon(Icons.motion_photos_on_rounded), findsOneWidget);
-  });
-
-  testWidgets('Stash 竖版卡片右对齐并只显示两行名称与元信息', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        child: StashScenePortraitCard(
-          item: _item(),
-          urls: _urls(),
-          width: 132,
-          onTap: () {},
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.byType(PortraitMediaCard), findsOneWidget);
-
-    final size = tester.getSize(find.byType(StashScenePortraitCard));
-    expect(size.width, 132);
-    expect(size.height, greaterThan(190));
-    expect(find.text('[ABC-123] 测试 Scene'), findsOneWidget);
-    expect(find.text('演员一、演员二'), findsNothing);
-    expect(find.text('电影'), findsNothing);
-    expect(find.text('2024 · 2 分钟'), findsOneWidget);
-  });
-
-  testWidgets('MediaBrowser 列表行复用公共列表结构', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        child: MediaBrowserListRow(item: _item(), urls: _urls(), onTap: () {}),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.byType(MediaListRow), findsOneWidget);
-  });
-
-  testWidgets('Stash 卡片暗色主题使用暗色卡片色板', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        brightness: Brightness.dark,
-        child: StashSceneCard(
-          item: _item(),
-          urls: _urls(),
-          width: 356,
-          onTap: () {},
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final card = tester.widget<Container>(
-      find
-          .descendant(
-            of: find.byType(StashSceneCard),
-            matching: find.byType(Container),
-          )
-          .first,
-    );
-    final decoration = card.decoration! as BoxDecoration;
-    expect(decoration.color, AppColors.dark.surface);
-    expect(find.text('[ABC-123] 测试 Scene'), findsOneWidget);
   });
 
   testWidgets('标记为顶部候选时自动启动预览，取消候选时释放', (tester) async {

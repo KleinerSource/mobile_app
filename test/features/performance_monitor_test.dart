@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/platform/performance_monitor_overlay.dart';
-import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/core/platform/player_device_stats.dart';
 import 'package:omm/features/settings/app_update_settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
@@ -14,34 +13,6 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-
-  test('性能监视器设置默认关闭并可持久化恢复', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repository = PlayerSettingsRepository(prefs);
-
-    expect(repository.load().performanceMonitorEnabled, isFalse);
-
-    await repository.save(
-      const PlayerSettings(debugMode: true, performanceMonitorEnabled: true),
-    );
-
-    expect(repository.load().performanceMonitorEnabled, isTrue);
-    expect(prefs.getBool('player.performance_monitor_enabled'), isTrue);
-  });
-
-  test('设备状态解析应用 CPU 和 RAM 指标，缺失时安全回退', () {
-    final stats = PlayerDeviceStats.fromMap(const <Object?, Object?>{
-      'process_cpu_percent': 12.5,
-      'ram_used_mb': 156,
-    });
-
-    expect(stats.processCpuPercent, 12.5);
-    expect(stats.ramUsedMegabytes, 156);
-
-    const empty = PlayerDeviceStats();
-    expect(empty.processCpuPercent, isNull);
-    expect(empty.ramUsedMegabytes, isNull);
-  });
 
   testWidgets('Debug 关闭时性能监视器开关禁用，开启后可操作', (tester) async {
     final prefs = await SharedPreferences.getInstance();

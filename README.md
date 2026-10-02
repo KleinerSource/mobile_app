@@ -20,7 +20,7 @@ flutter pub get
 dart tool/prepare_native.dart configure android
 dart run build_runner build
 flutter analyze --no-pub
-flutter test --no-pub
+dart tool/run_fast_tests.dart
 flutter build apk --release --target-platform android-arm64 --no-pub
 ```
 
@@ -40,6 +40,26 @@ flutter build ios --release --no-codesign --no-pub
 ```
 
 签名由现有工作流注入；本地 Android 缺少发布证书时使用原有 debug 签名回退，不能替代线上更新证书。
+
+## 测试与 CI
+
+依赖准备和代码生成完成后，在项目根目录运行：
+
+```sh
+# 打包前快速检查：固定 12 个文件，覆盖认证、配置、API、分页、预览和构建工具。
+dart tool/run_fast_tests.dart
+
+# 完整回归：包括页面交互、播放器、文件操作及截图测试。
+flutter test --no-pub
+```
+
+Android/iOS 构建继续执行静态分析，但打包前只等待快速集（当前 214 项）；任一快速测试失败仍会阻止打包。入口透传 Flutter 输出和退出码，Windows、Linux、macOS 使用同一命令。
+
+`Full Tests` 工作流在 push、PR 和手动触发时独立运行完整回归，同分支新运行会取消旧运行。失败保持红色状态，测试结果、耗时和截图失败文件保存在 `full-test-results` artifact 中，保留 7 天。完整回归不阻塞 Android/iOS 构建或现有发布流程，**产物发布不代表完整回归已经通过**。
+
+快速集名单维护在 `tool/run_fast_tests.dart`；新增测试默认进入完整回归，不自动扩大打包前检查。CI 测试阶段目标为 2 分钟以内，需以 GitHub Actions 实际耗时验证，不能用本机耗时替代。
+
+本次删除范围、覆盖取舍和验证记录见 [测试精简记录](docs/test-pruning-2026-10-03.md)。
 
 ## 结构与代码生成
 

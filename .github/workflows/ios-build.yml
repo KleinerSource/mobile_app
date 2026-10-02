@@ -113,10 +113,9 @@ jobs:
         timeout-minutes: 8
         run: flutter analyze
 
-      - name: test
-        # macOS runner 上完整测试可能超过 10 分钟，预留运行余量。
-        timeout-minutes: 15
-        run: flutter test
+      - name: fast tests
+        timeout-minutes: 10
+        run: dart tool/run_fast_tests.dart
 
       - name: build ios (no codesign)
         timeout-minutes: 25

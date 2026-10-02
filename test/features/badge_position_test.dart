@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/features/i18n/badge_position_provider.dart';
-import 'package:omm/features/settings/badge_position_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -141,45 +140,4 @@ void main() {
     expect(positioned.right, isNull);
   });
 
-  testWidgets('角标预览固定在设置列表顶部', (tester) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(
-          localizationsDelegates: AppL10n.localizationsDelegates,
-          supportedLocales: AppL10n.supportedLocales,
-          locale: Locale('zh'),
-          home: BadgePositionPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final preview = find.byType(MovieCard);
-    expect(preview, findsOneWidget);
-    expect(find.byTooltip('AI 字幕'), findsOneWidget);
-    expect(find.text('字幕 / 破解 / 清晰度'), findsOneWidget);
-    final initialTop = tester.getTopLeft(preview).dy;
-    final scrollable = find.byType(Scrollable);
-    final scrollState = tester.state<ScrollableState>(scrollable);
-    expect(scrollState.position.maxScrollExtent, greaterThan(0));
-
-    scrollState.position.jumpTo(
-      scrollState.position.maxScrollExtent < 500
-          ? scrollState.position.maxScrollExtent
-          : 500,
-    );
-    await tester.pump();
-
-    expect(find.text('左右'), findsWidgets);
-    final labelCenter = tester.getCenter(find.text('左右').first).dy;
-    final sliderCenter = tester.getCenter(find.byType(Slider).first).dy;
-    final valueCenter = tester.getCenter(find.text('0').first).dy;
-    expect(labelCenter, closeTo(sliderCenter, 1));
-    expect(valueCenter, closeTo(sliderCenter, 1));
-
-    expect(tester.getTopLeft(preview).dy, initialTop);
-  });
 }

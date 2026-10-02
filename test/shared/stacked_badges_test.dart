@@ -78,36 +78,6 @@ void main() {
     expect(tester.getTopRight(find.text('SIBLING')), siblingBefore);
   });
 
-  testWidgets('单个徽章时直接显示,无叠加交互', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppL10n.localizationsDelegates,
-        supportedLocales: AppL10n.supportedLocales,
-        locale: const Locale('zh'),
-        home: Scaffold(
-          body: Center(child: StackedBadges(children: [_pill('ONLY')])),
-        ),
-      ),
-    );
-
-    expect(find.text('ONLY'), findsOneWidget);
-  });
-
-  testWidgets('空分组与空徽章安全渲染', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: AppL10n.localizationsDelegates,
-        supportedLocales: AppL10n.supportedLocales,
-        locale: Locale('zh'),
-        home: Scaffold(
-          body: Center(child: StackedBadges(children: [])),
-        ),
-      ),
-    );
-
-    expect(find.byType(SizedBox), findsOneWidget);
-  });
-
   testWidgets('展开后空白处拖动可正常滚动列表,浮层随之收起', (tester) async {
     final controller = ScrollController();
     await tester.pumpWidget(

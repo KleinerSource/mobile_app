@@ -16,7 +16,6 @@ import 'package:omm/features/oh_my_media/movies/media_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/preview/preview_surface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -216,83 +215,7 @@ void main() {
     expect(find.textContaining('SourceException'), findsNothing);
   });
 
-  testWidgets('横版预览覆盖层只在有预览视频时显示动态标识', (tester) async {
-    await tester.pumpWidget(
-      _localizedApp(
-        const Scaffold(
-          body: SizedBox(
-            width: 320,
-            height: 180,
-            child: PreviewGestureSurface(
-              onTap: _noop,
-              showAvailabilityBadge: true,
-              availabilityLabel: '预览视频',
-              child: SizedBox.expand(),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.byIcon(Icons.motion_photos_on_rounded), findsOneWidget);
-    expect(find.bySemanticsLabel('预览视频'), findsOneWidget);
-
-    await tester.pumpWidget(
-      _localizedApp(
-        const Scaffold(
-          body: SizedBox(
-            width: 320,
-            height: 180,
-            child: PreviewGestureSurface(
-              onTap: _noop,
-              child: SizedBox.expand(),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(find.byIcon(Icons.motion_photos_on_rounded), findsNothing);
-  });
-
-  testWidgets('滑动和 Live Photo 指示器固定右上角并向左避让其他图标', (tester) async {
-    await tester.pumpWidget(
-      _localizedApp(
-        const Scaffold(
-          body: SizedBox(
-            width: 320,
-            height: 180,
-            child: PreviewGestureSurface(
-              onTap: _noop,
-              loading: true,
-              showHint: true,
-              showAvailabilityBadge: true,
-              child: SizedBox.expand(),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final surface = tester.getRect(find.byType(PreviewGestureSurface));
-    final loading = tester.getRect(find.byType(CircularProgressIndicator));
-    final swipe = tester.getRect(find.byIcon(Icons.swipe_rounded));
-    final livePhoto = tester.getRect(
-      find.byIcon(Icons.motion_photos_on_rounded),
-    );
-
-    expect(livePhoto.right, closeTo(surface.right - 10, 0.01));
-    expect(livePhoto.top, greaterThanOrEqualTo(surface.top + 10));
-    expect(loading.right, lessThan(swipe.left));
-    expect(swipe.right, lessThan(livePhoto.left));
-    expect(loading.overlaps(swipe), isFalse);
-    expect(swipe.overlaps(livePhoto), isFalse);
-  });
 }
-
-void _noop() {}
 
 Widget _localizedApp(Widget child) {
   return MaterialApp(

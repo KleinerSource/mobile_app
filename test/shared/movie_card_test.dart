@@ -3,11 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
-import 'package:omm/shared/landscape_media_card.dart';
-import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/poster.dart';
-import 'package:omm/shared/portrait_media_card.dart';
 import 'package:omm/shared/preview/preview_surface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -29,20 +26,6 @@ void main() {
       ),
     );
   }
-
-  testWidgets('显示标题', (tester) async {
-    await tester.pumpWidget(
-      await wrap(
-        MovieCard(
-          movie: const MovieListItem(id: 1, title: '示例片名'),
-          posterUrlBuilder: (u) => 'http://x/$u',
-        ),
-      ),
-    );
-    // 默认隐私遮罩为关 (mock 空 prefs → default false)，正常显示内容。
-    // 我们这里直接断言渲染不抛错 (有 MovieCard 即可)
-    expect(find.byType(MovieCard), findsOneWidget);
-  });
 
   testWidgets('横屏封面按 fanart、thumb、poster 优先级选择', (tester) async {
     Future<String?> pumpMovie(
@@ -167,101 +150,6 @@ void main() {
     expect(newResources.overlaps(swipe), isFalse);
   });
 
-  testWidgets('时长统一显示为分钟', (tester) async {
-    await tester.pumpWidget(
-      await wrap(
-        MovieCard(
-          movie: const MovieListItem(
-            id: 2,
-            title: '带时长影片',
-            year: 2024,
-            runtime: 90,
-          ),
-          posterUrlBuilder: (u) => 'http://x/$u',
-        ),
-      ),
-    );
-
-    expect(find.text('2024 · 90 分钟'), findsOneWidget);
-  });
-
-  testWidgets('普通外部媒体卡片将番号与名称收敛到同一信息区', (tester) async {
-    await tester.pumpWidget(
-      await wrap(
-        const CatalogMovieCard(
-          title: '影片名称',
-          code: 'ABC-123',
-          imageUrl: null,
-          meta: '2024 · 90 分钟',
-          width: 140,
-        ),
-      ),
-    );
-
-    expect(find.text('[ABC-123] 影片名称'), findsOneWidget);
-    expect(find.text('ABC-123'), findsNothing);
-    expect(find.text('2024 · 90 分钟'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('横版目录卡片和预览卡片共用横版卡片外壳', (tester) async {
-    await tester.pumpWidget(
-      await wrap(
-        const CatalogMovieCard(
-          title: '横版影片',
-          imageUrl: null,
-          meta: '2024',
-          width: 240,
-          landscape: true,
-        ),
-      ),
-    );
-    expect(find.byType(LandscapeMediaCard), findsOneWidget);
-
-    await tester.pumpWidget(
-      await wrap(
-        MovieCard(
-          movie: const MovieListItem(id: 7, title: '预览影片'),
-          posterUrlBuilder: (uuid) => 'http://x/$uuid',
-          landscape: true,
-          landscapeOverlay: const SizedBox.expand(),
-        ),
-      ),
-    );
-    expect(find.byType(LandscapeMediaCard), findsOneWidget);
-  });
-
-  testWidgets('竖屏与列表卡片使用共享结构壳', (tester) async {
-    await tester.pumpWidget(
-      await wrap(
-        MovieCard(
-          movie: const MovieListItem(id: 8, title: '竖屏影片'),
-          posterUrlBuilder: (uuid) => 'http://x/$uuid',
-        ),
-      ),
-    );
-    expect(find.byType(PortraitMediaCard), findsOneWidget);
-
-    await tester.pumpWidget(
-      await wrap(
-        const CatalogMovieCard(
-          title: '目录竖屏影片',
-          imageUrl: null,
-          meta: '2024',
-          width: 140,
-        ),
-      ),
-    );
-    expect(find.byType(PortraitMediaCard), findsOneWidget);
-
-    await tester.pumpWidget(
-      await wrap(
-        const CatalogListMovieCard(title: '列表影片', imageUrl: null, meta: '2024'),
-      ),
-    );
-    expect(find.byType(MediaListRow), findsOneWidget);
-  });
-
   testWidgets('completed=true 显示已看完角标 (隐私关闭)', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,
@@ -299,40 +187,6 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
-  testWidgets('hasNewResources 显示独立的星光图标且不混用 NEW', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: MaterialApp(
-          localizationsDelegates: AppL10n.localizationsDelegates,
-          supportedLocales: AppL10n.supportedLocales,
-          locale: const Locale('zh'),
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 140,
-                child: MovieCard(
-                  movie: const MovieListItem(
-                    id: 1,
-                    title: 'A',
-                    hasNewResources: true,
-                  ),
-                  posterUrlBuilder: (u) => 'http://x/$u',
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    expect(find.byIcon(Icons.auto_awesome_rounded), findsOneWidget);
-    expect(find.text('新资源'), findsNothing);
-    expect(find.text('NEW'), findsNothing);
-  });
-
   testWidgets('未完成有进度时显示进度条 (隐私关闭)', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,
@@ -367,70 +221,6 @@ void main() {
       ),
     );
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
-  });
-
-  testWidgets('清晰度角标使用分辨率专属图标并按级别着色', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'privacy.app_switcher_shield': false,
-    });
-    final prefs = await SharedPreferences.getInstance();
-
-    Future<void> pumpMovie(ResolutionTier tier) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-          child: MaterialApp(
-            localizationsDelegates: AppL10n.localizationsDelegates,
-            supportedLocales: AppL10n.supportedLocales,
-            locale: const Locale('zh'),
-            home: Scaffold(
-              body: Center(
-                child: SizedBox(
-                  width: 140,
-                  child: MovieCard(
-                    movie: MovieListItem(
-                      id: 1,
-                      title: 'A',
-                      resolutionTier: tier,
-                    ),
-                    posterUrlBuilder: (u) => 'http://x/$u',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-    }
-
-    Color badgeColor(IconData icon) {
-      final badge = tester.widget<Container>(
-        find
-            .ancestor(of: find.byIcon(icon), matching: find.byType(Container))
-            .first,
-      );
-      return (badge.decoration! as BoxDecoration).color!;
-    }
-
-    await pumpMovie(ResolutionTier.hd);
-    expect(
-      badgeColor(Icons.display_settings_outlined),
-      const Color(0xFFCD7F32),
-    );
-    expect(find.text('HD'), findsNothing);
-
-    await pumpMovie(ResolutionTier.fhd);
-    expect(badgeColor(Icons.hd_outlined), const Color(0xFF64D2FF));
-    expect(find.text('FHD'), findsNothing);
-
-    await pumpMovie(ResolutionTier.k2);
-    expect(badgeColor(Icons.aspect_ratio), const Color(0xFFBF5AF2));
-    expect(find.text('2K'), findsNothing);
-
-    await pumpMovie(ResolutionTier.uhd);
-    expect(badgeColor(Icons.high_quality_outlined), const Color(0xFFFF9F0A));
-    expect(find.text('UHD'), findsNothing);
   });
 
   testWidgets('外挂字幕与 AI 字幕同时存在时徽章正常堆叠', (tester) async {

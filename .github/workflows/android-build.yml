@@ -142,9 +142,9 @@ jobs:
         timeout-minutes: 8
         run: flutter analyze
 
-      - name: test
+      - name: fast tests
         timeout-minutes: 10
-        run: flutter test
+        run: dart tool/run_fast_tests.dart
 
       - name: build android apk
         timeout-minutes: 25

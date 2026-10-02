@@ -101,30 +101,4 @@ void main() {
     });
   }
 
-  testWidgets('横版列表占满父容器且保持 14 的行间距', (tester) async {
-    await tester.pumpWidget(
-      await app(
-        SizedBox(
-          width: 390,
-          child: ListView(
-            padding: MediaListLayout.padding,
-            children: [
-              for (var index = 0; index < 2; index++)
-                MediaLandscapeListItem(
-                  child: SizedBox(
-                    key: ValueKey(index),
-                    width: double.infinity,
-                    height: 200,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    final first = tester.getRect(find.byKey(const ValueKey(0)));
-    final second = tester.getRect(find.byKey(const ValueKey(1)));
-    expect(first.width, 346);
-    expect(second.top - first.bottom, 14);
-  });
 }

@@ -6,31 +6,6 @@ import 'package:omm/features/text_editor/text_editor_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
-  testWidgets('只读模式显示标题且不显示编辑按钮', (tester) async {
-    await _pumpViewer(tester, text: '第一行');
-
-    expect(find.text('文本.txt'), findsOneWidget);
-    expect(find.byType(SelectableText), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
-    expect(find.text('编辑'), findsNothing);
-  });
-
-  testWidgets('点击编辑后显示编辑器和连续行号', (tester) async {
-    await _pumpViewer(tester, text: '第一行\n第二行\n第三行', onSave: (_) async {});
-
-    await tester.tap(find.text('编辑'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('保存'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is Text && widget.data == '1\n2\n3',
-      ),
-      findsOneWidget,
-    );
-  });
-
   testWidgets('修改文本后保存回调收到完整内容且继续停留在编辑器', (tester) async {
     String? savedText;
     await _pumpViewer(

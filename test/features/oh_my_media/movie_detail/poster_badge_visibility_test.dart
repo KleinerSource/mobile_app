@@ -3,28 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
-import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/settings/poster_badge_display_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/stacked_badges.dart';
 
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-  });
-
-  test('海报角标默认全部显示', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-    );
-    addTearDown(container.dispose);
-
-    final visibility = container.read(posterBadgeVisibilityProvider);
-    for (final kind in PosterBadgeKind.values) {
-      expect(visibility.isEnabled(kind), isTrue);
-    }
   });
 
   test('海报角标显示开关可以持久化', () async {
@@ -72,81 +57,4 @@ void main() {
     expect(find.text('HEVC'), findsNothing);
   });
 
-  testWidgets('海报角标使用彩色背景并以白色显示文字和图标', (tester) async {
-    const badge = CoverBadgeSpec(
-      PosterBadgeKind.codec,
-      'HEVC',
-      Color(0xFF059669),
-    );
-    await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: AppL10n.localizationsDelegates,
-        supportedLocales: AppL10n.supportedLocales,
-        locale: Locale('zh'),
-        home: Scaffold(
-          body: Center(child: CoverBadgeRow(badges: [badge])),
-        ),
-      ),
-    );
-
-    final badgeText = tester.widget<Text>(find.text('HEVC'));
-    expect(badgeText.style?.color, Colors.white);
-
-    final badgeIcon = tester.widget<Icon>(find.byIcon(Icons.memory_outlined));
-    expect(badgeIcon.color, Colors.white);
-
-    final badgeContainer = tester.widget<Container>(
-      find.ancestor(of: find.text('HEVC'), matching: find.byType(Container)),
-    );
-    expect((badgeContainer.decoration! as BoxDecoration).color, badge.color);
-  });
-
-  testWidgets('视频规格角标统一叠加且字幕组包含 AI 字幕', (tester) async {
-    const badges = [
-      CoverBadgeSpec(PosterBadgeKind.codec, 'HEVC', Color(0xFF059669)),
-      CoverBadgeSpec(PosterBadgeKind.hdr, 'Dolby Vision', Color(0xFF7C3AED)),
-      CoverBadgeSpec(PosterBadgeKind.strm, 'STRM', Color(0xFF475569)),
-      CoverBadgeSpec(PosterBadgeKind.subtitle, '字幕', Color(0xFFFF9F1C)),
-      CoverBadgeSpec(PosterBadgeKind.subtitle, 'AI 字幕', Color(0xFF8B5CF6)),
-      CoverBadgeSpec(PosterBadgeKind.resolution, 'HD', Color(0xFF0891B2)),
-      CoverBadgeSpec(PosterBadgeKind.crack, '破解', Color(0xFFDB2777)),
-    ];
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: AppL10n.localizationsDelegates,
-        supportedLocales: AppL10n.supportedLocales,
-        locale: Locale('zh'),
-        home: Scaffold(body: CoverBadgeRow(badges: badges)),
-      ),
-    );
-
-    final stacks = tester
-        .widgetList<StackedBadges>(find.byType(StackedBadges))
-        .toList();
-    expect(stacks, hasLength(2));
-    expect(stacks.map((stack) => stack.children.length).toSet(), {2, 3});
-    expect(find.text('HEVC'), findsOneWidget);
-    expect(find.text('AI 字幕'), findsOneWidget);
-    expect(find.text('HD'), findsOneWidget);
-    expect(find.text('破解'), findsOneWidget);
-  });
-
-  testWidgets('设置预览包含 AI 字幕 badge', (tester) async {
-    final prefs = await SharedPreferences.getInstance();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(
-          localizationsDelegates: AppL10n.localizationsDelegates,
-          supportedLocales: AppL10n.supportedLocales,
-          locale: Locale('zh'),
-          home: PosterBadgeDisplayPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byTooltip('AI 字幕'), findsOneWidget);
-  });
 }

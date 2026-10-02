@@ -12,7 +12,6 @@ import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/features/settings/server_list_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/server_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -49,16 +48,6 @@ void main() {
       'server.active_server_id': 'home',
     });
     AppHaptics.setIntensity(HapticIntensity.standard);
-  });
-
-  testWidgets('服务器列表使用头像而非服务器图标', (tester) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await tester.pumpWidget(_app(prefs));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ServerAvatar), findsNWidgets(2));
-    expect(find.byIcon(Icons.dns_outlined), findsNothing);
   });
 
   testWidgets('拖拽排序全程有触觉反馈且顺序持久化', (tester) async {

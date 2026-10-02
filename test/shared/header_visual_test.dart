@@ -11,10 +11,11 @@ import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/page_header.dart';
 
-// 使用 Flutter SDK 自带字体，避免依赖机器上的系统字体。
-// 页面接入由 page_header_navigation_test 验证；此处固定共享控件的视觉契约。
-// 基线更新：flutter test --no-pub --update-goldens test/shared/header_visual_test.dart
-// CI 的 Flutter 3.44 与本机 3.47 圆角边缘绘制不同，仅影片库保留两套严格基线。
+// 所有平台均验证布局；像素基线只在固定 Windows 环境中显式启用。
+// CI: header-visual-tests.yml，Windows 2025 / Flutter 3.44.0。
+// 本地截图验证：flutter test --no-pub --dart-define=HEADER_GOLDENS=true test/shared/header_visual_test.dart
+// Windows 更新基线：在上述命令中增加 --update-goldens，并人工检查差异。
+const _compareGoldens = bool.fromEnvironment('HEADER_GOLDENS');
 String _libraryGoldenSuffix = '';
 
 Future<void> _loadFonts() async {
@@ -131,9 +132,88 @@ Widget _header(BuildContext context, String variant) {
   );
 }
 
+void _expectHeaderLayout(WidgetTester tester, String variant, double width) {
+  final header = find.byType(PageHeader);
+  final config = tester.widget<PageHeader>(header);
+  final eyebrow = tester.getRect(find.text(config.eyebrow));
+  final title = tester.getRect(find.byWidget(config.title));
+  final headerRect = tester.getRect(header);
+  expect(headerRect.width, width);
+  expect(headerRect.top, 24);
+  expect(eyebrow.left, 22);
+  expect(eyebrow.top, 40);
+  expect(title.left, 22);
+  expect(title.top, greaterThanOrEqualTo(eyebrow.bottom + 3));
+  expect(headerRect.bottom - title.bottom, greaterThanOrEqualTo(22));
+
+  final toggle = find.byType(MediaViewModeToggle);
+  if (variant == 'library' || variant == 'search') {
+    expect(tester.getSize(toggle), const Size(99, 31));
+    expect(tester.getCenter(toggle).dy, closeTo(title.center.dy, 0.01));
+  }
+  if (variant == 'library') {
+    final filter = find.byType(CompactFilterButton);
+    expect(tester.getSize(filter), const Size(37, 29));
+    expect(tester.getCenter(filter).dy, closeTo(title.center.dy, 0.01));
+    expect(
+      tester.getCenter(find.byIcon(Icons.tune_rounded)),
+      tester.getCenter(filter),
+    );
+  }
+  for (final element in find.byType(HeaderActionButton).evaluate()) {
+    final button = find.byWidget(element.widget);
+    final circle = find.descendant(
+      of: button,
+      matching: find.byType(HeaderActionIcon),
+    );
+    expect(tester.getSize(button), const Size.square(48));
+    expect(tester.getSize(circle), const Size.square(36));
+    expect(tester.getCenter(circle), tester.getCenter(button));
+    expect(tester.getCenter(button).dy, closeTo(title.center.dy, 0.01));
+    final content = find.descendant(
+      of: circle,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Icon || widget is CircularProgressIndicator,
+      ),
+    );
+    expect(tester.getCenter(content), tester.getCenter(circle));
+  }
+  if (variant == 'loading') {
+    expect(
+      tester.getSize(find.byType(CircularProgressIndicator)),
+      const Size.square(18),
+    );
+    final scanButton = tester.widget<HeaderActionButton>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is HeaderActionButton && widget.tooltip == 'Scan resources',
+      ),
+    );
+    expect(scanButton.onPressed, isNull);
+  }
+  final capture = tester.getRect(find.byKey(const ValueKey('header-capture')));
+  if (variant == 'search') {
+    final search = tester.getRect(find.byType(TextField));
+    expect(search.left, 22);
+    expect(search.top, headerRect.bottom);
+    expect(capture.bottom - search.bottom, 16);
+  } else {
+    expect(capture, headerRect);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(_loadFonts);
+  setUpAll(() async {
+    if (_compareGoldens) {
+      if (!Platform.isWindows) {
+        throw StateError(
+          'Header 截图基线需要 Windows；其他平台请不传 HEADER_GOLDENS，执行布局回归。',
+        );
+      }
+      await _loadFonts();
+    }
+  });
 
   for (final viewport in [
     ('portrait', const Size(320, 720), 1.0),
@@ -141,7 +221,7 @@ void main() {
     ('large_text', const Size(320, 720), 2.0),
   ]) {
     for (final brightness in Brightness.values) {
-      testWidgets('Header 视觉回归 ${viewport.$1}/${brightness.name}', (
+      testWidgets('Header 布局与视觉回归 ${viewport.$1}/${brightness.name}', (
         tester,
       ) async {
         await tester.binding.setSurfaceSize(viewport.$2);
@@ -185,13 +265,16 @@ void main() {
           // 固定加载动画帧，避免 pumpAndSettle 等待无限动画。
           await tester.pump(const Duration(milliseconds: 200));
           expect(tester.takeException(), isNull);
-          await expectLater(
-            find.byKey(captureKey),
-            matchesGoldenFile(
-              'goldens/header_${variant}_${viewport.$1}_${brightness.name}'
-              '${variant == 'library' ? _libraryGoldenSuffix : ''}.png',
-            ),
-          );
+          _expectHeaderLayout(tester, variant, viewport.$2.width);
+          if (_compareGoldens) {
+            await expectLater(
+              find.byKey(captureKey),
+              matchesGoldenFile(
+                'goldens/header_${variant}_${viewport.$1}_${brightness.name}'
+                '${variant == 'library' ? _libraryGoldenSuffix : ''}.png',
+              ),
+            );
+          }
           await tester.pumpWidget(const SizedBox.shrink());
         }
       });

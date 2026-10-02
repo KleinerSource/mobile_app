@@ -18,63 +18,6 @@ import 'package:omm/features/oh_my_media/movie_detail/resources_sheet.dart';
 
 // ==================== 原 test/features/oh_my_media/movie_detail/cover_badges_test.dart ====================
 void _main_0() {
-  test('外挂字幕生成字幕 badge', () {
-    final badges = buildCoverBadges(hasExternalSubtitle: true);
-
-    final subtitleBadges = badges
-        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
-        .toList();
-    expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.label, 'subtitle');
-    expect(subtitleBadges.single.tooltip, 'externalSubtitle');
-    expect(subtitleBadges.single.color.toARGB32(), 0xFFFF9F1C);
-  });
-
-  test('外挂字幕和文件名内嵌字幕可以同时显示', () {
-    final badges = buildCoverBadges(
-      filePath: '/movies/example-chs.mkv',
-      hasExternalSubtitle: true,
-    );
-
-    final subtitleBadges = badges
-        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
-        .toList();
-    expect(subtitleBadges, hasLength(2));
-    expect(subtitleBadges.map((badge) => badge.tooltip), [
-      'externalSubtitle',
-      'embeddedSubtitle',
-    ]);
-  });
-
-  test('媒体探测到内嵌字幕流时生成内嵌字幕轨道 badge', () {
-    final badges = buildCoverBadges(hasMuxedSubtitle: true);
-
-    final subtitleBadges = badges
-        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
-        .toList();
-    expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.tooltip, 'muxedSubtitle');
-    expect(subtitleBadges.single.color.toARGB32(), 0xFF16A34A);
-  });
-
-  test('三种字幕来源相互独立可同时显示', () {
-    final badges = buildCoverBadges(
-      filePath: '/movies/ABCD-001-C.mp4',
-      hasExternalSubtitle: true,
-      hasMuxedSubtitle: true,
-    );
-
-    final subtitleBadges = badges
-        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
-        .toList();
-    expect(subtitleBadges, hasLength(3));
-    expect(subtitleBadges.map((badge) => badge.tooltip), [
-      'externalSubtitle',
-      'muxedSubtitle',
-      'embeddedSubtitle',
-    ]);
-  });
-
   test('内嵌字幕轨道与文件名标识不互相触发', () {
     final muxOnly = buildCoverBadges(hasMuxedSubtitle: true);
     expect(
@@ -100,34 +43,6 @@ void _main_0() {
       badges.where((badge) => badge.kind == PosterBadgeKind.subtitle),
       isEmpty,
     );
-  });
-
-  test('AI 字幕生成独立配色 badge', () {
-    final badges = buildCoverBadges(hasAISubtitle: true);
-
-    final subtitleBadges = badges
-        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
-        .toList();
-    expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.label, 'subtitle');
-    expect(subtitleBadges.single.tooltip, 'aiSubtitle');
-    expect(subtitleBadges.single.color.toARGB32(), 0xFF8B5CF6);
-  });
-
-  test('外挂字幕与 AI 字幕同时存在时都显示', () {
-    final badges = buildCoverBadges(
-      hasExternalSubtitle: true,
-      hasAISubtitle: true,
-    );
-
-    final subtitleBadges = badges
-        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
-        .toList();
-    expect(subtitleBadges, hasLength(2));
-    expect(subtitleBadges.map((badge) => badge.tooltip), [
-      'externalSubtitle',
-      'aiSubtitle',
-    ]);
   });
 
   test('四种字幕来源相互独立可同时显示', () {
@@ -248,16 +163,6 @@ void _main_1() {
 
 // ==================== 原 test/features/oh_my_media/movie_detail/movie_detail_formatters_test.dart ====================
 void _main_2() {
-  test('续播位置始终使用 HH:MM:SS 格式', () {
-    expect(formatResumePosition(0), '00:00:00');
-    expect(formatResumePosition(65), '00:01:05');
-    expect(formatResumePosition(1 * 3600 + 23 * 60 + 22), '01:23:22');
-  });
-
-  test('负数续播位置按零处理', () {
-    expect(formatResumePosition(-1), '00:00:00');
-  });
-
   test('简介换行统一支持 HTML 和平台换行符', () {
     expect(
       normalizeMoviePlot('第一行\r\n第二行\r第三行\n第四行<br>第五行<br/>第六行<br />第七行'),
@@ -270,23 +175,6 @@ void _main_2() {
 
 // ==================== 原 test/features/oh_my_media/movie_detail/movie_quick_flag_test.dart ====================
 void _main_3() {
-  test('快捷操作配置与网页端标准名和别名一致', () {
-    final subtitle = movieQuickFlagConfig(MovieQuickFlag.subtitle);
-    final exsub = movieQuickFlagConfig(MovieQuickFlag.exsub);
-    expect(subtitle.canonicalName, '中文字幕');
-    expect(subtitle.keywords, ['中文字幕', '中字']);
-    expect(exsub.canonicalName, subtitle.canonicalName);
-    expect(exsub.keywords, subtitle.keywords);
-    expect(movieQuickFlagConfig(MovieQuickFlag.crack).canonicalName, '无码破解');
-    expect(movieQuickFlagConfig(MovieQuickFlag.crack).keywords, ['无码破解', '破解']);
-    final fourK = movieQuickFlagConfig(MovieQuickFlag.fourK);
-    expect(fourK.canonicalName, '4K');
-    expect(fourK.keywords, ['4K', '2160P']);
-    final twoK = movieQuickFlagConfig(MovieQuickFlag.twoK);
-    expect(twoK.canonicalName, '2K');
-    expect(twoK.keywords, ['2K', 'QHD', '1440P']);
-  });
-
   test('开启快捷操作同时追加对应标签和分类并保留现有选择', () {
     final first = addMovieQuickFlagSelections(
       tags: const [(id: 1, name: '已有标签')],

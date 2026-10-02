@@ -1,0 +1,64 @@
+name: Full Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        timeout-minutes: 10
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: pub get
+        timeout-minutes: 5
+        run: flutter pub get
+
+      - name: build_runner
+        timeout-minutes: 10
+        run: dart run build_runner build
+
+      - name: full tests
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          started=$SECONDS
+          set +e
+          flutter test --no-pub --reporter json 2> >(tee test-results/stderr.log >&2) | tee test-results/results.jsonl
+          test_exit=$?
+          set -e
+          elapsed=$((SECONDS - started))
+          printf 'Full tests: %s seconds; exit code: %s\n' "$elapsed" "$test_exit" | tee test-results/timing.txt >> "$GITHUB_STEP_SUMMARY"
+          exit "$test_exit"
+
+      - name: upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: full-test-results
+          path: |
+            test-results/
+            test/**/failures/
+          if-no-files-found: ignore
+          retention-days: 7

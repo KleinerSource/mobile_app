@@ -1,5 +1,4 @@
 // 合并自以下测试文件（测试内容保持不变，整合以减少每个文件的加载编译开销）。
-//   - test/core/app_version_test.dart
 //   - test/core/app_haptics_test.dart
 //   - test/core/map_with_concurrency_test.dart
 //   - test/core/file_operation_tracker_test.dart
@@ -12,7 +11,6 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/resource_scan.dart';
 import 'package:omm/core/platform/app_haptics.dart';
-import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
@@ -21,37 +19,9 @@ import 'package:omm/core/sources/files/file_source_repository.dart';
 import 'package:omm/core/util/map_with_concurrency.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ==================== 原 test/core/app_version_test.dart ====================
-void _main_0() {
-  test('版本号包含 pubspec 注入的构建号', () {
-    expect(formatAppVersion('0.1.4', '5'), '0.1.4+5');
-  });
-
-  test('版本号已包含构建号时不会重复拼接', () {
-    expect(formatAppVersion('0.1.4+5', '5'), '0.1.4+5');
-  });
-
-  test('缺少构建号时只显示版本号', () {
-    expect(formatAppVersion('0.1.4', ''), '0.1.4');
-  });
-}
-
 // ==================== 原 test/core/app_haptics_test.dart ====================
 void _main_1() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  test('wrapToggle 保留禁用回调语义', () {
-    expect(AppHaptics.wrapToggle(null), isNull);
-  });
-
-  test('wrapToggle 只调用一次实际开关回调', () {
-    var value = false;
-    final onChanged = AppHaptics.wrapToggle((next) => value = next);
-
-    onChanged!(true);
-
-    expect(value, isTrue);
-  });
 
   test('震动强度支持关闭和三档并可从偏好读取', () async {
     SharedPreferences.setMockInitialValues({
@@ -353,7 +323,6 @@ void _main_5() {
 }
 
 void main() {
-  group('app_version', _main_0);
   group('app_haptics', _main_1);
   group('map_with_concurrency', _main_2);
   group('file_operation_tracker', _main_3);

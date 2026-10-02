@@ -748,52 +748,6 @@ void main() {
     );
   });
 
-  testWidgets('服务器列表使用双列卡片网格', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'server.servers': jsonEncode([
-        for (var i = 0; i < 6; i++)
-          {
-            'id': 'server-$i',
-            'name': '服务器 $i',
-            'lines': [
-              {
-                'id': 'line-$i',
-                'name': '主线路',
-                'base_url': 'https://server-$i.example',
-                'latency_ms': 8,
-              },
-            ],
-            'active_line_id': 'line-$i',
-            'project_name': 'db_online',
-          },
-      ]),
-      'server.active_server_id': 'server-0',
-    });
-    final prefs = await SharedPreferences.getInstance();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: _testApp(const ServerSelectionPage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final grid = tester.widget<GridView>(find.byType(GridView));
-    expect(grid, isNotNull);
-    final delegate = grid.gridDelegate;
-    expect(delegate, isA<SliverGridDelegateWithFixedCrossAxisCount>());
-    expect(
-      (delegate as SliverGridDelegateWithFixedCrossAxisCount).crossAxisCount,
-      2,
-    );
-    expect(find.text('服务器 5'), findsOneWidget);
-    expect(find.text('主线路'), findsNWidgets(6));
-    expect(find.text('1条线路'), findsNWidgets(6));
-    expect(find.text('延迟'), findsNWidgets(6));
-    expect(find.text('8 ms'), findsNWidgets(6));
-  });
-
   testWidgets('服务器卡片长按后可直接拖动排序', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([

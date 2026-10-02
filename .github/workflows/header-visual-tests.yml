@@ -1,0 +1,62 @@
+name: Header Visual Tests
+
+on:
+  push:
+    paths:
+      - 'lib/shared/**'
+      - 'lib/core/platform/app_theme.dart'
+      - 'lib/l10n/**'
+      - 'test/shared/header_visual_test.dart'
+      - 'test/shared/goldens/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/header-visual-tests.yml'
+  pull_request:
+    paths:
+      - 'lib/shared/**'
+      - 'lib/core/platform/app_theme.dart'
+      - 'lib/l10n/**'
+      - 'test/shared/header_visual_test.dart'
+      - 'test/shared/goldens/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/header-visual-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: header-visual-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        timeout-minutes: 10
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: pub get
+        timeout-minutes: 5
+        run: flutter pub get
+
+      - name: Header golden tests
+        timeout-minutes: 5
+        run: flutter test --no-pub --dart-define=HEADER_GOLDENS=true test/shared/header_visual_test.dart --reporter expanded
+
+      - name: upload visual differences
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: header-visual-differences
+          path: test/shared/failures/
+          if-no-files-found: ignore
+          retention-days: 7

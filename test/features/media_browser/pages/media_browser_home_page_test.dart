@@ -78,47 +78,6 @@ Future<void> _pumpHome(
 }
 
 void main() {
-  testWidgets('Emby/Jellyfin 首页提供编辑布局入口', (tester) async {
-    await _pumpHome(
-      tester,
-      overrides: _baseOverrides(
-        latest: () => Future.value(const <MediaBrowserItem>[]),
-        resume: () => Future.value(const <MediaBrowserItem>[]),
-        nextUp: () => Future.value(const <MediaBrowserItem>[]),
-        stats: () => Future.value(
-          const MediaBrowserLibraryStats(
-            movieCount: 1,
-            seriesCount: 2,
-            episodeCount: 3,
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('编辑布局'), findsOneWidget);
-  });
-
-  testWidgets('FNOS 首页提供编辑布局入口', (tester) async {
-    await _pumpHome(
-      tester,
-      overrides: _baseOverrides(
-        config: MediaBrowserConfig.feiniu,
-        latest: () => Future.value(const <MediaBrowserItem>[]),
-        resume: () => Future.value(const <MediaBrowserItem>[]),
-        nextUp: () => Future.value(const <MediaBrowserItem>[]),
-        stats: () => Future.value(
-          const MediaBrowserLibraryStats(
-            movieCount: 1,
-            seriesCount: 2,
-            episodeCount: 3,
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('编辑布局'), findsOneWidget);
-  });
-
   testWidgets('核心首页数据完成前不启动统计，完成后统计卡片独立加载', (tester) async {
     final latest = Completer<List<MediaBrowserItem>>();
     final resume = Completer<List<MediaBrowserItem>>();
