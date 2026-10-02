@@ -400,7 +400,10 @@ class _MediaBrowserViewSectionsState
   void _openLibrary(BuildContext context, String viewId) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => MediaBrowserLibraryPage(initialViewId: viewId),
+        builder: (_) => MediaBrowserLibraryPage(
+          showBackButton: true,
+          initialViewId: viewId,
+        ),
       ),
     );
   }
@@ -536,7 +539,10 @@ class _MediaBrowserViewLatestRow extends ConsumerWidget {
       trailing: _SeeAllButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => MediaBrowserLibraryPage(initialViewId: view.id),
+            builder: (_) => MediaBrowserLibraryPage(
+              showBackButton: true,
+              initialViewId: view.id,
+            ),
           ),
         ),
       ),

@@ -19,6 +19,7 @@ import 'poster.dart';
 class MovieDetailScaffold extends StatelessWidget {
   const MovieDetailScaffold({
     super.key,
+    required this.title,
     required this.hero,
     required this.heroArts,
     required this.heroPosition,
@@ -29,6 +30,7 @@ class MovieDetailScaffold extends StatelessWidget {
     this.onRefresh,
   });
 
+  final String title;
   final Widget hero;
   final ValueListenable<List<HeroArt>> heroArts;
   final ValueListenable<double> heroPosition;
@@ -40,10 +42,8 @@ class MovieDetailScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     final maxHeight = heroMaxHeight.clamp(240.0, 480.0).toDouble();
     final minHeight = maxHeight * 0.62;
-    final statusBarTop = MediaQuery.paddingOf(context).top;
 
     final scrollView = CustomScrollView(
       physics: onRefresh == null
@@ -75,30 +75,81 @@ class MovieDetailScaffold extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(6, statusBarTop + 6, 6, 0),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: AppL10n.of(context).back,
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: colors.surface.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.arrow_back, size: 18),
-                  ),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-                if (actions.isNotEmpty) ...[const Spacer(), ...actions],
-              ],
-            ),
-          ),
+          child: MovieDetailNavigationBar(title: title, actions: actions),
         ),
       ],
     );
   }
+}
+
+/// 详情各状态共用的固定导航栏，标题与返回按钮位于同一行。
+class MovieDetailNavigationBar extends StatelessWidget {
+  const MovieDetailNavigationBar({
+    super.key,
+    required this.title,
+    this.actions = const <Widget>[],
+  });
+
+  final String title;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: AppL10n.of(context).back,
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_back, size: 18),
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    Theme.of(context).appBarTheme.titleTextStyle ??
+                    Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            ...actions,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 尚未取得详情数据时，也保留标题和返回入口。
+class MovieDetailStateBody extends StatelessWidget {
+  const MovieDetailStateBody({
+    super.key,
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      MovieDetailNavigationBar(title: title),
+      Expanded(child: child),
+    ],
+  );
 }
 
 /// 详情内容区块的统一排版容器。

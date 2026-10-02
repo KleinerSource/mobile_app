@@ -92,6 +92,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const MoviesPage(
+          showBackButton: true,
           initialFilter: MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
           maxItems: 30,
         ),
@@ -635,8 +636,10 @@ class _LibraryCard extends StatelessWidget {
         final changesBeforeVisit = MovieDataChanges.snapshot();
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) =>
-                MoviesPage(initialFilter: MovieFilter(libraryId: library.id)),
+            builder: (_) => MoviesPage(
+              showBackButton: true,
+              initialFilter: MovieFilter(libraryId: library.id),
+            ),
           ),
         );
         if (context.mounted) onMovieReturned(changesBeforeVisit);

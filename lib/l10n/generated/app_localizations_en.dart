@@ -7591,4 +7591,16 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get dbOnlineFollowingNoResources => 'No review resources';
+
+  @override
+  String get detailMoviePageTitle => 'Movie details';
+
+  @override
+  String get detailSeriesPageTitle => 'Series details';
+
+  @override
+  String get detailAlbumPageTitle => 'Album details';
+
+  @override
+  String get detailCollectionPageTitle => 'Collection details';
 }

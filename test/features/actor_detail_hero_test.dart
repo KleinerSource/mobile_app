@@ -9,6 +9,7 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/features/oh_my_media/person_detail/person_detail_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/movie_detail_scaffold.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -126,7 +127,16 @@ void main() {
 
     await expectUnifiedHeroBehavior(tester, const ValueKey('person-hero'));
     // 信息层: 姓名 + 类型胶囊压封面底部
-    expect(find.text('Test Actor'), findsOneWidget);
+    expect(find.text('Test Actor'), findsNWidgets(2));
+    final navigationTitle = find.descendant(
+      of: find.byType(MovieDetailNavigationBar),
+      matching: find.text('Test Actor'),
+    );
+    expect(navigationTitle, findsOneWidget);
+    expect(
+      tester.getRect(find.byTooltip('返回')).right,
+      lessThanOrEqualTo(tester.getRect(navigationTitle).left),
+    );
     expect(find.text('演员'), findsWidgets);
 
     await tester.tap(find.byIcon(Icons.arrow_back));

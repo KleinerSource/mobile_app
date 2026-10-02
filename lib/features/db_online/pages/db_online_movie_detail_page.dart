@@ -70,30 +70,36 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.bg,
       body: value.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorBody(
-          message: localizedErrorMessage(AppL10n.of(context), error),
-          onRetry: () {
-            if (code?.trim().isNotEmpty == true) {
-              ref.invalidate(
-                dbOnlineMovieDetailProvider(
-                  DbOnlineMovieDetailRequest(
-                    serverId: config?.activeServerId ?? '',
-                    value: code!.trim(),
+        loading: () => MovieDetailStateBody(
+          title: AppL10n.of(context).detailMoviePageTitle,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, _) => MovieDetailStateBody(
+          title: AppL10n.of(context).detailMoviePageTitle,
+          child: _ErrorBody(
+            message: localizedErrorMessage(AppL10n.of(context), error),
+            onRetry: () {
+              if (code?.trim().isNotEmpty == true) {
+                ref.invalidate(
+                  dbOnlineMovieDetailProvider(
+                    DbOnlineMovieDetailRequest(
+                      serverId: config?.activeServerId ?? '',
+                      value: code!.trim(),
+                    ),
                   ),
-                ),
-              );
-            } else {
-              ref.invalidate(
-                dbOnlineMovieDetailByVideoIdProvider(
-                  DbOnlineMovieDetailRequest(
-                    serverId: config?.activeServerId ?? '',
-                    value: videoId!.trim(),
+                );
+              } else {
+                ref.invalidate(
+                  dbOnlineMovieDetailByVideoIdProvider(
+                    DbOnlineMovieDetailRequest(
+                      serverId: config?.activeServerId ?? '',
+                      value: videoId!.trim(),
+                    ),
                   ),
-                ),
-              );
-            }
-          },
+                );
+              }
+            },
+          ),
         ),
         data: (movie) => _DbOnlineDetailBody(
           movie: movie,
@@ -239,6 +245,9 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         ),
     ];
     return MovieDetailScaffold(
+      title: movie.title.trim().isEmpty
+          ? AppL10n.of(context).detailMoviePageTitle
+          : movie.title,
       heroArts: _heroArts,
       heroPosition: _heroPosition,
       hero: MovieDetailHero(

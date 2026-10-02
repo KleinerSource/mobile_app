@@ -393,33 +393,32 @@ class SettingsSubPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleInset = showBackButton ? 48.0 : 0.0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: EdgeInsets.only(left: titleInset),
+            child: Text(eyebrow.toUpperCase(), style: AppText.eyebrow(context)),
+          ),
+          const SizedBox(height: 3),
           Row(
             children: [
               if (showBackButton)
-                IconButton(
-                  tooltip: backTooltip,
-                  icon: Icon(backIcon),
-                  onPressed:
-                      onBackPressed ?? () => Navigator.of(context).maybePop(),
-                )
-              else
-                const SizedBox(width: 48, height: 48),
-              if (trailing != null) ...[const Spacer(), trailing!],
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(eyebrow.toUpperCase(), style: AppText.eyebrow(context)),
-                const SizedBox(height: 3),
-                Row(
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: IconButton(
+                    tooltip: backTooltip ?? AppL10n.of(context).back,
+                    icon: Icon(backIcon),
+                    onPressed:
+                        onBackPressed ?? () => Navigator.of(context).maybePop(),
+                  ),
+                ),
+              Expanded(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
@@ -427,22 +426,24 @@ class SettingsSubPageHeader extends StatelessWidget {
                       child: Text(
                         title,
                         style: AppText.pageTitle(context),
-                        maxLines: titleMaxLines,
-                        overflow: titleMaxLines == null
-                            ? null
-                            : TextOverflow.ellipsis,
+                        maxLines: titleMaxLines ?? 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (titleTrailing != null) titleTrailing!,
                   ],
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 8),
-                  Text(subtitle!, style: AppText.meta(context)),
-                ],
-              ],
-            ),
+              ),
+              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+            ],
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: EdgeInsets.only(left: titleInset),
+              child: Text(subtitle!, style: AppText.meta(context)),
+            ),
+          ],
         ],
       ),
     );

@@ -60,8 +60,11 @@ Future<void> openMediaBrowserPersonWorks(
   if (id.isEmpty) return Future<void>.value();
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) =>
-          MediaBrowserLibraryPage(personId: id, personName: personName.trim()),
+      builder: (_) => MediaBrowserLibraryPage(
+        showBackButton: true,
+        personId: id,
+        personName: personName.trim(),
+      ),
     ),
   );
 }
@@ -76,8 +79,11 @@ Future<void> openMediaBrowserTagWorks(
   if (id.isEmpty) return Future<void>.value();
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) =>
-          MediaBrowserLibraryPage(tagId: id, tagName: tagName.trim()),
+      builder: (_) => MediaBrowserLibraryPage(
+        showBackButton: true,
+        tagId: id,
+        tagName: tagName.trim(),
+      ),
     ),
   );
 }
@@ -92,8 +98,11 @@ Future<void> openMediaBrowserGenreWorks(
   if (id.isEmpty) return Future<void>.value();
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) =>
-          MediaBrowserLibraryPage(genreId: id, genreName: genreName.trim()),
+      builder: (_) => MediaBrowserLibraryPage(
+        showBackButton: true,
+        genreId: id,
+        genreName: genreName.trim(),
+      ),
     ),
   );
 }

@@ -597,7 +597,9 @@ class _DbOnlineSubscriptionsPageState
           IconButton(
             tooltip: l.dbOnlineSubscriptionSettings,
             onPressed: () => Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsPage(showBackButton: true),
+              ),
             ),
             icon: Container(
               padding: const EdgeInsets.all(8),

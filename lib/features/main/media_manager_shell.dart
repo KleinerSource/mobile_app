@@ -299,14 +299,16 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         return const HomePage();
       case 1:
         if (dbOnline) return const DbOnlineLibraryPage();
-        if (mediaBrowser) return const MediaBrowserLibraryPage();
-        return const MoviesPage();
+        if (mediaBrowser) {
+          return const MediaBrowserLibraryPage(showBackButton: false);
+        }
+        return const MoviesPage(showBackButton: false);
       case 2:
         if (dbOnline) return const DbOnlineSearchPage();
         if (mediaBrowser) return const MediaBrowserSearchPage();
         return const SearchPage();
       case 3:
-        if (stash) return const SettingsPage();
+        if (stash) return const SettingsPage(showBackButton: false);
         if (mediaBrowser) return const MediaBrowserFavoritesPage();
         return dbOnline
             ? const DbOnlineSubscriptionsPage()

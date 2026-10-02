@@ -73,14 +73,34 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     if (config == null) {
       return Scaffold(
         backgroundColor: colors.bg,
-        body: Center(child: Text(l.serverLinesNotConfigured)),
+        body: GlowBackground(
+          child: SafeArea(
+            child: SettingsFixedHeaderLayout(
+              header: SettingsSubPageHeader(
+                eyebrow: l.settingsGroupServer,
+                title: l.serverLinesTitle,
+              ),
+              body: Center(child: Text(l.serverLinesNotConfigured)),
+            ),
+          ),
+        ),
       );
     }
     final server = _serverFor(config);
     if (server == null) {
       return Scaffold(
         backgroundColor: colors.bg,
-        body: Center(child: Text(l.serverLinesServerMissing)),
+        body: GlowBackground(
+          child: SafeArea(
+            child: SettingsFixedHeaderLayout(
+              header: SettingsSubPageHeader(
+                eyebrow: l.settingsGroupServer,
+                title: l.serverLinesTitle,
+              ),
+              body: Center(child: Text(l.serverLinesServerMissing)),
+            ),
+          ),
+        ),
       );
     }
     if (!_loaded) {

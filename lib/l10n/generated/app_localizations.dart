@@ -13715,6 +13715,30 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'暂无评论资源'**
   String get dbOnlineFollowingNoResources;
+
+  /// No description provided for @detailMoviePageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'影片详情'**
+  String get detailMoviePageTitle;
+
+  /// No description provided for @detailSeriesPageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧集详情'**
+  String get detailSeriesPageTitle;
+
+  /// No description provided for @detailAlbumPageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'专辑详情'**
+  String get detailAlbumPageTitle;
+
+  /// No description provided for @detailCollectionPageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'合集详情'**
+  String get detailCollectionPageTitle;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

@@ -89,17 +89,24 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text(
-                '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
-              ),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupTools,
+              title: AppL10n.of(context).avdbTitle,
+              subtitle: AppL10n.of(context).avdbSubtitle,
             ),
-            data: (cfg) {
-              _hydrate(cfg);
-              return _buildForm(c);
-            },
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Text(
+                  '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
+                ),
+              ),
+              data: (cfg) {
+                _hydrate(cfg);
+                return _buildForm(c);
+              },
+            ),
           ),
         ),
       ),
@@ -108,57 +115,50 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
 
   Widget _buildForm(AppColors c) {
     final l = AppL10n.of(context);
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupTools,
-        title: l.avdbTitle,
-        subtitle: l.avdbSubtitle,
-      ),
-      body: ListView(
-        primary: true,
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-        children: [
-          _sectionLabel(l.avdbStatusSection),
-          _switchCard(
-            c,
-            title: l.avdbEnableTitle,
-            subtitle: _enabled ? l.avdbEnableOn : l.avdbEnableOff,
-            value: _enabled,
-            onChanged: (value) => setState(() => _enabled = value),
-          ),
-          const SizedBox(height: 18),
-          _sectionLabel(l.avdbServerSection),
-          _field(_baseUrl, hint: 'https://example.com'),
-          const SizedBox(height: 18),
-          _sectionLabel('API Key'),
-          Text(
-            _hasKey ? l.avdbKeyConfigured : l.avdbKeyPrompt,
-            style: AppText.meta(context),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _apiKey,
-            obscureText: !_showKey,
-            textAlignVertical: TextAlignVertical.center,
-            decoration: settingsInputDecoration(
-              context,
-              hintText: l.avdbKeyKeepHint,
-              prefixIcon: const Icon(Icons.key_outlined),
-              suffixIcon: IconButton(
-                tooltip: _showKey ? l.avdbKeyHide : l.avdbKeyShow,
-                icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _showKey = !_showKey),
-              ),
+    return ListView(
+      primary: true,
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      children: [
+        _sectionLabel(l.avdbStatusSection),
+        _switchCard(
+          c,
+          title: l.avdbEnableTitle,
+          subtitle: _enabled ? l.avdbEnableOn : l.avdbEnableOff,
+          value: _enabled,
+          onChanged: (value) => setState(() => _enabled = value),
+        ),
+        const SizedBox(height: 18),
+        _sectionLabel(l.avdbServerSection),
+        _field(_baseUrl, hint: 'https://example.com'),
+        const SizedBox(height: 18),
+        _sectionLabel('API Key'),
+        Text(
+          _hasKey ? l.avdbKeyConfigured : l.avdbKeyPrompt,
+          style: AppText.meta(context),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _apiKey,
+          obscureText: !_showKey,
+          textAlignVertical: TextAlignVertical.center,
+          decoration: settingsInputDecoration(
+            context,
+            hintText: l.avdbKeyKeepHint,
+            prefixIcon: const Icon(Icons.key_outlined),
+            suffixIcon: IconButton(
+              tooltip: _showKey ? l.avdbKeyHide : l.avdbKeyShow,
+              icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
+              onPressed: () => setState(() => _showKey = !_showKey),
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _errorBox(c, _error!),
-          ],
-          const SizedBox(height: 28),
-          SettingsSaveButton(onPressed: _save, saving: _saving),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 14),
+          _errorBox(c, _error!),
         ],
-      ),
+        const SizedBox(height: 28),
+        SettingsSaveButton(onPressed: _save, saving: _saving),
+      ],
     );
   }
 

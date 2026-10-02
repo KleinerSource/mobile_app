@@ -150,17 +150,24 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text(
-                '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
-              ),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupTools,
+              title: AppL10n.of(context).previewSettingsTitle,
+              subtitle: AppL10n.of(context).previewSettingsSubtitle,
             ),
-            data: (config) {
-              _hydrate(config);
-              return _buildForm(colors);
-            },
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Text(
+                  '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
+                ),
+              ),
+              data: (config) {
+                _hydrate(config);
+                return _buildForm(colors);
+              },
+            ),
           ),
         ),
       ),
@@ -169,68 +176,61 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
 
   Widget _buildForm(AppColors colors) {
     final l = AppL10n.of(context);
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupTools,
-        title: l.previewSettingsTitle,
-        subtitle: l.previewSettingsSubtitle,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-        children: [
-          _switchCard(
-            colors,
-            title: l.previewAutoGenerate,
-            subtitle: l.previewAutoGenerateSub,
-            value: _autoGenerate,
-            onChanged: (value) => setState(() => _autoGenerate = value),
-          ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      children: [
+        _switchCard(
+          colors,
+          title: l.previewAutoGenerate,
+          subtitle: l.previewAutoGenerateSub,
+          value: _autoGenerate,
+          onChanged: (value) => setState(() => _autoGenerate = value),
+        ),
+        const SizedBox(height: 12),
+        _switchCard(
+          colors,
+          title: l.previewAudio,
+          subtitle: l.previewAudioSub,
+          value: _audio,
+          onChanged: (value) => setState(() => _audio = value),
+        ),
+        const SizedBox(height: 22),
+        _sectionLabel(l.previewVideoSection),
+        _numberField(_segments, l.previewSegments, l.previewSegmentsSub),
+        _numberField(
+          _duration,
+          l.previewSegmentDuration,
+          l.previewSegmentDurationSub,
+          decimal: true,
+        ),
+        _numberField(
+          _excludeStart,
+          l.previewExcludeStart,
+          l.previewExcludeSub,
+          decimal: true,
+        ),
+        _numberField(
+          _excludeEnd,
+          l.previewExcludeEnd,
+          l.previewExcludeSub,
+          decimal: true,
+        ),
+        const SizedBox(height: 22),
+        _sectionLabel(l.previewEncodingSection),
+        _presetField(colors, l.previewPreset),
+        const SizedBox(height: 22),
+        _sectionLabel(l.previewSpriteSection),
+        _numberField(_spriteInterval, l.previewSpriteInterval, ''),
+        _numberField(_spriteMinimum, l.previewSpriteMinimum, ''),
+        _numberField(_spriteMaximum, l.previewSpriteMaximum, ''),
+        _numberField(_spriteSize, l.previewSpriteSize, ''),
+        if (_error != null) ...[
           const SizedBox(height: 12),
-          _switchCard(
-            colors,
-            title: l.previewAudio,
-            subtitle: l.previewAudioSub,
-            value: _audio,
-            onChanged: (value) => setState(() => _audio = value),
-          ),
-          const SizedBox(height: 22),
-          _sectionLabel(l.previewVideoSection),
-          _numberField(_segments, l.previewSegments, l.previewSegmentsSub),
-          _numberField(
-            _duration,
-            l.previewSegmentDuration,
-            l.previewSegmentDurationSub,
-            decimal: true,
-          ),
-          _numberField(
-            _excludeStart,
-            l.previewExcludeStart,
-            l.previewExcludeSub,
-            decimal: true,
-          ),
-          _numberField(
-            _excludeEnd,
-            l.previewExcludeEnd,
-            l.previewExcludeSub,
-            decimal: true,
-          ),
-          const SizedBox(height: 22),
-          _sectionLabel(l.previewEncodingSection),
-          _presetField(colors, l.previewPreset),
-          const SizedBox(height: 22),
-          _sectionLabel(l.previewSpriteSection),
-          _numberField(_spriteInterval, l.previewSpriteInterval, ''),
-          _numberField(_spriteMinimum, l.previewSpriteMinimum, ''),
-          _numberField(_spriteMaximum, l.previewSpriteMaximum, ''),
-          _numberField(_spriteSize, l.previewSpriteSize, ''),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            _errorBox(colors, _error!),
-          ],
-          const SizedBox(height: 24),
-          SettingsSaveButton(onPressed: _save, saving: _saving),
+          _errorBox(colors, _error!),
         ],
-      ),
+        const SizedBox(height: 24),
+        SettingsSaveButton(onPressed: _save, saving: _saving),
+      ],
     );
   }
 

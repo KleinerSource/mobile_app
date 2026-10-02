@@ -2612,6 +2612,9 @@
     }
   },
   "dbOnlineFollowingMetadataLoading": "正在补全磁链信息",
-  "dbOnlineFollowingNoResources": "暂无评论资源"
-
+  "dbOnlineFollowingNoResources": "暂无评论资源",
+  "detailMoviePageTitle": "影片详情",
+  "detailSeriesPageTitle": "剧集详情",
+  "detailAlbumPageTitle": "专辑详情",
+  "detailCollectionPageTitle": "合集详情"
 }

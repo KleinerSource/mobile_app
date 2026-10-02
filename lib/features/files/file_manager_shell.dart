@@ -147,7 +147,7 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
           children: [
             fileNavigator,
             FileFavoritesPage(onOpenFavorite: _openFavorite),
-            const SettingsPage(forFileManager: true),
+            const SettingsPage(forFileManager: true, showBackButton: false),
           ],
         ),
         bottomNavigationBar: ValueListenableBuilder<bool>(

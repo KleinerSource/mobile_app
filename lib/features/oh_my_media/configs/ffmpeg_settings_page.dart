@@ -92,17 +92,24 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text(
-                '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
-              ),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupTools,
+              title: AppL10n.of(context).ffmpegTitle,
+              subtitle: AppL10n.of(context).ffmpegSubtitle,
             ),
-            data: (cfg) {
-              _hydrate(cfg);
-              return _buildForm(c);
-            },
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Text(
+                  '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
+                ),
+              ),
+              data: (cfg) {
+                _hydrate(cfg);
+                return _buildForm(c);
+              },
+            ),
           ),
         ),
       ),
@@ -111,104 +118,97 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
 
   Widget _buildForm(AppColors c) {
     final l = AppL10n.of(context);
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupTools,
-        title: l.ffmpegTitle,
-        subtitle: l.ffmpegSubtitle,
-      ),
-      body: ListView(
-        primary: true,
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-        children: [
-          _sectionLabel(l.ffmpegHwSection),
-          _switchCard(
-            c,
-            title: l.ffmpegHwEnableTitle,
-            subtitle: _enabled ? l.ffmpegHwOn : l.ffmpegHwOff,
-            value: _enabled,
-            onChanged: (value) => setState(() => _enabled = value),
+    return ListView(
+      primary: true,
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      children: [
+        _sectionLabel(l.ffmpegHwSection),
+        _switchCard(
+          c,
+          title: l.ffmpegHwEnableTitle,
+          subtitle: _enabled ? l.ffmpegHwOn : l.ffmpegHwOff,
+          value: _enabled,
+          onChanged: (value) => setState(() => _enabled = value),
+        ),
+        const SizedBox(height: 12),
+        InputDecorator(
+          decoration: settingsInputDecoration(
+            context,
+            labelText: l.ffmpegHwBackendLabel,
+            prefixIcon: const Icon(Icons.memory_outlined),
           ),
-          const SizedBox(height: 12),
-          InputDecorator(
-            decoration: settingsInputDecoration(
-              context,
-              labelText: l.ffmpegHwBackendLabel,
-              prefixIcon: const Icon(Icons.memory_outlined),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _hwAccel,
-                isExpanded: true,
-                isDense: true,
-                style: TextStyle(
-                  color: c.text,
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                items: [
-                  for (final value in FfmpegConfig.supportedHardwareAccels)
-                    DropdownMenuItem(
-                      value: value,
-                      child: Text(_hardwareLabel(l, value)),
-                    ),
-                ],
-                onChanged: _enabled
-                    ? (value) {
-                        if (value != null && value != _hwAccel) {
-                          AppHaptics.selection();
-                          setState(() => _hwAccel = value);
-                        }
-                      }
-                    : null,
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _hwAccel,
+              isExpanded: true,
+              isDense: true,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
+              items: [
+                for (final value in FfmpegConfig.supportedHardwareAccels)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(_hardwareLabel(l, value)),
+                  ),
+              ],
+              onChanged: _enabled
+                  ? (value) {
+                      if (value != null && value != _hwAccel) {
+                        AppHaptics.selection();
+                        setState(() => _hwAccel = value);
+                      }
+                    }
+                  : null,
             ),
           ),
-          const SizedBox(height: 12),
-          _switchCard(
-            c,
-            title: l.ffmpegFallbackTitle,
-            subtitle: _fallback ? l.ffmpegFallbackOn : l.ffmpegFallbackOff,
-            value: _fallback,
-            onChanged: _enabled
-                ? (value) => setState(() => _fallback = value)
-                : null,
-          ),
-          const SizedBox(height: 22),
-          _sectionLabel(l.ffmpegPathsSection),
-          _pathField(_ffmpegPath, l.ffmpegPathHint('ffmpeg')),
-          const SizedBox(height: 12),
-          _pathField(_ffprobePath, l.ffmpegPathHint('ffprobe')),
-          const SizedBox(height: 22),
-          _sectionLabel(l.ffmpegAudioSection),
-          _audioSettingCard(
-            c,
-            title: l.ffmpegAudioWorkersTitle,
-            subtitle: l.ffmpegAudioWorkersSubtitle,
-            value: _audioExtractWorkers,
-            icon: Icons.queue_music_outlined,
-            onChanged: (value) =>
-                setState(() => _audioExtractWorkers = value.round()),
-          ),
-          const SizedBox(height: 12),
-          _audioSettingCard(
-            c,
-            title: l.ffmpegAudioThreadsTitle,
-            subtitle: l.ffmpegAudioThreadsSubtitle,
-            value: _audioExtractThreads,
-            icon: Icons.memory_outlined,
-            onChanged: (value) =>
-                setState(() => _audioExtractThreads = value.round()),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _errorBox(c, _error!),
-          ],
-          const SizedBox(height: 28),
-          SettingsSaveButton(onPressed: _save, saving: _saving),
+        ),
+        const SizedBox(height: 12),
+        _switchCard(
+          c,
+          title: l.ffmpegFallbackTitle,
+          subtitle: _fallback ? l.ffmpegFallbackOn : l.ffmpegFallbackOff,
+          value: _fallback,
+          onChanged: _enabled
+              ? (value) => setState(() => _fallback = value)
+              : null,
+        ),
+        const SizedBox(height: 22),
+        _sectionLabel(l.ffmpegPathsSection),
+        _pathField(_ffmpegPath, l.ffmpegPathHint('ffmpeg')),
+        const SizedBox(height: 12),
+        _pathField(_ffprobePath, l.ffmpegPathHint('ffprobe')),
+        const SizedBox(height: 22),
+        _sectionLabel(l.ffmpegAudioSection),
+        _audioSettingCard(
+          c,
+          title: l.ffmpegAudioWorkersTitle,
+          subtitle: l.ffmpegAudioWorkersSubtitle,
+          value: _audioExtractWorkers,
+          icon: Icons.queue_music_outlined,
+          onChanged: (value) =>
+              setState(() => _audioExtractWorkers = value.round()),
+        ),
+        const SizedBox(height: 12),
+        _audioSettingCard(
+          c,
+          title: l.ffmpegAudioThreadsTitle,
+          subtitle: l.ffmpegAudioThreadsSubtitle,
+          value: _audioExtractThreads,
+          icon: Icons.memory_outlined,
+          onChanged: (value) =>
+              setState(() => _audioExtractThreads = value.round()),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 14),
+          _errorBox(c, _error!),
         ],
-      ),
+        const SizedBox(height: 28),
+        SettingsSaveButton(onPressed: _save, saving: _saving),
+      ],
     );
   }
 

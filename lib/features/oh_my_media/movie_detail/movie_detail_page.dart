@@ -95,21 +95,27 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
     return Scaffold(
       backgroundColor: c.bg,
       body: asyncDetail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(l.loadFailed, style: AppText.sectionTitle(context)),
-                const SizedBox(height: 8),
-                Text(
-                  localizedErrorMessage(l, e),
-                  style: AppText.body(context),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        loading: () => MovieDetailStateBody(
+          title: AppL10n.of(context).detailMoviePageTitle,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => MovieDetailStateBody(
+          title: AppL10n.of(context).detailMoviePageTitle,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(l.loadFailed, style: AppText.sectionTitle(context)),
+                  const SizedBox(height: 8),
+                  Text(
+                    localizedErrorMessage(l, e),
+                    style: AppText.body(context),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -224,6 +230,9 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     final isFavorited = favStatus[movie.id] ?? movie.isFavorited;
 
     return MovieDetailScaffold(
+      title: movie.title.trim().isEmpty
+          ? AppL10n.of(context).detailMoviePageTitle
+          : movie.title,
       heroArts: _heroArts,
       heroPosition: _heroPagePosition,
       hero: _HeroHeader(movie: movie, urlBuilder: urlBuilder),

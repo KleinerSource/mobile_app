@@ -191,6 +191,7 @@ class _DbOnlineLatestMoviesPageState
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  BackButton(onPressed: () => Navigator.of(context).maybePop()),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

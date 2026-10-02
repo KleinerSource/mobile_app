@@ -51,12 +51,21 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.bg,
       body: value.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorBody(
-          message: localizedErrorMessage(AppL10n.of(context), error),
-          onRetry: () => ref.invalidate(
-            mediaBrowserItemDetailProvider(
-              MediaBrowserItemDetailRequest(serverId: serverId, itemId: itemId),
+        loading: () => MovieDetailStateBody(
+          title: AppL10n.of(context).detailMoviePageTitle,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, _) => MovieDetailStateBody(
+          title: AppL10n.of(context).detailMoviePageTitle,
+          child: _ErrorBody(
+            message: localizedErrorMessage(AppL10n.of(context), error),
+            onRetry: () => ref.invalidate(
+              mediaBrowserItemDetailProvider(
+                MediaBrowserItemDetailRequest(
+                  serverId: serverId,
+                  itemId: itemId,
+                ),
+              ),
             ),
           ),
         ),
@@ -296,6 +305,9 @@ class _MediaBrowserDetailBodyState
             personName: person.name,
           );
     return MovieDetailScaffold(
+      title: item.name.trim().isEmpty
+          ? AppL10n.of(context).detailMoviePageTitle
+          : item.name,
       heroArts: _heroArts,
       heroPosition: _heroPosition,
       hero: MovieDetailHero(

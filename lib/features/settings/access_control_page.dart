@@ -336,7 +336,18 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
     final c = appColors(context);
     return Scaffold(
       backgroundColor: c.bg,
-      body: GlowBackground(child: SafeArea(child: _buildBody(c))),
+      body: GlowBackground(
+        child: SafeArea(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupSystem,
+              title: AppL10n.of(context).accessControlTitle,
+              subtitle: AppL10n.of(context).accessControlSubtitle,
+            ),
+            body: _buildBody(c),
+          ),
+        ),
+      ),
     );
   }
 
@@ -360,83 +371,70 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         ? l.accessStatusConfiguredDesc
         : l.accessStatusNotConfiguredDesc;
 
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupSystem,
-        title: l.accessControlTitle,
-        subtitle: l.accessControlSubtitle,
-      ),
-      body: ListView(
-        primary: true,
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-        children: [
-          _statusCard(
+    return ListView(
+      primary: true,
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+      children: [
+        _statusCard(
+          c,
+          title: statusTitle,
+          description: statusDescription,
+          icon: active ? Icons.verified_user_outlined : Icons.info_outline,
+          color: c.accent,
+        ),
+        const SizedBox(height: 18),
+        _sectionLabel(l.accessSectionProtection, l.accessSectionProtectionHelp),
+        _switchCard(c),
+        const SizedBox(height: 18),
+        _sectionLabel(
+          _configured ? l.accessChangePassword : l.accessSetPassword,
+          _configured ? l.accessChangePasswordHelp : l.accessSetPasswordHelp,
+        ),
+        _passwordInput(c),
+        const SizedBox(height: 18),
+        _sectionLabel(l.accessSectionSession, l.accessSectionSessionHelp),
+        _numberInput(
+          c,
+          label: l.accessRefreshTokenDays,
+          suffix: l.unitDays,
+          controller: _refreshDaysController,
+          icon: Icons.schedule,
+          help: l.accessRefreshDaysHelp,
+        ),
+        const SizedBox(height: 12),
+        _numberInput(
+          c,
+          label: l.accessMaxFailedAttempts,
+          suffix: l.unitTimes,
+          controller: _maxAttemptsController,
+          icon: Icons.error_outline,
+          help: l.accessMaxAttemptsHelp,
+        ),
+        const SizedBox(height: 12),
+        _numberInput(
+          c,
+          label: l.accessLockDuration,
+          suffix: l.unitMinutes,
+          controller: _lockMinutesController,
+          icon: Icons.lock_clock,
+          help: l.accessLockMinutesHelp,
+        ),
+        const SizedBox(height: 18),
+        _sectionLabel(l.accessSectionMfa, l.accessSectionMfaHelp),
+        _totpCard(c),
+        if (_webAuthnConfigured || _passwordLoginDisabled) ...[
+          const SizedBox(height: 10),
+          _infoBox(
             c,
-            title: statusTitle,
-            description: statusDescription,
-            icon: active ? Icons.verified_user_outlined : Icons.info_outline,
-            color: c.accent,
+            _passwordLoginDisabled
+                ? l.accessPasskeyOnlyInfo
+                : l.accessPasskeyConfiguredInfo,
           ),
-          const SizedBox(height: 18),
-          _sectionLabel(
-            l.accessSectionProtection,
-            l.accessSectionProtectionHelp,
-          ),
-          _switchCard(c),
-          const SizedBox(height: 18),
-          _sectionLabel(
-            _configured ? l.accessChangePassword : l.accessSetPassword,
-            _configured ? l.accessChangePasswordHelp : l.accessSetPasswordHelp,
-          ),
-          _passwordInput(c),
-          const SizedBox(height: 18),
-          _sectionLabel(l.accessSectionSession, l.accessSectionSessionHelp),
-          _numberInput(
-            c,
-            label: l.accessRefreshTokenDays,
-            suffix: l.unitDays,
-            controller: _refreshDaysController,
-            icon: Icons.schedule,
-            help: l.accessRefreshDaysHelp,
-          ),
-          const SizedBox(height: 12),
-          _numberInput(
-            c,
-            label: l.accessMaxFailedAttempts,
-            suffix: l.unitTimes,
-            controller: _maxAttemptsController,
-            icon: Icons.error_outline,
-            help: l.accessMaxAttemptsHelp,
-          ),
-          const SizedBox(height: 12),
-          _numberInput(
-            c,
-            label: l.accessLockDuration,
-            suffix: l.unitMinutes,
-            controller: _lockMinutesController,
-            icon: Icons.lock_clock,
-            help: l.accessLockMinutesHelp,
-          ),
-          const SizedBox(height: 18),
-          _sectionLabel(l.accessSectionMfa, l.accessSectionMfaHelp),
-          _totpCard(c),
-          if (_webAuthnConfigured || _passwordLoginDisabled) ...[
-            const SizedBox(height: 10),
-            _infoBox(
-              c,
-              _passwordLoginDisabled
-                  ? l.accessPasskeyOnlyInfo
-                  : l.accessPasskeyConfiguredInfo,
-            ),
-          ],
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _errorBox(_error!),
-          ],
-          const SizedBox(height: 28),
-          SettingsSaveButton(onPressed: _save, saving: _saving),
         ],
-      ),
+        if (_error != null) ...[const SizedBox(height: 14), _errorBox(_error!)],
+        const SizedBox(height: 28),
+        SettingsSaveButton(onPressed: _save, saving: _saving),
+      ],
     );
   }
 

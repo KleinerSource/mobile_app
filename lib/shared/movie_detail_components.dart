@@ -5,6 +5,8 @@ export 'cast_section.dart' show CastEntry, CastSection;
 export 'movie_detail_scaffold.dart'
     show
         MovieDetailScaffold,
+        MovieDetailNavigationBar,
+        MovieDetailStateBody,
         MovieDetailFullBleedSection,
         MovieDetailHero,
         MovieDetailPlot,

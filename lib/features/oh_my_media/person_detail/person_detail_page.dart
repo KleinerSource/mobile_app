@@ -22,6 +22,7 @@ import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/movie_detail_scaffold.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
@@ -274,7 +275,6 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final hue = actorHueFromName(widget.actor.name);
     // 状态栏穿透: 封面延伸到状态栏底下,悬浮操作行单独避开状态栏
-    final statusBarTop = MediaQuery.paddingOf(context).top;
     _syncHeroArt(ref.watch(mediaRuntimeConfigProvider));
     // 封面占版面上部约 42%: 名称/简介与影片列表首屏即可见
     final heroMaxHeight = MediaQuery.sizeOf(context).height * 0.42;
@@ -378,36 +378,22 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
             top: 0,
             left: 0,
             right: 0,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(6, statusBarTop + 6, 6, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: c.surface.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back, size: 18),
+            child: MovieDetailNavigationBar(
+              title: widget.actor.name,
+              actions: [
+                IconButton(
+                  tooltip: l.personSyncAssociations,
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: c.surface.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
                     ),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    child: const Icon(Icons.cloud_sync_outlined, size: 18),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: l.personSyncAssociations,
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: c.surface.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.cloud_sync_outlined, size: 18),
-                    ),
-                    onPressed: _syncActor,
-                  ),
-                ],
-              ),
+                  onPressed: _syncActor,
+                ),
+              ],
             ),
           ),
         ],

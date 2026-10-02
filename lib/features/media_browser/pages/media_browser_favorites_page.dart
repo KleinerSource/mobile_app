@@ -481,7 +481,8 @@ class _MediaBrowserFavoritesPageState
                             tooltip: AppL10n.of(context).settingsTitle,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const SettingsPage(),
+                                builder: (_) =>
+                                    const SettingsPage(showBackButton: true),
                               ),
                             ),
                           ),

@@ -130,38 +130,47 @@ class _MediaBrowserSeriesDetailPageState
     return Scaffold(
       backgroundColor: colors.bg,
       body: detail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppL10n.of(context).loadFailed,
-                style: AppText.sectionTitle(context),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                localizedErrorMessage(AppL10n.of(context), error),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => ref.invalidate(
-                  mediaBrowserItemDetailProvider(
-                    MediaBrowserItemDetailRequest(
-                      serverId: serverId,
-                      itemId: _seriesId,
+        loading: () => MovieDetailStateBody(
+          title: AppL10n.of(context).detailSeriesPageTitle,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, _) => MovieDetailStateBody(
+          title: AppL10n.of(context).detailSeriesPageTitle,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  AppL10n.of(context).loadFailed,
+                  style: AppText.sectionTitle(context),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  localizedErrorMessage(AppL10n.of(context), error),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => ref.invalidate(
+                    mediaBrowserItemDetailProvider(
+                      MediaBrowserItemDetailRequest(
+                        serverId: serverId,
+                        itemId: _seriesId,
+                      ),
                     ),
                   ),
+                  child: Text(AppL10n.of(context).mediaBrowserRetry),
                 ),
-                child: Text(AppL10n.of(context).mediaBrowserRetry),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         data: (series) {
           _syncHeroArt(series, urls.value);
           return MovieDetailScaffold(
+            title: series.name.trim().isEmpty
+                ? AppL10n.of(context).detailSeriesPageTitle
+                : series.name,
             heroArts: _heroArts,
             heroPosition: _heroPosition,
             hero: MovieDetailHero(

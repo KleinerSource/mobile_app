@@ -110,8 +110,7 @@ class _MediaBrowserCollectionDetailPageState
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
-          serverId:
-              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+          serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           query: media_models.MediaQuery(
             offset: startIndex,
             limit: _pageSize,
@@ -172,8 +171,7 @@ class _MediaBrowserCollectionDetailPageState
     ref.invalidate(
       mediaBrowserItemDetailProvider(
         MediaBrowserItemDetailRequest(
-          serverId:
-              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+          serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           itemId: _collectionId,
         ),
       ),
@@ -203,14 +201,20 @@ class _MediaBrowserCollectionDetailPageState
     return Scaffold(
       backgroundColor: colors.bg,
       body: detail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => ErrorView(
-          message: localizedErrorMessage(AppL10n.of(context), error),
-          onRetry: () => ref.invalidate(
-            mediaBrowserItemDetailProvider(
-              MediaBrowserItemDetailRequest(
-                serverId: serverId,
-                itemId: _collectionId,
+        loading: () => MovieDetailStateBody(
+          title: AppL10n.of(context).detailCollectionPageTitle,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, _) => MovieDetailStateBody(
+          title: AppL10n.of(context).detailCollectionPageTitle,
+          child: ErrorView(
+            message: localizedErrorMessage(AppL10n.of(context), error),
+            onRetry: () => ref.invalidate(
+              mediaBrowserItemDetailProvider(
+                MediaBrowserItemDetailRequest(
+                  serverId: serverId,
+                  itemId: _collectionId,
+                ),
               ),
             ),
           ),
@@ -218,6 +222,9 @@ class _MediaBrowserCollectionDetailPageState
         data: (collection) {
           _syncHeroArt(collection, urls.value);
           return MovieDetailScaffold(
+            title: collection.name.trim().isEmpty
+                ? AppL10n.of(context).detailCollectionPageTitle
+                : collection.name,
             onRefresh: _refreshAll,
             heroArts: _heroArts,
             heroPosition: _heroPosition,

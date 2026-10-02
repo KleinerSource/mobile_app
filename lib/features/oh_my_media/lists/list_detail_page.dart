@@ -35,7 +35,10 @@ class ListDetailPage extends ConsumerWidget {
     if (list == null) {
       return Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(),
+        appBar: AppBar(
+          leading: const BackButton(),
+          title: Text(l10n.listHeroEyebrow),
+        ),
         body: Center(child: Text(AppL10n.of(context).listMissing)),
       );
     }
@@ -51,7 +54,13 @@ class ListDetailPage extends ConsumerWidget {
               pinned: true,
               backgroundColor: c.bg,
               surfaceTintColor: Colors.transparent,
+              title: Text(
+                displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               leading: IconButton(
+                tooltip: l10n.back,
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(

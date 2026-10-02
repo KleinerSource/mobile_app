@@ -51,6 +51,7 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
     this.genreName,
     this.tagId,
     this.tagName,
+    this.showBackButton = false,
   });
 
   /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
@@ -67,6 +68,7 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
   /// Stash 标签作品模式：按标签 ID 过滤，标题显示标签名。
   final String? tagId;
   final String? tagName;
+  final bool showBackButton;
 
   @override
   ConsumerState<MediaBrowserLibraryPage> createState() =>
@@ -663,6 +665,11 @@ class _MediaBrowserLibraryPageState
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            if (widget.showBackButton)
+                              BackButton(
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
+                              ),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,6 +712,8 @@ class _MediaBrowserLibraryPageState
                                             context,
                                           ).mediaBrowserLibrariesTitle,
                                     style: AppText.pageTitle(context),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),

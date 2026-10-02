@@ -620,7 +620,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                             ),
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const SettingsPage(),
+                                builder: (_) =>
+                                    const SettingsPage(showBackButton: true),
                               ),
                             ),
                           ),

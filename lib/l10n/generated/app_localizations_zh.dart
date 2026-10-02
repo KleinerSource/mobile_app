@@ -7439,4 +7439,16 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get dbOnlineFollowingNoResources => '暂无评论资源';
+
+  @override
+  String get detailMoviePageTitle => '影片详情';
+
+  @override
+  String get detailSeriesPageTitle => '剧集详情';
+
+  @override
+  String get detailAlbumPageTitle => '专辑详情';
+
+  @override
+  String get detailCollectionPageTitle => '合集详情';
 }

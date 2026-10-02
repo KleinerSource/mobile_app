@@ -23,9 +23,14 @@ import 'settings_common.dart';
 
 /// 设置主入口 · 服务器、应用与关于入口
 class SettingsPage extends ConsumerWidget {
-  const SettingsPage({super.key, this.forFileManager = false});
+  const SettingsPage({
+    super.key,
+    this.forFileManager = false,
+    this.showBackButton = true,
+  });
 
   final bool forFileManager;
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,6 +48,7 @@ class SettingsPage extends ConsumerWidget {
             header: SettingsSubPageHeader(
               eyebrow: l.settingsTitle,
               title: l.settingsPreferences,
+              showBackButton: showBackButton,
             ),
             body: ListView(
               primary: true,

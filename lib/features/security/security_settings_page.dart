@@ -29,13 +29,20 @@ class SecuritySettingsPage extends ConsumerWidget {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: security.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => _SecuritySettingsError(
-              message: error.toString(),
-              onRetry: () => ref.invalidate(securityControllerProvider),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsAppSettings,
+              title: AppL10n.of(context).settingsSecurity,
+              subtitle: AppL10n.of(context).securitySettingsSub,
             ),
-            data: (settings) => _SecuritySettingsContent(settings: settings),
+            body: security.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _SecuritySettingsError(
+                message: error.toString(),
+                onRetry: () => ref.invalidate(securityControllerProvider),
+              ),
+              data: (settings) => _SecuritySettingsContent(settings: settings),
+            ),
           ),
         ),
       ),
@@ -51,53 +58,46 @@ class _SecuritySettingsContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsAppSettings,
-        title: l.settingsSecurity,
-        subtitle: l.securitySettingsSub,
-      ),
-      body: ListView(
-        primary: true,
-        children: [
-          SettingsGroup(
-            title: l.securityUnlockMethods,
-            items: [
-              _BiometricTile(
-                enabled: settings.biometricEnabled,
-                hasPin: settings.hasPin,
-                onConfigurePin: () => _configurePin(context, ref),
-              ),
-              SettingsTile(
-                title: l.securityAppPassword,
-                subtitle: settings.hasPin ? l.securityPinSet : l.securityNotSet,
-                leadingIcon: Icons.password_outlined,
-                onTap: () => _openPinActions(context, ref, settings.hasPin),
-              ),
-              SettingsTile(
-                title: l.securityGesturePassword,
-                subtitle: settings.hasGesture
-                    ? l.securityGestureSet
-                    : l.securityNotSet,
-                leadingIcon: Icons.gesture_rounded,
-                onTap: () =>
-                    _openGestureActions(context, ref, settings.hasGesture),
-              ),
-            ],
-          ),
-          SettingsGroup(
-            title: l.securityUsageNotes,
-            items: [
-              SettingsTile(
-                title: l.securityLockVerifyTitle,
-                subtitle: l.securityLockVerifyDesc,
-                leadingIcon: Icons.lock_outline,
-              ),
-            ],
-          ),
-          const SizedBox(height: 80),
-        ],
-      ),
+    return ListView(
+      primary: true,
+      children: [
+        SettingsGroup(
+          title: l.securityUnlockMethods,
+          items: [
+            _BiometricTile(
+              enabled: settings.biometricEnabled,
+              hasPin: settings.hasPin,
+              onConfigurePin: () => _configurePin(context, ref),
+            ),
+            SettingsTile(
+              title: l.securityAppPassword,
+              subtitle: settings.hasPin ? l.securityPinSet : l.securityNotSet,
+              leadingIcon: Icons.password_outlined,
+              onTap: () => _openPinActions(context, ref, settings.hasPin),
+            ),
+            SettingsTile(
+              title: l.securityGesturePassword,
+              subtitle: settings.hasGesture
+                  ? l.securityGestureSet
+                  : l.securityNotSet,
+              leadingIcon: Icons.gesture_rounded,
+              onTap: () =>
+                  _openGestureActions(context, ref, settings.hasGesture),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          title: l.securityUsageNotes,
+          items: [
+            SettingsTile(
+              title: l.securityLockVerifyTitle,
+              subtitle: l.securityLockVerifyDesc,
+              leadingIcon: Icons.lock_outline,
+            ),
+          ],
+        ),
+        const SizedBox(height: 80),
+      ],
     );
   }
 

@@ -1,0 +1,122 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/movie_detail_scaffold.dart';
+import 'package:omm/features/home/hero_backdrop.dart';
+
+Widget _app(Widget page, {double scale = 1}) => MaterialApp(
+  locale: const Locale('zh'),
+  localizationsDelegates: AppL10n.localizationsDelegates,
+  supportedLocales: AppL10n.supportedLocales,
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+    child: child!,
+  ),
+  home: Scaffold(body: page),
+);
+
+void main() {
+  for (final size in [const Size(320, 720), const Size(844, 390)]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('长标题与操作在 ${size.width}/$scale 下不溢出', (tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        const title = '这是一个用于验证窄屏和放大字体的长页面标题';
+        await tester.pumpWidget(
+          _app(
+            SettingsSubPageHeader(
+              eyebrow: '设置',
+              title: title,
+              subtitle: '页面说明',
+              titleTrailing: const Text('99'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
+                  IconButton(
+                    onPressed: () {},
+                    icon: const Icon(Icons.more_horiz),
+                  ),
+                ],
+              ),
+            ),
+            scale: scale,
+          ),
+        );
+        final back = tester.getRect(find.byTooltip('返回'));
+        final text = tester.getRect(find.text(title));
+        expect(back.right, lessThanOrEqualTo(text.left));
+        expect(back.center.dy, closeTo(text.center.dy, 1));
+        expect(tester.getTopLeft(find.text('设置')).dx, closeTo(text.left, 1));
+        expect(tester.getTopLeft(find.text('页面说明')).dx, closeTo(text.left, 1));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets('隐藏返回时取消占位，标题恢复左侧留白', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const SettingsSubPageHeader(
+          eyebrow: '设置',
+          title: '偏好设置',
+          showBackButton: false,
+        ),
+      ),
+    );
+    expect(find.byTooltip('返回'), findsNothing);
+    expect(tester.getTopLeft(find.text('偏好设置')).dx, 22);
+  });
+
+  testWidgets('详情滚动后导航标题和返回固定，返回只弹出一层', (tester) async {
+    final arts = ValueNotifier<List<HeroArt>>(const []);
+    final position = ValueNotifier(0.0);
+    addTearDown(arts.dispose);
+    addTearDown(position.dispose);
+    await tester.pumpWidget(
+      _app(
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  body: MovieDetailScaffold(
+                    title: '详情导航标题',
+                    heroArts: arts,
+                    heroPosition: position,
+                    hero: const SizedBox(height: 320),
+                    slivers: const [
+                      SliverToBoxAdapter(child: SizedBox(height: 1600)),
+                    ],
+                    actions: [
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.more_horiz),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            child: const Text('上一页'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('上一页'));
+    await tester.pumpAndSettle();
+    final title = find.text('详情导航标题');
+    final back = find.byTooltip('返回');
+    final before = tester.getRect(title);
+    expect(tester.getRect(back).right, lessThanOrEqualTo(before.left));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(title), before);
+    expect(back.hitTestable(), findsOneWidget);
+    await tester.tap(back);
+    await tester.pumpAndSettle();
+    expect(find.text('上一页'), findsOneWidget);
+    expect(find.byType(MovieDetailScaffold), findsNothing);
+  });
+}

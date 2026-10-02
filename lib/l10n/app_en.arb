@@ -2612,6 +2612,9 @@
     }
   },
   "dbOnlineFollowingMetadataLoading": "Loading magnet metadata",
-  "dbOnlineFollowingNoResources": "No review resources"
-
+  "dbOnlineFollowingNoResources": "No review resources",
+  "detailMoviePageTitle": "Movie details",
+  "detailSeriesPageTitle": "Series details",
+  "detailAlbumPageTitle": "Album details",
+  "detailCollectionPageTitle": "Collection details"
 }

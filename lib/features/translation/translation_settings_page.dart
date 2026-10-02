@@ -265,21 +265,28 @@ class _TranslationSettingsPageState
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), e)}',
-                  style: AppText.body(context),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupSystem,
+              title: AppL10n.of(context).translationTitle,
+              subtitle: AppL10n.of(context).translationSubtitle,
+            ),
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), e)}',
+                    style: AppText.body(context),
+                  ),
                 ),
               ),
+              data: (cfg) {
+                _hydrate(cfg);
+                return _buildForm(c);
+              },
             ),
-            data: (cfg) {
-              _hydrate(cfg);
-              return _buildForm(c);
-            },
           ),
         ),
       ),
@@ -288,187 +295,177 @@ class _TranslationSettingsPageState
 
   Widget _buildForm(AppColors c) {
     final l = AppL10n.of(context);
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupSystem,
-        title: l.translationTitle,
-        subtitle: l.translationSubtitle,
-      ),
-      body: ListView(
-        primary: true,
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Container(
-              decoration: settingsCardDecoration(context),
-              child: SettingsTile(
-                title: l.translationEnable,
-                subtitle: _enabled
-                    ? l.translationEnabledSubtitle
-                    : l.translationDisabledSubtitle,
-                leadingIcon: Icons.translate_outlined,
-                trailing: SettingsSwitch(
-                  value: _enabled,
-                  onChanged: (v) => setState(() => _enabled = v),
-                ),
+    return ListView(
+      primary: true,
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            decoration: settingsCardDecoration(context),
+            child: SettingsTile(
+              title: l.translationEnable,
+              subtitle: _enabled
+                  ? l.translationEnabledSubtitle
+                  : l.translationDisabledSubtitle,
+              leadingIcon: Icons.translate_outlined,
+              trailing: SettingsSwitch(
+                value: _enabled,
+                onChanged: (v) => setState(() => _enabled = v),
               ),
             ),
           ),
-          _label('API URL', l.translationApiUrlHelp),
-          _input(_apiUrl, hint: 'https://api.openai.com/v1', icon: Icons.link),
-          const SizedBox(height: 18),
-          _label(
-            'API Key',
-            _hasSavedKey ? l.translationConfiguredKeepHint : 'sk-...',
-          ),
-          _passwordInput(),
-          const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: _label(
-                  l.translationModelNameLabel,
-                  l.translationModelNameHelp,
-                ),
-              ),
-              TextButton.icon(
-                icon: _loadingModels
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh, size: 16),
-                label: Text(
-                  l.translationLoadModels,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                onPressed: _loadingModels ? null : _loadModels,
-              ),
-            ],
-          ),
-          _input(_model, hint: 'gpt-3.5-turbo', icon: Icons.smart_toy_outlined),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(child: _label(l.translationSourceLanguage, '')),
-              const SizedBox(width: 10),
-              Expanded(child: _label(l.translationTargetLanguage, '')),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: _langDropdown(
-                  value: _source,
-                  options: _sourceLangs,
-                  onChanged: (v) => setState(() => _source = v),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _langDropdown(
-                  value: _target,
-                  options: _targetLangs,
-                  onChanged: (v) => setState(() => _target = v),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _label(
-            l.translationPromptTemplateLabel,
-            l.translationPromptTemplateHelp('{text} {target_language}'),
-          ),
-          _input(
-            _prompt,
-            maxLines: 6,
-            hint: 'You are ...',
-            icon: Icons.edit_note,
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _errorBox(_error!),
-          ],
-          if (_testResult != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppHues.top(AppHues.mint).withValues(alpha: 0.12),
-                border: Border.all(
-                  color: AppHues.top(AppHues.mint).withValues(alpha: 0.4),
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        size: 16,
-                        color: AppHues.top(AppHues.mint),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        l.translationTestResult,
-                        style: TextStyle(
-                          color: AppHues.top(AppHues.mint),
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(_testResult!, style: AppText.body(context)),
-                ],
+        ),
+        _label('API URL', l.translationApiUrlHelp),
+        _input(_apiUrl, hint: 'https://api.openai.com/v1', icon: Icons.link),
+        const SizedBox(height: 18),
+        _label(
+          'API Key',
+          _hasSavedKey ? l.translationConfiguredKeepHint : 'sk-...',
+        ),
+        _passwordInput(),
+        const SizedBox(height: 18),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: _label(
+                l.translationModelNameLabel,
+                l.translationModelNameHelp,
               ),
             ),
-          ],
-          const SizedBox(height: 28),
-          SettingsSaveButton(onPressed: _save, saving: _saving),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _testing ? null : _test,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: c.text,
-                side: BorderSide(color: c.cardBorder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              icon: _testing
+            TextButton.icon(
+              icon: _loadingModels
                   ? const SizedBox(
-                      width: 18,
-                      height: 18,
+                      width: 14,
+                      height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.translate_outlined, size: 18),
+                  : const Icon(Icons.refresh, size: 16),
               label: Text(
-                l.translationTestButton,
+                l.translationLoadModels,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontWeight: FontWeight.w700,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
               ),
+              onPressed: _loadingModels ? null : _loadModels,
+            ),
+          ],
+        ),
+        _input(_model, hint: 'gpt-3.5-turbo', icon: Icons.smart_toy_outlined),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Expanded(child: _label(l.translationSourceLanguage, '')),
+            const SizedBox(width: 10),
+            Expanded(child: _label(l.translationTargetLanguage, '')),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: _langDropdown(
+                value: _source,
+                options: _sourceLangs,
+                onChanged: (v) => setState(() => _source = v),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _langDropdown(
+                value: _target,
+                options: _targetLangs,
+                onChanged: (v) => setState(() => _target = v),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _label(
+          l.translationPromptTemplateLabel,
+          l.translationPromptTemplateHelp('{text} {target_language}'),
+        ),
+        _input(
+          _prompt,
+          maxLines: 6,
+          hint: 'You are ...',
+          icon: Icons.edit_note,
+        ),
+        if (_error != null) ...[const SizedBox(height: 14), _errorBox(_error!)],
+        if (_testResult != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppHues.top(AppHues.mint).withValues(alpha: 0.12),
+              border: Border.all(
+                color: AppHues.top(AppHues.mint).withValues(alpha: 0.4),
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: AppHues.top(AppHues.mint),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      l.translationTestResult,
+                      style: TextStyle(
+                        color: AppHues.top(AppHues.mint),
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(_testResult!, style: AppText.body(context)),
+              ],
             ),
           ),
         ],
-      ),
+        const SizedBox(height: 28),
+        SettingsSaveButton(onPressed: _save, saving: _saving),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _testing ? null : _test,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.text,
+              side: BorderSide(color: c.cardBorder),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            icon: _testing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.translate_outlined, size: 18),
+            label: Text(
+              l.translationTestButton,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

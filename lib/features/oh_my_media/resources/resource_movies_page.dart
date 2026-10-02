@@ -156,7 +156,13 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
               pinned: true,
               backgroundColor: c.bg,
               surfaceTintColor: Colors.transparent,
+              title: Text(
+                widget.resource.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               leading: IconButton(
+                tooltip: l.back,
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(

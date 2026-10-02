@@ -54,10 +54,12 @@ class MoviesPage extends ConsumerStatefulWidget {
     super.key,
     this.initialFilter = const MovieFilter(),
     this.maxItems,
+    this.showBackButton = false,
   });
 
   final MovieFilter initialFilter;
   final int? maxItems;
+  final bool showBackButton;
 
   @override
   ConsumerState<MoviesPage> createState() => _MoviesPageState();
@@ -366,6 +368,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          if (widget.showBackButton)
+                            BackButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                            ),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,28 +381,37 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                     context,
                                   ).libraryTitle.toUpperCase(),
                                   style: AppText.eyebrow(context),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 3),
-                                Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.baseline,
-                                  textBaseline: TextBaseline.alphabetic,
-                                  children: [
-                                    Text(
-                                      _totalCount > 0 ? '$_totalCount' : '—',
-                                      style: AppText.pageTitle(context),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      AppL10n.of(context).libraryCountSuffix,
-                                      style: TextStyle(
-                                        color: c.muted,
-                                        fontFamily: 'Inter',
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: _totalCount > 0
+                                            ? '$_totalCount'
+                                            : '—',
                                       ),
-                                    ),
-                                  ],
+                                      const WidgetSpan(
+                                        child: SizedBox(width: 8),
+                                      ),
+                                      TextSpan(
+                                        text: AppL10n.of(
+                                          context,
+                                        ).libraryCountSuffix,
+                                        style: TextStyle(
+                                          color: c.muted,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  style: AppText.pageTitle(context),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),

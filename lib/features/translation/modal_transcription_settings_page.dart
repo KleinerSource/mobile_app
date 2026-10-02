@@ -245,29 +245,29 @@ class _ModalTranscriptionSettingsPageState
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
-                  style: AppText.body(context),
+          child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupSystem,
+              title: AppL10n.of(context).transcriptionTitle,
+              subtitle: AppL10n.of(context).transcriptionSubtitle,
+            ),
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    '${AppL10n.of(context).loadFailed}: ${localizedErrorMessage(AppL10n.of(context), error)}',
+                    style: AppText.body(context),
+                  ),
                 ),
               ),
+              data: (config) {
+                _hydrate(config);
+                return _buildForm(colors);
+              },
             ),
-            data: (config) {
-              _hydrate(config);
-              return SettingsFixedHeaderLayout(
-                scrollController: _scrollController,
-                header: SettingsSubPageHeader(
-                  eyebrow: AppL10n.of(context).settingsGroupSystem,
-                  title: AppL10n.of(context).transcriptionTitle,
-                  subtitle: AppL10n.of(context).transcriptionSubtitle,
-                ),
-                body: _buildForm(colors),
-              );
-            },
           ),
         ),
       ),

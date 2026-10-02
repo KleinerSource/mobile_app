@@ -116,21 +116,28 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  localizedErrorMessage(AppL10n.of(context), e),
-                  style: AppText.body(context),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).settingsGroupTools,
+              title: AppL10n.of(context).settingsDbo,
+              subtitle: AppL10n.of(context).dboSubtitle,
+            ),
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    localizedErrorMessage(AppL10n.of(context), e),
+                    style: AppText.body(context),
+                  ),
                 ),
               ),
+              data: (cfg) {
+                _hydrate(cfg);
+                return _buildForm(c);
+              },
             ),
-            data: (cfg) {
-              _hydrate(cfg);
-              return _buildForm(c);
-            },
           ),
         ),
       ),
@@ -139,189 +146,179 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
 
   Widget _buildForm(AppColors c) {
     final l = AppL10n.of(context);
-    return SettingsFixedHeaderLayout(
-      header: SettingsSubPageHeader(
-        eyebrow: l.settingsGroupTools,
-        title: l.settingsDbo,
-        subtitle: l.dboSubtitle,
-      ),
-      body: ListView(
-        primary: true,
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-        children: [
-          _label(
-            l.dboEnabledLabel.toUpperCase(),
-            _enabled ? l.dboEnabledHelpOn : l.dboEnabledHelpOff,
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: settingsCardDecoration(context),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l.dboEnableSwitchLabel,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+    return ListView(
+      primary: true,
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      children: [
+        _label(
+          l.dboEnabledLabel.toUpperCase(),
+          _enabled ? l.dboEnabledHelpOn : l.dboEnabledHelpOff,
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: settingsCardDecoration(context),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l.dboEnableSwitchLabel,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                SettingsSwitch(
-                  value: _enabled,
-                  onChanged: (v) => setState(() => _enabled = v),
-                ),
-              ],
-            ),
+              ),
+              SettingsSwitch(
+                value: _enabled,
+                onChanged: (v) => setState(() => _enabled = v),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          _label('Base URL', l.dboBaseUrlExampleHint),
-          _input(_baseUrl, hint: 'http://...', icon: Icons.link),
-          const SizedBox(height: 18),
-          _label(
-            'API Key',
-            _hasKey ? l.dboApiKeyConfiguredHint : l.configInputPrompt,
-          ),
-          _passwordInput(c),
-          const SizedBox(height: 18),
-          _label(l.dboResourceFilterLabel, l.dboResourceFilterHelp),
-          Container(
-            decoration: settingsCardDecoration(context),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: TextEditingController(text: '$_maxAge')
-                      ..selection = TextSelection.collapsed(
-                        offset: '$_maxAge'.length,
-                      ),
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    textAlignVertical: TextAlignVertical.center,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+        ),
+        const SizedBox(height: 18),
+        _label('Base URL', l.dboBaseUrlExampleHint),
+        _input(_baseUrl, hint: 'http://...', icon: Icons.link),
+        const SizedBox(height: 18),
+        _label(
+          'API Key',
+          _hasKey ? l.dboApiKeyConfiguredHint : l.configInputPrompt,
+        ),
+        _passwordInput(c),
+        const SizedBox(height: 18),
+        _label(l.dboResourceFilterLabel, l.dboResourceFilterHelp),
+        Container(
+          decoration: settingsCardDecoration(context),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: TextEditingController(text: '$_maxAge')
+                    ..selection = TextSelection.collapsed(
+                      offset: '$_maxAge'.length,
                     ),
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'monospace',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                    onSubmitted: (v) {
-                      final n = int.tryParse(v);
-                      if (n != null && n >= 0 && n <= 120) {
-                        setState(() {
-                          _maxAge = n;
-                          _minResourceMonth.clear();
-                        });
-                      }
-                    },
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  textAlignVertical: TextAlignVertical.center,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 12),
                   ),
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'monospace',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  onSubmitted: (v) {
+                    final n = int.tryParse(v);
+                    if (n != null && n >= 0 && n <= 120) {
+                      setState(() {
+                        _maxAge = n;
+                        _minResourceMonth.clear();
+                      });
+                    }
+                  },
                 ),
-                Text(
-                  l.dboMonthsUnit,
+              ),
+              Text(
+                l.dboMonthsUnit,
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: Text(
+                  _maxAge == 0
+                      ? l.dboFilterNoFilter
+                      : l.dboAgePreview((_maxAge / 12).toStringAsFixed(1)),
                   style: TextStyle(
                     color: c.muted,
                     fontFamily: 'Inter',
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
                   ),
                 ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.only(right: 14),
-                  child: Text(
-                    _maxAge == 0
-                        ? l.dboFilterNoFilter
-                        : l.dboAgePreview((_maxAge / 12).toStringAsFixed(1)),
-                    style: TextStyle(
-                      color: c.muted,
-                      fontFamily: 'Inter',
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: _presets(l).map((p) {
-              final active = _maxAge == p.$1;
-              return GestureDetector(
-                onTap: () {
-                  if (active) return;
-                  AppHaptics.selection();
-                  setState(() {
-                    _maxAge = p.$1;
-                    _minResourceMonth.clear();
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active ? c.chipBgActive : c.chipBg,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    p.$2,
-                    style: TextStyle(
-                      color: active ? c.chipTextActive : c.text2,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 18),
-          _label(l.dboStartMonthLabel, l.dboStartMonthHelp),
-          Container(
-            decoration: settingsCardDecoration(context),
-            child: TextField(
-              controller: _minResourceMonth,
-              keyboardType: TextInputType.datetime,
-              autocorrect: false,
-              textAlignVertical: TextAlignVertical.center,
-              onChanged: (value) {
-                if (value.trim().isNotEmpty && _maxAge != 0) {
-                  setState(() => _maxAge = 0);
-                }
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: _presets(l).map((p) {
+            final active = _maxAge == p.$1;
+            return GestureDetector(
+              onTap: () {
+                if (active) return;
+                AppHaptics.selection();
+                setState(() {
+                  _maxAge = p.$1;
+                  _minResourceMonth.clear();
+                });
               },
-              decoration: settingsInputDecoration(
-                context,
-                hintText: l.dboStartMonthHint,
-                prefixIcon: const Icon(Icons.calendar_today_outlined),
-                borderless: true,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: active ? c.chipBgActive : c.chipBg,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  p.$2,
+                  style: TextStyle(
+                    color: active ? c.chipTextActive : c.text2,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11.5,
+                  ),
+                ),
               ),
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'monospace',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 18),
+        _label(l.dboStartMonthLabel, l.dboStartMonthHelp),
+        Container(
+          decoration: settingsCardDecoration(context),
+          child: TextField(
+            controller: _minResourceMonth,
+            keyboardType: TextInputType.datetime,
+            autocorrect: false,
+            textAlignVertical: TextAlignVertical.center,
+            onChanged: (value) {
+              if (value.trim().isNotEmpty && _maxAge != 0) {
+                setState(() => _maxAge = 0);
+              }
+            },
+            decoration: settingsInputDecoration(
+              context,
+              hintText: l.dboStartMonthHint,
+              prefixIcon: const Icon(Icons.calendar_today_outlined),
+              borderless: true,
+            ),
+            style: TextStyle(
+              color: c.text,
+              fontFamily: 'monospace',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _errorBox(_error!),
-          ],
-          const SizedBox(height: 28),
-          SettingsSaveButton(onPressed: _save, saving: _saving),
-        ],
-      ),
+        ),
+        if (_error != null) ...[const SizedBox(height: 14), _errorBox(_error!)],
+        const SizedBox(height: 28),
+        SettingsSaveButton(onPressed: _save, saving: _saving),
+      ],
     );
   }
 
