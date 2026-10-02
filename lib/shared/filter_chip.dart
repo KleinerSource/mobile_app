@@ -45,18 +45,20 @@ class CompactFilterButton extends StatelessWidget {
               if (label.isNotEmpty) const SizedBox(width: 5),
             ],
             if (label.isNotEmpty)
-              Text(
-                label,
-                strutStyle: const StrutStyle(
-                  fontSize: 11.5,
-                  height: 1.0,
-                  forceStrutHeight: true,
-                ),
-                style: TextStyle(
-                  color: fg,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11.5,
+              Flexible(
+                child: Text(
+                  label,
+                  strutStyle: const StrutStyle(
+                    fontSize: 11.5,
+                    height: 1.0,
+                    forceStrutHeight: true,
+                  ),
+                  style: TextStyle(
+                    color: fg,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11.5,
+                  ),
                 ),
               ),
             if (trailingIcon != null) ...[

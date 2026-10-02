@@ -65,6 +65,66 @@ class DbOnlineApi {
   Future<Map<String, dynamic>> openListToolPaths(Map<String, dynamic> config) =>
       _downloaderConfigOptions('/openlist/tool-paths', config);
 
+  Future<List<Map<String, dynamic>>> mediaServerLibraries(
+    String name,
+    Map<String, dynamic> config,
+  ) async {
+    final response = await _dio.post<dynamic>(
+      '/${Uri.encodeComponent(name)}/libraries',
+      data: config,
+    );
+    return unwrapStd<List<Map<String, dynamic>>>(
+      response.data,
+      (data) => data is List
+          ? data.whereType<Map>().map(Map<String, dynamic>.from).toList()
+          : [],
+    );
+  }
+
+  Future<Map<String, dynamic>> libraryTaskStats({bool subtitles = false}) =>
+      _libraryTaskRequest(subtitles ? '/subtitle/stats' : '/library/cache/stats');
+
+  Future<Map<String, dynamic>> libraryTaskProgress({bool subtitles = false}) =>
+      _libraryTaskRequest(
+        subtitles ? '/subtitle/progress' : '/library/cache/refresh/progress',
+      );
+
+  Future<Map<String, dynamic>> startLibraryTask({
+    bool subtitles = false,
+    String mode = 'incremental',
+  }) => _libraryTaskRequest(
+    subtitles ? '/subtitle/scan' : '/library/cache/refresh',
+    post: true,
+    query: subtitles ? {'mode': mode} : null,
+  );
+
+  Future<Map<String, dynamic>> _libraryTaskRequest(
+    String path, {
+    bool post = false,
+    Map<String, dynamic>? query,
+  }) async {
+    final response = post
+        ? await _dio.post<dynamic>(path, queryParameters: query)
+        : await _dio.get<dynamic>(path);
+    final raw = response.data;
+    // 字幕管理接口沿用 code / msg，其余媒体库接口使用 success / error。
+    final envelope =
+        path.startsWith('/subtitle/') &&
+            raw is Map &&
+            !raw.containsKey('success') &&
+            raw.containsKey('code')
+        ? {
+            ...raw,
+            'success': raw['code'] == 0,
+            if (raw['code'] != 0) 'error': raw['msg'],
+          }
+        : raw;
+    return unwrapStd<Map<String, dynamic>>(
+      envelope,
+      (data) => data is Map ? Map<String, dynamic>.from(data) : {},
+    );
+  }
+
   Future<Map<String, dynamic>> pan115Account() async {
     final response = await _dio.get<dynamic>(
       '/pan115/tasks',

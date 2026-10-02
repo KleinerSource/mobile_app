@@ -1681,6 +1681,260 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineGroupMediaLibrary => '媒体库';
 
   @override
+  String get dbOnlineSectionExperimental => '实验性功能';
+
+  @override
+  String get dbOnlineExperimentalWatched => '完成订阅同步到 JavDB 看过';
+
+  @override
+  String get dbOnlineExperimentalWatchedHint => '订阅完成并推送下载时，将影片标记为已看过。';
+
+  @override
+  String get dbOnlineExperimentalWantWatch => '添加订阅同步到 JavDB 想看';
+
+  @override
+  String get dbOnlineExperimentalWantWatchHint => '添加订阅时，将影片标记为想看。';
+
+  @override
+  String get dbOnlineExperimentalCancelWantWatch => '删除订阅同步取消 JavDB 想看';
+
+  @override
+  String get dbOnlineExperimentalCancelWantWatchHint => '删除订阅时，取消影片的想看标记。';
+
+  @override
+  String get dbOnlineExperimentalCancelSubscription => '媒体库删除后自动取消订阅';
+
+  @override
+  String get dbOnlineExperimentalCancelSubscriptionHint =>
+      '收到 Webhook 媒体删除事件后，匹配并取消相关订阅。';
+
+  @override
+  String get dbOnlineExperimentalBlacklist => '媒体删除后自动加入黑名单';
+
+  @override
+  String get dbOnlineExperimentalBlacklistHint =>
+      '收到 Webhook 删除事件后，将影片番号加入黑名单。';
+
+  @override
+  String get dbOnlineExperimentalBuiltinMagnets => '订阅检测使用内置磁链库';
+
+  @override
+  String get dbOnlineExperimentalBuiltinMagnetsHint =>
+      '订阅检查时，额外查询 Nyaa 等内置磁链库。';
+
+  @override
+  String get dbOnlineExperimentalOverview => '影片简介';
+
+  @override
+  String get dbOnlineExperimentalOverviewHint =>
+      '在线采集和订阅刷新时获取 JAVTXT 简介，优先中文，缺失时使用日文。';
+
+  @override
+  String get dbOnlineExperimentalRequireAuthorization =>
+      '需要先配置 JavDB Authorization';
+
+  @override
+  String get dbOnlineExperimentalRequireWebhook => '需要先启用 Webhook 和 Telegram';
+
+  @override
+  String get dbOnlineExperimentalRequireNyaa => '需要先启用 Nyaa 内置磁链库';
+
+  @override
+  String get dbOnlineSectionFnMedia => '飞牛影视';
+
+  @override
+  String get dbOnlineSectionLibraryCache => '入库缓存设置';
+
+  @override
+  String get dbOnlineSectionSubtitleSettings => '字幕文件配置';
+
+  @override
+  String get dbOnlineMediaLibraries => '媒体库（可选）';
+
+  @override
+  String get dbOnlineMediaLibrariesHint => '选择媒体库可限制搜索范围，不选则搜索全部媒体库。';
+
+  @override
+  String get dbOnlineMediaLibrariesAll => '全部媒体库';
+
+  @override
+  String dbOnlineMediaLibrariesSelected(int count) {
+    return '已选 $count 个媒体库';
+  }
+
+  @override
+  String get dbOnlineMediaLibrariesEmpty => '未找到媒体库';
+
+  @override
+  String get dbOnlineMediaServerRequired => '请先启用服务，并填写服务地址、认证信息和超时时间';
+
+  @override
+  String get dbOnlineMediaLibraryUnavailable => '当前服务未启用媒体库，请先配置并保存媒体服务器。';
+
+  @override
+  String get dbOnlineSubtitleLibraryUnavailable => '当前服务未启用字幕功能，请先保存字幕配置。';
+
+  @override
+  String get dbOnlineCacheSchedule => '定时刷新计划';
+
+  @override
+  String get dbOnlineCacheScheduleHint => 'Cron 格式：分 时 日 月 星期（0 为周日）';
+
+  @override
+  String get dbOnlineCronDaily0030 => '每天 00:30';
+
+  @override
+  String get dbOnlineCronDaily0120 => '每天 01:20';
+
+  @override
+  String get dbOnlineCronWeekly => '每周日 02:00';
+
+  @override
+  String get dbOnlineCronMonthly => '每月 2 日 23:00';
+
+  @override
+  String get dbOnlineCronEvery6Hours => '每 6 小时';
+
+  @override
+  String get dbOnlineCronEvery12Hours => '每 12 小时';
+
+  @override
+  String get dbOnlineCacheRefresh => '刷新入库缓存';
+
+  @override
+  String get dbOnlineCacheRefreshStarted => '入库缓存刷新已启动';
+
+  @override
+  String get dbOnlineCacheRefreshCompleted => '媒体库缓存刷新完成';
+
+  @override
+  String get dbOnlineCacheNotReady => '未就绪';
+
+  @override
+  String dbOnlineCacheTotal(int cached, int actual) {
+    return '缓存 / 实际总数：$cached / $actual';
+  }
+
+  @override
+  String dbOnlineLibraryTaskProgress(int completed, int total) {
+    return '已完成 $completed / $total 项';
+  }
+
+  @override
+  String get dbOnlinePlayerControlMode => '控制条显示模式';
+
+  @override
+  String get dbOnlinePlayerModeFull => '完整';
+
+  @override
+  String get dbOnlinePlayerModeCompact => '精简';
+
+  @override
+  String get dbOnlinePlayerModeMinimal => '极简';
+
+  @override
+  String get dbOnlinePlayerModeHidden => '隐藏';
+
+  @override
+  String get dbOnlinePlayerModeCustom => '自定义';
+
+  @override
+  String get dbOnlinePlayerControls => '控制条项';
+
+  @override
+  String get dbOnlinePlayerPlayLarge => '大播放按钮';
+
+  @override
+  String get dbOnlinePlayerPlayPause => '播放／暂停';
+
+  @override
+  String get dbOnlinePlayerProgress => '进度条';
+
+  @override
+  String get dbOnlinePlayerCurrentTime => '当前时间';
+
+  @override
+  String get dbOnlinePlayerDuration => '总时长';
+
+  @override
+  String get dbOnlinePlayerMute => '静音';
+
+  @override
+  String get dbOnlinePlayerVolume => '音量';
+
+  @override
+  String get dbOnlinePlayerSettings => '设置菜单';
+
+  @override
+  String get dbOnlinePlayerDefaultSpeed => '默认播放速度';
+
+  @override
+  String get dbOnlinePlayerSpeeds => '可用速度列表';
+
+  @override
+  String get dbOnlineSubtitleDirectories => '字幕目录';
+
+  @override
+  String get dbOnlineSubtitleDirectoriesHint =>
+      '每行一个服务端目录；递归扫描子目录。留空可停用本地扫描，仍可使用在线字幕。';
+
+  @override
+  String get dbOnlineSubtitleScanInterval => '扫描间隔（分钟）';
+
+  @override
+  String get dbOnlineSubtitleScanIntervalHint => '0 表示不自动扫描';
+
+  @override
+  String get dbOnlineSubtitleExtensions => '支持的扩展名';
+
+  @override
+  String get dbOnlineSubtitleExtensionsHint => '多个扩展名以逗号分隔，例如 .srt, .ass, .vtt';
+
+  @override
+  String get dbOnlineSubtitleInvalidSettings => '扫描间隔必须为非负整数；启用本地扫描时请填写扩展名。';
+
+  @override
+  String get dbOnlineSubtitleScanning => '字幕扫描';
+
+  @override
+  String get dbOnlineSubtitleIncrementalScan => '增量扫描';
+
+  @override
+  String get dbOnlineSubtitleFullScan => '完整扫描';
+
+  @override
+  String get dbOnlineSubtitleScanStarted => '字幕扫描已启动';
+
+  @override
+  String get dbOnlineSubtitleScanBusy => '字幕扫描任务正在进行中';
+
+  @override
+  String get dbOnlineSubtitleScanCompleted => '字幕扫描完成';
+
+  @override
+  String get dbOnlineSubtitleScanSavedConfig => '扫描使用已保存的服务端目录和扩展名配置。';
+
+  @override
+  String dbOnlineSubtitleIndexCounts(int files, int codes) {
+    return '已索引 $files 个字幕文件 · $codes 个番号';
+  }
+
+  @override
+  String dbOnlineSubtitleLastScan(String time) {
+    return '上次扫描：$time';
+  }
+
+  @override
+  String dbOnlineSubtitleScanProgress(
+    int files,
+    int totalFiles,
+    int dirs,
+    int totalDirs,
+  ) {
+    return '文件 $files / $totalFiles · 目录 $dirs / $totalDirs';
+  }
+
+  @override
   String get dbOnlineGroupSystem => '系统';
 
   @override

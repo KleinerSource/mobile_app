@@ -44,6 +44,11 @@ enum DboBackendConfigFieldType {
   select,
   directory,
   toolPaths,
+  libraries,
+  multiSelect,
+  lines,
+  commaList,
+  schedule,
 }
 
 class DboBackendConfigOption {
@@ -536,9 +541,256 @@ final _cloudDrive2Section = DboBackendConfigSection(
   ],
 );
 
+final _experimentalSection = DboBackendConfigSection(
+  title: (l) => l.dbOnlineSectionExperimental,
+  basePath: 'experimental',
+  fields: [
+    DboBackendConfigField(
+      path: 'auto_sync_watched_online',
+      label: (l) => l.dbOnlineExperimentalWatched,
+      hint: (l) => l.dbOnlineExperimentalWatchedHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'auto_sync_want_watch_online',
+      label: (l) => l.dbOnlineExperimentalWantWatch,
+      hint: (l) => l.dbOnlineExperimentalWantWatchHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'auto_sync_cancel_want_watch_online',
+      label: (l) => l.dbOnlineExperimentalCancelWantWatch,
+      hint: (l) => l.dbOnlineExperimentalCancelWantWatchHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'webhook_cancel_subscription_on_delete',
+      label: (l) => l.dbOnlineExperimentalCancelSubscription,
+      hint: (l) => l.dbOnlineExperimentalCancelSubscriptionHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'webhook_auto_blacklist_on_delete',
+      label: (l) => l.dbOnlineExperimentalBlacklist,
+      hint: (l) => l.dbOnlineExperimentalBlacklistHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'builtin_magnets_in_subscription',
+      label: (l) => l.dbOnlineExperimentalBuiltinMagnets,
+      hint: (l) => l.dbOnlineExperimentalBuiltinMagnetsHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'fetch_video_overview',
+      label: (l) => l.dbOnlineExperimentalOverview,
+      hint: (l) => l.dbOnlineExperimentalOverviewHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+  ],
+);
+
+DboBackendConfigSection _mediaServerSection(String name) =>
+    DboBackendConfigSection(
+      title: (l) => name == 'fnmedia'
+          ? l.dbOnlineSectionFnMedia
+          : (name == 'emby' ? 'Emby' : 'Jellyfin'),
+      basePath: 'mediaserver.$name',
+      testName: name,
+      defaults: {
+        'enabled': false,
+        'port': name == 'fnmedia' ? 5666 : 8096,
+        'use_https': false,
+        'timeout': 30,
+        'library_ids': <String>[],
+      },
+      fields: [
+        DboBackendConfigField(
+          path: 'enabled',
+          label: (l) => l.dbOnlineFieldEnabled,
+          type: DboBackendConfigFieldType.toggle,
+        ),
+        DboBackendConfigField(
+          path: 'host',
+          label: (l) => l.dbOnlineFieldHost,
+          type: DboBackendConfigFieldType.text,
+        ),
+        DboBackendConfigField(
+          path: 'port',
+          label: (l) => l.dbOnlineFieldPort,
+          type: DboBackendConfigFieldType.number,
+        ),
+        DboBackendConfigField(
+          path: 'timeout',
+          label: (l) => l.dbOnlineFieldTimeoutSeconds,
+          type: DboBackendConfigFieldType.number,
+        ),
+        DboBackendConfigField(
+          path: 'use_https',
+          label: (l) => l.dbOnlineFieldUseHttps,
+          type: DboBackendConfigFieldType.toggle,
+        ),
+        if (name == 'fnmedia') ...[
+          DboBackendConfigField(
+            path: 'username',
+            label: (l) => l.dbOnlineFieldUsername,
+            type: DboBackendConfigFieldType.text,
+          ),
+          DboBackendConfigField(
+            path: 'password',
+            label: (l) => l.dbOnlineFieldPassword,
+            type: DboBackendConfigFieldType.password,
+          ),
+        ] else
+          DboBackendConfigField(
+            path: 'api_key',
+            label: (l) => 'API Key',
+            type: DboBackendConfigFieldType.password,
+          ),
+        DboBackendConfigField(
+          path: 'library_ids',
+          label: (l) => l.dbOnlineMediaLibraries,
+          hint: (l) => l.dbOnlineMediaLibrariesHint,
+          type: DboBackendConfigFieldType.libraries,
+        ),
+      ],
+    );
+
+final _libraryCacheSection = DboBackendConfigSection(
+  title: (l) => l.dbOnlineSectionLibraryCache,
+  basePath: 'mediaserver',
+  defaults: const {'library_cache_schedule': '30 0 * * *'},
+  fields: [
+    DboBackendConfigField(
+      path: 'library_cache_schedule',
+      label: (l) => l.dbOnlineCacheSchedule,
+      hint: (l) => l.dbOnlineCacheScheduleHint,
+      type: DboBackendConfigFieldType.schedule,
+      options: [
+        DboBackendConfigOption(
+          value: '30 0 * * *',
+          label: (l) => l.dbOnlineCronDaily0030,
+        ),
+        DboBackendConfigOption(
+          value: '20 1 * * *',
+          label: (l) => l.dbOnlineCronDaily0120,
+        ),
+        DboBackendConfigOption(
+          value: '0 2 * * 0',
+          label: (l) => l.dbOnlineCronWeekly,
+        ),
+        DboBackendConfigOption(
+          value: '0 23 2 * *',
+          label: (l) => l.dbOnlineCronMonthly,
+        ),
+        DboBackendConfigOption(
+          value: '0 */6 * * *',
+          label: (l) => l.dbOnlineCronEvery6Hours,
+        ),
+        DboBackendConfigOption(
+          value: '0 */12 * * *',
+          label: (l) => l.dbOnlineCronEvery12Hours,
+        ),
+      ],
+    ),
+  ],
+);
+
+final _subtitleSection = DboBackendConfigSection(
+  title: (l) => l.dbOnlineSectionSubtitleSettings,
+  basePath: 'subtitle',
+  defaults: const {
+    'enabled': false,
+    'directories': <String>[],
+    'extensions': ['.srt', '.ass', '.ssa', '.sub', '.idx', '.vtt'],
+    'scan_interval': 0,
+  },
+  fields: [
+    DboBackendConfigField(
+      path: 'enabled',
+      label: (l) => l.dbOnlineFieldEnabled,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'directories',
+      label: (l) => l.dbOnlineSubtitleDirectories,
+      hint: (l) => l.dbOnlineSubtitleDirectoriesHint,
+      type: DboBackendConfigFieldType.lines,
+    ),
+    DboBackendConfigField(
+      path: 'scan_interval',
+      label: (l) => l.dbOnlineSubtitleScanInterval,
+      hint: (l) => l.dbOnlineSubtitleScanIntervalHint,
+      type: DboBackendConfigFieldType.number,
+    ),
+    DboBackendConfigField(
+      path: 'extensions',
+      label: (l) => l.dbOnlineSubtitleExtensions,
+      hint: (l) => l.dbOnlineSubtitleExtensionsHint,
+      type: DboBackendConfigFieldType.commaList,
+    ),
+  ],
+);
+
+final dboPlayerSpeeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+final _playerControls = <DboBackendConfigOption>[
+  DboBackendConfigOption(
+    value: 'play-large',
+    label: (l) => l.dbOnlinePlayerPlayLarge,
+  ),
+  DboBackendConfigOption(
+    value: 'play',
+    label: (l) => l.dbOnlinePlayerPlayPause,
+  ),
+  DboBackendConfigOption(
+    value: 'progress',
+    label: (l) => l.dbOnlinePlayerProgress,
+  ),
+  DboBackendConfigOption(
+    value: 'current-time',
+    label: (l) => l.dbOnlinePlayerCurrentTime,
+  ),
+  DboBackendConfigOption(
+    value: 'duration',
+    label: (l) => l.dbOnlinePlayerDuration,
+  ),
+  DboBackendConfigOption(value: 'mute', label: (l) => l.dbOnlinePlayerMute),
+  DboBackendConfigOption(value: 'volume', label: (l) => l.dbOnlinePlayerVolume),
+  DboBackendConfigOption(
+    value: 'captions',
+    label: (l) => l.dbOnlineFieldCaptions,
+  ),
+  DboBackendConfigOption(
+    value: 'settings',
+    label: (l) => l.dbOnlinePlayerSettings,
+  ),
+  DboBackendConfigOption(value: 'pip', label: (l) => l.dbOnlineFieldPip),
+  DboBackendConfigOption(value: 'airplay', label: (l) => 'AirPlay'),
+  DboBackendConfigOption(
+    value: 'fullscreen',
+    label: (l) => l.dbOnlineFieldFullscreen,
+  ),
+];
+final _playerSpeeds = [
+  for (final speed in dboPlayerSpeeds)
+    DboBackendConfigOption(value: '$speed', label: (l) => '${speed}x'),
+];
+
 final _playerSection = DboBackendConfigSection(
   title: (l) => l.dbOnlineSectionPlayer,
   basePath: 'mediaserver.player',
+  defaults: {
+    'enabled': true,
+    'autoplay': true,
+    'captions': true,
+    'pip': true,
+    'fullscreen': true,
+    'keyboard': true,
+    'control_mode': 'custom',
+    'controls': _playerControls.map((item) => item.value).toList(),
+    'default_speed': 1,
+    'speed_options': dboPlayerSpeeds,
+  },
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
@@ -570,6 +822,52 @@ final _playerSection = DboBackendConfigSection(
       label: (l) => l.dbOnlineFieldKeyboard,
       type: DboBackendConfigFieldType.toggle,
     ),
+    DboBackendConfigField(
+      path: 'control_mode',
+      label: (l) => l.dbOnlinePlayerControlMode,
+      type: DboBackendConfigFieldType.select,
+      options: [
+        DboBackendConfigOption(
+          value: 'full',
+          label: (l) => l.dbOnlinePlayerModeFull,
+        ),
+        DboBackendConfigOption(
+          value: 'compact',
+          label: (l) => l.dbOnlinePlayerModeCompact,
+        ),
+        DboBackendConfigOption(
+          value: 'minimal',
+          label: (l) => l.dbOnlinePlayerModeMinimal,
+        ),
+        DboBackendConfigOption(
+          value: 'hidden',
+          label: (l) => l.dbOnlinePlayerModeHidden,
+        ),
+        DboBackendConfigOption(
+          value: 'custom',
+          label: (l) => l.dbOnlinePlayerModeCustom,
+        ),
+      ],
+    ),
+    DboBackendConfigField(
+      path: 'controls',
+      label: (l) => l.dbOnlinePlayerControls,
+      type: DboBackendConfigFieldType.multiSelect,
+      options: _playerControls,
+      visibleWhen: (values) => values['control_mode'] == 'custom',
+    ),
+    DboBackendConfigField(
+      path: 'default_speed',
+      label: (l) => l.dbOnlinePlayerDefaultSpeed,
+      type: DboBackendConfigFieldType.select,
+      options: _playerSpeeds,
+    ),
+    DboBackendConfigField(
+      path: 'speed_options',
+      label: (l) => l.dbOnlinePlayerSpeeds,
+      type: DboBackendConfigFieldType.multiSelect,
+      options: _playerSpeeds,
+    ),
   ],
 );
 
@@ -578,6 +876,7 @@ final dboBackendConfigGroups = <DboBackendConfigGroup>[
     _javdbApiSection,
     _subscriptionSection,
     _proxySection,
+    _experimentalSection,
   ]),
   DboBackendConfigGroup(
     (l) => l.dbOnlineGroupDownloader,
@@ -592,9 +891,77 @@ final dboBackendConfigGroups = <DboBackendConfigGroup>[
   ),
   DboBackendConfigGroup(
     (l) => l.dbOnlineGroupMediaLibrary,
-    <DboBackendConfigSection>[_playerSection],
+    <DboBackendConfigSection>[
+      _mediaServerSection('emby'),
+      _mediaServerSection('fnmedia'),
+      _mediaServerSection('jellyfin'),
+      _playerSection,
+      _libraryCacheSection,
+      _subtitleSection,
+    ],
   ),
 ];
+
+bool isDboMediaServer(String? name) =>
+    const ['emby', 'jellyfin', 'fnmedia'].contains(name);
+
+String? validateDboMediaServer(
+  String? name,
+  Map<String, dynamic> values,
+  AppL10n l,
+) {
+  if (!isDboMediaServer(name) || values['enabled'] != true) return null;
+  final requiredFields = [
+    'host',
+    if (name == 'fnmedia') ...['username', 'password'] else 'api_key',
+  ];
+  if (requiredFields.any(
+    (key) => values[key]?.toString().trim().isNotEmpty != true,
+  )) {
+    return l.dbOnlineMediaServerRequired;
+  }
+  final port = int.tryParse(values['port']?.toString() ?? '');
+  final timeout = int.tryParse(values['timeout']?.toString() ?? '');
+  if (port == null ||
+      port < 1 ||
+      port > 65535 ||
+      timeout == null ||
+      timeout < 1) {
+    return l.dbOnlineDownloaderInvalidConnection;
+  }
+  return null;
+}
+
+String? dboExperimentalDisabledReason(
+  String path,
+  Map<String, dynamic> config,
+  AppL10n l,
+) {
+  if (path.startsWith('auto_sync_')) {
+    final api = config['javdb_api'];
+    if (api is! Map ||
+        api['authorization']?.toString().trim().isNotEmpty != true) {
+      return l.dbOnlineExperimentalRequireAuthorization;
+    }
+  } else if (path.startsWith('webhook_')) {
+    final media = config['mediaserver'];
+    final webhook = media is Map ? media['webhook'] : null;
+    final telegram = config['telegram'];
+    if (webhook is! Map ||
+        webhook['enabled'] != true ||
+        telegram is! Map ||
+        telegram['enabled'] != true) {
+      return l.dbOnlineExperimentalRequireWebhook;
+    }
+  } else if (path == 'builtin_magnets_in_subscription') {
+    final external = config['external_magnet'];
+    final builtin = external is Map ? external['builtin_magnets'] : null;
+    if (builtin is! List || !builtin.contains('nyaa')) {
+      return l.dbOnlineExperimentalRequireNyaa;
+    }
+  }
+  return null;
+}
 
 bool isDboCloudDownloader(String? name) =>
     const ['pan115', 'thunder', 'openlist', 'clouddrive2'].contains(name);

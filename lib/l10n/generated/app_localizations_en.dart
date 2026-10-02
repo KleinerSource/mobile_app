@@ -1744,6 +1744,279 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineGroupMediaLibrary => 'Media library';
 
   @override
+  String get dbOnlineSectionExperimental => 'Experimental features';
+
+  @override
+  String get dbOnlineExperimentalWatched =>
+      'Sync completed subscriptions to JavDB watched';
+
+  @override
+  String get dbOnlineExperimentalWatchedHint =>
+      'Mark a title as watched when a subscription completes and its download is sent.';
+
+  @override
+  String get dbOnlineExperimentalWantWatch =>
+      'Sync new subscriptions to JavDB want to watch';
+
+  @override
+  String get dbOnlineExperimentalWantWatchHint =>
+      'Mark a title as want to watch when subscribing.';
+
+  @override
+  String get dbOnlineExperimentalCancelWantWatch =>
+      'Remove JavDB want to watch when unsubscribing';
+
+  @override
+  String get dbOnlineExperimentalCancelWantWatchHint =>
+      'Remove the want to watch mark when deleting a subscription.';
+
+  @override
+  String get dbOnlineExperimentalCancelSubscription =>
+      'Unsubscribe when media is deleted';
+
+  @override
+  String get dbOnlineExperimentalCancelSubscriptionHint =>
+      'Cancel matching subscriptions after a media deletion Webhook.';
+
+  @override
+  String get dbOnlineExperimentalBlacklist => 'Blacklist deleted media';
+
+  @override
+  String get dbOnlineExperimentalBlacklistHint =>
+      'Add the title code to the blacklist after a deletion Webhook.';
+
+  @override
+  String get dbOnlineExperimentalBuiltinMagnets =>
+      'Use built-in magnet libraries for subscriptions';
+
+  @override
+  String get dbOnlineExperimentalBuiltinMagnetsHint =>
+      'Also query Nyaa and other built-in magnet libraries during subscription checks.';
+
+  @override
+  String get dbOnlineExperimentalOverview => 'Title overview';
+
+  @override
+  String get dbOnlineExperimentalOverviewHint =>
+      'Fetch JAVTXT overviews during online collection and subscription refresh, preferring Chinese and falling back to Japanese.';
+
+  @override
+  String get dbOnlineExperimentalRequireAuthorization =>
+      'Configure JavDB Authorization first';
+
+  @override
+  String get dbOnlineExperimentalRequireWebhook =>
+      'Enable Webhook and Telegram first';
+
+  @override
+  String get dbOnlineExperimentalRequireNyaa =>
+      'Enable the built-in Nyaa library first';
+
+  @override
+  String get dbOnlineSectionFnMedia => 'FnMedia';
+
+  @override
+  String get dbOnlineSectionLibraryCache => 'Library cache settings';
+
+  @override
+  String get dbOnlineSectionSubtitleSettings => 'Subtitle file settings';
+
+  @override
+  String get dbOnlineMediaLibraries => 'Media libraries (optional)';
+
+  @override
+  String get dbOnlineMediaLibrariesHint =>
+      'Choose libraries to limit searches, or leave empty to search all libraries.';
+
+  @override
+  String get dbOnlineMediaLibrariesAll => 'All libraries';
+
+  @override
+  String dbOnlineMediaLibrariesSelected(int count) {
+    return '$count libraries selected';
+  }
+
+  @override
+  String get dbOnlineMediaLibrariesEmpty => 'No libraries found';
+
+  @override
+  String get dbOnlineMediaServerRequired =>
+      'Enable the service and fill in its address, credentials, and timeout first';
+
+  @override
+  String get dbOnlineMediaLibraryUnavailable =>
+      'Media libraries are unavailable. Configure and save a media server first.';
+
+  @override
+  String get dbOnlineSubtitleLibraryUnavailable =>
+      'Subtitles are disabled. Save the subtitle settings first.';
+
+  @override
+  String get dbOnlineCacheSchedule => 'Refresh schedule';
+
+  @override
+  String get dbOnlineCacheScheduleHint =>
+      'Cron format: minute hour day month weekday (0 is Sunday)';
+
+  @override
+  String get dbOnlineCronDaily0030 => 'Daily at 00:30';
+
+  @override
+  String get dbOnlineCronDaily0120 => 'Daily at 01:20';
+
+  @override
+  String get dbOnlineCronWeekly => 'Sunday at 02:00';
+
+  @override
+  String get dbOnlineCronMonthly => 'Monthly on day 2 at 23:00';
+
+  @override
+  String get dbOnlineCronEvery6Hours => 'Every 6 hours';
+
+  @override
+  String get dbOnlineCronEvery12Hours => 'Every 12 hours';
+
+  @override
+  String get dbOnlineCacheRefresh => 'Refresh library cache';
+
+  @override
+  String get dbOnlineCacheRefreshStarted => 'Library cache refresh started';
+
+  @override
+  String get dbOnlineCacheRefreshCompleted => 'Library cache refresh completed';
+
+  @override
+  String get dbOnlineCacheNotReady => 'Not ready';
+
+  @override
+  String dbOnlineCacheTotal(int cached, int actual) {
+    return 'Cached / actual total: $cached / $actual';
+  }
+
+  @override
+  String dbOnlineLibraryTaskProgress(int completed, int total) {
+    return 'Completed $completed / $total items';
+  }
+
+  @override
+  String get dbOnlinePlayerControlMode => 'Control bar mode';
+
+  @override
+  String get dbOnlinePlayerModeFull => 'Full';
+
+  @override
+  String get dbOnlinePlayerModeCompact => 'Compact';
+
+  @override
+  String get dbOnlinePlayerModeMinimal => 'Minimal';
+
+  @override
+  String get dbOnlinePlayerModeHidden => 'Hidden';
+
+  @override
+  String get dbOnlinePlayerModeCustom => 'Custom';
+
+  @override
+  String get dbOnlinePlayerControls => 'Control bar items';
+
+  @override
+  String get dbOnlinePlayerPlayLarge => 'Large play button';
+
+  @override
+  String get dbOnlinePlayerPlayPause => 'Play / pause';
+
+  @override
+  String get dbOnlinePlayerProgress => 'Progress bar';
+
+  @override
+  String get dbOnlinePlayerCurrentTime => 'Current time';
+
+  @override
+  String get dbOnlinePlayerDuration => 'Duration';
+
+  @override
+  String get dbOnlinePlayerMute => 'Mute';
+
+  @override
+  String get dbOnlinePlayerVolume => 'Volume';
+
+  @override
+  String get dbOnlinePlayerSettings => 'Settings menu';
+
+  @override
+  String get dbOnlinePlayerDefaultSpeed => 'Default playback speed';
+
+  @override
+  String get dbOnlinePlayerSpeeds => 'Available speeds';
+
+  @override
+  String get dbOnlineSubtitleDirectories => 'Subtitle directories';
+
+  @override
+  String get dbOnlineSubtitleDirectoriesHint =>
+      'One server directory per line. Subdirectories are scanned recursively. Leave empty to disable local scanning while keeping online subtitles available.';
+
+  @override
+  String get dbOnlineSubtitleScanInterval => 'Scan interval (minutes)';
+
+  @override
+  String get dbOnlineSubtitleScanIntervalHint =>
+      '0 disables automatic scanning';
+
+  @override
+  String get dbOnlineSubtitleExtensions => 'Supported extensions';
+
+  @override
+  String get dbOnlineSubtitleExtensionsHint =>
+      'Separate extensions with commas, such as .srt, .ass, .vtt';
+
+  @override
+  String get dbOnlineSubtitleInvalidSettings =>
+      'Scan interval must be a nonnegative integer. Provide extensions when local scanning is enabled.';
+
+  @override
+  String get dbOnlineSubtitleScanning => 'Subtitle scanning';
+
+  @override
+  String get dbOnlineSubtitleIncrementalScan => 'Incremental scan';
+
+  @override
+  String get dbOnlineSubtitleFullScan => 'Full scan';
+
+  @override
+  String get dbOnlineSubtitleScanStarted => 'Subtitle scan started';
+
+  @override
+  String get dbOnlineSubtitleScanBusy => 'A subtitle scan is already running';
+
+  @override
+  String get dbOnlineSubtitleScanCompleted => 'Subtitle scan completed';
+
+  @override
+  String get dbOnlineSubtitleScanSavedConfig =>
+      'Scanning uses the saved server directories and extension settings.';
+
+  @override
+  String dbOnlineSubtitleIndexCounts(int files, int codes) {
+    return '$files indexed subtitle files · $codes title codes';
+  }
+
+  @override
+  String dbOnlineSubtitleLastScan(String time) {
+    return 'Last scan: $time';
+  }
+
+  @override
+  String dbOnlineSubtitleScanProgress(
+    int files,
+    int totalFiles,
+    int dirs,
+    int totalDirs,
+  ) {
+    return 'Files $files / $totalFiles · Directories $dirs / $totalDirs';
+  }
+
+  @override
   String get dbOnlineGroupSystem => 'System';
 
   @override

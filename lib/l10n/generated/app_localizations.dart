@@ -3271,6 +3271,473 @@ abstract class AppL10n {
   /// **'媒体库'**
   String get dbOnlineGroupMediaLibrary;
 
+  /// No description provided for @dbOnlineSectionExperimental.
+  ///
+  /// In zh, this message translates to:
+  /// **'实验性功能'**
+  String get dbOnlineSectionExperimental;
+
+  /// No description provided for @dbOnlineExperimentalWatched.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成订阅同步到 JavDB 看过'**
+  String get dbOnlineExperimentalWatched;
+
+  /// No description provided for @dbOnlineExperimentalWatchedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅完成并推送下载时，将影片标记为已看过。'**
+  String get dbOnlineExperimentalWatchedHint;
+
+  /// No description provided for @dbOnlineExperimentalWantWatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加订阅同步到 JavDB 想看'**
+  String get dbOnlineExperimentalWantWatch;
+
+  /// No description provided for @dbOnlineExperimentalWantWatchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加订阅时，将影片标记为想看。'**
+  String get dbOnlineExperimentalWantWatchHint;
+
+  /// No description provided for @dbOnlineExperimentalCancelWantWatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除订阅同步取消 JavDB 想看'**
+  String get dbOnlineExperimentalCancelWantWatch;
+
+  /// No description provided for @dbOnlineExperimentalCancelWantWatchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除订阅时，取消影片的想看标记。'**
+  String get dbOnlineExperimentalCancelWantWatchHint;
+
+  /// No description provided for @dbOnlineExperimentalCancelSubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体库删除后自动取消订阅'**
+  String get dbOnlineExperimentalCancelSubscription;
+
+  /// No description provided for @dbOnlineExperimentalCancelSubscriptionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'收到 Webhook 媒体删除事件后，匹配并取消相关订阅。'**
+  String get dbOnlineExperimentalCancelSubscriptionHint;
+
+  /// No description provided for @dbOnlineExperimentalBlacklist.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体删除后自动加入黑名单'**
+  String get dbOnlineExperimentalBlacklist;
+
+  /// No description provided for @dbOnlineExperimentalBlacklistHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'收到 Webhook 删除事件后，将影片番号加入黑名单。'**
+  String get dbOnlineExperimentalBlacklistHint;
+
+  /// No description provided for @dbOnlineExperimentalBuiltinMagnets.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅检测使用内置磁链库'**
+  String get dbOnlineExperimentalBuiltinMagnets;
+
+  /// No description provided for @dbOnlineExperimentalBuiltinMagnetsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅检查时，额外查询 Nyaa 等内置磁链库。'**
+  String get dbOnlineExperimentalBuiltinMagnetsHint;
+
+  /// No description provided for @dbOnlineExperimentalOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'影片简介'**
+  String get dbOnlineExperimentalOverview;
+
+  /// No description provided for @dbOnlineExperimentalOverviewHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在线采集和订阅刷新时获取 JAVTXT 简介，优先中文，缺失时使用日文。'**
+  String get dbOnlineExperimentalOverviewHint;
+
+  /// No description provided for @dbOnlineExperimentalRequireAuthorization.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要先配置 JavDB Authorization'**
+  String get dbOnlineExperimentalRequireAuthorization;
+
+  /// No description provided for @dbOnlineExperimentalRequireWebhook.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要先启用 Webhook 和 Telegram'**
+  String get dbOnlineExperimentalRequireWebhook;
+
+  /// No description provided for @dbOnlineExperimentalRequireNyaa.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要先启用 Nyaa 内置磁链库'**
+  String get dbOnlineExperimentalRequireNyaa;
+
+  /// No description provided for @dbOnlineSectionFnMedia.
+  ///
+  /// In zh, this message translates to:
+  /// **'飞牛影视'**
+  String get dbOnlineSectionFnMedia;
+
+  /// No description provided for @dbOnlineSectionLibraryCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'入库缓存设置'**
+  String get dbOnlineSectionLibraryCache;
+
+  /// No description provided for @dbOnlineSectionSubtitleSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕文件配置'**
+  String get dbOnlineSectionSubtitleSettings;
+
+  /// No description provided for @dbOnlineMediaLibraries.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体库（可选）'**
+  String get dbOnlineMediaLibraries;
+
+  /// No description provided for @dbOnlineMediaLibrariesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择媒体库可限制搜索范围，不选则搜索全部媒体库。'**
+  String get dbOnlineMediaLibrariesHint;
+
+  /// No description provided for @dbOnlineMediaLibrariesAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部媒体库'**
+  String get dbOnlineMediaLibrariesAll;
+
+  /// No description provided for @dbOnlineMediaLibrariesSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 个媒体库'**
+  String dbOnlineMediaLibrariesSelected(int count);
+
+  /// No description provided for @dbOnlineMediaLibrariesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到媒体库'**
+  String get dbOnlineMediaLibrariesEmpty;
+
+  /// No description provided for @dbOnlineMediaServerRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先启用服务，并填写服务地址、认证信息和超时时间'**
+  String get dbOnlineMediaServerRequired;
+
+  /// No description provided for @dbOnlineMediaLibraryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前服务未启用媒体库，请先配置并保存媒体服务器。'**
+  String get dbOnlineMediaLibraryUnavailable;
+
+  /// No description provided for @dbOnlineSubtitleLibraryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前服务未启用字幕功能，请先保存字幕配置。'**
+  String get dbOnlineSubtitleLibraryUnavailable;
+
+  /// No description provided for @dbOnlineCacheSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时刷新计划'**
+  String get dbOnlineCacheSchedule;
+
+  /// No description provided for @dbOnlineCacheScheduleHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'Cron 格式：分 时 日 月 星期（0 为周日）'**
+  String get dbOnlineCacheScheduleHint;
+
+  /// No description provided for @dbOnlineCronDaily0030.
+  ///
+  /// In zh, this message translates to:
+  /// **'每天 00:30'**
+  String get dbOnlineCronDaily0030;
+
+  /// No description provided for @dbOnlineCronDaily0120.
+  ///
+  /// In zh, this message translates to:
+  /// **'每天 01:20'**
+  String get dbOnlineCronDaily0120;
+
+  /// No description provided for @dbOnlineCronWeekly.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周日 02:00'**
+  String get dbOnlineCronWeekly;
+
+  /// No description provided for @dbOnlineCronMonthly.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月 2 日 23:00'**
+  String get dbOnlineCronMonthly;
+
+  /// No description provided for @dbOnlineCronEvery6Hours.
+  ///
+  /// In zh, this message translates to:
+  /// **'每 6 小时'**
+  String get dbOnlineCronEvery6Hours;
+
+  /// No description provided for @dbOnlineCronEvery12Hours.
+  ///
+  /// In zh, this message translates to:
+  /// **'每 12 小时'**
+  String get dbOnlineCronEvery12Hours;
+
+  /// No description provided for @dbOnlineCacheRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新入库缓存'**
+  String get dbOnlineCacheRefresh;
+
+  /// No description provided for @dbOnlineCacheRefreshStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'入库缓存刷新已启动'**
+  String get dbOnlineCacheRefreshStarted;
+
+  /// No description provided for @dbOnlineCacheRefreshCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体库缓存刷新完成'**
+  String get dbOnlineCacheRefreshCompleted;
+
+  /// No description provided for @dbOnlineCacheNotReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'未就绪'**
+  String get dbOnlineCacheNotReady;
+
+  /// No description provided for @dbOnlineCacheTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存 / 实际总数：{cached} / {actual}'**
+  String dbOnlineCacheTotal(int cached, int actual);
+
+  /// No description provided for @dbOnlineLibraryTaskProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成 {completed} / {total} 项'**
+  String dbOnlineLibraryTaskProgress(int completed, int total);
+
+  /// No description provided for @dbOnlinePlayerControlMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制条显示模式'**
+  String get dbOnlinePlayerControlMode;
+
+  /// No description provided for @dbOnlinePlayerModeFull.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整'**
+  String get dbOnlinePlayerModeFull;
+
+  /// No description provided for @dbOnlinePlayerModeCompact.
+  ///
+  /// In zh, this message translates to:
+  /// **'精简'**
+  String get dbOnlinePlayerModeCompact;
+
+  /// No description provided for @dbOnlinePlayerModeMinimal.
+  ///
+  /// In zh, this message translates to:
+  /// **'极简'**
+  String get dbOnlinePlayerModeMinimal;
+
+  /// No description provided for @dbOnlinePlayerModeHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏'**
+  String get dbOnlinePlayerModeHidden;
+
+  /// No description provided for @dbOnlinePlayerModeCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get dbOnlinePlayerModeCustom;
+
+  /// No description provided for @dbOnlinePlayerControls.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制条项'**
+  String get dbOnlinePlayerControls;
+
+  /// No description provided for @dbOnlinePlayerPlayLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'大播放按钮'**
+  String get dbOnlinePlayerPlayLarge;
+
+  /// No description provided for @dbOnlinePlayerPlayPause.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放／暂停'**
+  String get dbOnlinePlayerPlayPause;
+
+  /// No description provided for @dbOnlinePlayerProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'进度条'**
+  String get dbOnlinePlayerProgress;
+
+  /// No description provided for @dbOnlinePlayerCurrentTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前时间'**
+  String get dbOnlinePlayerCurrentTime;
+
+  /// No description provided for @dbOnlinePlayerDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'总时长'**
+  String get dbOnlinePlayerDuration;
+
+  /// No description provided for @dbOnlinePlayerMute.
+  ///
+  /// In zh, this message translates to:
+  /// **'静音'**
+  String get dbOnlinePlayerMute;
+
+  /// No description provided for @dbOnlinePlayerVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量'**
+  String get dbOnlinePlayerVolume;
+
+  /// No description provided for @dbOnlinePlayerSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置菜单'**
+  String get dbOnlinePlayerSettings;
+
+  /// No description provided for @dbOnlinePlayerDefaultSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认播放速度'**
+  String get dbOnlinePlayerDefaultSpeed;
+
+  /// No description provided for @dbOnlinePlayerSpeeds.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用速度列表'**
+  String get dbOnlinePlayerSpeeds;
+
+  /// No description provided for @dbOnlineSubtitleDirectories.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕目录'**
+  String get dbOnlineSubtitleDirectories;
+
+  /// No description provided for @dbOnlineSubtitleDirectoriesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'每行一个服务端目录；递归扫描子目录。留空可停用本地扫描，仍可使用在线字幕。'**
+  String get dbOnlineSubtitleDirectoriesHint;
+
+  /// No description provided for @dbOnlineSubtitleScanInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描间隔（分钟）'**
+  String get dbOnlineSubtitleScanInterval;
+
+  /// No description provided for @dbOnlineSubtitleScanIntervalHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'0 表示不自动扫描'**
+  String get dbOnlineSubtitleScanIntervalHint;
+
+  /// No description provided for @dbOnlineSubtitleExtensions.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持的扩展名'**
+  String get dbOnlineSubtitleExtensions;
+
+  /// No description provided for @dbOnlineSubtitleExtensionsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'多个扩展名以逗号分隔，例如 .srt, .ass, .vtt'**
+  String get dbOnlineSubtitleExtensionsHint;
+
+  /// No description provided for @dbOnlineSubtitleInvalidSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描间隔必须为非负整数；启用本地扫描时请填写扩展名。'**
+  String get dbOnlineSubtitleInvalidSettings;
+
+  /// No description provided for @dbOnlineSubtitleScanning.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕扫描'**
+  String get dbOnlineSubtitleScanning;
+
+  /// No description provided for @dbOnlineSubtitleIncrementalScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量扫描'**
+  String get dbOnlineSubtitleIncrementalScan;
+
+  /// No description provided for @dbOnlineSubtitleFullScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整扫描'**
+  String get dbOnlineSubtitleFullScan;
+
+  /// No description provided for @dbOnlineSubtitleScanStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕扫描已启动'**
+  String get dbOnlineSubtitleScanStarted;
+
+  /// No description provided for @dbOnlineSubtitleScanBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕扫描任务正在进行中'**
+  String get dbOnlineSubtitleScanBusy;
+
+  /// No description provided for @dbOnlineSubtitleScanCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕扫描完成'**
+  String get dbOnlineSubtitleScanCompleted;
+
+  /// No description provided for @dbOnlineSubtitleScanSavedConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描使用已保存的服务端目录和扩展名配置。'**
+  String get dbOnlineSubtitleScanSavedConfig;
+
+  /// No description provided for @dbOnlineSubtitleIndexCounts.
+  ///
+  /// In zh, this message translates to:
+  /// **'已索引 {files} 个字幕文件 · {codes} 个番号'**
+  String dbOnlineSubtitleIndexCounts(int files, int codes);
+
+  /// No description provided for @dbOnlineSubtitleLastScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次扫描：{time}'**
+  String dbOnlineSubtitleLastScan(String time);
+
+  /// No description provided for @dbOnlineSubtitleScanProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件 {files} / {totalFiles} · 目录 {dirs} / {totalDirs}'**
+  String dbOnlineSubtitleScanProgress(
+    int files,
+    int totalFiles,
+    int dirs,
+    int totalDirs,
+  );
+
   /// No description provided for @dbOnlineGroupSystem.
   ///
   /// In zh, this message translates to:
