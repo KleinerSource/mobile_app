@@ -4,15 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/media_section_tab.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +31,9 @@ Future<ProviderContainer> _pumpPage(
   Widget page = const DbOnlineSubscriptionsPage(),
   required _NavigationObserver observer,
   bool withVideoId = true,
+  bool emptyContent = false,
+  ThemeData? theme,
+  double textScale = 1,
 }) async {
   SharedPreferences.setMockInitialValues({'privacy.app_switcher_shield': true});
   final prefs = await SharedPreferences.getInstance();
@@ -37,6 +43,18 @@ Future<ProviderContainer> _pumpPage(
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (request, handler) {
+        if (emptyContent && request.path != '/health') {
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: request,
+              data: {
+                'success': true,
+                'data': {'items': [], 'movies': [], 'has_more': false},
+              },
+            ),
+          );
+          return;
+        }
         final movies = [
           for (var index = 1; index <= 2; index++)
             {
@@ -96,6 +114,13 @@ Future<ProviderContainer> _pumpPage(
         requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
       ],
       child: MaterialApp(
+        theme: theme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         locale: const Locale('zh'),
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
@@ -109,7 +134,7 @@ Future<ProviderContainer> _pumpPage(
 }
 
 Future<void> _selectSection(WidgetTester tester, String label) async {
-  final chip = find.widgetWithText(ChoiceChip, label);
+  final chip = find.widgetWithText(MediaSectionTab, label);
   await tester.ensureVisible(chip);
   await tester.pumpAndSettle();
   await tester.tap(chip);
@@ -123,6 +148,77 @@ Finder _privateText(String text) => find.descendant(
 );
 
 void main() {
+  for (final brightness in Brightness.values) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('订阅分区沿用收藏 tabs 尺寸且保留 DBO 主题 ${brightness.name}/$scale', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(320, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpPage(
+          tester,
+          observer: _NavigationObserver(),
+          emptyContent: true,
+          theme: buildAppTheme(brightness, project: ServerProject.dbOnline),
+          textScale: scale,
+        );
+        final pending = find.widgetWithText(MediaSectionTab, '订阅中');
+        final completed = find.widgetWithText(MediaSectionTab, '已完成');
+        expect(tester.getRect(pending).left, 22);
+        expect(
+          tester.getRect(completed).left - tester.getRect(pending).right,
+          6,
+        );
+        for (final label in ['订阅中', '已完成', '在线订阅', '演员订阅', '综合订阅', '黑名单']) {
+          await _selectSection(tester, label);
+          final tab = find.widgetWithText(MediaSectionTab, label);
+          final tabRect = tester.getRect(tab);
+          expect(tabRect.height, 32);
+          expect(tester.widget<MediaSectionTab>(tab).selected, isTrue);
+          final box = tester.widget<Container>(
+            find.descendant(
+              of: tab,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container && widget.decoration is BoxDecoration,
+              ),
+            ),
+          );
+          final decoration = box.decoration! as BoxDecoration;
+          const accent = Color(0xFF12B8C2);
+          expect(decoration.color, accent.withValues(alpha: 0.15));
+          expect(
+            (decoration.border! as Border).top.color,
+            accent.withValues(alpha: 0.5),
+          );
+          expect(decoration.borderRadius, BorderRadius.circular(10));
+          expect(box.padding, const EdgeInsets.symmetric(horizontal: 12));
+          final text = find.descendant(of: tab, matching: find.text(label));
+          expect(tester.widget<Text>(text).style!.color, accent);
+          expect(tester.getCenter(text).dy, closeTo(tabRect.center.dy, 0.01));
+          expect(
+            tester
+                .getCenter(
+                  find.descendant(of: tab, matching: find.byType(Icon)),
+                )
+                .dy,
+            closeTo(tabRect.center.dy, 0.01),
+          );
+          if (label == '已完成') {
+            final colors = appColors(tester.element(pending));
+            final oldText = find.descendant(
+              of: pending,
+              matching: find.text('订阅中'),
+            );
+            expect(tester.widget<MediaSectionTab>(pending).selected, isFalse);
+            expect(tester.widget<Text>(oldText).style!.color, colors.muted);
+          }
+          expect(tester.takeException(), isNull);
+        }
+      });
+    }
+  }
+
   for (final section in ['订阅中', '已完成', '在线订阅']) {
     testWidgets('$section 遮罩影片，首次点击只揭示当前条目，再次点击进入详情', (tester) async {
       final observer = _NavigationObserver();

@@ -1,5 +1,6 @@
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/media_section_tab.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -513,7 +514,7 @@ class _MediaBrowserFavoritesPageState
                                             i++
                                           ) ...[
                                             if (i > 0) const SizedBox(width: 6),
-                                            _TypeChip(
+                                            MediaSectionTab(
                                               label: _typeOptions[i].label(l),
                                               selected:
                                                   _includeItemTypes ==
@@ -976,50 +977,6 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ============ 首屏错误 ============
-
-// ============ 类型 chip ============
-class _TypeChip extends StatelessWidget {
-  const _TypeChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected
-              ? colors.accent.withValues(alpha: 0.15)
-              : colors.chipBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected
-                ? colors.accent.withValues(alpha: 0.5)
-                : colors.cardBorder,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? colors.accent : colors.muted,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ============ 排序 pill + 视图切换 ============
 class _SortPill extends StatelessWidget {

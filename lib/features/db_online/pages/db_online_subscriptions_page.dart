@@ -1,5 +1,6 @@
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/media_section_tab.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -638,22 +639,21 @@ class _DbOnlineSubscriptionsPageState
 
   Widget _sectionPicker(List<(String, String, IconData)> sections) {
     return SizedBox(
-      height: 48,
+      height: 32,
       child: ListView.separated(
         controller: _sectionPickerController,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         scrollDirection: Axis.horizontal,
         itemCount: sections.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
           final section = sections[index];
-          return ChoiceChip(
+          return MediaSectionTab(
             key: _sectionKey(section.$1),
-            avatar: Icon(section.$3, size: 16),
-            showCheckmark: false,
-            label: Text(section.$2),
+            icon: section.$3,
+            label: section.$2,
             selected: section.$1 == _section,
-            onSelected: (_) {
+            onTap: () {
               if (_section != section.$1) _blacklistSelection.exit();
               setState(() {
                 _section = section.$1;

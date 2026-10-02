@@ -39,6 +39,7 @@ import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/media_section_tab.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/page_header.dart';
@@ -526,7 +527,7 @@ void main() {
     expect(search, findsOneWidget);
     final searchRect = tester.getRect(search);
     final beforeBody = tester.getRect(find.byType(RefreshIndicator));
-    final online = find.widgetWithText(ChoiceChip, '在线订阅');
+    final online = find.widgetWithText(MediaSectionTab, '在线订阅');
     await tester.ensureVisible(online);
     await tester.tap(online);
     await tester.pumpAndSettle();
