@@ -245,9 +245,6 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         ),
     ];
     return MovieDetailScaffold(
-      title: movie.title.trim().isEmpty
-          ? AppL10n.of(context).detailMoviePageTitle
-          : movie.title,
       heroArts: _heroArts,
       heroPosition: _heroPosition,
       hero: MovieDetailHero(

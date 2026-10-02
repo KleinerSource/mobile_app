@@ -363,19 +363,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupLibrary,
                 title: l.settingsActors,
-                titleTrailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      _hasLoaded ? '$_totalCount' : '—',
-                      style: AppText.pageTitle(context),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(l.actorCountSuffix, style: AppText.meta(context)),
-                  ],
-                ),
+                count: _hasLoaded ? _totalCount : null,
+                countSuffix: l.actorCountSuffix,
                 trailing: SettingsAddButton(
                   onPressed: () => _showEditor(context),
                 ),

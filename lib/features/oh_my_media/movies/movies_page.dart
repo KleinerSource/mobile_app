@@ -389,9 +389,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                   TextSpan(
                                     children: [
                                       TextSpan(
-                                        text: _totalCount > 0
-                                            ? '$_totalCount'
-                                            : '—',
+                                        text: _controller.itemList == null
+                                            ? '—'
+                                            : '$_totalCount',
                                       ),
                                       const WidgetSpan(
                                         child: SizedBox(width: 8),

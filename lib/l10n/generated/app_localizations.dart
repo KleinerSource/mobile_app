@@ -10644,12 +10644,6 @@ abstract class AppL10n {
   /// **'批量删除失败：{error}'**
   String resourceBatchDeleteFailed(String error);
 
-  /// No description provided for @resourceCountSuffix.
-  ///
-  /// In zh, this message translates to:
-  /// **'个{kind}'**
-  String resourceCountSuffix(String kind);
-
   /// No description provided for @resourceSortName.
   ///
   /// In zh, this message translates to:
@@ -13739,6 +13733,30 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'合集详情'**
   String get detailCollectionPageTitle;
+
+  /// No description provided for @resourceGenreCountSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'个类型'**
+  String get resourceGenreCountSuffix;
+
+  /// No description provided for @resourceTagCountSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'个标签'**
+  String get resourceTagCountSuffix;
+
+  /// No description provided for @resourceSeriesCountSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'个系列'**
+  String get resourceSeriesCountSuffix;
+
+  /// No description provided for @taskCountSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'项任务'**
+  String get taskCountSuffix;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

@@ -359,7 +359,7 @@ class _HapticSliderState extends State<HapticSlider> {
   }
 }
 
-/// 通用设置子页头部 · 分组眉标题 + 中文主标题 + 返回按钮/右侧操作
+/// 通用子页抬头：有统计时显示小字板块名和大字数量，否则显示大字板块名。
 class SettingsSubPageHeader extends StatelessWidget {
   const SettingsSubPageHeader({
     super.key,
@@ -367,7 +367,8 @@ class SettingsSubPageHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
-    this.titleTrailing,
+    this.count,
+    this.countSuffix,
     this.showBackButton = true,
     this.backIcon = Icons.arrow_back,
     this.backTooltip,
@@ -376,9 +377,12 @@ class SettingsSubPageHeader extends StatelessWidget {
   });
   final String eyebrow;
   final String title;
+  final int? count;
+
+  /// 提供数量单位即启用统计抬头；数量尚未取得时显示“—”。
+  final String? countSuffix;
   final String? subtitle;
   final Widget? trailing;
-  final Widget? titleTrailing;
   final bool showBackButton;
 
   /// 返回按钮图标；批量选择等模式可换成关闭图标。
@@ -394,6 +398,7 @@ class SettingsSubPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleInset = showBackButton ? 48.0 : 0.0;
+    final hasCount = countSuffix != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
       child: Column(
@@ -401,7 +406,12 @@ class SettingsSubPageHeader extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(left: titleInset),
-            child: Text(eyebrow.toUpperCase(), style: AppText.eyebrow(context)),
+            child: Text(
+              hasCount ? title : eyebrow.toUpperCase(),
+              style: AppText.eyebrow(context),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const SizedBox(height: 3),
           Row(
@@ -418,20 +428,21 @@ class SettingsSubPageHeader extends StatelessWidget {
                   ),
                 ),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: AppText.pageTitle(context),
-                        maxLines: titleMaxLines ?? 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (titleTrailing != null) titleTrailing!,
-                  ],
+                child: Text.rich(
+                  TextSpan(
+                    children: hasCount
+                        ? [
+                            TextSpan(text: count?.toString() ?? '—'),
+                            TextSpan(
+                              text: ' $countSuffix',
+                              style: AppText.meta(context),
+                            ),
+                          ]
+                        : [TextSpan(text: title)],
+                  ),
+                  style: AppText.pageTitle(context),
+                  maxLines: titleMaxLines ?? 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (trailing != null) ...[const SizedBox(width: 8), trailing!],

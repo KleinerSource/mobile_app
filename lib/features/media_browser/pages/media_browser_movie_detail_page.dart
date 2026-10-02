@@ -305,9 +305,6 @@ class _MediaBrowserDetailBodyState
             personName: person.name,
           );
     return MovieDetailScaffold(
-      title: item.name.trim().isEmpty
-          ? AppL10n.of(context).detailMoviePageTitle
-          : item.name,
       heroArts: _heroArts,
       heroPosition: _heroPosition,
       hero: MovieDetailHero(

@@ -271,20 +271,13 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               scrollController: _scrollController,
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupMappings,
-                title: l.mappingTypeTitle(_mappingTypeLabel(l, widget.type)),
-                titleTrailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      _totalCount == null ? '—' : '$_totalCount',
-                      style: AppText.pageTitle(context),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(l.mappingCountSuffix, style: AppText.meta(context)),
-                  ],
-                ),
+                title: switch (widget.type) {
+                  MappingType.tag => l.settingsMappingTags,
+                  MappingType.genre => l.settingsMappingGenres,
+                  MappingType.series => l.settingsMappingSeries,
+                },
+                count: _totalCount,
+                countSuffix: l.mappingCountSuffix,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [SettingsAddButton(onPressed: () => _showEditor())],

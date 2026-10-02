@@ -5854,11 +5854,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String resourceCountSuffix(String kind) {
-    return '$kind';
-  }
-
-  @override
   String get resourceSortName => 'Name';
 
   @override
@@ -7603,4 +7598,16 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get detailCollectionPageTitle => 'Collection details';
+
+  @override
+  String get resourceGenreCountSuffix => 'genres';
+
+  @override
+  String get resourceTagCountSuffix => 'tags';
+
+  @override
+  String get resourceSeriesCountSuffix => 'series';
+
+  @override
+  String get taskCountSuffix => 'tasks';
 }

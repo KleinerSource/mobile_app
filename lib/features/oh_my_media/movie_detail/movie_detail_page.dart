@@ -230,9 +230,6 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     final isFavorited = favStatus[movie.id] ?? movie.isFavorited;
 
     return MovieDetailScaffold(
-      title: movie.title.trim().isEmpty
-          ? AppL10n.of(context).detailMoviePageTitle
-          : movie.title,
       heroArts: _heroArts,
       heroPosition: _heroPagePosition,
       hero: _HeroHeader(movie: movie, urlBuilder: urlBuilder),

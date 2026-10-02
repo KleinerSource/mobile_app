@@ -19,7 +19,7 @@ import 'poster.dart';
 class MovieDetailScaffold extends StatelessWidget {
   const MovieDetailScaffold({
     super.key,
-    required this.title,
+    this.title,
     required this.hero,
     required this.heroArts,
     required this.heroPosition,
@@ -30,7 +30,7 @@ class MovieDetailScaffold extends StatelessWidget {
     this.onRefresh,
   });
 
-  final String title;
+  final String? title;
   final Widget hero;
   final ValueListenable<List<HeroArt>> heroArts;
   final ValueListenable<double> heroPosition;
@@ -82,15 +82,15 @@ class MovieDetailScaffold extends StatelessWidget {
   }
 }
 
-/// 详情各状态共用的固定导航栏，标题与返回按钮位于同一行。
+/// 详情各状态共用的固定导航栏；省略标题时仅显示返回与操作。
 class MovieDetailNavigationBar extends StatelessWidget {
   const MovieDetailNavigationBar({
     super.key,
-    required this.title,
+    this.title,
     this.actions = const <Widget>[],
   });
 
-  final String title;
+  final String? title;
   final List<Widget> actions;
 
   @override
@@ -114,16 +114,19 @@ class MovieDetailNavigationBar extends StatelessWidget {
               ),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    Theme.of(context).appBarTheme.titleTextStyle ??
-                    Theme.of(context).textTheme.titleLarge,
+            if (title == null)
+              const Spacer()
+            else
+              Expanded(
+                child: Text(
+                  title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      Theme.of(context).appBarTheme.titleTextStyle ??
+                      Theme.of(context).textTheme.titleLarge,
+                ),
               ),
-            ),
             ...actions,
           ],
         ),

@@ -29,7 +29,6 @@ void main() {
               eyebrow: '设置',
               title: title,
               subtitle: '页面说明',
-              titleTrailing: const Text('99'),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -52,6 +51,52 @@ void main() {
         expect(tester.getTopLeft(find.text('页面说明')).dx, closeTo(text.left, 1));
         expect(tester.takeException(), isNull);
       });
+
+      for (final count in [null, 0, 123456]) {
+        testWidgets('统计抬头 $count 在 ${size.width}/$scale 下保持层级和返回位置', (
+          tester,
+        ) async {
+          await tester.binding.setSurfaceSize(size);
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          const section = '这是需要显示统计数量的长板块名称';
+          final countText = '${count ?? '—'} 个类型';
+          await tester.pumpWidget(
+            _app(
+              SettingsSubPageHeader(
+                eyebrow: '媒体库',
+                title: section,
+                count: count,
+                countSuffix: '个类型',
+                subtitle: '页面说明',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.more_horiz),
+                    ),
+                  ],
+                ),
+              ),
+              scale: scale,
+            ),
+          );
+          final label = find.text(section);
+          final countLabel = find.text(countText);
+          final back = tester.getRect(find.byTooltip('返回'));
+          final number = tester.getRect(countLabel);
+          expect(
+            tester.widget<Text>(label).style!.fontSize,
+            lessThan(tester.widget<Text>(countLabel).style!.fontSize!),
+          );
+          expect(tester.getTopLeft(label).dx, number.left);
+          expect(tester.getTopLeft(find.text('页面说明')).dx, number.left);
+          expect(back.right, lessThanOrEqualTo(number.left));
+          expect(back.center.dy, closeTo(number.center.dy, 1));
+          expect(tester.takeException(), isNull);
+        });
+      }
     }
   }
 
@@ -67,6 +112,10 @@ void main() {
     );
     expect(find.byTooltip('返回'), findsNothing);
     expect(tester.getTopLeft(find.text('偏好设置')).dx, 22);
+    expect(
+      tester.widget<Text>(find.text('偏好设置')).style!.fontSize,
+      greaterThan(tester.widget<Text>(find.text('设置')).style!.fontSize!),
+    );
   });
 
   testWidgets('详情滚动后导航标题和返回固定，返回只弹出一层', (tester) async {

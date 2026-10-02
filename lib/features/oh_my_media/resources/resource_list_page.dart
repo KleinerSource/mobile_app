@@ -308,7 +308,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final kindLabel = widget.kind.label(l);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -326,22 +325,12 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                   header: SettingsSubPageHeader(
                     eyebrow: l.libraryTitle,
                     title: widget.kind.plural(l),
-                    titleTrailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          _totalCount == null ? '—' : '$_totalCount',
-                          style: AppText.pageTitle(context),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          l.resourceCountSuffix(kindLabel),
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ),
+                    count: _totalCount,
+                    countSuffix: switch (widget.kind) {
+                      ResourceKind.genre => l.resourceGenreCountSuffix,
+                      ResourceKind.tag => l.resourceTagCountSuffix,
+                      ResourceKind.series => l.resourceSeriesCountSuffix,
+                    },
                     trailing: SettingsAddButton(
                       onPressed: () => _showEditor(context),
                     ),

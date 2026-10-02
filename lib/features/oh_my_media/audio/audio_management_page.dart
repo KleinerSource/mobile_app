@@ -825,20 +825,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                   scrollController: _scrollController,
                   header: SettingsSubPageHeader(
                     eyebrow: l.audioEyebrow,
-                    title: l.audioTitle,
-                    titleTrailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text('$_totalCount', style: AppText.pageTitle(context)),
-                        const SizedBox(width: 6),
-                        Text(
-                          l.audioAssetCountSuffix,
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ),
+                    title: l.settingsAudioManagement,
+                    count: _controller.itemList == null ? null : _totalCount,
+                    countSuffix: l.audioAssetCountSuffix,
                     subtitle: _search == null
                         ? l.audioSubtitle
                         : l.audioSearchSubtitle(_search!),

@@ -1995,8 +1995,6 @@
   "@resourceBatchDeleted": {"placeholders":{"count":{"type":"int"},"kind":{"type":"String"}}},
   "resourceBatchDeleteFailed": "Bulk deletion failed: {error}",
   "@resourceBatchDeleteFailed": {"placeholders":{"error":{"type":"String"}}},
-  "resourceCountSuffix": "{kind}",
-  "@resourceCountSuffix": {"placeholders":{"kind":{"type":"String"}}},
   "resourceSortName": "Name",
   "resourceSortMovieCount": "Movie count",
   "resourceSortCreatedAt": "Created",
@@ -2616,5 +2614,9 @@
   "detailMoviePageTitle": "Movie details",
   "detailSeriesPageTitle": "Series details",
   "detailAlbumPageTitle": "Album details",
-  "detailCollectionPageTitle": "Collection details"
+  "detailCollectionPageTitle": "Collection details",
+  "resourceGenreCountSuffix": "genres",
+  "resourceTagCountSuffix": "tags",
+  "resourceSeriesCountSuffix": "series",
+  "taskCountSuffix": "tasks"
 }

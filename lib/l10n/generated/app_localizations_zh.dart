@@ -5738,11 +5738,6 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
-  String resourceCountSuffix(String kind) {
-    return '个$kind';
-  }
-
-  @override
   String get resourceSortName => '名称';
 
   @override
@@ -7451,4 +7446,16 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get detailCollectionPageTitle => '合集详情';
+
+  @override
+  String get resourceGenreCountSuffix => '个类型';
+
+  @override
+  String get resourceTagCountSuffix => '个标签';
+
+  @override
+  String get resourceSeriesCountSuffix => '个系列';
+
+  @override
+  String get taskCountSuffix => '项任务';
 }

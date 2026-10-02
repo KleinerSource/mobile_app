@@ -315,14 +315,32 @@ void main() {
       second.complete();
       await tester.pumpAndSettle();
       expect(find.byType(MovieDetailNavigationBar), findsOneWidget);
+      final navigation = find.byType(MovieDetailNavigationBar);
+      final isMovie =
+          page is MovieDetailPage ||
+          page is DbOnlineMovieDetailPage ||
+          page is MediaBrowserMovieDetailPage;
       expect(
-        tester
-            .widget<MovieDetailNavigationBar>(
-              find.byType(MovieDetailNavigationBar),
-            )
-            .title,
-        '成功后的详情标题',
+        tester.widget<MovieDetailNavigationBar>(navigation).title,
+        isMovie ? isNull : '成功后的详情标题',
       );
+      if (isMovie) {
+        expect(
+          find.descendant(
+            of: navigation,
+            matching: find.textContaining('成功后的详情标题', findRichText: true),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.textContaining('成功后的详情标题', findRichText: true),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(of: navigation, matching: find.byType(IconButton)),
+          findsWidgets,
+        );
+      }
       expect(tester.getRect(find.byTooltip('返回')), before);
       expect(requests, 2);
       await _checkReturn(tester);

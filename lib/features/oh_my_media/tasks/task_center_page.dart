@@ -45,6 +45,8 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
             header: SettingsSubPageHeader(
               eyebrow: l.taskCenterEyebrow,
               title: l.taskCenterTitle,
+              count: meta.loading && tasks.isEmpty ? null : totalCount,
+              countSuffix: l.taskCountSuffix,
               subtitle: activeCount == 0
                   ? l.taskCenterSubtitleIdle(totalCount)
                   : l.taskCenterSubtitleActive(activeCount, totalCount),

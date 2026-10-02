@@ -1995,8 +1995,6 @@
   "@resourceBatchDeleted": {"placeholders":{"count":{"type":"int"},"kind":{"type":"String"}}},
   "resourceBatchDeleteFailed": "批量删除失败：{error}",
   "@resourceBatchDeleteFailed": {"placeholders":{"error":{"type":"String"}}},
-  "resourceCountSuffix": "个{kind}",
-  "@resourceCountSuffix": {"placeholders":{"kind":{"type":"String"}}},
   "resourceSortName": "名称",
   "resourceSortMovieCount": "影片数",
   "resourceSortCreatedAt": "创建时间",
@@ -2616,5 +2614,9 @@
   "detailMoviePageTitle": "影片详情",
   "detailSeriesPageTitle": "剧集详情",
   "detailAlbumPageTitle": "专辑详情",
-  "detailCollectionPageTitle": "合集详情"
+  "detailCollectionPageTitle": "合集详情",
+  "resourceGenreCountSuffix": "个类型",
+  "resourceTagCountSuffix": "个标签",
+  "resourceSeriesCountSuffix": "个系列",
+  "taskCountSuffix": "项任务"
 }
