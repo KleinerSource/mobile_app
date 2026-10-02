@@ -180,7 +180,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     final preset = await showGlassSheet<DbOnlineFollowingPreset>(
       context: context,
       isScrollControlled: true,
-      enableDrag: false,
       minHeight: sheetMinHeight(context),
       builder: (_) => DbOnlineFollowingPresetsSheet(
         serverId: widget.serverId,
@@ -189,6 +188,30 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     );
     if (preset != null && _current) {
       _apply(preset.filter, presetName: preset.name);
+    }
+  }
+
+  Future<void> _savePreset() async {
+    final preset = await showDbOnlineFollowingPresetDialog(
+      context,
+      filter: _filter,
+    );
+    if (preset == null || !_current) return;
+    final l = AppL10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(dbOnlineFollowingApiProvider(widget.serverId))
+          .savePreset(preset);
+      if (!_current) return;
+      ref.invalidate(dbOnlineFollowingPresetsProvider(widget.serverId));
+      setState(() => _presetName = preset.name);
+    } catch (error) {
+      if (_current) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(localizedErrorMessage(l, error))),
+        );
+      }
     }
   }
 
@@ -255,16 +278,27 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
       filters: database
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: CompactFilterButton(
-                  label: _presetName.isEmpty
-                      ? l.dbOnlineFollowingPresets
-                      : _presetName,
-                  icon: Icons.bookmarks_outlined,
-                  active: _presetName.isNotEmpty,
-                  onTap: _presets,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: CompactFilterButton(
+                      label: _presetName.isEmpty
+                          ? l.dbOnlineFollowingPresets
+                          : _presetName,
+                      icon: Icons.bookmarks_outlined,
+                      active: _presetName.isNotEmpty,
+                      onTap: _presets,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CompactFilterButton(
+                    label: l.dbOnlineFollowingSavePreset,
+                    icon: Icons.add_rounded,
+                    active: false,
+                    onTap: _savePreset,
+                  ),
+                ],
               ),
             )
           : const SizedBox.shrink(),

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/dbo/db_online_following.dart';
 import 'package:omm/features/db_online/providers/db_online_following_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -8,6 +11,83 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
+
+/// 新建（[preset] 为空）或编辑关注预设，返回待保存的预设；取消时返回 null。
+Future<DbOnlineFollowingPreset?> showDbOnlineFollowingPresetDialog(
+  BuildContext context, {
+  required DbOnlineFollowingFilter filter,
+  DbOnlineFollowingPreset? preset,
+}) async {
+  final l = AppL10n.of(context);
+  final form = GlobalKey<FormState>();
+  final name = TextEditingController(text: preset?.name ?? '');
+  final remark = TextEditingController(text: preset?.remark ?? '');
+  final result = await showGlassDialog<DbOnlineFollowingPreset>(
+    context: context,
+    title: Text(
+      preset == null
+          ? l.dbOnlineFollowingSavePreset
+          : l.dbOnlineFollowingEditPreset,
+    ),
+    content: Form(
+      key: form,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            controller: name,
+            autofocus: true,
+            decoration: sheetInputDecoration(
+              context,
+              labelText: l.dbOnlineSubscriptionName,
+            ),
+            validator: (value) => value?.trim().isNotEmpty == true
+                ? null
+                : l.dbOnlineFollowingNameRequired,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: remark,
+            maxLines: 2,
+            decoration: sheetInputDecoration(
+              context,
+              labelText: l.dbOnlineSubscriptionRemark,
+            ),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+        child: Text(l.dbOnlineSubscriptionCancel),
+      ),
+      TextButton(
+        onPressed: () {
+          if (form.currentState!.validate()) {
+            Navigator.of(context, rootNavigator: true).pop(
+              DbOnlineFollowingPreset(
+                id: preset?.id ?? 0,
+                name: name.text.trim(),
+                remark: remark.text.trim(),
+                filter: preset?.filter ?? filter,
+              ),
+            );
+          }
+        },
+        child: Text(l.dbOnlineSubscriptionSave),
+      ),
+    ],
+  );
+  // 等对话框退出动画结束后再释放控制器。
+  unawaited(
+    Future<void>.delayed(const Duration(milliseconds: 250)).then((_) {
+      name.dispose();
+      remark.dispose();
+    }),
+  );
+  return result;
+}
 
 class DbOnlineFollowingPresetsSheet extends ConsumerStatefulWidget {
   const DbOnlineFollowingPresetsSheet({
@@ -28,67 +108,11 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
   bool get _current =>
       mounted && isDbOnlineFollowingServer(ref, widget.serverId);
 
-  Future<void> _edit([DbOnlineFollowingPreset? preset]) async {
-    final l = AppL10n.of(context);
-    final form = GlobalKey<FormState>();
-    final name = TextEditingController(text: preset?.name ?? '');
-    final remark = TextEditingController(text: preset?.remark ?? '');
-    final result = await showGlassDialog<DbOnlineFollowingPreset>(
-      context: context,
-      title: Text(
-        preset == null
-            ? l.dbOnlineFollowingSavePreset
-            : l.dbOnlineFollowingEditPreset,
-      ),
-      content: Form(
-        key: form,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: name,
-              autofocus: true,
-              decoration: sheetInputDecoration(
-                context,
-                labelText: l.dbOnlineSubscriptionName,
-              ),
-              validator: (value) => value?.trim().isNotEmpty == true
-                  ? null
-                  : l.dbOnlineFollowingNameRequired,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: remark,
-              maxLines: 2,
-              decoration: sheetInputDecoration(
-                context,
-                labelText: l.dbOnlineSubscriptionRemark,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-          child: Text(l.dbOnlineSubscriptionCancel),
-        ),
-        TextButton(
-          onPressed: () {
-            if (form.currentState!.validate()) {
-              Navigator.of(context, rootNavigator: true).pop(
-                DbOnlineFollowingPreset(
-                  id: preset?.id ?? 0,
-                  name: name.text.trim(),
-                  remark: remark.text.trim(),
-                  filter: preset?.filter ?? widget.filter,
-                ),
-              );
-            }
-          },
-          child: Text(l.dbOnlineSubscriptionSave),
-        ),
-      ],
+  Future<void> _edit(DbOnlineFollowingPreset preset) async {
+    final result = await showDbOnlineFollowingPresetDialog(
+      context,
+      filter: widget.filter,
+      preset: preset,
     );
     if (result != null && _current) {
       await _mutate(() async {
@@ -97,9 +121,6 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
             .savePreset(result);
       });
     }
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    name.dispose();
-    remark.dispose();
   }
 
   Future<void> _delete(DbOnlineFollowingPreset preset) async {
@@ -115,6 +136,9 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
           child: Text(l.dbOnlineSubscriptionCancel),
         ),
         TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: appColors(context).danger,
+          ),
           onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
           child: Text(l.dbOnlineFollowingDeletePreset),
         ),
@@ -210,11 +234,6 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
               icon: Icons.bookmarks_outlined,
               title: l.dbOnlineFollowingPresets,
               subtitle: l.dbOnlineFollowingReorderHint,
-              trailing: IconButton(
-                tooltip: l.dbOnlineFollowingSavePreset,
-                onPressed: _busy ? null : _edit,
-                icon: const Icon(Icons.add_rounded),
-              ),
             ),
             if (_busy) const LinearProgressIndicator(),
             Expanded(
@@ -249,11 +268,13 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
                             : () => Navigator.pop(context, preset),
                         leading: _busy
                             ? const Icon(Icons.drag_handle_rounded)
-                            : ReorderableDragStartListener(
-                                index: index,
-                                child: const Padding(
-                                  padding: EdgeInsets.all(8),
-                                  child: Icon(Icons.drag_handle_rounded),
+                            : SheetDragBlocker(
+                                child: ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(8),
+                                    child: Icon(Icons.drag_handle_rounded),
+                                  ),
                                 ),
                               ),
                         trailing: Row(
@@ -267,9 +288,10 @@ class _PresetsState extends ConsumerState<DbOnlineFollowingPresetsSheet> {
                             IconButton(
                               tooltip: l.dbOnlineFollowingDeletePreset,
                               onPressed: _busy ? null : () => _delete(preset),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.delete_outline_rounded,
                                 size: 18,
+                                color: appColors(context).danger,
                               ),
                             ),
                           ],
