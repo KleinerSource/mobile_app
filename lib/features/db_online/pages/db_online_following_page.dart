@@ -69,7 +69,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
   final _scroll = ScrollController();
   DbOnlineFollowingFilter _filter = const DbOnlineFollowingFilter();
   bool _applied = false;
-  int? _presetId;
+  String _presetName = '';
   Completer<void>? _refreshCompleter;
 
   @override
@@ -131,13 +131,13 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     }
   }
 
-  void _apply(DbOnlineFollowingFilter filter, {int? presetId}) {
+  void _apply(DbOnlineFollowingFilter filter, {String presetName = ''}) {
     if (!_current) return;
     _completeRefresh();
     setState(() {
       _filter = filter;
       _applied = true;
-      _presetId = presetId;
+      _presetName = presetName;
     });
     _requests.invalidate();
     _paging.refresh();
@@ -176,7 +176,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     ),
   );
 
-  Future<void> _managePresets() async {
+  Future<void> _presets() async {
     final preset = await showGlassSheet<DbOnlineFollowingPreset>(
       context: context,
       isScrollControlled: true,
@@ -188,7 +188,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
       ),
     );
     if (preset != null && _current) {
-      _apply(preset.filter, presetId: preset.id);
+      _apply(preset.filter, presetName: preset.name);
     }
   }
 
@@ -200,9 +200,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     );
     final database = capability.asData?.value.database == true;
     final query = capability.asData?.value.onlineQuery == true;
-    final presets = database
-        ? ref.watch(dbOnlineFollowingPresetsProvider(widget.serverId))
-        : null;
     final config = ref.watch(mediaRuntimeConfigProvider);
     final externalId = _filter.followExternalId;
     final styles = database
@@ -257,62 +254,17 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
       ],
       filters: database
           ? Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
-              child: Row(
-                children: [
-                  CompactFilterButton(
-                    label: l.dbOnlineFollowingManage,
-                    icon: Icons.settings_outlined,
-                    active: false,
-                    onTap: _managePresets,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: presets!.when(
-                      skipLoadingOnReload: true,
-                      loading: () => const Align(
-                        alignment: Alignment.centerLeft,
-                        child: SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      error: (error, _) => Align(
-                        alignment: Alignment.centerLeft,
-                        child: Tooltip(
-                          message: localizedErrorMessage(l, error),
-                          child: CompactFilterButton(
-                            label: l.dbOnlineRetry,
-                            icon: Icons.refresh_rounded,
-                            active: false,
-                            onTap: () => ref.invalidate(
-                              dbOnlineFollowingPresetsProvider(widget.serverId),
-                            ),
-                          ),
-                        ),
-                      ),
-                      data: (items) => SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            for (final preset in items)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 7),
-                                child: CompactFilterButton(
-                                  label: preset.name,
-                                  active: _presetId == preset.id,
-                                  onTap: () => _apply(
-                                    preset.filter,
-                                    presetId: preset.id,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: CompactFilterButton(
+                  label: _presetName.isEmpty
+                      ? l.dbOnlineFollowingPresets
+                      : _presetName,
+                  icon: Icons.bookmarks_outlined,
+                  active: _presetName.isNotEmpty,
+                  onTap: _presets,
+                ),
               ),
             )
           : const SizedBox.shrink(),

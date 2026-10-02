@@ -258,6 +258,8 @@ void main() {
       (_, _) => subscriptionReloads++,
     );
     addTearDown(subscriptionListener.close);
+    await tester.tap(find.text('关注预设'));
+    await pumpFollowingFrames(tester);
     await tester.tap(find.text('风格关注'));
     await pumpFollowingFrames(tester);
     await tester.tap(find.byTooltip('添加订阅'));
@@ -314,7 +316,7 @@ void main() {
       ..database = false
       ..onlineQuery = false;
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
-    expect(find.text('管理'), findsNothing);
+    expect(find.text('关注预设'), findsNothing);
     expect(find.byTooltip('关注用户'), findsNothing);
     expect(find.text('请先在 DBO 后台启用在线查询'), findsOneWidget);
     expect(backend.to('/following/presets'), isEmpty);
