@@ -5,6 +5,8 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_detail_scaffold.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/shared/filter_chip.dart';
+import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/page_header.dart';
 
 Widget _app(Widget page, {double scale = 1}) => MaterialApp(
   locale: const Locale('zh'),
@@ -20,6 +22,63 @@ Widget _app(Widget page, {double scale = 1}) => MaterialApp(
 void main() {
   for (final size in [const Size(320, 720), const Size(844, 390)]) {
     for (final scale in [1.0, 2.0]) {
+      testWidgets('圆形操作在 ${size.width}/$scale 下点击与加载区域不跳动', (tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final loading = ValueNotifier(false);
+        addTearDown(loading.dispose);
+        var taps = 0;
+        await tester.pumpWidget(
+          _app(
+            ValueListenableBuilder<bool>(
+              valueListenable: loading,
+              builder: (context, busy, _) => PageHeader(
+                eyebrow: '我的',
+                title: Text(
+                  '收藏',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+                trailing: HeaderActionButton(
+                  icon: Icons.cloud_download_outlined,
+                  tooltip: '扫描资源',
+                  loading: busy,
+                  onPressed: busy ? null : () => taps++,
+                ),
+              ),
+            ),
+            scale: scale,
+          ),
+        );
+        final button = find.byType(HeaderActionButton);
+        final before = tester.getRect(button);
+        expect(before.size, const Size.square(48));
+        final circle = find.byType(HeaderActionIcon);
+        expect(tester.getSize(circle), const Size.square(36));
+        expect(tester.getCenter(circle), before.center);
+        expect(
+          tester.getCenter(find.byIcon(Icons.cloud_download_outlined)),
+          before.center,
+        );
+        // 圆形以外的点击留白同样有效。
+        await tester.tapAt(before.topLeft + const Offset(2, 2));
+        expect(taps, 1);
+        loading.value = true;
+        await tester.pump();
+        expect(tester.getRect(button), before);
+        expect(
+          tester.getCenter(find.byType(CircularProgressIndicator)),
+          before.center,
+        );
+        await tester.tap(button);
+        expect(taps, 1);
+        expect(
+          tester.widget<IconButton>(find.byType(IconButton)).onPressed,
+          isNull,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+
       testWidgets('共享筛选按钮在 ${size.width}/$scale 的拉伸工具栏中仍保持内容居中', (
         tester,
       ) async {

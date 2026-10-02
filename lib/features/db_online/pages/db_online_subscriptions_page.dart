@@ -1,4 +1,5 @@
 import 'package:omm/shared/page_header.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -527,7 +528,6 @@ class _DbOnlineSubscriptionsPageState
     DbOnlineSubscriptionCapabilities? capabilities,
     AsyncValue<Map<String, dynamic>>? autoSync,
   ) {
-    final colors = appColors(context);
     final canManageOnlineSync =
         capabilities != null &&
         capabilities.database &&
@@ -569,8 +569,7 @@ class _DbOnlineSubscriptionsPageState
           if (actions.isNotEmpty)
             PopupMenuButton<String>(
               tooltip: l.dbOnlineSubscriptionTitle,
-              iconSize: 36,
-              padding: const EdgeInsets.all(6),
+              padding: EdgeInsets.zero,
               onSelected: (action) => _handleHeaderAction(action, l),
               itemBuilder: (context) => [
                 for (final action in actions)
@@ -594,41 +593,20 @@ class _DbOnlineSubscriptionsPageState
                         : Text(_headerActionLabel(action, l)),
                   ),
               ],
-              icon: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colors.surface,
-                  border: Border.all(color: colors.cardBorder),
-                ),
-                child: Icon(
-                  Icons.more_vert_rounded,
-                  size: 18,
-                  color: colors.text,
+              child: const SizedBox.square(
+                dimension: HeaderActionButton.tapTargetSize,
+                child: Center(
+                  child: HeaderActionIcon(icon: Icons.more_vert_rounded),
                 ),
               ),
             ),
-          IconButton(
+          HeaderActionButton(
             tooltip: l.dbOnlineSubscriptionSettings,
-            iconSize: 36,
-            padding: const EdgeInsets.all(6),
+            icon: Icons.settings,
             onPressed: () => Navigator.of(context).push<void>(
               MaterialPageRoute<void>(
                 builder: (_) => const SettingsPage(showBackButton: true),
               ),
-            ),
-            icon: Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.surface,
-                border: Border.all(color: colors.cardBorder),
-              ),
-              child: Icon(Icons.settings, size: 18, color: colors.text),
             ),
           ),
         ],

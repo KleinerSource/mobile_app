@@ -1,4 +1,5 @@
 import 'package:omm/shared/page_header.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/preview/auto_preview_controller.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -566,56 +567,16 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            iconSize: 36,
-                            padding: const EdgeInsets.all(6),
-                            icon: Container(
-                              width: 36,
-                              height: 36,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: c.surface,
-                                border: Border.all(color: c.cardBorder),
-                              ),
-                              child: _resourceScanStarting
-                                  ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: c.accent,
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.cloud_download_outlined,
-                                      size: 18,
-                                      color: c.text,
-                                    ),
-                            ),
+                          HeaderActionButton(
+                            icon: Icons.cloud_download_outlined,
+                            loading: _resourceScanStarting,
                             tooltip: AppL10n.of(context).favoritesScanTooltip,
                             onPressed: _resourceScanStarting || _totalCount <= 0
                                 ? null
                                 : _startResourceScan,
                           ),
-                          IconButton(
-                            iconSize: 36,
-                            padding: const EdgeInsets.all(6),
-                            icon: Container(
-                              width: 36,
-                              height: 36,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: c.surface,
-                                border: Border.all(color: c.cardBorder),
-                              ),
-                              child: Icon(
-                                Icons.settings,
-                                size: 18,
-                                color: c.text,
-                              ),
-                            ),
+                          HeaderActionButton(
+                            icon: Icons.settings,
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>

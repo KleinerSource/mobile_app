@@ -1,4 +1,5 @@
 import 'package:omm/shared/page_header.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -465,10 +466,10 @@ class _MediaBrowserFavoritesPageState
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _HeaderIconButton(
+                          HeaderActionButton(
                             icon: Icons.settings_outlined,
                             tooltip: AppL10n.of(context).settingsTitle,
-                            onTap: () => Navigator.of(context).push(
+                            onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
                                     const SettingsPage(showBackButton: true),
@@ -975,41 +976,6 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ============ 首屏错误 ============
-
-// ============ header 圆形按钮 ============
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return IconButton(
-      tooltip: tooltip,
-      iconSize: 36,
-      padding: const EdgeInsets.all(6),
-      icon: Container(
-        width: 36,
-        height: 36,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colors.surface,
-          border: Border.all(color: colors.cardBorder),
-        ),
-        child: Icon(icon, size: 18, color: colors.text),
-      ),
-      onPressed: onTap,
-    );
-  }
-}
 
 // ============ 类型 chip ============
 class _TypeChip extends StatelessWidget {

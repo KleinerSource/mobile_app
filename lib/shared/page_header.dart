@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/platform/app_theme.dart';
 
 /// 固定双行抬头：统一留白、标题行高度及返回／操作对齐。
+/// trailing 保持控件自然尺寸；搜索框、筛选行等工具栏由页面按需接在下方。
 class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,

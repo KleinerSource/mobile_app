@@ -38,6 +38,7 @@ import 'package:omm/features/settings/server_lines_page.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/page_header.dart';
@@ -226,7 +227,10 @@ void _expectDoubleHeader(
 void _expectHeaderIconCenters(WidgetTester tester, Finder header) {
   final buttons = find.descendant(
     of: header,
-    matching: find.byType(IconButton),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is HeaderActionButton || widget is PopupMenuButton<String>,
+    ),
   );
   for (final element in buttons.evaluate()) {
     final button = find.byWidget(element.widget);
@@ -241,7 +245,8 @@ void _expectHeaderIconCenters(WidgetTester tester, Finder header) {
     );
     final icon = find.descendant(of: circle, matching: find.byType(Icon));
     final circleRect = tester.getRect(circle);
-    expect(circleRect.width, circleRect.height);
+    expect(circleRect.size, const Size.square(36));
+    expect(tester.getSize(button), const Size.square(48));
     expect(tester.getCenter(icon).dx, closeTo(circleRect.center.dx, 0.01));
     expect(tester.getCenter(icon).dy, closeTo(circleRect.center.dy, 0.01));
     expect(tester.getCenter(button), circleRect.center);
@@ -497,7 +502,14 @@ void main() {
     _expectHeaderIconCenters(tester, header);
     expect(
       find.descendant(of: header, matching: find.byType(IconButton)),
-      findsNWidgets(2),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: header,
+        matching: find.byType(PopupMenuButton<String>),
+      ),
+      findsOneWidget,
     );
     await tester.tap(find.byType(PopupMenuButton<String>));
     await tester.pumpAndSettle();
