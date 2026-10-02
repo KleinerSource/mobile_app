@@ -1579,7 +1579,136 @@ class AppL10nEn extends AppL10n {
   String get dbOnlineFieldRequestTimeoutSeconds => 'Request timeout (seconds)';
 
   @override
-  String get dbOnlineFieldReserveQuotaGb => 'Reserved quota (GB)';
+  String get dbOnlineFieldReserveQuota => 'Reserved quota';
+
+  @override
+  String get dbOnlineReserveQuotaHint =>
+      '0 means unlimited. Stop creating tasks when the remaining cloud download quota reaches this number.';
+
+  @override
+  String get dbOnlineReserveQuotaInvalid =>
+      'Reserved quota must be a nonnegative integer';
+
+  @override
+  String get dbOnlineFieldToken => 'Authentication token';
+
+  @override
+  String get dbOnlineDownloaderDirectory => 'Download directory';
+
+  @override
+  String get dbOnlineDownloaderSelectDirectory => 'Select a download directory';
+
+  @override
+  String get dbOnlineDownloaderRequiredFields =>
+      'Fill in the service address, credentials, save path (if applicable), and timeout first';
+
+  @override
+  String get dbOnlineDownloaderInvalidConnection =>
+      'Port must be 1–65535 and timeout must be a positive integer';
+
+  @override
+  String get dbOnlineDownloaderPathVariables =>
+      'Paths support release date, publish date, actor name, and combined subscription name variables.';
+
+  @override
+  String get dbOnlineRootDirectory => 'Root directory';
+
+  @override
+  String get dbOnlineParentDirectory => 'Parent directory';
+
+  @override
+  String get dbOnlineSelectCurrentDirectory => 'Select current directory';
+
+  @override
+  String get dbOnlineNoSubdirectories => 'No subdirectories in this directory';
+
+  @override
+  String get dbOnlinePan115FillBeforeBrowse =>
+      'Fill in Cookie and timeout before selecting a download directory';
+
+  @override
+  String dbOnlinePan115PartialDirectories(int count) {
+    return 'Showing the $count directory entries returned by the server';
+  }
+
+  @override
+  String get dbOnlinePan115AccountInfo => 'Account information';
+
+  @override
+  String dbOnlinePan115AccountExpiry(String date) {
+    return 'Expires: $date';
+  }
+
+  @override
+  String get dbOnlinePan115Forever => 'Never expires';
+
+  @override
+  String get dbOnlineThunderDeviceDirectory => 'Device / directory';
+
+  @override
+  String get dbOnlineThunderSelectDevice => 'Select a Thunder device first';
+
+  @override
+  String dbOnlineThunderSavedSelection(String device, String folder) {
+    return 'Device ID: $device · Directory ID: $folder';
+  }
+
+  @override
+  String get dbOnlineThunderInvalidDevice =>
+      'The device is no longer available. Select another device.';
+
+  @override
+  String get dbOnlineThunderInvalidDirectory =>
+      'The directory is no longer available. Select another directory.';
+
+  @override
+  String get dbOnlineThunderNoDevices => 'No available devices found';
+
+  @override
+  String get dbOnlineThunderNoDirectories =>
+      'No available Thunder directories found';
+
+  @override
+  String get dbOnlineThunderRefreshDevices => 'Refresh devices';
+
+  @override
+  String get dbOnlineOpenListToolPaths => 'Configure tool paths';
+
+  @override
+  String get dbOnlineOpenListNoTools => 'No configurable OpenList tools found';
+
+  @override
+  String get dbOnlineOpenListMissingPrefix =>
+      'No prefix configured in OpenList';
+
+  @override
+  String get dbOnlineOpenListPathSuffix => 'Path suffix';
+
+  @override
+  String get dbOnlineOpenListPathHint =>
+      'Root prefixes come from OpenList admin settings. Configure each tool\'s path suffix here.';
+
+  @override
+  String get dbOnlineDeletePolicy => 'Deletion policy';
+
+  @override
+  String get dbOnlineDeleteOnSuccess => 'Delete after successful upload';
+
+  @override
+  String get dbOnlineDeleteOnFailure => 'Delete after failed upload';
+
+  @override
+  String get dbOnlineDeleteNever => 'Never delete';
+
+  @override
+  String get dbOnlineDeleteAlways => 'Always delete';
+
+  @override
+  String get dbOnlineCloudDriveEd2k => 'Enable ed2k';
+
+  @override
+  String get dbOnlineCloudDriveEd2kHint =>
+      'Only send ed2k links to CloudDrive2 when enabled.';
 
   @override
   String get dbOnlineFieldRetryCount => 'Retry count';

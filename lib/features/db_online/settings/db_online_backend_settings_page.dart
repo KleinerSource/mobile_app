@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/envelope.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -11,6 +14,7 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/settings/db_online_backend_config.dart';
+import 'db_online_downloader_config_widgets.dart';
 
 /// DBO 后台配置内容，可直接嵌入服务器设置页。
 class DboBackendSettingsContent extends ConsumerWidget {
@@ -86,6 +90,8 @@ class DboBackendSettingsContent extends ConsumerWidget {
       'downloader.qbittorrent' => Icons.download_outlined,
       'downloader.pan115' => Icons.cloud_queue_outlined,
       'downloader.thunder' => Icons.bolt_outlined,
+      'downloader.openlist' ||
+      'downloader.clouddrive2' => Icons.storage_outlined,
       'mediaserver.player' => Icons.play_circle_outline,
       _ => Icons.settings_outlined,
     };
@@ -191,14 +197,19 @@ class _DboBackendConfigDetailPageState
   final _visiblePasswords = <String>{};
   bool _saving = false;
   bool _testing = false;
+  bool _leaving = false;
+  late final ApiClient _client;
 
   @override
   void initState() {
     super.initState();
+    _client = ref.read(requiredApiClientProvider);
     final subtree = _readPath(widget.config, widget.section.basePath);
-    _working = subtree is Map
-        ? Map<String, dynamic>.from(jsonDecode(jsonEncode(subtree)) as Map)
-        : <String, dynamic>{};
+    _working = {
+      ...widget.section.defaults,
+      if (subtree is Map)
+        ...Map<String, dynamic>.from(jsonDecode(jsonEncode(subtree)) as Map),
+    };
     for (final field in widget.section.fields) {
       if (_isTextField(field.type)) {
         _controllers[field.path] = TextEditingController(
@@ -217,23 +228,30 @@ class _DboBackendConfigDetailPageState
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || !_current) return;
+    final validation = validateDboCloudDownloader(
+      widget.section.testName,
+      _working,
+      AppL10n.of(context),
+    );
+    if (validation != null) {
+      _showMessage(validation);
+      return;
+    }
     setState(() => _saving = true);
     try {
       await ref
           .read(dbOnlineBackendConfigProvider.notifier)
           .save(_buildNested(widget.section.basePath, _working));
-      if (!mounted) return;
+      if (!mounted || !_current) return;
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppL10n.of(context).dbOnlineSaved)),
       );
       Navigator.of(context).pop();
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+      if (mounted && _current) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(localizedErrorMessage(AppL10n.of(context), error)),
           ),
@@ -246,28 +264,46 @@ class _DboBackendConfigDetailPageState
 
   Future<void> _testConnection() async {
     final name = widget.section.testName;
-    if (_testing || name == null) return;
+    if (_testing || name == null || !_current) return;
     final l = AppL10n.of(context);
+    if (isDboCloudDownloader(name) && _working['enabled'] != true) return;
+    final validation = validateDboCloudDownloader(
+      name,
+      _working,
+      l,
+      connectionOnly: true,
+    );
+    if (validation != null) {
+      _showMessage(validation);
+      return;
+    }
+    final snapshot = jsonEncode(_working);
     setState(() => _testing = true);
     try {
       final result = await ref
           .read(dbOnlineBackendConfigProvider.notifier)
-          .testConnection(name, _working);
+          .testConnection(
+            name,
+            Map<String, dynamic>.from(jsonDecode(snapshot) as Map),
+          );
       final success = result['success'] == true;
       final fallback = success
           ? l.dbOnlineConnectionOk
           : l.dbOnlineConnectionFailed;
-      final message = result['message'] ?? result['error'] ?? fallback;
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message.toString())));
+      final detail = result['data'] is Map
+          ? (result['data'] as Map)['version']
+          : null;
+      final message = envelopeMessageOrNull(result) ?? fallback;
+      if (mounted && _current && snapshot == jsonEncode(_working)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(detail == null ? message : '$message · $detail'),
+          ),
+        );
       }
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+      if (mounted && _current && snapshot == jsonEncode(_working)) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(localizedErrorMessage(l, error))),
         );
       }
@@ -276,8 +312,35 @@ class _DboBackendConfigDetailPageState
     }
   }
 
+  bool get _current {
+    if (!mounted || _leaving) return false;
+    try {
+      return identical(ref.read(requiredApiClientProvider), _client);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _showMessage(String message) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(message)));
+
+  void _leaveForServerChange() {
+    if (_leaving) return;
+    _leaving = true;
+    final route = ModalRoute.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || route == null || !route.isActive) return;
+      Navigator.of(context).popUntil((candidate) => candidate == route);
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(requiredApiClientProvider, (_, next) {
+      if (!identical(next, _client)) _leaveForServerChange();
+    }, onError: (_, _) => _leaveForServerChange());
     final visibleFields = widget.section.fields
         .where((field) => field.visibleWhen?.call(_working) ?? true)
         .toList();
@@ -295,6 +358,10 @@ class _DboBackendConfigDetailPageState
               primary: true,
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
               children: [
+                if (widget.section.testName == 'pan115' &&
+                    _readPath(widget.config, 'downloader.pan115.enabled') ==
+                        true)
+                  DbOnlinePan115AccountInfo(api: _client.dbOnline),
                 for (var i = 0; i < visibleFields.length; i++) ...[
                   _buildField(visibleFields[i]),
                   if (i < visibleFields.length - 1) const SizedBox(height: 12),
@@ -304,7 +371,13 @@ class _DboBackendConfigDetailPageState
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: _testing ? null : _testConnection,
+                      onPressed:
+                          _testing ||
+                              _saving ||
+                              (isDboCloudDownloader(widget.section.testName) &&
+                                  _working['enabled'] != true)
+                          ? null
+                          : _testConnection,
                       style: sheetSecondaryButtonStyle(context),
                       icon: _testing
                           ? const SizedBox(
@@ -330,6 +403,22 @@ class _DboBackendConfigDetailPageState
   Widget _buildField(DboBackendConfigField field) {
     final l = AppL10n.of(context);
     switch (field.type) {
+      case DboBackendConfigFieldType.directory:
+        return DbOnlineDownloaderDirectoryField(
+          name: widget.section.testName!,
+          api: _client.dbOnline,
+          values: _working,
+          isCurrent: () => _current,
+          onChanged: (values) => setState(() => _working.addAll(values)),
+        );
+      case DboBackendConfigFieldType.toolPaths:
+        return DbOnlineOpenListToolPathsField(
+          api: _client.dbOnline,
+          values: _working,
+          isCurrent: () => _current,
+          onChanged: (values) =>
+              setState(() => _working['tool_path_suffixes'] = values),
+        );
       case DboBackendConfigFieldType.toggle:
         return Container(
           decoration: settingsCardDecoration(context),
@@ -350,6 +439,7 @@ class _DboBackendConfigDetailPageState
                 ),
               ),
               SettingsSwitch(
+                key: ValueKey(field.path),
                 value: _readPath(_working, field.path) == true,
                 onChanged: (value) =>
                     setState(() => _writePath(_working, field.path, value)),
@@ -412,6 +502,7 @@ class _DboBackendConfigDetailPageState
           children: [
             _fieldLabel(field),
             TextField(
+              key: ValueKey(field.path),
               controller: controller,
               obscureText:
                   isPassword && !_visiblePasswords.contains(field.path),
@@ -454,7 +545,11 @@ class _DboBackendConfigDetailPageState
                 final next = field.type == DboBackendConfigFieldType.number
                     ? num.tryParse(value) ?? value
                     : value;
-                _writePath(_working, field.path, next);
+                if (isDboCloudDownloader(widget.section.testName)) {
+                  setState(() => _writePath(_working, field.path, next));
+                } else {
+                  _writePath(_working, field.path, next);
+                }
               },
             ),
           ],
@@ -489,6 +584,7 @@ class _DboBackendConfigDetailPageState
       'secret' ||
       'password' ||
       'cookie' => Icons.key_outlined,
+      'token' => Icons.key_outlined,
       'port' || 'cid' || 'parent_folder_id' => Icons.numbers_outlined,
       'save_path' => Icons.folder_open_outlined,
       'protocol' => Icons.public_outlined,

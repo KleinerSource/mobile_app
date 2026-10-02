@@ -14,15 +14,15 @@ class DbOnlineBackendConfigController
     extends AsyncNotifier<Map<String, dynamic>> {
   @override
   Future<Map<String, dynamic>> build() {
-    return ref.read(requiredApiClientProvider).dbOnline.getBackendConfig();
+    return ref.watch(requiredApiClientProvider).dbOnline.getBackendConfig();
   }
 
   Future<void> save(Map<String, dynamic> partial) async {
-    final saved = await ref
-        .read(requiredApiClientProvider)
-        .dbOnline
-        .updateBackendConfig(partial);
-    state = AsyncData(saved);
+    final client = ref.read(requiredApiClientProvider);
+    final saved = await client.dbOnline.updateBackendConfig(partial);
+    if (ref.mounted && identical(ref.read(requiredApiClientProvider), client)) {
+      state = AsyncData(saved);
+    }
   }
 
   Future<Map<String, dynamic>> testConnection(
@@ -36,7 +36,15 @@ class DbOnlineBackendConfigController
   }
 }
 
-enum DboBackendConfigFieldType { toggle, text, password, number, select }
+enum DboBackendConfigFieldType {
+  toggle,
+  text,
+  password,
+  number,
+  select,
+  directory,
+  toolPaths,
+}
 
 class DboBackendConfigOption {
   const DboBackendConfigOption({required this.value, required this.label});
@@ -69,12 +77,14 @@ class DboBackendConfigSection {
     required this.basePath,
     required this.fields,
     this.testName,
+    this.defaults = const {},
   });
 
   final String Function(AppL10n l) title;
   final String basePath;
   final List<DboBackendConfigField> fields;
   final String? testName;
+  final Map<String, dynamic> defaults;
 }
 
 class DboBackendConfigGroup {
@@ -334,6 +344,7 @@ final _pan115Section = DboBackendConfigSection(
   title: (l) => l.dbOnlineSectionPan115,
   basePath: 'downloader.pan115',
   testName: 'pan115',
+  defaults: const {'cid': '0', 'timeout': 30, 'reserve_quota': 0},
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
@@ -348,14 +359,14 @@ final _pan115Section = DboBackendConfigSection(
     ),
     DboBackendConfigField(
       path: 'cid',
-      label: (l) => l.dbOnlineFieldCategoryId,
-      type: DboBackendConfigFieldType.text,
-      hint: (l) => l.dbOnlineFieldCategoryIdHint,
+      label: (l) => l.dbOnlineDownloaderDirectory,
+      type: DboBackendConfigFieldType.directory,
     ),
     DboBackendConfigField(
       path: 'reserve_quota',
-      label: (l) => l.dbOnlineFieldReserveQuotaGb,
+      label: (l) => l.dbOnlineFieldReserveQuota,
       type: DboBackendConfigFieldType.number,
+      hint: (l) => l.dbOnlineReserveQuotaHint,
     ),
     DboBackendConfigField(
       path: 'timeout',
@@ -369,6 +380,7 @@ final _thunderSection = DboBackendConfigSection(
   title: (l) => l.dbOnlineSectionThunder,
   basePath: 'downloader.thunder',
   testName: 'thunder',
+  defaults: const {'port': 6984, 'timeout': 30},
   fields: <DboBackendConfigField>[
     DboBackendConfigField(
       path: 'enabled',
@@ -392,18 +404,134 @@ final _thunderSection = DboBackendConfigSection(
     ),
     DboBackendConfigField(
       path: 'device_target',
-      label: (l) => l.dbOnlineFieldDeviceId,
-      type: DboBackendConfigFieldType.text,
-    ),
-    DboBackendConfigField(
-      path: 'parent_folder_id',
-      label: (l) => l.dbOnlineFieldParentFolderId,
-      type: DboBackendConfigFieldType.text,
+      label: (l) => l.dbOnlineThunderDeviceDirectory,
+      type: DboBackendConfigFieldType.directory,
     ),
     DboBackendConfigField(
       path: 'timeout',
       label: (l) => l.dbOnlineFieldTimeoutSeconds,
       type: DboBackendConfigFieldType.number,
+    ),
+  ],
+);
+
+final _openListSection = DboBackendConfigSection(
+  title: (l) => 'OpenList',
+  basePath: 'downloader.openlist',
+  testName: 'openlist',
+  defaults: const {
+    'port': 5244,
+    'timeout': 30,
+    'delete_policy': 'delete_on_upload_succeed',
+    'tool_path_suffixes': <String, String>{},
+  },
+  fields: [
+    DboBackendConfigField(
+      path: 'enabled',
+      label: (l) => l.dbOnlineFieldEnabled,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'host',
+      label: (l) => l.dbOnlineFieldHost,
+      type: DboBackendConfigFieldType.text,
+    ),
+    DboBackendConfigField(
+      path: 'port',
+      label: (l) => l.dbOnlineFieldPort,
+      type: DboBackendConfigFieldType.number,
+    ),
+    DboBackendConfigField(
+      path: 'use_https',
+      label: (l) => l.dbOnlineFieldUseHttps,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'token',
+      label: (l) => l.dbOnlineFieldToken,
+      type: DboBackendConfigFieldType.password,
+      hint: (l) => l.dbOnlineFieldMaskHint,
+    ),
+    DboBackendConfigField(
+      path: 'timeout',
+      label: (l) => l.dbOnlineFieldTimeoutSeconds,
+      type: DboBackendConfigFieldType.number,
+    ),
+    DboBackendConfigField(
+      path: 'delete_policy',
+      label: (l) => l.dbOnlineDeletePolicy,
+      type: DboBackendConfigFieldType.select,
+      options: [
+        DboBackendConfigOption(
+          value: 'delete_on_upload_succeed',
+          label: (l) => l.dbOnlineDeleteOnSuccess,
+        ),
+        DboBackendConfigOption(
+          value: 'delete_on_upload_failed',
+          label: (l) => l.dbOnlineDeleteOnFailure,
+        ),
+        DboBackendConfigOption(
+          value: 'delete_never',
+          label: (l) => l.dbOnlineDeleteNever,
+        ),
+        DboBackendConfigOption(
+          value: 'delete_always',
+          label: (l) => l.dbOnlineDeleteAlways,
+        ),
+      ],
+    ),
+    DboBackendConfigField(
+      path: 'tool_path_suffixes',
+      label: (l) => l.dbOnlineOpenListToolPaths,
+      type: DboBackendConfigFieldType.toolPaths,
+    ),
+  ],
+);
+
+final _cloudDrive2Section = DboBackendConfigSection(
+  title: (l) => 'CloudDrive2',
+  basePath: 'downloader.clouddrive2',
+  testName: 'clouddrive2',
+  defaults: const {'port': 19798, 'timeout': 30, 'ed2k_enabled': false},
+  fields: [
+    DboBackendConfigField(
+      path: 'enabled',
+      label: (l) => l.dbOnlineFieldEnabled,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'host',
+      label: (l) => l.dbOnlineFieldHost,
+      type: DboBackendConfigFieldType.text,
+    ),
+    DboBackendConfigField(
+      path: 'port',
+      label: (l) => l.dbOnlineFieldPort,
+      type: DboBackendConfigFieldType.number,
+    ),
+    DboBackendConfigField(
+      path: 'timeout',
+      label: (l) => l.dbOnlineFieldTimeoutSeconds,
+      type: DboBackendConfigFieldType.number,
+    ),
+    DboBackendConfigField(
+      path: 'ed2k_enabled',
+      label: (l) => l.dbOnlineCloudDriveEd2k,
+      hint: (l) => l.dbOnlineCloudDriveEd2kHint,
+      type: DboBackendConfigFieldType.toggle,
+    ),
+    DboBackendConfigField(
+      path: 'token',
+      label: (l) => l.dbOnlineFieldToken,
+      type: DboBackendConfigFieldType.password,
+      hint: (l) => l.dbOnlineFieldMaskHint,
+    ),
+    DboBackendConfigField(
+      path: 'save_path',
+      label: (l) => l.dbOnlineFieldSavePath,
+      hint: (l) =>
+          '${l.dbOnlineDownloaderPathVariables}\n{release_date} · {publish_date} · {actor_name} · {sub_name}',
+      type: DboBackendConfigFieldType.text,
     ),
   ],
 );
@@ -456,6 +584,8 @@ final dboBackendConfigGroups = <DboBackendConfigGroup>[
     <DboBackendConfigSection>[
       _aria2Section,
       _qbittorrentSection,
+      _openListSection,
+      _cloudDrive2Section,
       _pan115Section,
       _thunderSection,
     ],
@@ -465,3 +595,46 @@ final dboBackendConfigGroups = <DboBackendConfigGroup>[
     <DboBackendConfigSection>[_playerSection],
   ),
 ];
+
+bool isDboCloudDownloader(String? name) =>
+    const ['pan115', 'thunder', 'openlist', 'clouddrive2'].contains(name);
+
+String? validateDboCloudDownloader(
+  String? name,
+  Map<String, dynamic> values,
+  AppL10n l, {
+  bool connectionOnly = false,
+}) {
+  if (!isDboCloudDownloader(name) || values['enabled'] != true) return null;
+  final requiredFields = name == 'pan115'
+      ? ['cookie']
+      : [
+          'host',
+          if (name == 'openlist' || name == 'clouddrive2') 'token',
+          if (name == 'clouddrive2') 'save_path',
+        ];
+  if (requiredFields.any(
+    (key) => values[key]?.toString().trim().isNotEmpty != true,
+  )) {
+    return l.dbOnlineDownloaderRequiredFields;
+  }
+  final timeout = int.tryParse(values['timeout']?.toString() ?? '');
+  final port = int.tryParse(values['port']?.toString() ?? '');
+  if (timeout == null ||
+      timeout < 1 ||
+      (name != 'pan115' && (port == null || port < 1 || port > 65535))) {
+    return l.dbOnlineDownloaderInvalidConnection;
+  }
+  if (connectionOnly) return null;
+  if (name == 'pan115') {
+    final reserve = int.tryParse(values['reserve_quota']?.toString() ?? '');
+    if (reserve == null || reserve < 0) return l.dbOnlineReserveQuotaInvalid;
+    if (!RegExp(r'^\d+$').hasMatch(values['cid']?.toString() ?? '')) {
+      return l.dbOnlineDownloaderSelectDirectory;
+    }
+  } else if (name == 'thunder' &&
+      values['parent_folder_id']?.toString().trim().isNotEmpty != true) {
+    return l.dbOnlineDownloaderSelectDirectory;
+  }
+  return null;
+}

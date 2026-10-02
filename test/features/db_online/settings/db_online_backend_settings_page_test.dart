@@ -147,20 +147,30 @@ void main() {
   )) {
     testWidgets('${section.basePath} 分区只显示两层抬头，滚动后仍可返回', (tester) async {
       await tester.pumpWidget(
-        _localizedApp(
-          Navigator(
-            onGenerateInitialRoutes: (_, _) => [
-              MaterialPageRoute<void>(
-                builder: (_) => const Scaffold(body: Text('后端配置入口')),
+        ProviderScope(
+          overrides: [
+            requiredApiClientProvider.overrideWithValue(
+              ApiClient(
+                Dio(BaseOptions(baseUrl: 'http://test/api'))
+                  ..httpClientAdapter = _BackendConfigAdapter(),
               ),
-              MaterialPageRoute<void>(
-                builder: (_) => DboBackendConfigDetailPage(
-                  section: section,
-                  config: const {},
+            ),
+          ],
+          child: _localizedApp(
+            Navigator(
+              onGenerateInitialRoutes: (_, _) => [
+                MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('后端配置入口')),
                 ),
-              ),
-            ],
-            onGenerateRoute: (_) => null,
+                MaterialPageRoute<void>(
+                  builder: (_) => DboBackendConfigDetailPage(
+                    section: section,
+                    config: const {},
+                  ),
+                ),
+              ],
+              onGenerateRoute: (_) => null,
+            ),
           ),
         ),
       );

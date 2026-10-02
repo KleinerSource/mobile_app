@@ -1527,7 +1527,125 @@ class AppL10nZh extends AppL10n {
   String get dbOnlineFieldRequestTimeoutSeconds => '请求超时（秒）';
 
   @override
-  String get dbOnlineFieldReserveQuotaGb => '保留配额（GB）';
+  String get dbOnlineFieldReserveQuota => '保留配额';
+
+  @override
+  String get dbOnlineReserveQuotaHint => '0 表示不限制；剩余云下载配额降至此数量后停止创建任务。';
+
+  @override
+  String get dbOnlineReserveQuotaInvalid => '保留配额必须是大于或等于 0 的整数';
+
+  @override
+  String get dbOnlineFieldToken => '认证 Token';
+
+  @override
+  String get dbOnlineDownloaderDirectory => '下载目录';
+
+  @override
+  String get dbOnlineDownloaderSelectDirectory => '请选择下载目录';
+
+  @override
+  String get dbOnlineDownloaderRequiredFields => '请先填写服务地址、认证信息、保存路径（如适用）和超时时间';
+
+  @override
+  String get dbOnlineDownloaderInvalidConnection => '端口必须为 1–65535，超时时间必须为正整数';
+
+  @override
+  String get dbOnlineDownloaderPathVariables => '路径支持发行日期、推送日期、演员名称及综合订阅名称变量。';
+
+  @override
+  String get dbOnlineRootDirectory => '根目录';
+
+  @override
+  String get dbOnlineParentDirectory => '上一级';
+
+  @override
+  String get dbOnlineSelectCurrentDirectory => '选择当前目录';
+
+  @override
+  String get dbOnlineNoSubdirectories => '当前目录下没有子目录';
+
+  @override
+  String get dbOnlinePan115FillBeforeBrowse => '请先填写 Cookie 和超时时间，再选择下载目录';
+
+  @override
+  String dbOnlinePan115PartialDirectories(int count) {
+    return '当前仅展示接口返回的 $count 个目录项';
+  }
+
+  @override
+  String get dbOnlinePan115AccountInfo => '账号信息';
+
+  @override
+  String dbOnlinePan115AccountExpiry(String date) {
+    return '到期日期：$date';
+  }
+
+  @override
+  String get dbOnlinePan115Forever => '永久有效';
+
+  @override
+  String get dbOnlineThunderDeviceDirectory => '设备／目录';
+
+  @override
+  String get dbOnlineThunderSelectDevice => '请先选择迅雷设备';
+
+  @override
+  String dbOnlineThunderSavedSelection(String device, String folder) {
+    return '设备 ID：$device · 目录 ID：$folder';
+  }
+
+  @override
+  String get dbOnlineThunderInvalidDevice => '当前设备已失效，请重新选择设备';
+
+  @override
+  String get dbOnlineThunderInvalidDirectory => '当前目录已失效，请重新选择下载目录';
+
+  @override
+  String get dbOnlineThunderNoDevices => '未获取到可用设备';
+
+  @override
+  String get dbOnlineThunderNoDirectories => '未获取到可用迅雷目录';
+
+  @override
+  String get dbOnlineThunderRefreshDevices => '刷新设备';
+
+  @override
+  String get dbOnlineOpenListToolPaths => '配置工具路径';
+
+  @override
+  String get dbOnlineOpenListNoTools => '当前没有可配置的 OpenList 工具';
+
+  @override
+  String get dbOnlineOpenListMissingPrefix => 'OpenList 未配置前缀';
+
+  @override
+  String get dbOnlineOpenListPathSuffix => '路径后缀';
+
+  @override
+  String get dbOnlineOpenListPathHint =>
+      '根目录前缀来自 OpenList 管理设置；此处只配置每个工具的路径后缀。';
+
+  @override
+  String get dbOnlineDeletePolicy => '删除策略';
+
+  @override
+  String get dbOnlineDeleteOnSuccess => '上传成功后删除';
+
+  @override
+  String get dbOnlineDeleteOnFailure => '上传失败后删除';
+
+  @override
+  String get dbOnlineDeleteNever => '从不删除';
+
+  @override
+  String get dbOnlineDeleteAlways => '总是删除';
+
+  @override
+  String get dbOnlineCloudDriveEd2k => '启用 ed2k';
+
+  @override
+  String get dbOnlineCloudDriveEd2kHint => '开启后才会向 CloudDrive2 推送 ed2k 链接。';
 
   @override
   String get dbOnlineFieldRetryCount => '重试次数';

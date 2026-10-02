@@ -2977,11 +2977,233 @@ abstract class AppL10n {
   /// **'请求超时（秒）'**
   String get dbOnlineFieldRequestTimeoutSeconds;
 
-  /// No description provided for @dbOnlineFieldReserveQuotaGb.
+  /// No description provided for @dbOnlineFieldReserveQuota.
   ///
   /// In zh, this message translates to:
-  /// **'保留配额（GB）'**
-  String get dbOnlineFieldReserveQuotaGb;
+  /// **'保留配额'**
+  String get dbOnlineFieldReserveQuota;
+
+  /// No description provided for @dbOnlineReserveQuotaHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'0 表示不限制；剩余云下载配额降至此数量后停止创建任务。'**
+  String get dbOnlineReserveQuotaHint;
+
+  /// No description provided for @dbOnlineReserveQuotaInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留配额必须是大于或等于 0 的整数'**
+  String get dbOnlineReserveQuotaInvalid;
+
+  /// No description provided for @dbOnlineFieldToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'认证 Token'**
+  String get dbOnlineFieldToken;
+
+  /// No description provided for @dbOnlineDownloaderDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载目录'**
+  String get dbOnlineDownloaderDirectory;
+
+  /// No description provided for @dbOnlineDownloaderSelectDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择下载目录'**
+  String get dbOnlineDownloaderSelectDirectory;
+
+  /// No description provided for @dbOnlineDownloaderRequiredFields.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先填写服务地址、认证信息、保存路径（如适用）和超时时间'**
+  String get dbOnlineDownloaderRequiredFields;
+
+  /// No description provided for @dbOnlineDownloaderInvalidConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'端口必须为 1–65535，超时时间必须为正整数'**
+  String get dbOnlineDownloaderInvalidConnection;
+
+  /// No description provided for @dbOnlineDownloaderPathVariables.
+  ///
+  /// In zh, this message translates to:
+  /// **'路径支持发行日期、推送日期、演员名称及综合订阅名称变量。'**
+  String get dbOnlineDownloaderPathVariables;
+
+  /// No description provided for @dbOnlineRootDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'根目录'**
+  String get dbOnlineRootDirectory;
+
+  /// No description provided for @dbOnlineParentDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一级'**
+  String get dbOnlineParentDirectory;
+
+  /// No description provided for @dbOnlineSelectCurrentDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择当前目录'**
+  String get dbOnlineSelectCurrentDirectory;
+
+  /// No description provided for @dbOnlineNoSubdirectories.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前目录下没有子目录'**
+  String get dbOnlineNoSubdirectories;
+
+  /// No description provided for @dbOnlinePan115FillBeforeBrowse.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先填写 Cookie 和超时时间，再选择下载目录'**
+  String get dbOnlinePan115FillBeforeBrowse;
+
+  /// No description provided for @dbOnlinePan115PartialDirectories.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前仅展示接口返回的 {count} 个目录项'**
+  String dbOnlinePan115PartialDirectories(int count);
+
+  /// No description provided for @dbOnlinePan115AccountInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号信息'**
+  String get dbOnlinePan115AccountInfo;
+
+  /// No description provided for @dbOnlinePan115AccountExpiry.
+  ///
+  /// In zh, this message translates to:
+  /// **'到期日期：{date}'**
+  String dbOnlinePan115AccountExpiry(String date);
+
+  /// No description provided for @dbOnlinePan115Forever.
+  ///
+  /// In zh, this message translates to:
+  /// **'永久有效'**
+  String get dbOnlinePan115Forever;
+
+  /// No description provided for @dbOnlineThunderDeviceDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备／目录'**
+  String get dbOnlineThunderDeviceDirectory;
+
+  /// No description provided for @dbOnlineThunderSelectDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择迅雷设备'**
+  String get dbOnlineThunderSelectDevice;
+
+  /// No description provided for @dbOnlineThunderSavedSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备 ID：{device} · 目录 ID：{folder}'**
+  String dbOnlineThunderSavedSelection(String device, String folder);
+
+  /// No description provided for @dbOnlineThunderInvalidDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前设备已失效，请重新选择设备'**
+  String get dbOnlineThunderInvalidDevice;
+
+  /// No description provided for @dbOnlineThunderInvalidDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前目录已失效，请重新选择下载目录'**
+  String get dbOnlineThunderInvalidDirectory;
+
+  /// No description provided for @dbOnlineThunderNoDevices.
+  ///
+  /// In zh, this message translates to:
+  /// **'未获取到可用设备'**
+  String get dbOnlineThunderNoDevices;
+
+  /// No description provided for @dbOnlineThunderNoDirectories.
+  ///
+  /// In zh, this message translates to:
+  /// **'未获取到可用迅雷目录'**
+  String get dbOnlineThunderNoDirectories;
+
+  /// No description provided for @dbOnlineThunderRefreshDevices.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新设备'**
+  String get dbOnlineThunderRefreshDevices;
+
+  /// No description provided for @dbOnlineOpenListToolPaths.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置工具路径'**
+  String get dbOnlineOpenListToolPaths;
+
+  /// No description provided for @dbOnlineOpenListNoTools.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没有可配置的 OpenList 工具'**
+  String get dbOnlineOpenListNoTools;
+
+  /// No description provided for @dbOnlineOpenListMissingPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'OpenList 未配置前缀'**
+  String get dbOnlineOpenListMissingPrefix;
+
+  /// No description provided for @dbOnlineOpenListPathSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'路径后缀'**
+  String get dbOnlineOpenListPathSuffix;
+
+  /// No description provided for @dbOnlineOpenListPathHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'根目录前缀来自 OpenList 管理设置；此处只配置每个工具的路径后缀。'**
+  String get dbOnlineOpenListPathHint;
+
+  /// No description provided for @dbOnlineDeletePolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除策略'**
+  String get dbOnlineDeletePolicy;
+
+  /// No description provided for @dbOnlineDeleteOnSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传成功后删除'**
+  String get dbOnlineDeleteOnSuccess;
+
+  /// No description provided for @dbOnlineDeleteOnFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传失败后删除'**
+  String get dbOnlineDeleteOnFailure;
+
+  /// No description provided for @dbOnlineDeleteNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'从不删除'**
+  String get dbOnlineDeleteNever;
+
+  /// No description provided for @dbOnlineDeleteAlways.
+  ///
+  /// In zh, this message translates to:
+  /// **'总是删除'**
+  String get dbOnlineDeleteAlways;
+
+  /// No description provided for @dbOnlineCloudDriveEd2k.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用 ed2k'**
+  String get dbOnlineCloudDriveEd2k;
+
+  /// No description provided for @dbOnlineCloudDriveEd2kHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启后才会向 CloudDrive2 推送 ed2k 链接。'**
+  String get dbOnlineCloudDriveEd2kHint;
 
   /// No description provided for @dbOnlineFieldRetryCount.
   ///

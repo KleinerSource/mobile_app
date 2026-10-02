@@ -55,6 +55,38 @@ class DbOnlineApi {
     return <String, dynamic>{};
   }
 
+  Future<Map<String, dynamic>> pan115Directories(Map<String, dynamic> config) =>
+      _downloaderConfigOptions('/pan115/directories', config);
+
+  Future<Map<String, dynamic>> thunderSelectOptions(
+    Map<String, dynamic> config,
+  ) => _downloaderConfigOptions('/thunder/select-options', config);
+
+  Future<Map<String, dynamic>> openListToolPaths(Map<String, dynamic> config) =>
+      _downloaderConfigOptions('/openlist/tool-paths', config);
+
+  Future<Map<String, dynamic>> pan115Account() async {
+    final response = await _dio.get<dynamic>(
+      '/pan115/tasks',
+      queryParameters: {'filter': 'downloading', 'page': 1, 'page_size': 1},
+    );
+    return unwrapStd<Map<String, dynamic>>(response.data, (data) {
+      final account = data is Map ? data['account'] : null;
+      return account is Map ? Map<String, dynamic>.from(account) : {};
+    });
+  }
+
+  Future<Map<String, dynamic>> _downloaderConfigOptions(
+    String path,
+    Map<String, dynamic> config,
+  ) async {
+    final response = await _dio.post<dynamic>(path, data: config);
+    return unwrapStd<Map<String, dynamic>>(
+      response.data,
+      (data) => data is Map ? Map<String, dynamic>.from(data) : {},
+    );
+  }
+
   Future<List<DbOnlineMovie>> recommend({int page = 1, int limit = 9}) {
     return _movies('/recommend', {'page': page, 'limit': limit});
   }

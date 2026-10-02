@@ -344,6 +344,7 @@ class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
   }
 
   bool _containsGlobalPosition(BuildContext context, Offset position) {
+    if (!context.mounted) return false;
     final renderObject = context.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return false;
     final localPosition = renderObject.globalToLocal(position);
