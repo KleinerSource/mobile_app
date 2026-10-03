@@ -59,8 +59,6 @@ Android/iOS 构建继续执行静态分析，但打包前只等待快速集（�
 
 快速集名单维护在 `tool/run_fast_tests.dart`；新增测试默认进入完整回归，不自动扩大打包前检查。CI 测试阶段目标为 2 分钟以内，需以 GitHub Actions 实际耗时验证，不能用本机耗时替代。
 
-本次删除范围、覆盖取舍和验证记录见 [测试精简记录](docs/test-pruning-2026-10-03.md)。
-
 ## 结构与代码生成
 
 | 目录 | 职责 |
@@ -72,9 +70,9 @@ Android/iOS 构建继续执行静态分析，但打包前只等待快速集（�
 | `packages` | 本地播放器库、KSPlayer 桥接、Scratch Audio |
 | `test` / `tool` | 回归测试和本地/CI 共用脚本 |
 
-修改 Freezed/JSON/Retrofit 模型后运行 `dart run build_runner build`；生成的 `.g.dart`、`.freezed.dart` 通常不入库。修改 ARB 后运行 `flutter gen-l10n`，保持中英文本地化一致。
+修改 Freezed/JSON/Retrofit 模型后运行 `dart run build_runner build`；生成的 `.g.dart`、`.freezed.dart` 不入库。修改 ARB 后运行 `flutter gen-l10n`；`lib/l10n/generated/` 不入库，`flutter pub get` 会自动补齐。保留中英 ARB 和 `l10n.yaml`。
 
-修改 KSPlayer Pigeon 接口后，在插件目录用固定的 Pigeon 26.3.4 同时生成 Dart/Swift 两端：
+修改 KSPlayer Pigeon 接口后，在插件目录用固定的 Pigeon 26.3.4 同时生成 Dart/Swift 两端，并提交两份生成文件（CI 不会自动运行 Pigeon）：
 
 ```sh
 cd packages/omm_ksplayer

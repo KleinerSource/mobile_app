@@ -8,12 +8,15 @@ build/
 *.g.dart
 !packages/omm_ksplayer/lib/src/ks_player_api.g.dart
 *.freezed.dart
+/lib/l10n/generated/
 
 # iOS
 ios/Pods/
 ios/.symlinks/
+/ios/**/xcshareddata/IDEWorkspaceChecks.plist
 # Android
 android/.gradle/
+android/.kotlin/
 android/local.properties
 android/.idea/
 android/key.properties
@@ -25,20 +28,25 @@ android/app/debug/
 .vscode/
 *.iml
 
-# Generated
+# Unsupported app platforms
+/windows/
+/macos/
+/linux/
+/web/
 
+# Local workspace files
+/.zcode/
+/findings.md
+/progress.md
+/task_plan.md
+/work/
+/.planning/
 
-# Keep the Android minimum SDK required by flutter_secure_storage in source control.
-windows/
-macos/
-linux/
-.zcode/
-findings.md
-progress.md
-task_plan.md
+# Signing
 release.keystore.base64
 release.keystore
-work/
-.planning/
-web/
-android/.kotlin/
+
+# Test output
+/test-results/
+/coverage/
+/test/**/failures/
