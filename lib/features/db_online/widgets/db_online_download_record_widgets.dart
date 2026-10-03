@@ -127,49 +127,66 @@ class DbOnlineDownloadRecordCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  CoverBadgePill(
-                    icon: record.success
-                        ? Icons.check_circle_outline
-                        : Icons.error_outline,
-                    label: record.success
-                        ? l.dbOnlineDownloadRecordsSuccess
-                        : l.dbOnlineDownloadRecordsFailed,
-                    color: record.success
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFEF4444),
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      CoverBadgePill(
+                        icon: record.success
+                            ? Icons.check_circle_outline
+                            : Icons.error_outline,
+                        label: record.success
+                            ? l.dbOnlineDownloadRecordsSuccess
+                            : l.dbOnlineDownloadRecordsFailed,
+                        color: record.success
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: onRepush,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.accent,
+                          side: BorderSide(color: colors.cardBorder),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          minimumSize: const Size(0, 32),
+                        ),
+                        icon: pushing
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded, size: 16),
+                        label: Text(
+                          pushing
+                              ? l.dbOnlineDownloadRecordsRepushing
+                              : l.dbOnlineDownloadRecordsRepush,
+                        ),
+                      ),
+                    ],
                   ),
-                  TextButton.icon(
-                    onPressed: onRepush,
-                    icon: pushing
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(
-                      pushing
-                          ? l.dbOnlineDownloadRecordsRepushing
-                          : l.dbOnlineDownloadRecordsRepush,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: expanded
-                        ? l.dbOnlineDownloadRecordsCollapse
-                        : l.dbOnlineDownloadRecordsExpand,
-                    onPressed: onToggle,
-                    icon: Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: expanded
+                      ? l.dbOnlineDownloadRecordsCollapse
+                      : l.dbOnlineDownloadRecordsExpand,
+                  onPressed: onToggle,
+                  icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
+                ),
+              ],
             ),
             MediaListRow(
               thumbnailWidth: 60,

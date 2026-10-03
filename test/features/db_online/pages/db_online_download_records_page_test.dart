@@ -12,9 +12,11 @@ import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_download_record_filter_sheet.dart';
 import 'package:omm/features/db_online/widgets/db_online_download_record_widgets.dart';
 import 'package:omm/features/main/media_manager_shell.dart';
+import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/shared/catalog_search_field.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -89,6 +91,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final success in [true, false]) {
+    final status = success ? '成功' : '失败';
+    testWidgets('页头使用共享方形筛选，重推按钮靠左紧邻$status状态', (tester) async {
+      final backend = DownloadRecordsTestBackend()
+        ..records = [downloadRecord(1, success: success)];
+      await pumpRecords(tester, backend);
+      final filter = find.descendant(
+        of: find.byTooltip('筛选条件'),
+        matching: find.byType(CompactFilterButton),
+      );
+      expect(filter, findsOneWidget);
+      expect(tester.widget<CompactFilterButton>(filter).active, isFalse);
+      expect(find.byTooltip('刷新'), findsNothing);
+
+      final badge = tester.getRect(find.widgetWithText(CoverBadgePill, status));
+      final repush = tester.getRect(find.widgetWithText(OutlinedButton, '重推'));
+      final card = tester.getRect(find.byType(DbOnlineDownloadRecordCard));
+      final expand = tester.getRect(find.byTooltip('展开记录详情'));
+      expect(badge.left, closeTo(card.left + 12, 1));
+      expect(repush.left - badge.right, closeTo(8, 1));
+      expect(repush.center.dy, closeTo(badge.center.dy, 1));
+      expect(repush.right, lessThan(expand.left));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('当天默认查询，卡片三行标题、共享标签、格式化时间及展开信息', (tester) async {
     final backend = DownloadRecordsTestBackend()
       ..records = [
@@ -148,6 +176,17 @@ void main() {
     expect(query['downloader'], 'pan115');
     expect(query['source_type'], 'series_subscription');
     expect(query['success'], false);
+    expect(
+      tester
+          .widget<CompactFilterButton>(
+            find.descendant(
+              of: find.byTooltip('筛选条件'),
+              matching: find.byType(CompactFilterButton),
+            ),
+          )
+          .active,
+      isTrue,
+    );
     expect(find.text('暂无下载记录'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -387,7 +426,7 @@ void main() {
     expect(find.text('重推中'), findsOneWidget);
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, '重推中'))
+          .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '重推中'))
           .onPressed,
       isNull,
     );
@@ -407,7 +446,7 @@ void main() {
     await pumpRecords(tester, backend);
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, '重推'))
+          .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '重推'))
           .onPressed,
       isNull,
     );
@@ -417,7 +456,7 @@ void main() {
       'display_name': 'CloudDrive2',
       'ed2k_enabled': true,
     });
-    await tester.tap(find.byTooltip('刷新'));
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, 400));
     await pumpFollowingFrames(tester);
     await tester.tap(find.text('重推'));
     await pumpFollowingFrames(tester);
@@ -452,7 +491,7 @@ void main() {
     expect(backend.to('/download-records'), isEmpty);
     expect(backend.to('/downloaders'), isEmpty);
     backend.database = true;
-    await tester.tap(find.byTooltip('刷新'));
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, 400));
     await pumpFollowingFrames(tester);
     expect(backend.to('/download-records'), hasLength(1));
     expect(find.byType(DbOnlineDownloadRecordCard), findsOneWidget);

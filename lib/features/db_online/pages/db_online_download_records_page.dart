@@ -21,6 +21,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/catalog_search_field.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
@@ -260,15 +261,23 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
       title: l.dbOnlineDownloadRecordsTitle,
       scrollController: _scroll,
       actions: [
-        DbOnlineFollowingActionIcon(
-          icon: Icons.refresh_rounded,
-          tooltip: l.mediaBrowserRefresh,
-          onPressed: () => unawaited(_reload()),
-        ),
-        DbOnlineFollowingActionIcon(
-          icon: Icons.tune_rounded,
-          tooltip: l.dbOnlineDownloadRecordsFilters,
-          onPressed: database ? () => unawaited(_filters(downloaders)) : null,
+        Tooltip(
+          message: l.dbOnlineDownloadRecordsFilters,
+          child: IgnorePointer(
+            ignoring: !database,
+            child: Opacity(
+              opacity: database ? 1 : 0.4,
+              child: CompactFilterButton(
+                label: '',
+                icon: Icons.tune_rounded,
+                active: !mapEquals(
+                  _filter.toQuery(),
+                  DbOnlineDownloadRecordFilter.today().toQuery(),
+                ),
+                onTap: () => unawaited(_filters(downloaders)),
+              ),
+            ),
+          ),
         ),
       ],
       filters: Padding(
@@ -316,11 +325,22 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
           message: localizedErrorMessage(l, error),
           onRetry: () => unawaited(_reload()),
         ),
-        data: (value) => !value.database
-            ? EmptyView(message: l.dbOnlineDownloadRecordsRequiresDatabase)
-            : RefreshIndicator(
-                onRefresh: _refresh,
-                child: PagedListView<int, DbOnlineDownloadRecord>.separated(
+        data: (value) => RefreshIndicator(
+          onRefresh: _reload,
+          child: !value.database
+              ? CustomScrollView(
+                  controller: _scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyView(
+                        message: l.dbOnlineDownloadRecordsRequiresDatabase,
+                      ),
+                    ),
+                  ],
+                )
+              : PagedListView<int, DbOnlineDownloadRecord>.separated(
                   pagingController: _paging,
                   scrollController: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -390,7 +410,7 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
                             const NoMoreContent(),
                       ),
                 ),
-              ),
+        ),
       ),
     );
   }
