@@ -424,15 +424,19 @@ class _BootSplash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    // logo 原图是方形；这里只用圆角遮罩，不改动图片资源本身。
     return Scaffold(
       backgroundColor: c.bg,
       body: Center(
-        child: Image.asset(
-          'assets/branding/oh_my_media_logo.png',
-          width: 144,
-          height: 144,
-          fit: BoxFit.contain,
-          semanticLabel: 'Oh My Media',
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: Image.asset(
+            'assets/branding/oh_my_media_logo.png',
+            width: 144,
+            height: 144,
+            fit: BoxFit.contain,
+            semanticLabel: 'Oh My Media',
+          ),
         ),
       ),
     );
