@@ -92,6 +92,15 @@ void main() {
     await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
     expect(find.text('关注列表'), findsOneWidget);
     expect(find.text('下载记录'), findsOneWidget);
+    // 菜单顺序：关注列表、看过影片、下载记录。
+    expect(
+      tester.getTopLeft(find.text('关注列表')).dy,
+      lessThan(tester.getTopLeft(find.text('看过影片')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('看过影片')).dy,
+      lessThan(tester.getTopLeft(find.text('下载记录')).dy),
+    );
     await gesture.moveTo(tester.getCenter(find.text('看过影片')));
     await gesture.up();
     await pumpFollowingFrames(tester);

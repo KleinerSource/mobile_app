@@ -225,19 +225,19 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
               ),
             ),
             GlassMenuEntry<Object?>.action(
-              value: 'download-records',
+              value: 'watched',
               builder: (context, selected, onTap) => GlassMenuRow(
-                icon: Icons.history_rounded,
-                label: l.dbOnlineDownloadRecordsTitle,
+                icon: Icons.visibility_outlined,
+                label: l.dbOnlineWatchedTitle,
                 selected: selected,
                 onTap: onTap,
               ),
             ),
             GlassMenuEntry<Object?>.action(
-              value: 'watched',
+              value: 'download-records',
               builder: (context, selected, onTap) => GlassMenuRow(
-                icon: Icons.visibility_outlined,
-                label: l.dbOnlineWatchedTitle,
+                icon: Icons.history_rounded,
+                label: l.dbOnlineDownloadRecordsTitle,
                 selected: selected,
                 onTap: onTap,
               ),
