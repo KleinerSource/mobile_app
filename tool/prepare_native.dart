@@ -60,10 +60,13 @@ Future<void> main(List<String> args) async {
     prepareVolumePlugin(root);
   } else {
     prepareIosProject(root);
-    updateFile(
-      File('ios/Podfile'),
-      (text) => preparePodfile(text, Platform.environment),
-    );
+    final podfile = File('ios/Podfile');
+    if (podfile.existsSync()) {
+      updateFile(
+        podfile,
+        (text) => preparePodfile(text, Platform.environment),
+      );
+    }
   }
 }
 
@@ -204,7 +207,7 @@ void prepareIosProject(Directory root) {
   updateFile(
     File('${root.path}/ios/Runner.xcodeproj/project.pbxproj'),
     (text) => text.replaceAll(
-      RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = (12|13)\.0;'),
+      RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9]+\.[0-9]+;'),
       'IPHONEOS_DEPLOYMENT_TARGET = 16.0;',
     ),
   );

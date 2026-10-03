@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" launchScreen="YES" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" launchScreen="YES" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="mZ7-2g-5hQ">
     <device id="retina6_12" orientation="portrait" />
     <dependencies>
         <deployment identifier="iOS"/>
@@ -38,5 +38,8 @@
     </scenes>
     <resources>
         <image name="LaunchLogo" width="1024" height="1024"/>
+        <namedColor name="LaunchBackground">
+            <color red="0.95294117647058818" green="0.94901960784313721" blue="0.97254901960784312" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
     </resources>
 </document>
