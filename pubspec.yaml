@@ -1,7 +1,7 @@
 name: omm
 description: omm 移动端 (iOS + Android)
 publish_to: 'none'
-version: 0.110.1+873
+version: 0.111.0+874
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
