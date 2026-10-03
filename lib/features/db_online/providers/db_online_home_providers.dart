@@ -76,6 +76,9 @@ final dbOnlineSearchPageProvider = FutureProvider.autoDispose
             query: request.query,
             page: request.page,
             limit: request.limit,
+            movieType: request.movieType,
+            movieSortBy: request.movieSortBy,
+            movieFilterBy: request.movieFilterBy,
           );
     });
 
@@ -181,12 +184,18 @@ class DbOnlineSearchPageRequest {
     required this.query,
     required this.page,
     required this.limit,
+    this.movieType = 'all',
+    this.movieSortBy = 'relevance',
+    this.movieFilterBy = 'all',
   });
 
   final String serverId;
   final String query;
   final int page;
   final int limit;
+  final String movieType;
+  final String movieSortBy;
+  final String movieFilterBy;
 
   @override
   bool operator ==(Object other) =>
@@ -194,10 +203,21 @@ class DbOnlineSearchPageRequest {
       other.serverId == serverId &&
       other.query == query &&
       other.page == page &&
-      other.limit == limit;
+      other.limit == limit &&
+      other.movieType == movieType &&
+      other.movieSortBy == movieSortBy &&
+      other.movieFilterBy == movieFilterBy;
 
   @override
-  int get hashCode => Object.hash(serverId, query, page, limit);
+  int get hashCode => Object.hash(
+    serverId,
+    query,
+    page,
+    limit,
+    movieType,
+    movieSortBy,
+    movieFilterBy,
+  );
 }
 
 class DbOnlineEntitySearchPageRequest {
@@ -243,6 +263,9 @@ final dbOnlineEntityMoviesPageProvider = FutureProvider.autoDispose
             id: request.id,
             page: request.page,
             limit: request.limit,
+            sortBy: request.sortBy,
+            filter: request.filter,
+            year: request.year,
           );
     });
 
@@ -253,6 +276,9 @@ class DbOnlineEntityMoviesPageRequest {
     required this.id,
     required this.page,
     required this.limit,
+    this.sortBy = 'release',
+    this.filter = '',
+    this.year = '',
   });
 
   final String serverId;
@@ -260,6 +286,9 @@ class DbOnlineEntityMoviesPageRequest {
   final String id;
   final int page;
   final int limit;
+  final String sortBy;
+  final String filter;
+  final String year;
 
   @override
   bool operator ==(Object other) =>
@@ -268,10 +297,22 @@ class DbOnlineEntityMoviesPageRequest {
       other.kind == kind &&
       other.id == id &&
       other.page == page &&
-      other.limit == limit;
+      other.limit == limit &&
+      other.sortBy == sortBy &&
+      other.filter == filter &&
+      other.year == year;
 
   @override
-  int get hashCode => Object.hash(serverId, kind, id, page, limit);
+  int get hashCode => Object.hash(
+    serverId,
+    kind,
+    id,
+    page,
+    limit,
+    sortBy,
+    filter,
+    year,
+  );
 }
 
 class DbOnlineMovieDetailRequest {

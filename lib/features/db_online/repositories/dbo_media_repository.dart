@@ -85,6 +85,9 @@ class DboMediaRepository {
     required String query,
     int page = 1,
     int limit = 24,
+    String movieType = 'all',
+    String movieSortBy = 'relevance',
+    String movieFilterBy = 'all',
   }) async {
     return _toMoviePage(
       await _source.searchMovies(
@@ -93,6 +96,11 @@ class DboMediaRepository {
           searchText: query,
           page: page,
           limit: limit,
+          filters: {
+            'movie_type': movieType,
+            'movie_sort_by': movieSortBy,
+            'movie_filter_by': movieFilterBy,
+          },
         ),
       ),
     );

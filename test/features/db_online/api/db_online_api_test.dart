@@ -79,8 +79,44 @@ void main() {
     expect(page.hasMore, isFalse);
     expect(
       adapter.request,
-      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance',
+      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=all',
     );
+  });
+
+  test('searchPage 携带网页端同款过滤器参数', () async {
+    final adapter = _DbOnlineSearchAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    await api.searchPage(
+      query: '示例',
+      movieType: '1',
+      movieSortBy: 'score',
+      movieFilterBy: 'magnets,subtitle',
+    );
+
+    expect(adapter.lastQueryParameters, {
+      'q': '示例',
+      'type': 'movie',
+      'page': '1',
+      'limit': '24',
+      'movie_type': '1',
+      'movie_sort_by': 'score',
+      'movie_filter_by': 'magnets,subtitle',
+    });
+    expect(
+      () => api.searchPage(query: 'x', movieType: '9'),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => api.searchPage(query: 'x', movieSortBy: 'hot'),
+      throwsA(isA<ArgumentError>()),
+    );
+    // 空白筛选归一化为 all，不抛错。
+    final fallback = await api.searchPage(query: 'x', movieFilterBy: '  ');
+    expect(fallback.movies, isNotEmpty);
+    expect(adapter.lastQueryParameters?['movie_filter_by'], 'all');
   });
 
   test('searchPage 拒绝空搜索关键词', () {
@@ -156,8 +192,39 @@ void main() {
     expect(lists.movies.single.number, 'ABC-003');
     expect(adapter.requests, <String>[
       '/api/actors/kd96/movies?page=2&limit=24&sort_by=release',
-      '/api/lists/list-1/movies?page=1&limit=24&sort_by=release',
+      '/api/lists/list-1/movies?page=1&limit=24&sort_by=release&order_by=desc',
     ]);
+  });
+
+  test('entityMoviesPage 携带筛选排序与演员年份参数', () async {
+    final adapter = _EntityMoviesAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    await api.entityMoviesPage(
+      kind: 'actor',
+      id: 'kd96',
+      sortBy: 'update',
+      filter: 'm,c',
+      year: '2015',
+    );
+    await api.entityMoviesPage(
+      kind: 'maker',
+      id: 'mk-1',
+      sortBy: 'score',
+      filter: 's',
+      year: '2015',
+    );
+
+    expect(adapter.requests, <String>[
+      '/api/actors/kd96/movies?page=1&limit=24&sort_by=update&filter=m%2Cc&year=2015',
+      '/api/makers/mk-1/movies?page=1&limit=24&sort_by=score&order_by=desc&filter=s',
+    ]);
+    expect(
+      () => api.entityMoviesPage(kind: 'actor', id: 'x', sortBy: 'hot'),
+      throwsA(isA<ArgumentError>()),
+    );
   });
 
   test('entityMoviesPage 拒绝未知实体类型与空 ID', () {
@@ -385,6 +452,7 @@ class _DbOnlinePageAdapter implements HttpClientAdapter {
 
 class _DbOnlineSearchAdapter implements HttpClientAdapter {
   String? request;
+  Map<String, String>? lastQueryParameters;
 
   @override
   void close({bool force = false}) {}
@@ -398,6 +466,7 @@ class _DbOnlineSearchAdapter implements HttpClientAdapter {
     request =
         options.uri.path +
         (options.uri.hasQuery ? '?${options.uri.query}' : '');
+    lastQueryParameters = options.uri.queryParameters;
     return ResponseBody.fromString(
       jsonEncode({
         'success': true,

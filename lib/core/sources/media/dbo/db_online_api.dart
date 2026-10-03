@@ -334,26 +334,52 @@ class DbOnlineApi {
   /// 按关键词获取 dbonline 搜索结果的一页。
   ///
   /// 搜索接口的电影类型必须显式传递，避免服务端默认值变化导致结果
-  /// 混入其他实体类型。响应中的 `can_play` 仅供播放入口判断，不作为搜索
-  /// 过滤条件。响应沿用首页列表的 `data.movies` 解析逻辑。
+  /// 混入其他实体类型。`movieType`：all/0有码/1无码/2欧美/3FC2/4动漫；
+  /// `movieSortBy`：relevance/release/update/score；`movieFilterBy` 是
+  /// magnets/subtitle/single 按此顺序拼接的多选串，空等价于 all。
+  /// 响应沿用首页列表的 `data.movies` 解析逻辑。
   Future<DbOnlineMoviePage> searchPage({
     required String query,
     int page = 1,
     int limit = 24,
+    String movieType = 'all',
+    String movieSortBy = 'relevance',
+    String movieFilterBy = 'all',
   }) {
     final normalized = query.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(query, 'query', AppErrorCode.validationFailed);
     }
+    final normalizedType = movieType.trim();
+    if (!_searchMovieTypes.contains(normalizedType)) {
+      throw ArgumentError.value(
+        movieType,
+        'movieType',
+        AppErrorCode.validationFailed,
+      );
+    }
+    final normalizedSort = movieSortBy.trim();
+    if (!_searchMovieSortBys.contains(normalizedSort)) {
+      throw ArgumentError.value(
+        movieSortBy,
+        'movieSortBy',
+        AppErrorCode.validationFailed,
+      );
+    }
+    final normalizedFilter = movieFilterBy.trim();
     return _moviesPage('/search', {
       'q': normalized,
       'type': 'movie',
       'page': page,
       'limit': limit,
-      'movie_type': 'all',
-      'movie_sort_by': 'relevance',
+      'movie_type': normalizedType,
+      'movie_sort_by': normalizedSort,
+      'movie_filter_by': normalizedFilter.isEmpty ? 'all' : normalizedFilter,
     });
   }
+
+  static const _searchMovieTypes = {'all', '0', '1', '2', '3', '4'};
+  static const _searchMovieSortBys = {'relevance', 'release', 'update', 'score'};
 
   /// 搜索 dbonline 演员。该接口返回一次性结果，不提供影片列表式分页。
   Future<DbOnlineActorSearchResult> searchActors({
@@ -419,12 +445,17 @@ class DbOnlineApi {
 
   /// 实体（演员/系列/片商/导演/清单）的影片列表，与网页端实体落地页
   /// 共用同一组端点：`/{actors|series|makers|directors|lists}/{id}/movies`。
+  ///
+  /// `sortBy`：release/update/score；`filter` 是 m/c/s（有磁链/字幕/单人）
+  /// 按此顺序拼接的多选串；`year` 仅演员生效（2011 至当前年份）。
   Future<DbOnlineMoviePage> entityMoviesPage({
     required String kind,
     required String id,
     int page = 1,
     int limit = 24,
     String sortBy = 'release',
+    String filter = '',
+    String year = '',
   }) {
     final segment = _entityMovieSegments[kind.trim()];
     if (segment == null) {
@@ -434,10 +465,20 @@ class DbOnlineApi {
     if (normalizedId.isEmpty) {
       throw ArgumentError.value(id, 'id', AppErrorCode.validationFailed);
     }
+    final normalizedSort = sortBy.trim();
+    if (!_entityMovieSortBys.contains(normalizedSort)) {
+      throw ArgumentError.value(sortBy, 'sortBy', AppErrorCode.validationFailed);
+    }
+    final isActor = kind.trim() == 'actor';
+    final normalizedFilter = filter.trim();
+    final normalizedYear = isActor ? year.trim() : '';
     return _moviesPage('/$segment/${Uri.encodeComponent(normalizedId)}/movies', {
       'page': page,
       'limit': limit,
-      'sort_by': sortBy,
+      'sort_by': normalizedSort,
+      if (!isActor) 'order_by': 'desc',
+      if (normalizedFilter.isNotEmpty) 'filter': normalizedFilter,
+      if (normalizedYear.isNotEmpty) 'year': normalizedYear,
     });
   }
 
@@ -448,6 +489,7 @@ class DbOnlineApi {
     'director': 'directors',
     'list': 'lists',
   };
+  static const _entityMovieSortBys = {'release', 'update', 'score'};
 
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
   /// 转换为 Oh My Media 的整数影片 ID。refresh 控制是否强制访问在线 API。

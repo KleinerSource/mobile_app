@@ -73,6 +73,11 @@ class DboMediaSourceAdapter implements DboMediaSource {
             query: query.searchText ?? '',
             page: query.page,
             limit: query.limit,
+            movieType: query.filters['movie_type']?.toString() ?? 'all',
+            movieSortBy:
+                query.filters['movie_sort_by']?.toString() ?? 'relevance',
+            movieFilterBy:
+                query.filters['movie_filter_by']?.toString() ?? 'all',
           ),
           MediaCatalogMode.latest => await api.latestPage(
             page: query.page,

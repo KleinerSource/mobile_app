@@ -20,6 +20,7 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/media_view_mode.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_history.dart';
 import 'package:omm/shared/search_type_menu.dart';
@@ -28,6 +29,7 @@ import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_filter_chip_row.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 
 /// dbonline 搜索页。
@@ -93,6 +95,15 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
   int _searchSerial = 0;
   MediaViewMode _viewMode = MediaViewMode.portrait;
 
+  // 影片列表搜索的过滤器，与网页端一致：类型单选、资源条件多选、
+  // 排序单选；资源条件复用共享选项（m/c/s 字母，请求时映射全词）。
+  String _movieType = 'all';
+  String _movieSortBy = 'relevance';
+  final Set<String> _resourceFilters = {};
+
+  String get _movieFilterParam =>
+      dbOnlineMovieFilterByLetters(_resourceFilters);
+
   @override
   void initState() {
     super.initState();
@@ -147,6 +158,68 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
       _submittedQuery = '';
       _searchSerial++;
     });
+  }
+
+  /// 过滤器变化后保持关键词重新搜索。
+  void _applyMovieFilter(VoidCallback mutate) {
+    setState(() {
+      mutate();
+      if (_submittedQuery.isNotEmpty) _searchSerial++;
+    });
+  }
+
+  /// 影片列表搜索过滤器：类型 / 资源筛选（多选）/ 排序，与网页端一致。
+  Widget _movieFilterRow() {
+    final l = AppL10n.of(context);
+    return DbOnlineFilterChipRow(
+      groups: [
+        [
+          for (final (value, label) in [
+            ('all', l.filterAll),
+            ('0', l.dbOnlineCategoryCensored),
+            ('1', l.dbOnlineCategoryUncensored),
+            ('2', l.dbOnlineCategoryWestern),
+            ('3', 'FC2'),
+            ('4', l.dbOnlineCategoryAnime),
+          ])
+            CompactFilterButton(
+              label: label,
+              active: _movieType == value,
+              onTap: () => _applyMovieFilter(() => _movieType = value),
+            ),
+        ],
+        [
+          CompactFilterButton(
+            label: l.filterAll,
+            active: _resourceFilters.isEmpty,
+            onTap: () => _applyMovieFilter(_resourceFilters.clear),
+          ),
+          for (final option in dbOnlineResourceConditions)
+            CompactFilterButton(
+              label: dbOnlineResourceConditionLabel(l, option),
+              active: _resourceFilters.contains(option.letter),
+              onTap: () => _applyMovieFilter(() {
+                if (!_resourceFilters.remove(option.letter)) {
+                  _resourceFilters.add(option.letter);
+                }
+              }),
+            ),
+        ],
+        [
+          for (final (value, label) in [
+            ('relevance', l.dbOnlineSortRelevance),
+            ('release', l.dbOnlineLibrarySortDate),
+            ('update', l.dbOnlineRecentUpdated),
+            ('score', l.dbOnlineLibraryCommunityRating),
+          ])
+            CompactFilterButton(
+              label: label,
+              active: _movieSortBy == value,
+              onTap: () => _applyMovieFilter(() => _movieSortBy = value),
+            ),
+        ],
+      ],
+    );
   }
 
   /// 搜索历史按服务器独立保存；提交时记录（含番号直达）。
@@ -227,33 +300,57 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                 }),
               ),
             ),
+            // 过滤器行属于内容区（外层保持 PageHeader/搜索框/内容区的
+            // 统一间距契约），列表搜索时渲染在内容区顶部。
             Expanded(
-              child: _submittedQuery.isEmpty
-                  ? _emptyArea()
-                  : switch (_searchType) {
-                      DbOnlineSearchType.list => _DbOnlineSearchResults(
-                        key: ValueKey('list:$_submittedQuery:$_searchSerial'),
-                        query: _submittedQuery,
-                        viewMode: _viewMode,
-                      ),
-                      DbOnlineSearchType.video =>
-                        const _DbOnlineSearchEmptyHint(),
-                      DbOnlineSearchType.actor => _DbOnlineActorSearchResults(
-                        key: ValueKey('actor:$_submittedQuery:$_searchSerial'),
-                        query: _submittedQuery,
-                      ),
-                      DbOnlineSearchType.series ||
-                      DbOnlineSearchType.maker ||
-                      DbOnlineSearchType.director ||
-                      DbOnlineSearchType.playlist =>
-                        _DbOnlineEntitySearchResults(
-                          key: ValueKey(
-                            '${_searchType.name}:$_submittedQuery:$_searchSerial',
-                          ),
-                          type: _searchType,
-                          query: _submittedQuery,
-                        ),
-                    },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 与网页端一致：只在已有搜索关键词时显示过滤器。
+                  if (_searchType == DbOnlineSearchType.list &&
+                      _submittedQuery.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _movieFilterRow(),
+                    ),
+                  Expanded(
+                    child: _submittedQuery.isEmpty
+                        ? _emptyArea()
+                        : switch (_searchType) {
+                            DbOnlineSearchType.list => _DbOnlineSearchResults(
+                              key: ValueKey(
+                                'list:$_submittedQuery:$_searchSerial',
+                              ),
+                              query: _submittedQuery,
+                              viewMode: _viewMode,
+                              movieType: _movieType,
+                              movieSortBy: _movieSortBy,
+                              movieFilterBy: _movieFilterParam,
+                            ),
+                            DbOnlineSearchType.video =>
+                              const _DbOnlineSearchEmptyHint(),
+                            DbOnlineSearchType.actor =>
+                              _DbOnlineActorSearchResults(
+                                key: ValueKey(
+                                  'actor:$_submittedQuery:$_searchSerial',
+                                ),
+                                query: _submittedQuery,
+                              ),
+                            DbOnlineSearchType.series ||
+                            DbOnlineSearchType.maker ||
+                            DbOnlineSearchType.director ||
+                            DbOnlineSearchType.playlist =>
+                              _DbOnlineEntitySearchResults(
+                                key: ValueKey(
+                                  '${_searchType.name}:$_submittedQuery:$_searchSerial',
+                                ),
+                                type: _searchType,
+                                query: _submittedQuery,
+                              ),
+                          },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -292,10 +389,16 @@ class _DbOnlineSearchResults extends ConsumerStatefulWidget {
     super.key,
     required this.query,
     required this.viewMode,
+    this.movieType = 'all',
+    this.movieSortBy = 'relevance',
+    this.movieFilterBy = 'all',
   });
 
   final String query;
   final MediaViewMode viewMode;
+  final String movieType;
+  final String movieSortBy;
+  final String movieFilterBy;
 
   @override
   ConsumerState<_DbOnlineSearchResults> createState() =>
@@ -338,6 +441,9 @@ class _DbOnlineSearchResultsState
             query: widget.query,
             page: page,
             limit: _pageSize,
+            movieType: widget.movieType,
+            movieSortBy: widget.movieSortBy,
+            movieFilterBy: widget.movieFilterBy,
           ),
         ).future,
       );

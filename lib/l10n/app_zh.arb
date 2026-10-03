@@ -2660,7 +2660,7 @@
   ,"dbOnlineSubscriptionOverwriteConfirm": "将预设应用到当前启用的影片订阅？"
   ,"dbOnlineLibraryFilters": "筛选"
   ,"dbOnlineLibraryResourceType": "资源类型"
-  ,"dbOnlineLibraryDownload": "下载"
+  ,"dbOnlineLibraryDownload": "有磁链"
   ,"dbOnlineLibrarySubtitle": "字幕"
   ,"dbOnlineLibraryNoResources": "无资源"
   ,"dbOnlineLibraryInLibrary": "已入库"
@@ -2834,4 +2834,5 @@
   ,"actionRefresh": "刷新"
   ,"searchHistoryTitle": "搜索历史"
   ,"searchHistoryClear": "清空"
+  ,"dbOnlineSortRelevance": "相关度"
 }
