@@ -2674,6 +2674,7 @@
   "dbOnlineFollowingTitle": "关注列表",
   "dbOnlineFollowingFilters": "筛选",
   "dbOnlineFollowingConditions": "资源条件",
+  "dbOnlineResourcePlayable": "可播放",
   "dbOnlineFollowingSingleActor": "单人",
   "dbOnlineFollowingStyles": "风格",
   "dbOnlineFollowingStyleCount": "风格（{count}）",
@@ -2832,6 +2833,43 @@
   ,"detailFavoriteAction": "收藏"
   ,"detailUnfavoriteAction": "取消收藏"
   ,"actionRefresh": "刷新"
+  ,"tabRankings": "榜单"
+  ,"dbOnlineRankingsTitle": "排行榜"
+  ,"dbOnlineRankingTop250": "Top250"
+  ,"dbOnlineRankingDaily": "日榜"
+  ,"dbOnlineRankingWeekly": "周榜"
+  ,"dbOnlineRankingMonthly": "月榜"
+  ,"dbOnlineRankingActors": "演员榜"
+  ,"dbOnlineRankingStartRank": "起始名次"
+  ,"dbOnlineRankingIgnoreWatched": "忽略已看"
+  ,"dbOnlineRankingIgnoreOn": "忽略"
+  ,"dbOnlineRankingIgnoreOff": "包含"
+  ,"dbOnlineRankingSubscribeAll": "一键订阅"
+  ,"dbOnlineRankingSubscribeConfirmTitle": "确认一键订阅"
+  ,"dbOnlineRankingSubscribeConfirmIntro": "将按当前筛选批量添加订阅"
+  ,"dbOnlineRankingSubscribeAdded": "新增 {n} 部"
+  ,"@dbOnlineRankingSubscribeAdded": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedSubscribed": "已订阅 {n} 部"
+  ,"@dbOnlineRankingSubscribeSkippedSubscribed": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedBlacklist": "黑名单 {n} 部"
+  ,"@dbOnlineRankingSubscribeSkippedBlacklist": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedLibrary": "已入库 {n} 部"
+  ,"@dbOnlineRankingSubscribeSkippedLibrary": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedDuplicate": "重复 {n} 部"
+  ,"@dbOnlineRankingSubscribeSkippedDuplicate": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedInvalid": "无效 {n} 部"
+  ,"@dbOnlineRankingSubscribeSkippedInvalid": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeFailed": "失败 {n} 部"
+  ,"@dbOnlineRankingSubscribeFailed": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingAutoTitle": "排行榜自动订阅"
+  ,"dbOnlineRankingAutoHint": "每天定时检查排行榜，自动添加未订阅的影片"
+  ,"dbOnlineRankingAutoEnabled": "自动订阅"
+  ,"dbOnlineRankingAutoCheckTime": "检查时间"
+  ,"dbOnlineRankingAutoPeriods": "订阅榜单"
+  ,"dbOnlineRankingAutoContentTypes": "内容类型"
+  ,"dbOnlineRankingAutoTopN": "订阅前 {n} 名"
+  ,"@dbOnlineRankingAutoTopN": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingAutoSaved": "已保存自动订阅配置"
   ,"searchHistoryTitle": "搜索历史"
   ,"searchHistoryClear": "清空"
   ,"dbOnlineSortRelevance": "相关度"

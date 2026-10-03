@@ -24,7 +24,7 @@ void main() {
     final tabs = tester.widget<FloatingTabBar<Object?>>(
       find.byType(FloatingTabBar<Object?>),
     );
-    expect(tabs.tabs, hasLength(4));
+    expect(tabs.tabs, hasLength(5));
     final subscription = find.descendant(
       of: find.byType(FloatingTabBar<Object?>),
       matching: find.byIcon(Icons.subscriptions_outlined),
@@ -50,7 +50,7 @@ void main() {
       tester
           .widget<FloatingTabBar<Object?>>(find.byType(FloatingTabBar<Object?>))
           .active,
-      3,
+      4,
     );
 
     final outsideGesture = await tester.startGesture(tester.getCenter(anchor));

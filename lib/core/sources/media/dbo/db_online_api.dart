@@ -5,8 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_watched.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
+import 'package:omm/core/sources/media/dbo/db_online_ranking_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
+import 'package:omm/core/sources/media/dbo/db_online_following.dart';
 import 'package:omm/core/sources/media/dbo/db_online_following_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_download_record_api.dart';
 import 'package:omm/core/api/envelope.dart';
@@ -17,12 +19,14 @@ class DbOnlineApi {
     : _dio = dio,
       subscriptions = DbOnlineSubscriptionApi(dio),
       following = DbOnlineFollowingApi(dio),
-      downloadRecords = DbOnlineDownloadRecordApi(dio);
+      downloadRecords = DbOnlineDownloadRecordApi(dio),
+      ranking = DbOnlineRankingApi(dio);
 
   final Dio _dio;
   final DbOnlineSubscriptionApi subscriptions;
   final DbOnlineFollowingApi following;
   final DbOnlineDownloadRecordApi downloadRecords;
+  final DbOnlineRankingApi ranking;
 
   /// 读取 DBO 后台配置。配置接口返回完整配置，但未鉴权时只包含公开字段。
   Future<Map<String, dynamic>> getBackendConfig() async {
@@ -193,9 +197,10 @@ class DbOnlineApi {
   /// 获取 dbonline 影片库的一页。
   ///
   /// `/subs/tags` 使用 `filter_by` 的第一段表示影片分类，第二段固定为
-  /// `t`。不按在线播放能力筛选，`can_play` 仅供播放入口判断。
+  /// `t`，第三段 basic 为资源条件字母（m/c/s/p，p=可播放仅服务端
+  /// `javdb_api.can_play` 开启时生效）。
   Future<DbOnlineMoviePage> taggedMoviesPage({
-    String filterBy = '0:t:::::',
+    String filterBy = dbOnlineFollowingDefaultFilterBy,
     int page = 1,
     int limit = 24,
     String sortBy = 'update',
@@ -446,8 +451,9 @@ class DbOnlineApi {
   /// 实体（演员/系列/片商/导演/清单）的影片列表，与网页端实体落地页
   /// 共用同一组端点：`/{actors|series|makers|directors|lists}/{id}/movies`。
   ///
-  /// `sortBy`：release/update/score；`filter` 是 m/c/s（有磁链/字幕/单人）
-  /// 按此顺序拼接的多选串；`year` 仅演员生效（2011 至当前年份）。
+  /// `sortBy`：release/update/score；`filter` 是 m/c/s/p（有磁链/字幕/
+  /// 单人/可播放）按此顺序拼接的多选串；`year` 仅演员生效（2011 至当前
+  /// 年份）。
   Future<DbOnlineMoviePage> entityMoviesPage({
     required String kind,
     required String id,
@@ -490,6 +496,66 @@ class DbOnlineApi {
     'list': 'lists',
   };
   static const _entityMovieSortBys = {'release', 'update', 'score'};
+
+  /// 影片排行榜（日/周/月榜），一次性返回全量结果。
+  ///
+  /// `period`：daily/weekly/monthly；`type`：0=有码、1=无码、2=欧美、
+  /// 3=FC2。响应沿用 `data.movies` 解析，名次由列表顺序决定。
+  Future<DbOnlineMoviePage> rankingsPage({
+    required String period,
+    int type = 0,
+  }) {
+    final normalizedPeriod = period.trim();
+    if (!_rankingPeriods.contains(normalizedPeriod)) {
+      throw ArgumentError.value(period, 'period', AppErrorCode.validationFailed);
+    }
+    if (type < 0 || type > 3) {
+      throw ArgumentError.value(type, 'type', AppErrorCode.validationFailed);
+    }
+    return _moviesPage('/rankings', {'period': normalizedPeriod, 'type': type});
+  }
+
+  /// Top250 榜单的一页。`type` 为 all/video_type/year，`typeValue` 在
+  /// video_type 下取 '0'-'3'、year 下取年份；`startRank` 仅允许
+  /// 1/51/101/151/201，与网页端一致。
+  Future<DbOnlineMoviePage> top250Page({
+    String type = 'all',
+    String typeValue = '',
+    bool ignoreWatched = false,
+    int startRank = 1,
+    int page = 1,
+    int limit = 25,
+  }) {
+    final normalizedType = type.trim();
+    if (!_top250Types.contains(normalizedType)) {
+      throw ArgumentError.value(type, 'type', AppErrorCode.validationFailed);
+    }
+    if (!_top250StartRanks.contains(startRank)) {
+      throw ArgumentError.value(
+        startRank,
+        'startRank',
+        AppErrorCode.validationFailed,
+      );
+    }
+    if (page < 1) {
+      throw ArgumentError.value(page, 'page', AppErrorCode.validationFailed);
+    }
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', AppErrorCode.validationFailed);
+    }
+    return _moviesPage('/top250', {
+      'type': normalizedType,
+      'type_value': typeValue.trim(),
+      'ignore_watched': ignoreWatched ? 'true' : 'false',
+      'start_rank': startRank,
+      'page': page,
+      'limit': limit,
+    });
+  }
+
+  static const _rankingPeriods = {'daily', 'weekly', 'monthly'};
+  static const _top250Types = {'all', 'video_type', 'year'};
+  static const _top250StartRanks = {1, 51, 101, 151, 201};
 
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
   /// 转换为 Oh My Media 的整数影片 ID。refresh 控制是否强制访问在线 API。

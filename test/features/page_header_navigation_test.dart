@@ -545,7 +545,9 @@ void main() {
   ]) {
     testWidgets('$project 的所有底部页面在可返回导航栈中都不显示返回', (tester) async {
       await _open(tester, const MediaManagerShell(), project: project);
-      for (var index = 0; index < 4; index++) {
+      // db_online 底部有榜单 Tab，比其它项目多一个。
+      final tabCount = project == 'db_online' ? 5 : 4;
+      for (var index = 0; index < tabCount; index++) {
         tester
             .widget<FloatingTabBar<Object?>>(
               find.byType(FloatingTabBar<Object?>),
@@ -555,7 +557,8 @@ void main() {
         expect(find.byTooltip('返回').hitTestable(), findsNothing);
         expect(find.byType(BackButton).hitTestable(), findsNothing);
         expect(find.byIcon(Icons.arrow_back).hitTestable(), findsNothing);
-        if (index == 2) {
+        final searchTabIndex = project == 'db_online' ? 3 : 2;
+        if (index == searchTabIndex) {
           final searchPage = switch (project) {
             'oh-my-media' => find.byType(SearchPage),
             'db_online' => find.byType(DbOnlineSearchPage),
@@ -563,7 +566,7 @@ void main() {
           };
           _expectDoubleHeader(tester, searchPage, '搜索', '查找内容');
         }
-        if (index == 3 && project == 'db_online') {
+        if (index == tabCount - 1 && project == 'db_online') {
           _expectDoubleHeader(
             tester,
             find.byType(DbOnlineSubscriptionsPage),

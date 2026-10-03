@@ -9,60 +9,6 @@ import 'package:omm/shared/sheet_controls.dart';
 
 typedef DbOnlineFilterOption = ({String value, String label});
 
-/// DBO 资源条件的共享选项：有磁链（下载）、字幕、单人。
-///
-/// 关注页/影片库与实体落地页使用单字母值（m/c/s），影片搜索的
-/// `movie_filter_by` 使用全词值（magnets/subtitle/single）——同一组
-/// 文案与固定顺序，仅按端点映射取值。
-class DbOnlineResourceConditionOption {
-  const DbOnlineResourceConditionOption(this.letter, this.word);
-
-  /// 实体落地页与关注页的 filter 取值。
-  final String letter;
-
-  /// 搜索页 movie_filter_by 取值。
-  final String word;
-}
-
-const dbOnlineResourceConditions = <DbOnlineResourceConditionOption>[
-  DbOnlineResourceConditionOption('m', 'magnets'),
-  DbOnlineResourceConditionOption('c', 'subtitle'),
-  DbOnlineResourceConditionOption('s', 'single'),
-];
-
-String dbOnlineResourceConditionLabel(
-  AppL10n l,
-  DbOnlineResourceConditionOption option,
-) => switch (option.letter) {
-  'm' => l.dbOnlineLibraryDownload,
-  'c' => l.dbOnlineLibrarySubtitle,
-  _ => l.dbOnlineFollowingSingleActor,
-};
-
-/// 按固定顺序（m,c,s）整理选中的资源条件字母。
-List<String> dbOnlineResourceConditionLetters(Set<String> selected) => [
-  for (final option in dbOnlineResourceConditions)
-    if (selected.contains(option.letter)) option.letter,
-];
-
-/// 搜索页 movie_filter_by 参数：选中字母映射为全词并按固定顺序拼接，
-/// 空集返回 all。
-String dbOnlineMovieFilterByLetters(Set<String> selected) {
-  final words = [
-    for (final option in dbOnlineResourceConditions)
-      if (selected.contains(option.letter)) option.word,
-  ];
-  return words.isEmpty ? 'all' : words.join(',');
-}
-
-/// 资源条件在筛选弹层中的选项（含“全部”）：单选场景传 `selected: ''`，
-/// 多选场景 [DbOnlineFilterSection.multiSelect] 为 true。
-List<DbOnlineFilterOption> dbOnlineResourceConditionOptions(AppL10n l) => [
-  (value: '', label: l.filterAll),
-  for (final option in dbOnlineResourceConditions)
-    (value: option.letter, label: dbOnlineResourceConditionLabel(l, option)),
-];
-
 /// 筛选弹层中的一组选项，支持单选与多选。
 class DbOnlineFilterSection {
   const DbOnlineFilterSection({

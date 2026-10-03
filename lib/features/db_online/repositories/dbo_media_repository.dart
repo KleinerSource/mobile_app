@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:omm/core/sources/media/dbo/db_online_following.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
@@ -61,7 +62,7 @@ class DboMediaRepository {
   }
 
   Future<DbOnlineMoviePage> taggedMoviesPage({
-    String filterBy = '0:t:::::',
+    String filterBy = dbOnlineFollowingDefaultFilterBy,
     int page = 1,
     int limit = 24,
     String sortBy = 'update',

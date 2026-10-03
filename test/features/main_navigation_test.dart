@@ -298,7 +298,7 @@ void main() {
       tester
           .widget<FloatingTabBar<Object?>>(find.byType(FloatingTabBar<Object?>))
           .active,
-      1,
+      2,
     );
 
     await container
@@ -331,7 +331,7 @@ void main() {
       tester
           .widget<FloatingTabBar<Object?>>(find.byType(FloatingTabBar<Object?>))
           .active,
-      1,
+      2,
     );
 
     await container

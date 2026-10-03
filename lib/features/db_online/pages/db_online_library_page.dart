@@ -23,6 +23,7 @@ import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
@@ -40,14 +41,6 @@ class DbOnlineLibraryPage extends ConsumerStatefulWidget {
 class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   static const _pageSize = 24;
   static const _viewModeKey = 'db_online.library.view_mode.v1';
-  static final _resourceOptions =
-      <({String value, String Function(AppL10n l) label})>[
-        (value: '', label: (l) => l.filterAll),
-        (value: 'm', label: (l) => l.dbOnlineLibraryDownload),
-        (value: 'c', label: (l) => l.dbOnlineLibrarySubtitle),
-        (value: 'n', label: (l) => l.dbOnlineLibraryNoResources),
-        (value: 'l', label: (l) => l.dbOnlineLibraryInLibrary),
-      ];
   static final _userScoreOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: '', label: (l) => l.filterAll),
@@ -230,7 +223,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
       sections: (l) => [
         DbOnlineFilterSection(
           title: l.dbOnlineLibraryResourceType,
-          options: _resolve(_resourceOptions, l),
+          options: dbOnlineLibraryResourceOptions(l),
           selected: _resourceFilter,
           onSelected: (value) => _reloadWith(resourceFilter: value),
         ),

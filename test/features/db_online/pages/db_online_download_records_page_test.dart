@@ -61,7 +61,7 @@ void main() {
     final backend = DownloadRecordsTestBackend();
     await pumpFollowingTest(tester, backend, const MediaManagerShell());
     final tabBar = find.byType(FloatingTabBar<Object?>);
-    expect(tester.widget<FloatingTabBar<Object?>>(tabBar).tabs, hasLength(4));
+    expect(tester.widget<FloatingTabBar<Object?>>(tabBar).tabs, hasLength(5));
     final subscription = find.descendant(
       of: tabBar,
       matching: find.byIcon(Icons.subscriptions_outlined),

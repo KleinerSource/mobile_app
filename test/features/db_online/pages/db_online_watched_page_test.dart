@@ -83,7 +83,7 @@ void main() {
     await tester.tap(tab);
     await pumpFollowingFrames(tester);
     final bar = find.byType(FloatingTabBar<Object?>, skipOffstage: false);
-    expect(tester.widget<FloatingTabBar<Object?>>(bar).active, 3);
+    expect(tester.widget<FloatingTabBar<Object?>>(bar).active, 4);
     final anchor = find.ancestor(
       of: tab,
       matching: find.byType(GlassMenuAnchor<Object?>),
@@ -105,10 +105,10 @@ void main() {
     await gesture.up();
     await pumpFollowingFrames(tester);
     expect(find.byType(DbOnlineWatchedPage), findsOneWidget);
-    expect(tester.widget<FloatingTabBar<Object?>>(bar).tabs, hasLength(4));
+    expect(tester.widget<FloatingTabBar<Object?>>(bar).tabs, hasLength(5));
     await tester.tap(find.byTooltip('返回'));
     await pumpFollowingFrames(tester);
-    expect(tester.widget<FloatingTabBar<Object?>>(bar).active, 3);
+    expect(tester.widget<FloatingTabBar<Object?>>(bar).active, 4);
     final outside = await tester.startGesture(tester.getCenter(anchor));
     await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
     await outside.up();

@@ -20,6 +20,7 @@ import '../home/home_page.dart';
 import '../home/server_switch_transition.dart';
 import '../home/server_switcher.dart';
 import 'package:omm/features/db_online/pages/db_online_home_page.dart';
+import 'package:omm/features/db_online/pages/db_online_rankings_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/pages/db_online_following_page.dart';
@@ -59,7 +60,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   // 统一接管；持自有控制器的页面（影片库/我的）内部另有 StatusBarScrollToTop，
   // 这里对应的控制器无客户端，自动空操作。
   final List<ScrollController> _tabScrollControllers = List.generate(
-    4,
+    5,
     (_) => ScrollController(),
   );
 
@@ -204,6 +205,10 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
       return [
         homeTab,
         FloatingTabSpec<Object?>(
+          label: l.tabRankings,
+          icon: Icons.leaderboard_outlined,
+        ),
+        FloatingTabSpec<Object?>(
           label: l.tabLibrary,
           icon: Icons.video_library_rounded,
         ),
@@ -324,21 +329,22 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         if (mediaBrowser) return const MediaBrowserHomePage();
         return const HomePage();
       case 1:
-        if (dbOnline) return const DbOnlineLibraryPage();
+        if (dbOnline) return const DbOnlineRankingsPage();
         if (mediaBrowser) {
           return const MediaBrowserLibraryPage(showBackButton: false);
         }
         return const MoviesPage(showBackButton: false);
       case 2:
-        if (dbOnline) return const DbOnlineSearchPage();
+        if (dbOnline) return const DbOnlineLibraryPage();
         if (mediaBrowser) return const MediaBrowserSearchPage();
         return const SearchPage();
       case 3:
+        if (dbOnline) return const DbOnlineSearchPage();
         if (stash) return const SettingsPage(showBackButton: false);
         if (mediaBrowser) return const MediaBrowserFavoritesPage();
-        return dbOnline
-            ? const DbOnlineSubscriptionsPage()
-            : const FavoritesPage();
+        return const FavoritesPage();
+      case 4:
+        return const DbOnlineSubscriptionsPage();
       default:
         return const SizedBox.shrink();
     }

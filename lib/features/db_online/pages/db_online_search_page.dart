@@ -10,6 +10,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_resource_filter.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/api/url_resolver.dart';
@@ -29,6 +30,7 @@ import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 
@@ -96,7 +98,8 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
   MediaViewMode _viewMode = MediaViewMode.portrait;
 
   // 影片列表搜索的过滤器，与网页端一致：类型单选、资源条件多选、
-  // 排序单选；资源条件复用共享选项（m/c/s 字母，请求时映射全词）。
+  // 排序单选；资源条件复用共享选项（请求时映射全词，搜索端点不含
+  // p=可播放）。
   String _movieType = 'all';
   String _movieSortBy = 'relevance';
   final Set<String> _resourceFilters = {};
@@ -181,14 +184,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
       sections: (l) => [
         DbOnlineFilterSection(
           title: l.dbOnlineCategorySection,
-          options: [
-            (value: 'all', label: l.filterAll),
-            (value: '0', label: l.dbOnlineCategoryCensored),
-            (value: '1', label: l.dbOnlineCategoryUncensored),
-            (value: '2', label: l.dbOnlineCategoryWestern),
-            (value: '3', label: 'FC2'),
-            (value: '4', label: l.dbOnlineCategoryAnime),
-          ],
+          options: dbOnlineCategoryOptions(l, includeAll: true),
           selected: _movieType,
           onSelected: (value) => _applyMovieFilter(() => _movieType = value),
         ),
@@ -205,12 +201,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
         ),
         DbOnlineFilterSection(
           title: l.dbOnlineSort,
-          options: [
-            (value: 'relevance', label: l.dbOnlineSortRelevance),
-            (value: 'release', label: l.dbOnlineLibrarySortDate),
-            (value: 'update', label: l.dbOnlineRecentUpdated),
-            (value: 'score', label: l.dbOnlineLibraryCommunityRating),
-          ],
+          options: dbOnlineMovieSortOptions(l),
           selected: _movieSortBy,
           onSelected: (value) => _applyMovieFilter(() => _movieSortBy = value),
         ),

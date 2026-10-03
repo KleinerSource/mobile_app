@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/dbo/db_online_following.dart';
+import 'package:omm/core/sources/media/dbo/db_online_resource_filter.dart';
 import 'package:omm/features/db_online/providers/db_online_following_providers.dart';
+import 'package:omm/features/db_online/providers/db_online_resource_condition_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
@@ -11,8 +13,8 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
+import 'db_online_filter_options.dart';
 import 'db_online_following_widgets.dart';
-import 'db_online_list_filter_sheets.dart';
 
 class DbOnlineFollowingFilterSheet extends ConsumerStatefulWidget {
   const DbOnlineFollowingFilterSheet({
@@ -59,6 +61,8 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    // 服务端 can_play 开启时条件行追加 p（可播放），与网页端一致。
+    final onlinePlayAvailable = ref.watch(dbOnlineOnlinePlayAvailableProvider);
     final dateMenuMaxHeight = (sheetMaxHeight(context) * 0.4)
         .clamp(0.0, 280.0)
         .toDouble();
@@ -78,13 +82,7 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
             ),
             label(l.dbOnlineCategorySection),
             DbOnlineFollowingButtonRow(
-              options: [
-                (value: '0', label: l.dbOnlineCategoryCensored),
-                (value: '1', label: l.dbOnlineCategoryUncensored),
-                (value: '2', label: l.dbOnlineCategoryWestern),
-                (value: '3', label: 'FC2'),
-                (value: '4', label: l.dbOnlineCategoryAnime),
-              ],
+              options: dbOnlineCategoryOptions(l),
               isSelected: (value) => value == _filter.category,
               onSelected: (value) => _change(_filter.copyWith(category: value)),
             ),
@@ -92,10 +90,11 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
             DbOnlineFollowingButtonRow(
               options: [
                 for (final option in dbOnlineResourceConditions)
-                  (
-                    value: option.letter,
-                    label: dbOnlineResourceConditionLabel(l, option),
-                  ),
+                  if (onlinePlayAvailable || option.word.isNotEmpty)
+                    (
+                      value: option.letter,
+                      label: dbOnlineResourceConditionLabel(l, option),
+                    ),
               ],
               isSelected: _filter.basic.contains,
               onSelected: (value) {

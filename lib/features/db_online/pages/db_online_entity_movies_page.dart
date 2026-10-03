@@ -10,6 +10,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_resource_filter.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
@@ -22,6 +23,8 @@ import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/db_online/providers/db_online_resource_condition_providers.dart';
+import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
@@ -57,8 +60,8 @@ class _DbOnlineEntityMoviesPageState
   Completer<void>? _refreshCompleter;
   MediaViewMode _viewMode = MediaViewMode.portrait;
 
-  // 落地页过滤器，与网页端一致：资源条件多选（m/c/s）、排序单选、
-  // 演员专属年份；资源条件复用共享选项与固定顺序。
+  // 落地页过滤器，与网页端一致：资源条件多选（m/c/s/p，p 需服务端
+  // can_play 开启）、排序单选、演员专属年份；复用共享选项与固定顺序。
   String _sortBy = 'release';
   final Set<String> _resourceFilters = {};
   String _year = '';
@@ -171,16 +174,24 @@ class _DbOnlineEntityMoviesPageState
   bool get _filtersActive =>
       _resourceFilters.isNotEmpty || _year.isNotEmpty || _sortBy != 'release';
 
+  // 服务端 can_play 状态在 build 中订阅，供筛选弹层读取快照。
+  late bool _onlinePlayAvailable = false;
+
   /// 落地页过滤器弹层：资源条件（多选）+ 演员年份 + 排序，
   /// 与关注列表的筛选弹层同款交互，选择后立即生效并保持打开。
   Future<void> _openFilterSheet() {
     final currentYear = DateTime.now().year;
+    // build 中 watch 保持最新，弹层打开时读取快照。
+    final onlinePlayAvailable = _onlinePlayAvailable;
     return showDbOnlineFilterSheet(
       context,
       sections: (l) => [
         DbOnlineFilterSection(
           title: l.dbOnlineFollowingConditions,
-          options: dbOnlineResourceConditionOptions(l),
+          options: dbOnlineResourceConditionOptions(
+            l,
+            includePlayable: onlinePlayAvailable,
+          ),
           selected: _filterParam,
           multiSelect: true,
           onSelected: (value) => _applyFilter(() {
@@ -202,11 +213,7 @@ class _DbOnlineEntityMoviesPageState
           ),
         DbOnlineFilterSection(
           title: l.dbOnlineSort,
-          options: [
-            (value: 'release', label: l.dbOnlineLibrarySortDate),
-            (value: 'update', label: l.dbOnlineRecentUpdated),
-            (value: 'score', label: l.dbOnlineLibraryCommunityRating),
-          ],
+          options: dbOnlineEntityMovieSortOptions(l),
           selected: _sortBy,
           onSelected: (value) => _applyFilter(() => _sortBy = value),
         ),
@@ -218,6 +225,7 @@ class _DbOnlineEntityMoviesPageState
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final config = ref.watch(mediaRuntimeConfigProvider);
+    _onlinePlayAvailable = ref.watch(dbOnlineOnlinePlayAvailableProvider);
     final isPortrait = _viewMode == MediaViewMode.portrait;
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
       itemBuilder: (context, movie, _) {

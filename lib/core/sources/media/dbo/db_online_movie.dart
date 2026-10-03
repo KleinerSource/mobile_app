@@ -16,6 +16,7 @@ class DbOnlineMovie {
     this.libraryInfo,
     this.score,
     this.canPlay = false,
+    this.ranking,
   });
 
   final String id;
@@ -31,6 +32,9 @@ class DbOnlineMovie {
   final DbOnlineLibraryInfo? libraryInfo;
   final double? score;
   final bool canPlay;
+
+  /// 排行榜名次（Top250 等榜单返回），非榜单数据为 null。
+  final int? ranking;
 
   factory DbOnlineMovie.fromJson(Map<String, dynamic> json) {
     final scoreValue = json['score'];
@@ -57,6 +61,7 @@ class DbOnlineMovie {
           ? scoreValue.toDouble()
           : double.tryParse('$scoreValue'),
       canPlay: _boolValue(json['can_play']),
+      ranking: _intValue(json['ranking']),
     );
   }
 }

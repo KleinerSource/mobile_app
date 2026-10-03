@@ -2674,6 +2674,7 @@
   "dbOnlineFollowingTitle": "Following",
   "dbOnlineFollowingFilters": "Filters",
   "dbOnlineFollowingConditions": "Resource conditions",
+  "dbOnlineResourcePlayable": "Playable",
   "dbOnlineFollowingSingleActor": "Solo",
   "dbOnlineFollowingStyles": "Styles",
   "dbOnlineFollowingStyleCount": "Styles ({count})",
@@ -2832,6 +2833,43 @@
   ,"detailFavoriteAction": "Add to favorites"
   ,"detailUnfavoriteAction": "Remove from favorites"
   ,"actionRefresh": "Refresh"
+  ,"tabRankings": "Ranks"
+  ,"dbOnlineRankingsTitle": "Rankings"
+  ,"dbOnlineRankingTop250": "Top250"
+  ,"dbOnlineRankingDaily": "Daily"
+  ,"dbOnlineRankingWeekly": "Weekly"
+  ,"dbOnlineRankingMonthly": "Monthly"
+  ,"dbOnlineRankingActors": "Actors"
+  ,"dbOnlineRankingStartRank": "Start rank"
+  ,"dbOnlineRankingIgnoreWatched": "Ignore watched"
+  ,"dbOnlineRankingIgnoreOn": "Ignore"
+  ,"dbOnlineRankingIgnoreOff": "Include"
+  ,"dbOnlineRankingSubscribeAll": "Subscribe all"
+  ,"dbOnlineRankingSubscribeConfirmTitle": "Confirm subscribe all"
+  ,"dbOnlineRankingSubscribeConfirmIntro": "This will batch-add subscriptions using the current filters"
+  ,"dbOnlineRankingSubscribeAdded": "Added {n}"
+  ,"@dbOnlineRankingSubscribeAdded": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedSubscribed": "Already subscribed {n}"
+  ,"@dbOnlineRankingSubscribeSkippedSubscribed": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedBlacklist": "Blacklisted {n}"
+  ,"@dbOnlineRankingSubscribeSkippedBlacklist": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedLibrary": "In library {n}"
+  ,"@dbOnlineRankingSubscribeSkippedLibrary": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedDuplicate": "Duplicate {n}"
+  ,"@dbOnlineRankingSubscribeSkippedDuplicate": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeSkippedInvalid": "Invalid {n}"
+  ,"@dbOnlineRankingSubscribeSkippedInvalid": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingSubscribeFailed": "Failed {n}"
+  ,"@dbOnlineRankingSubscribeFailed": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingAutoTitle": "Ranking auto-subscribe"
+  ,"dbOnlineRankingAutoHint": "Check rankings daily and auto-subscribe unsubscribed movies"
+  ,"dbOnlineRankingAutoEnabled": "Auto-subscribe"
+  ,"dbOnlineRankingAutoCheckTime": "Check time"
+  ,"dbOnlineRankingAutoPeriods": "Ranking periods"
+  ,"dbOnlineRankingAutoContentTypes": "Content types"
+  ,"dbOnlineRankingAutoTopN": "Subscribe top {n}"
+  ,"@dbOnlineRankingAutoTopN": { "placeholders": { "n": { "type": "int" } } }
+  ,"dbOnlineRankingAutoSaved": "Auto-subscribe settings saved"
   ,"searchHistoryTitle": "Search history"
   ,"searchHistoryClear": "Clear"
   ,"dbOnlineSortRelevance": "Relevance"

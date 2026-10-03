@@ -12,6 +12,7 @@ import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dar
 import 'package:omm/features/db_online/providers/db_online_scheduler_provider.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_watched_providers.dart';
+import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
@@ -198,14 +199,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
       sections: (l) => [
         DbOnlineFilterSection(
           title: l.dbOnlineWatchedType,
-          options: [
-            (value: 'all', label: l.filterAll),
-            (value: '0', label: l.dbOnlineCategoryCensored),
-            (value: '1', label: l.dbOnlineCategoryUncensored),
-            (value: '2', label: l.dbOnlineCategoryWestern),
-            (value: '3', label: 'FC2'),
-            (value: '4', label: l.dbOnlineCategoryAnime),
-          ],
+          options: dbOnlineCategoryOptions(l, includeAll: true),
           selected: _filter.type,
           onSelected: (value) => _apply(_filter.copyWith(type: value)),
         ),

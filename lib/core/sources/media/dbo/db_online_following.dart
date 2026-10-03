@@ -1,13 +1,20 @@
 import 'package:flutter/foundation.dart';
 
 import 'db_online_movie.dart';
+import 'db_online_resource_filter.dart';
 import 'db_online_resource_merge.dart';
+
+/// 关注筛选 basic 段的默认值（有磁链）。
+const dbOnlineFollowingDefaultBasic = ['m'];
+
+/// 关注筛选 filter_by 复合串的默认值（全空条件）。
+const dbOnlineFollowingDefaultFilterBy = '0:t:::::';
 
 @immutable
 class DbOnlineFollowingFilter {
   const DbOnlineFollowingFilter({
     this.category = '0',
-    this.basic = const ['m'],
+    this.basic = dbOnlineFollowingDefaultBasic,
     this.styles = const [],
     this.year = '',
     this.month = '',
@@ -86,9 +93,7 @@ class DbOnlineFollowingPreset {
         category: _text(json['category']).isEmpty
             ? '0'
             : _text(json['category']),
-        basic: _ids(
-          json['basic'],
-        ).where(const ['m', 'c', 's'].contains).toList(),
+        basic: dbOnlineSanitizeResourceConditions(_ids(json['basic'])),
         styles: _ids(json['styles']),
         year: _text(json['year']),
         month: _text(json['month']),
