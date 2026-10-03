@@ -51,6 +51,25 @@ Future<void> openSheet(WidgetTester tester) async {
   expect(find.byType(DbOnlineWatchedRecheckSheet), findsOneWidget);
 }
 
+Future<void> pickFilters(WidgetTester tester, List<String> labels) async {
+  await tester.tap(find.byTooltip('筛选'));
+  await pumpFollowingFrames(tester);
+  for (final label in labels) {
+    // 「全部」同时出现在类型与评分两组，取第一组（类型）。
+    await tester.tap(find.text(label).first);
+    await pumpFollowingFrames(tester);
+  }
+  Navigator.of(tester.element(find.text('类型'))).pop();
+  await pumpFollowingFrames(tester);
+}
+
+Future<void> pickSort(WidgetTester tester, String label) async {
+  await tester.tap(find.byTooltip('排序'));
+  await pumpFollowingFrames(tester);
+  await tester.tap(find.text(label));
+  await pumpFollowingFrames(tester);
+}
+
 void main() {
   testWidgets('订阅点击仍导航，长按滑动进入看过影片，返回保持Tab，空白关闭', (tester) async {
     final backend = WatchedTestBackend();
@@ -122,19 +141,18 @@ void main() {
     expect(first.top, third.top);
     expect(third.left, greaterThan(first.right));
     expect(find.byType(HeaderActionButton), findsOneWidget);
+    expect(find.byTooltip('排序'), findsOneWidget);
+    expect(find.byTooltip('筛选'), findsOneWidget);
     expect(sockets.urls.single.toString(), 'wss://a.test/ws/scheduler/status');
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('类型/评分组合，排序重复点击切换方向且更换排序重置降序', (tester) async {
+  testWidgets('类型/评分在筛选弹层组合，排序弹层切换字段与方向', (tester) async {
     final backend = WatchedTestBackend();
     await pumpWatchedTest(tester, backend);
-    await tester.tap(find.text('无码'));
-    await pumpFollowingFrames(tester);
-    await tester.tap(find.text('5 星'));
-    await pumpFollowingFrames(tester);
-    await tester.tap(find.text('添加时间'));
-    await pumpFollowingFrames(tester);
+    await pickFilters(tester, ['无码', '5 星']);
+    expect(find.text('类型'), findsNothing);
+    await pickSort(tester, '降序');
     expect(backend.to('/subs/watched').last.queryParameters, {
       'type': '1',
       'star': '5',
@@ -143,16 +161,18 @@ void main() {
       'page': 1,
       'limit': 24,
     });
-    await tester.tap(find.text('发布日期'));
-    await pumpFollowingFrames(tester);
-    expect(
-      backend.to('/subs/watched').last.queryParameters['order_by'],
-      'desc',
-    );
-    expect(
-      backend.to('/subs/watched').last.queryParameters['sort_by'],
-      'release',
-    );
+    await pickSort(tester, '发布日期');
+    expect(backend.to('/subs/watched').last.queryParameters, {
+      'type': '1',
+      'star': '5',
+      'sort_by': 'release',
+      'order_by': 'asc',
+      'page': 1,
+      'limit': 24,
+    });
+    await pickFilters(tester, ['全部']);
+    expect(backend.to('/subs/watched').last.queryParameters['type'], 'all');
+    expect(backend.to('/subs/watched').last.queryParameters['star'], '5');
   });
 
   testWidgets('快速切换筛选丢弃迟到旧响应', (tester) async {
@@ -164,6 +184,8 @@ void main() {
           ? old.future
           : null;
     await pumpWatchedTest(tester, backend);
+    await tester.tap(find.byTooltip('筛选'));
+    await pumpFollowingFrames(tester);
     await tester.tap(find.text('有码'));
     await tester.pump();
     await tester.tap(find.text('无码'));
@@ -228,8 +250,7 @@ void main() {
     fail = false;
     await tester.tap(find.text('重试'));
     await pumpFollowingFrames(tester);
-    await tester.tap(find.text('5 星'));
-    await pumpFollowingFrames(tester);
+    await pickFilters(tester, ['5 星']);
     final header = tester.getTopLeft(find.text('看过影片'));
     final count = backend.to('/subs/watched').length;
     await tester.fling(
@@ -253,6 +274,7 @@ void main() {
       await pumpWatchedTest(tester, backend, sockets: sockets);
       expect(backend.to('/subs/watched'), isEmpty);
       expect(find.byTooltip('复查'), findsNothing);
+      expect(find.byTooltip('筛选'), findsNothing);
       expect(find.text('请先在当前服务器配置在线账户'), findsOneWidget);
       expect(sockets.urls, isEmpty);
     });
@@ -297,8 +319,7 @@ void main() {
     final backend = WatchedTestBackend()
       ..preset = {'enabled': false, 'quality': 'uhd', 'require_sub': true};
     await pumpWatchedTest(tester, backend);
-    await tester.tap(find.text('5 星'));
-    await pumpFollowingFrames(tester);
+    await pickFilters(tester, ['5 星']);
     await openSheet(tester);
     await sheetTap(tester, '开始复查');
     final body = backend.to('/videos/recheck').single.data as Map;
@@ -438,8 +459,7 @@ void main() {
         request.path == '/subs/preset' && request.baseUrl.contains('a.test')
         ? old.future
         : null;
-    await tester.tap(find.text('5 星'));
-    await pumpFollowingFrames(tester);
+    await pickFilters(tester, ['5 星']);
     await openSheet(tester);
     (container.read(serverConfigProvider.notifier) as FollowingTestServerState)
         .select('b');
@@ -557,8 +577,7 @@ void main() {
       if (request.baseUrl.contains('a.test')) return old.future;
       return watchedPayload([watchedMovie(2)]);
     };
-    await tester.tap(find.text('5 星'));
-    await pumpFollowingFrames(tester);
+    await pickFilters(tester, ['5 星']);
     (container.read(serverConfigProvider.notifier) as FollowingTestServerState)
         .select('b');
     await pumpFollowingFrames(tester);
@@ -606,4 +625,34 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('视图切换在竖版网格、横版和列表间切换并持久化', (tester) async {
+    final backend = WatchedTestBackend()
+      ..movies = [watchedMovie(1), watchedMovie(2)];
+    final container = await pumpWatchedTest(tester, backend);
+    expect(find.byType(PagedSliverGrid<int, DbOnlineMovie>), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await pumpFollowingFrames(tester);
+    expect(find.byType(PagedSliverList<int, DbOnlineMovie>), findsOneWidget);
+    final listCards = tester.widgetList<DbOnlineMovieCard>(
+      find.byType(DbOnlineMovieCard),
+    );
+    expect(listCards, isNotEmpty);
+    expect(listCards.every((card) => card.compact), isTrue);
+    await tester.tap(find.byIcon(Icons.crop_landscape_rounded));
+    await pumpFollowingFrames(tester);
+    final cards = tester.widgetList<DbOnlineMovieCard>(
+      find.byType(DbOnlineMovieCard),
+    );
+    expect(cards, isNotEmpty);
+    expect(cards.every((card) => card.landscape && !card.compact), isTrue);
+    expect(
+      container
+          .read(sharedPrefsProvider)
+          .getString('db_online.watched.view_mode.v1'),
+      'landscape',
+    );
+    expect(backend.to('/subs/watched'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
 }

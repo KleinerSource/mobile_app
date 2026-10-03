@@ -13,16 +13,17 @@ import 'package:omm/features/db_online/providers/db_online_scheduler_provider.da
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_watched_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart';
+import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_watched_recheck_sheet.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
-import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -59,6 +60,7 @@ class _WatchedPage extends ConsumerStatefulWidget {
 }
 
 class _WatchedPageState extends ConsumerState<_WatchedPage> {
+  static const _viewModeKey = 'db_online.watched.view_mode.v1';
   final _paging = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _requests = PagedRequestCoordinator();
   final _scroll = ScrollController();
@@ -190,43 +192,50 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
     );
   }
 
-  Widget _filterRow(
-    String label,
-    List<({String value, String label})> options,
-    String selected,
-    ValueChanged<String> onSelect, {
-    bool sort = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 3),
-      child: Row(
-        children: [
-          Text(label, style: AppText.meta(context)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final option in options)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 7),
-                      child: CompactFilterButton(
-                        label: option.label,
-                        active: selected == option.value,
-                        icon: sort && selected == option.value
-                            ? (_filter.orderBy == 'asc'
-                                  ? Icons.arrow_upward_rounded
-                                  : Icons.arrow_downward_rounded)
-                            : null,
-                        onTap: () => onSelect(option.value),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
+  Future<void> _openFilterMenu() {
+    return showDbOnlineFilterSheet(
+      context,
+      sections: (l) => [
+        DbOnlineFilterSection(
+          title: l.dbOnlineWatchedType,
+          options: [
+            (value: 'all', label: l.filterAll),
+            (value: '0', label: l.dbOnlineCategoryCensored),
+            (value: '1', label: l.dbOnlineCategoryUncensored),
+            (value: '2', label: l.dbOnlineCategoryWestern),
+            (value: '3', label: 'FC2'),
+            (value: '4', label: l.dbOnlineCategoryAnime),
+          ],
+          selected: _filter.type,
+          onSelected: (value) => _apply(_filter.copyWith(type: value)),
+        ),
+        DbOnlineFilterSection(
+          title: l.dbOnlineWatchedRating,
+          options: [
+            (value: '', label: l.filterAll),
+            for (final value in const ['5', '4', '3', '2', '1'])
+              (value: value, label: '$value ${l.dbOnlineLibraryStars}'),
+          ],
+          selected: _filter.star,
+          onSelected: (value) => _apply(_filter.copyWith(star: value)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openSortMenu() {
+    final l = AppL10n.of(context);
+    return showDbOnlineSortSheet(
+      context,
+      options: [
+        (value: 'create', label: l.dbOnlineWatchedSortAdded),
+        (value: 'release', label: l.dbOnlineWatchedSortReleased),
+      ],
+      selected: _filter.sortBy,
+      ascending: _filter.orderBy == 'asc',
+      onSelected: (value) => _apply(_filter.copyWith(sortBy: value)),
+      onToggleOrder: () => _apply(
+        _filter.copyWith(orderBy: _filter.orderBy == 'asc' ? 'desc' : 'asc'),
       ),
     );
   }
@@ -260,6 +269,32 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
         _connectionRevision = value.connectionRevision;
       });
     }
+    final viewMode = ref.watch(mediaViewModePreferenceProvider(_viewModeKey));
+    final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
+      itemBuilder: (context, movie, _) {
+        final card = DbOnlineMovieCard(
+          movie: movie,
+          config: config,
+          width: double.infinity,
+          landscape: viewMode == MediaViewMode.landscape,
+          compact: viewMode == MediaViewMode.list,
+          showRating: false,
+          onTap: () => openDbOnlineMovieUnawaited(context, movie),
+        );
+        return viewMode == MediaViewMode.landscape
+            ? MediaLandscapeListItem(child: card)
+            : card;
+      },
+      firstPageErrorIndicatorBuilder: (_) => ErrorView.list(
+        message: _paging.error.toString(),
+        onRetry: _paging.retryLastFailedRequest,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _paging.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) =>
+          EmptyView(message: l.dbOnlineWatchedEmpty),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
     return DbOnlineFollowingLayout(
       title: l.dbOnlineWatchedTitle,
       scrollController: _scroll,
@@ -273,80 +308,46 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
       ],
       filters: canQuery
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _filterRow(
-                    l.dbOnlineWatchedType,
-                    [
-                      (value: 'all', label: l.filterAll),
-                      (value: '0', label: l.dbOnlineCategoryCensored),
-                      (value: '1', label: l.dbOnlineCategoryUncensored),
-                      (value: '2', label: l.dbOnlineCategoryWestern),
-                      (value: '3', label: 'FC2'),
-                      (value: '4', label: l.dbOnlineCategoryAnime),
-                    ],
-                    _filter.type,
-                    (value) => _apply(_filter.copyWith(type: value)),
-                  ),
-                  _filterRow(
-                    l.dbOnlineWatchedRating,
-                    [
-                      (value: '', label: l.filterAll),
-                      for (final value in ['5', '4', '3', '2', '1'])
-                        (
-                          value: value,
-                          label: '$value ${l.dbOnlineLibraryStars}',
-                        ),
-                    ],
-                    _filter.star,
-                    (value) => _apply(_filter.copyWith(star: value)),
-                  ),
-                  _filterRow(
-                    l.dbOnlineWatchedSort,
-                    [
-                      (value: 'create', label: l.dbOnlineWatchedSortAdded),
-                      (value: 'release', label: l.dbOnlineWatchedSortReleased),
-                    ],
-                    _filter.sortBy,
-                    (value) => _apply(
-                      _filter.copyWith(
-                        sortBy: value,
-                        orderBy:
-                            value == _filter.sortBy && _filter.orderBy == 'desc'
-                            ? 'asc'
-                            : 'desc',
+                  Row(
+                    children: [
+                      DbOnlineSortFilterButtons(
+                        ascending: _filter.orderBy == 'asc',
+                        filterActive:
+                            _filter.type != 'all' || _filter.star.isNotEmpty,
+                        onSort: () => unawaited(_openSortMenu()),
+                        onFilter: () => unawaited(_openFilterMenu()),
                       ),
-                    ),
-                    sort: true,
+                      const Spacer(),
+                      const MediaViewModePreferenceToggle(
+                        preferenceKey: _viewModeKey,
+                      ),
+                    ],
                   ),
                   if (scheduler != null &&
-                      (scheduler.rechecking || scheduler.recheckQueued))
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            !scheduler.connected
-                                ? l.dbOnlineWatchedReconnecting
-                                : scheduler.rechecking
-                                ? l.dbOnlineWatchedProgress(
-                                    scheduler.completed,
-                                    scheduler.total,
-                                  )
-                                : l.dbOnlineWatchedQueued,
-                            style: AppText.meta(context),
-                          ),
-                          const SizedBox(height: 6),
-                          LinearProgressIndicator(
-                            value: scheduler.rechecking && scheduler.connected
-                                ? scheduler.percent / 100
-                                : null,
-                          ),
-                        ],
-                      ),
+                      (scheduler.rechecking || scheduler.recheckQueued)) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      !scheduler.connected
+                          ? l.dbOnlineWatchedReconnecting
+                          : scheduler.rechecking
+                          ? l.dbOnlineWatchedProgress(
+                              scheduler.completed,
+                              scheduler.total,
+                            )
+                          : l.dbOnlineWatchedQueued,
+                      style: AppText.meta(context),
                     ),
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(
+                      value: scheduler.rechecking && scheduler.connected
+                          ? scheduler.percent / 100
+                          : null,
+                    ),
+                  ],
                 ],
               ),
             )
@@ -369,44 +370,23 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
                   slivers: [
                     SliverPadding(
                       padding: MediaListLayout.padding,
-                      sliver: PagedSliverGrid<int, DbOnlineMovie>(
-                        pagingController: _paging,
-                        showNoMoreItemsIndicatorAsGridChild: false,
-                        gridDelegate: MediaGridDelegate(
-                          textScaleFactor:
-                              MediaQuery.textScalerOf(
-                                context,
-                              ).scale(titleFontSize) /
-                              titleFontSize,
-                        ),
-                        builderDelegate:
-                            PagedChildBuilderDelegate<DbOnlineMovie>(
-                              itemBuilder: (context, movie, _) =>
-                                  DbOnlineMovieCard(
-                                    movie: movie,
-                                    config: config,
-                                    width: double.infinity,
-                                    showRating: false,
-                                    onTap: () => openDbOnlineMovieUnawaited(
+                      sliver: viewMode == MediaViewMode.portrait
+                          ? PagedSliverGrid<int, DbOnlineMovie>(
+                              pagingController: _paging,
+                              showNoMoreItemsIndicatorAsGridChild: false,
+                              gridDelegate: MediaGridDelegate(
+                                textScaleFactor:
+                                    MediaQuery.textScalerOf(
                                       context,
-                                      movie,
-                                    ),
-                                  ),
-                              firstPageErrorIndicatorBuilder: (_) =>
-                                  ErrorView.list(
-                                    message: _paging.error.toString(),
-                                    onRetry: _paging.retryLastFailedRequest,
-                                  ),
-                              newPageErrorIndicatorBuilder: (_) =>
-                                  PaginationRetry(
-                                    onRetry: _paging.retryLastFailedRequest,
-                                  ),
-                              noItemsFoundIndicatorBuilder: (_) =>
-                                  EmptyView(message: l.dbOnlineWatchedEmpty),
-                              noMoreItemsIndicatorBuilder: (_) =>
-                                  const NoMoreContent(),
+                                    ).scale(titleFontSize) /
+                                    titleFontSize,
+                              ),
+                              builderDelegate: delegate,
+                            )
+                          : PagedSliverList<int, DbOnlineMovie>(
+                              pagingController: _paging,
+                              builderDelegate: delegate,
                             ),
-                      ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],

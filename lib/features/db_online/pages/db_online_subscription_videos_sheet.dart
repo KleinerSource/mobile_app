@@ -172,6 +172,9 @@ class _DbOnlineSubscriptionVideosSheetState
     final serverId = serverConfig?.activeServerId ?? '';
     _syncPagingQuery(serverId);
     final l = AppL10n.of(context);
+    final viewMode = ref.watch(
+      mediaViewModePreferenceProvider(_subscriptionViewModeKey),
+    );
     final privacyId =
         widget.privacyId ??
         'dbo:subscription:${widget.kind}:${widget.sourceId}';
@@ -181,6 +184,31 @@ class _DbOnlineSubscriptionVideosSheetState
     final hidden =
         ref.watch(privacyShieldProvider) &&
         !ref.watch(revealedProvider).contains(privacyId);
+    final delegate = PagedChildBuilderDelegate<DbOnlineSubscriptionItem>(
+      itemBuilder: (context, item, _) =>
+          _videoCard(item, l, serverConfig, viewMode),
+      firstPageProgressIndicatorBuilder: (_) => const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      firstPageErrorIndicatorBuilder: (_) => _inlineError(
+        _pagingController.error ?? StateError(l.loadFailed),
+        _pagingController.refresh,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _pagingController.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            _keyword.isEmpty
+                ? l.dbOnlineSubscriptionEmpty
+                : l.dbOnlineSubscriptionNoResults,
+          ),
+        ),
+      ),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -202,31 +230,41 @@ class _DbOnlineSubscriptionVideosSheetState
                   title: hidden ? '▆▆▆▆▆' : widget.title,
                 ),
               ),
-              SizedBox(
-                height: 32,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _statuses.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
-                  itemBuilder: (context, index) {
-                    final status = _statuses[index];
-                    final label = switch (status) {
-                      'pending' => l.dbOnlineSubscriptionPending,
-                      'completed' => l.dbOnlineSubscriptionCompleted,
-                      _ => l.dbOnlineSubscriptionSkipped,
-                    };
-                    final count = _statusCounts[status];
-                    return MediaSectionTab(
-                      label: count == null ? label : '$label($count)',
-                      selected: _status == status,
-                      onTap: () {
-                        if (_status == status) return;
-                        setState(() => _status = status);
-                        _reloadForQuery();
-                      },
-                    );
-                  },
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 32,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.only(right: 8),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _statuses.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) {
+                          final status = _statuses[index];
+                          final label = switch (status) {
+                            'pending' => l.dbOnlineSubscriptionPending,
+                            'completed' => l.dbOnlineSubscriptionCompleted,
+                            _ => l.dbOnlineSubscriptionSkipped,
+                          };
+                          final count = _statusCounts[status];
+                          return MediaSectionTab(
+                            label: count == null ? label : '$label($count)',
+                            selected: _status == status,
+                            onTap: () {
+                              if (_status == status) return;
+                              setState(() => _status = status);
+                              _reloadForQuery();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const MediaViewModePreferenceToggle(
+                    preferenceKey: _subscriptionViewModeKey,
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(
@@ -269,48 +307,17 @@ class _DbOnlineSubscriptionVideosSheetState
                           horizontal: MediaListLayout.horizontalInset - 18,
                           vertical: 8,
                         ),
-                        sliver: PagedSliverGrid<int, DbOnlineSubscriptionItem>(
-                          pagingController: _pagingController,
-                          showNoMoreItemsIndicatorAsGridChild: false,
-                          gridDelegate: const MediaGridDelegate(),
-                          builderDelegate:
-                              PagedChildBuilderDelegate<
-                                DbOnlineSubscriptionItem
-                              >(
-                                itemBuilder: (context, item, _) =>
-                                    _videoCard(item, l, serverConfig),
-                                firstPageProgressIndicatorBuilder: (_) =>
-                                    const Padding(
-                                      padding: EdgeInsets.all(24),
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    ),
-                                firstPageErrorIndicatorBuilder: (_) =>
-                                    _inlineError(
-                                      _pagingController.error ??
-                                          StateError(l.loadFailed),
-                                      _pagingController.refresh,
-                                    ),
-                                newPageErrorIndicatorBuilder: (_) =>
-                                    PaginationRetry(
-                                      onRetry: _pagingController
-                                          .retryLastFailedRequest,
-                                    ),
-                                noItemsFoundIndicatorBuilder: (_) => Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Center(
-                                    child: Text(
-                                      _keyword.isEmpty
-                                          ? l.dbOnlineSubscriptionEmpty
-                                          : l.dbOnlineSubscriptionNoResults,
-                                    ),
-                                  ),
-                                ),
-                                noMoreItemsIndicatorBuilder: (_) =>
-                                    const NoMoreContent(),
+                        sliver: viewMode == MediaViewMode.portrait
+                            ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
+                                pagingController: _pagingController,
+                                showNoMoreItemsIndicatorAsGridChild: false,
+                                gridDelegate: const MediaGridDelegate(),
+                                builderDelegate: delegate,
+                              )
+                            : PagedSliverList<int, DbOnlineSubscriptionItem>(
+                                pagingController: _pagingController,
+                                builderDelegate: delegate,
                               ),
-                        ),
                       ),
                     ],
                   ),
@@ -327,16 +334,8 @@ class _DbOnlineSubscriptionVideosSheetState
     DbOnlineSubscriptionItem item,
     AppL10n l,
     ServerConfig? serverConfig,
+    MediaViewMode viewMode,
   ) {
-    final releaseDate = [
-      if (item.data['release_date']?.toString().isNotEmpty == true)
-        item.data['release_date'].toString(),
-    ].join(' · ');
-    final imageUrl = _resolveSubscriptionImage(serverConfig, [
-      item.data['thumb_url'],
-      item.data['cover_url'],
-    ]);
-    final meta = releaseDate;
     final menuEntries = [
       for (final status in _statuses.where(
         (value) =>
@@ -353,29 +352,29 @@ class _DbOnlineSubscriptionVideosSheetState
           },
         ),
     ];
-    final overlays = _subscriptionMovieBadges(item, l);
     final privacyId = _subscriptionMoviePrivacyId(item);
     final hidden =
         ref.watch(privacyShieldProvider) &&
         !ref.watch(revealedMoviesProvider).contains(privacyId);
-    return LayoutBuilder(
+    final card = LayoutBuilder(
       builder: (context, constraints) => GlassMenuAnchor<String>(
         width: 232,
         entries: hidden ? const [] : menuEntries,
         onSelected: (status) => _updateStatus(item, status, l),
         onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),
-        child: CatalogMovieCard(
-          title: item.title,
+        child: _subscriptionMovieTile(
+          item,
+          l,
+          serverConfig: serverConfig,
+          viewMode: viewMode,
           code: item.id,
-          imageUrl: imageUrl,
-          meta: meta,
           width: constraints.maxWidth,
-          privacyId: privacyId,
-          coverTopLeftOverlay: overlays.status,
-          coverBottomLeftOverlay: overlays.filters,
         ),
       ),
     );
+    return viewMode == MediaViewMode.landscape
+        ? MediaLandscapeListItem(child: card)
+        : card;
   }
 
   Future<void> _updateStatus(

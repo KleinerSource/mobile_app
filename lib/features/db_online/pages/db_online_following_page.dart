@@ -19,6 +19,7 @@ import 'package:omm/features/db_online/widgets/db_online_subscription_action.dar
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
@@ -65,6 +66,7 @@ class _FollowingPage extends ConsumerStatefulWidget {
 
 class _FollowingPageState extends ConsumerState<_FollowingPage> {
   static const _pageSize = 24;
+  static const _viewModeKey = 'db_online.following.view_mode.v1';
   final _paging = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _requests = PagedRequestCoordinator();
   final _scroll = ScrollController();
@@ -238,6 +240,31 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
               styles?.where((item) => item.id == id).firstOrNull?.name ?? id,
         )
         .join(', ');
+    final viewMode = ref.watch(mediaViewModePreferenceProvider(_viewModeKey));
+    final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
+      itemBuilder: (context, movie, _) {
+        final card = DbOnlineMovieCard(
+          movie: movie,
+          config: config,
+          width: double.infinity,
+          landscape: viewMode == MediaViewMode.landscape,
+          compact: viewMode == MediaViewMode.list,
+          onTap: () => openDbOnlineMovieUnawaited(context, movie),
+        );
+        return viewMode == MediaViewMode.landscape
+            ? MediaLandscapeListItem(child: card)
+            : card;
+      },
+      firstPageErrorIndicatorBuilder: (_) => ErrorView.list(
+        message: _paging.error.toString(),
+        onRetry: _paging.retryLastFailedRequest,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _paging.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) =>
+          EmptyView(message: l.dbOnlineFollowingNoMovies),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
     return DbOnlineFollowingLayout(
       eyebrow: l.tabYou,
       title: l.dbOnlineFollowingTitle,
@@ -268,88 +295,87 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
           onPressed: query ? () => _filters(database) : null,
         ),
       ],
-      filters: database
-          ? Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: presets!.when<List<Widget>>(
-                          skipLoadingOnReload: true,
-                          loading: () => const [
-                            Padding(
-                              padding: EdgeInsets.only(right: 7),
-                              child: SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          ],
-                          error: (error, _) => [
-                            Padding(
-                              padding: const EdgeInsets.only(right: 7),
-                              child: Tooltip(
-                                message: localizedErrorMessage(l, error),
-                                child: CompactFilterButton(
-                                  label: l.dbOnlineRetry,
-                                  icon: Icons.refresh_rounded,
-                                  active: false,
-                                  onTap: () => ref.invalidate(
-                                    dbOnlineFollowingPresetsProvider(
-                                      widget.serverId,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          data: (items) => [
-                            for (final preset in items)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 7),
-                                child: CompactFilterButton(
-                                  label: preset.name,
-                                  active: _presetId == preset.id,
-                                  onTap: () => _apply(
-                                    preset.filter,
-                                    presetId: preset.id,
-                                  ),
-                                ),
-                              ),
-                          ],
+      filters: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
+        child: Row(
+          children: [
+            if (database) ...[
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: presets!.when<List<Widget>>(
+                      skipLoadingOnReload: true,
+                      loading: () => const [
+                        Padding(
+                          padding: EdgeInsets.only(right: 7),
+                          child: SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         ),
-                      ),
+                      ],
+                      error: (error, _) => [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 7),
+                          child: Tooltip(
+                            message: localizedErrorMessage(l, error),
+                            child: CompactFilterButton(
+                              label: l.dbOnlineRetry,
+                              icon: Icons.refresh_rounded,
+                              active: false,
+                              onTap: () => ref.invalidate(
+                                dbOnlineFollowingPresetsProvider(
+                                  widget.serverId,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      data: (items) => [
+                        for (final preset in items)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 7),
+                            child: CompactFilterButton(
+                              label: preset.name,
+                              active: _presetId == preset.id,
+                              onTap: () =>
+                                  _apply(preset.filter, presetId: preset.id),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 7),
-                  Tooltip(
-                    message: l.dbOnlineFollowingAddPreset,
-                    child: CompactFilterButton(
-                      label: '',
-                      icon: Icons.add_rounded,
-                      active: false,
-                      onTap: _savePreset,
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Tooltip(
-                    message: l.dbOnlineFollowingManagePresets,
-                    child: CompactFilterButton(
-                      label: '',
-                      icon: Icons.settings_outlined,
-                      active: false,
-                      onTap: _managePresets,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            )
-          : const SizedBox.shrink(),
+              const SizedBox(width: 7),
+              Tooltip(
+                message: l.dbOnlineFollowingAddPreset,
+                child: CompactFilterButton(
+                  label: '',
+                  icon: Icons.add_rounded,
+                  active: false,
+                  onTap: _savePreset,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Tooltip(
+                message: l.dbOnlineFollowingManagePresets,
+                child: CompactFilterButton(
+                  label: '',
+                  icon: Icons.settings_outlined,
+                  active: false,
+                  onTap: _managePresets,
+                ),
+              ),
+              const SizedBox(width: 7),
+            ] else
+              const Spacer(),
+            const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
+          ],
+        ),
+      ),
       body: capability.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => ErrorView(
@@ -368,38 +394,17 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
                   slivers: [
                     SliverPadding(
                       padding: MediaListLayout.padding,
-                      sliver: PagedSliverGrid<int, DbOnlineMovie>(
-                        pagingController: _paging,
-                        showNoMoreItemsIndicatorAsGridChild: false,
-                        gridDelegate: const MediaGridDelegate(),
-                        builderDelegate:
-                            PagedChildBuilderDelegate<DbOnlineMovie>(
-                              itemBuilder: (context, movie, _) =>
-                                  DbOnlineMovieCard(
-                                    movie: movie,
-                                    config: config,
-                                    width: double.infinity,
-                                    onTap: () => openDbOnlineMovieUnawaited(
-                                      context,
-                                      movie,
-                                    ),
-                                  ),
-                              firstPageErrorIndicatorBuilder: (_) =>
-                                  ErrorView.list(
-                                    message: _paging.error.toString(),
-                                    onRetry: _paging.retryLastFailedRequest,
-                                  ),
-                              newPageErrorIndicatorBuilder: (_) =>
-                                  PaginationRetry(
-                                    onRetry: _paging.retryLastFailedRequest,
-                                  ),
-                              noItemsFoundIndicatorBuilder: (_) => EmptyView(
-                                message: l.dbOnlineFollowingNoMovies,
-                              ),
-                              noMoreItemsIndicatorBuilder: (_) =>
-                                  const NoMoreContent(),
+                      sliver: viewMode == MediaViewMode.portrait
+                          ? PagedSliverGrid<int, DbOnlineMovie>(
+                              pagingController: _paging,
+                              showNoMoreItemsIndicatorAsGridChild: false,
+                              gridDelegate: const MediaGridDelegate(),
+                              builderDelegate: delegate,
+                            )
+                          : PagedSliverList<int, DbOnlineMovie>(
+                              pagingController: _paging,
+                              builderDelegate: delegate,
                             ),
-                      ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],

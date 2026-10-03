@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/config/server_config_provider.dart';
 import '../core/platform/app_theme.dart';
 import '../l10n/generated/app_localizations.dart';
 
@@ -12,6 +16,29 @@ MediaViewMode mediaViewModeFromPreference(String? value) => switch (value) {
   // 兼容已有双模式页面保存的 grid 值。
   _ => MediaViewMode.portrait,
 };
+
+/// 按偏好键持久化的视图模式；使用同一键的页面与弹层共享同一状态。
+class MediaViewModePreference extends Notifier<MediaViewMode> {
+  MediaViewModePreference(this.key);
+
+  final String key;
+
+  @override
+  MediaViewMode build() => mediaViewModeFromPreference(
+    ref.watch(sharedPrefsProvider).getString(key),
+  );
+
+  void set(MediaViewMode mode) {
+    if (state == mode) return;
+    state = mode;
+    unawaited(ref.read(sharedPrefsProvider).setString(key, mode.name));
+  }
+}
+
+final mediaViewModePreferenceProvider =
+    NotifierProvider.family<MediaViewModePreference, MediaViewMode, String>(
+      MediaViewModePreference.new,
+    );
 
 /// 与 OMM 现有风格一致的紧凑分段视图切换。
 class MediaViewModeToggle extends StatelessWidget {
@@ -86,4 +113,19 @@ class MediaViewModeToggle extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 绑定 [mediaViewModePreferenceProvider] 的视图切换。
+class MediaViewModePreferenceToggle extends ConsumerWidget {
+  const MediaViewModePreferenceToggle({super.key, required this.preferenceKey});
+
+  final String preferenceKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => MediaViewModeToggle(
+    mode: ref.watch(mediaViewModePreferenceProvider(preferenceKey)),
+    onChanged: ref
+        .read(mediaViewModePreferenceProvider(preferenceKey).notifier)
+        .set,
+  );
 }

@@ -16,6 +16,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_section_tab.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -471,5 +472,70 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('私人演员'), findsNothing);
     expect(_privateText('私人影片'), findsNothing);
+  });
+
+  testWidgets('视图切换统一作用于订阅影片板块与实体影片弹层，黑名单不显示', (tester) async {
+    final container = await _pumpPage(tester, observer: _NavigationObserver());
+    expect(find.byType(MediaViewModeToggle), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
+    expect(find.byType(CatalogMovieCard), findsNothing);
+    for (final section in ['已完成', '在线订阅']) {
+      await _selectSection(tester, section);
+      expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
+    }
+
+    await tester.tap(find.byIcon(Icons.crop_landscape_rounded));
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '订阅中');
+    final cards = tester.widgetList<CatalogMovieCard>(
+      find.byType(CatalogMovieCard),
+    );
+    expect(cards, isNotEmpty);
+    expect(cards.every((card) => card.landscape), isTrue);
+    expect(
+      container
+          .read(sharedPrefsProvider)
+          .getString('db_online.subscriptions.view_mode.v1'),
+      'landscape',
+    );
+
+    await _selectSection(tester, '黑名单');
+    expect(find.byType(MediaViewModeToggle), findsNothing);
+    expect(
+      tester
+          .widget<MediaSectionTab>(find.widgetWithText(MediaSectionTab, '黑名单'))
+          .selected,
+      isTrue,
+    );
+
+    await _selectSection(tester, '演员订阅');
+    expect(find.byType(MediaViewModeToggle), findsOneWidget);
+    await tester.tapAt(tester.getCenter(find.byType(PrivacyText).first));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('私人演员'));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(DbOnlineSubscriptionVideosSheet);
+    final sheetCards = tester.widgetList<CatalogMovieCard>(
+      find.descendant(of: sheet, matching: find.byType(CatalogMovieCard)),
+    );
+    expect(sheetCards, isNotEmpty);
+    expect(sheetCards.every((card) => card.landscape), isTrue);
+    await tester.tap(
+      find.descendant(
+        of: sheet,
+        matching: find.byIcon(Icons.view_list_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: sheet, matching: find.byType(CatalogListMovieCard)),
+      findsNWidgets(2),
+    );
+    Navigator.of(tester.element(sheet)).pop();
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '订阅中');
+    expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
   });
 }

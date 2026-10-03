@@ -29,6 +29,7 @@ import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/drag_selection.dart';
@@ -45,6 +46,10 @@ import 'package:omm/shared/sheet_controls.dart';
 part 'db_online_subscription_videos_sheet.dart';
 part 'db_online_subscription_editor.dart';
 part 'db_online_auto_sync_editor.dart';
+
+/// 订阅管理统一的影片视图模式：订阅中、已完成、在线订阅以及演员/综合订阅
+/// 的影片列表共用，不按板块单独保存。
+const _subscriptionViewModeKey = 'db_online.subscriptions.view_mode.v1';
 
 class DbOnlineSubscriptionsPage extends ConsumerStatefulWidget {
   const DbOnlineSubscriptionsPage({super.key});
@@ -111,6 +116,10 @@ class _DbOnlineSubscriptionsPageState
 
   bool get _usesMovieCards =>
       _section == 'pending' || _section == 'completed' || _section == 'online';
+
+  /// 演员与综合订阅本身是实体列表，视图切换作用于其影片弹层。
+  bool get _showsViewModeToggle =>
+      _usesMovieCards || _section == 'actor' || _section == 'series';
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +216,9 @@ class _DbOnlineSubscriptionsPageState
     ServerConfig? serverConfig,
   ) {
     final l = AppL10n.of(context);
+    final viewMode = ref.watch(
+      mediaViewModePreferenceProvider(_subscriptionViewModeKey),
+    );
     final sections = _sections(l, capabilities);
     if (sections.isNotEmpty &&
         !sections.any((section) => section.$1 == _section)) {
@@ -278,12 +290,25 @@ class _DbOnlineSubscriptionsPageState
                           : floatingTabBarContentBottomInset(context),
                     ),
                     sliver: _usesMovieCards
-                        ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
-                            pagingController: _pagingController,
-                            showNoMoreItemsIndicatorAsGridChild: false,
-                            gridDelegate: const MediaGridDelegate(),
-                            builderDelegate: _pagingDelegate(l, serverConfig),
-                          )
+                        ? viewMode == MediaViewMode.portrait
+                              ? PagedSliverGrid<int, DbOnlineSubscriptionItem>(
+                                  pagingController: _pagingController,
+                                  showNoMoreItemsIndicatorAsGridChild: false,
+                                  gridDelegate: const MediaGridDelegate(),
+                                  builderDelegate: _pagingDelegate(
+                                    l,
+                                    serverConfig,
+                                    viewMode,
+                                  ),
+                                )
+                              : PagedSliverList<int, DbOnlineSubscriptionItem>(
+                                  pagingController: _pagingController,
+                                  builderDelegate: _pagingDelegate(
+                                    l,
+                                    serverConfig,
+                                    viewMode,
+                                  ),
+                                )
                         : PagedSliverList<
                             int,
                             DbOnlineSubscriptionItem
@@ -302,7 +327,11 @@ class _DbOnlineSubscriptionsPageState
                                       color: appColors(context).divider,
                                     );
                             },
-                            builderDelegate: _pagingDelegate(l, serverConfig),
+                            builderDelegate: _pagingDelegate(
+                              l,
+                              serverConfig,
+                              viewMode,
+                            ),
                           ),
                   ),
                 ] else
@@ -331,9 +360,15 @@ class _DbOnlineSubscriptionsPageState
   PagedChildBuilderDelegate<DbOnlineSubscriptionItem> _pagingDelegate(
     AppL10n l,
     ServerConfig? serverConfig,
+    MediaViewMode viewMode,
   ) => PagedChildBuilderDelegate<DbOnlineSubscriptionItem>(
     itemBuilder: (context, item, index) {
-      if (_usesMovieCards) return _movieSubscriptionCard(item, l, serverConfig);
+      if (_usesMovieCards) {
+        final card = _movieSubscriptionCard(item, l, serverConfig, viewMode);
+        return viewMode == MediaViewMode.landscape
+            ? MediaLandscapeListItem(child: card)
+            : card;
+      }
       if (_section == 'blacklist') {
         return PagedSelectionItem<DbOnlineSubscriptionItem>(
           selection: _blacklistSelection,
@@ -640,11 +675,14 @@ class _DbOnlineSubscriptionsPageState
   }
 
   Widget _sectionPicker(List<(String, String, IconData)> sections) {
-    return SizedBox(
+    final picker = SizedBox(
       height: 32,
       child: ListView.separated(
         controller: _sectionPickerController,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
+        padding: EdgeInsets.only(
+          left: 22,
+          right: _showsViewModeToggle ? 8 : 22,
+        ),
         scrollDirection: Axis.horizontal,
         itemCount: sections.length,
         separatorBuilder: (_, _) => const SizedBox(width: 6),
@@ -668,6 +706,19 @@ class _DbOnlineSubscriptionsPageState
           );
         },
       ),
+    );
+    // 保持同一棵树，切到黑名单时分区列表不会重建而丢失滚动位置。
+    return Row(
+      children: [
+        Expanded(child: picker),
+        if (_showsViewModeToggle)
+          const Padding(
+            padding: EdgeInsets.only(right: 22),
+            child: MediaViewModePreferenceToggle(
+              preferenceKey: _subscriptionViewModeKey,
+            ),
+          ),
+      ],
     );
   }
 
@@ -1107,16 +1158,11 @@ class _DbOnlineSubscriptionsPageState
     DbOnlineSubscriptionItem item,
     AppL10n l,
     ServerConfig? serverConfig,
+    MediaViewMode viewMode,
   ) {
-    final imageUrl = _resolveSubscriptionImage(serverConfig, [
-      item.data['thumb_url'],
-      item.data['cover_url'],
-      item.data['image_url'],
-    ]);
     final onlineCode = item.kind == 'online'
         ? item.data['number']?.toString().trim()
         : null;
-    final meta = item.data['release_date']?.toString().trim() ?? '';
     final privacyId = _subscriptionMoviePrivacyId(item);
     final hidden =
         ref.watch(privacyShieldProvider) &&
@@ -1124,21 +1170,18 @@ class _DbOnlineSubscriptionsPageState
     final entries = hidden
         ? const <GlassMenuEntry<String>>[]
         : _rowMenuEntries(l);
-    final overlays = _subscriptionMovieBadges(item, l);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final card = CatalogMovieCard(
-          title: item.title,
+        final card = _subscriptionMovieTile(
+          item,
+          l,
+          serverConfig: serverConfig,
+          viewMode: viewMode,
           code: onlineCode?.isNotEmpty == true ? onlineCode : item.id,
-          imageUrl: imageUrl,
-          meta: meta,
           width: constraints.maxWidth,
-          privacyId: privacyId,
           onTap: entries.isEmpty
               ? () => _openSubscriptionMovieDetail(context, ref, item)
               : null,
-          coverTopLeftOverlay: overlays.status,
-          coverBottomLeftOverlay: overlays.filters,
         );
         if (entries.isEmpty) return card;
         return GlassMenuAnchor<String>(
@@ -2173,6 +2216,68 @@ void _openSubscriptionMovieDetail(
     filters: filters.isEmpty
         ? null
         : Wrap(spacing: 3, runSpacing: 3, children: filters),
+  );
+}
+
+/// 按订阅管理统一的视图模式渲染订阅影片：竖版、横版或紧凑列表。
+Widget _subscriptionMovieTile(
+  DbOnlineSubscriptionItem item,
+  AppL10n l, {
+  required ServerConfig? serverConfig,
+  required MediaViewMode viewMode,
+  required String? code,
+  required double width,
+  VoidCallback? onTap,
+}) {
+  final landscape = viewMode == MediaViewMode.landscape;
+  final imageUrl = _resolveSubscriptionImage(
+    serverConfig,
+    landscape
+        ? [
+            item.data['cover_url'],
+            item.data['thumb_url'],
+            item.data['image_url'],
+          ]
+        : [
+            item.data['thumb_url'],
+            item.data['cover_url'],
+            item.data['image_url'],
+          ],
+  );
+  final meta = item.data['release_date']?.toString().trim() ?? '';
+  final privacyId = _subscriptionMoviePrivacyId(item);
+  final overlays = _subscriptionMovieBadges(item, l);
+  if (viewMode == MediaViewMode.list) {
+    final badges = [?overlays.status, ?overlays.filters];
+    return CatalogListMovieCard(
+      title: item.title,
+      code: code,
+      imageUrl: imageUrl,
+      meta: meta,
+      width: width,
+      privacyId: privacyId,
+      onTap: onTap,
+      additional: badges.isEmpty
+          ? null
+          : Wrap(
+              spacing: 5,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: badges,
+            ),
+    );
+  }
+  return CatalogMovieCard(
+    title: item.title,
+    code: code,
+    imageUrl: imageUrl,
+    meta: meta,
+    width: width,
+    privacyId: privacyId,
+    onTap: onTap,
+    landscape: landscape,
+    coverTopLeftOverlay: overlays.status,
+    coverBottomLeftOverlay: overlays.filters,
   );
 }
 

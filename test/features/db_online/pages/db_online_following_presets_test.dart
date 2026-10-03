@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/features/db_online/pages/db_online_following_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_following_presets_sheet.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
@@ -46,7 +47,9 @@ void main() {
     final addRect = tester.getRect(addButton);
     final manageRect = tester.getRect(manageButton);
     expect(addRect.left, greaterThan(0));
-    expect(manageRect.right, closeTo(390 - 22, 0.01));
+    final toggleRect = tester.getRect(find.byType(MediaViewModeToggle));
+    expect(manageRect.right, closeTo(toggleRect.left - 7, 0.01));
+    expect(toggleRect.right, closeTo(390 - 22, 0.01));
     expect(
       tester.getCenter(find.text('关注列表1较长名称')).dy,
       tester.getCenter(find.text('关注列表7较长名称')).dy,

@@ -346,4 +346,35 @@ void main() {
     expect(backend.to('/options/categories'), isEmpty);
     expect(backend.to('/subs/tags'), isEmpty);
   });
+
+  testWidgets('视图切换无数据库也可用，列表与横版持久化', (tester) async {
+    final backend = FollowingTestBackend()..database = false;
+    final container = await pumpFollowingTest(
+      tester,
+      backend,
+      const DbOnlineFollowingPage(),
+    );
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await pumpFollowingFrames(tester);
+    expect(
+      tester.widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard)).compact,
+      isTrue,
+    );
+    await tester.tap(find.byIcon(Icons.crop_landscape_rounded));
+    await pumpFollowingFrames(tester);
+    expect(
+      tester
+          .widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard))
+          .landscape,
+      isTrue,
+    );
+    expect(
+      container
+          .read(sharedPrefsProvider)
+          .getString('db_online.following.view_mode.v1'),
+      'landscape',
+    );
+    expect(backend.to('/subs/tags'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
 }
