@@ -35,11 +35,6 @@ Future<void> main() async {
     ..maximumSizeBytes = 80 << 20
     ..maximumSize = 300;
   MediaKit.ensureInitialized();
-  final startupPreferences = await SharedPreferences.getInstance();
-  final startupLocale = AppLocale.fromValue(
-    startupPreferences.getString('app.locale'),
-  ).toLocale();
-  await AudioPlaybackService.initialize(locale: startupLocale);
   runApp(const _AppBootstrap());
 }
 
@@ -51,25 +46,49 @@ class _AppBootstrap extends StatefulWidget {
 }
 
 class _AppBootstrapState extends State<_AppBootstrap> {
-  late final Future<SharedPreferences> _preferencesFuture;
+  late final Future<SharedPreferences> _startupFuture;
+  SharedPreferences? _preferences;
+  AppThemeMode _startupThemeMode = AppThemeMode.system;
 
   @override
   void initState() {
     super.initState();
-    _preferencesFuture = SharedPreferences.getInstance();
-    _preferencesFuture.then(AppHaptics.configureFromPreferences);
+    _startupFuture = _initializeStartup();
+  }
+
+  Future<SharedPreferences> _initializeStartup() async {
+    final preferences = await SharedPreferences.getInstance();
+    _preferences = preferences;
+    _startupThemeMode = AppThemeMode.fromValue(
+      preferences.getString('app.themeMode'),
+    );
+    if (mounted) setState(() {});
+    AppHaptics.configureFromPreferences(preferences);
+
+    final locale = AppLocale.fromValue(
+      preferences.getString('app.locale'),
+    ).toLocale();
+    try {
+      await AudioPlaybackService.initialize(locale: locale);
+    } catch (error, stackTrace) {
+      debugPrint('Audio playback initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    return preferences;
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<SharedPreferences>(
-      future: _preferencesFuture,
+      future: _startupFuture,
       builder: (context, snapshot) {
-        final prefs = snapshot.data;
-        if (prefs == null) {
+        final prefs = _preferences ?? snapshot.data;
+        if (prefs == null || snapshot.connectionState != ConnectionState.done) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: buildAppTheme(Brightness.dark),
+            theme: buildAppTheme(Brightness.light),
+            darkTheme: buildAppTheme(Brightness.dark),
+            themeMode: _startupThemeMode.toMaterial(),
             home: const _BootSplash(),
           );
         }
@@ -398,8 +417,7 @@ class _AuthenticatedManagerHome extends ConsumerWidget {
   }
 }
 
-/// SharedPreferences 就绪前的冷启动闪屏，无法读取服务器配置，仅显示背景与
-/// 轻量加载指示。
+/// 偏好设置和音频服务初始化期间显示的冷启动页。
 class _BootSplash extends StatelessWidget {
   const _BootSplash();
 
@@ -408,11 +426,13 @@ class _BootSplash extends StatelessWidget {
     final c = appColors(context);
     return Scaffold(
       backgroundColor: c.bg,
-      body: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
+      body: Center(
+        child: Image.asset(
+          'assets/branding/oh_my_media_logo.png',
+          width: 144,
+          height: 144,
+          fit: BoxFit.contain,
+          semanticLabel: 'Oh My Media',
         ),
       ),
     );
