@@ -2743,5 +2743,61 @@
   "resourceSeriesCountSuffix": "个系列",
   "taskCountSuffix": "项任务",
   "dbOnlineSubscriptionsManageTitle": "订阅管理",
-  "actorAssociationCountSuffix": "个关联"
+  "actorAssociationCountSuffix": "个关联",
+  "dbOnlineDownloadRecordsTitle": "下载记录",
+  "dbOnlineDownloadRecordsEmpty": "暂无下载记录",
+  "dbOnlineDownloadRecordsSearch": "搜索番号、标题、资源名",
+  "dbOnlineDownloadRecordsFilters": "筛选条件",
+  "dbOnlineDownloadRecordsStartDate": "开始日期",
+  "dbOnlineDownloadRecordsEndDate": "结束日期",
+  "dbOnlineDownloadRecordsInvalidDates": "结束日期不能早于开始日期",
+  "dbOnlineDownloadRecordsResourceTypes": "资源类型",
+  "dbOnlineDownloadRecordsAll": "全部",
+  "dbOnlineDownloadRecordsNormal": "普通",
+  "dbOnlineDownloadRecordsDownloader": "下载器",
+  "dbOnlineDownloadRecordsSource": "来源",
+  "dbOnlineDownloadRecordsStatus": "状态",
+  "dbOnlineDownloadRecordsSuccess": "成功",
+  "dbOnlineDownloadRecordsFailed": "失败",
+  "dbOnlineDownloadRecordsManual": "手动推送",
+  "dbOnlineDownloadRecordsVideoSub": "影片订阅",
+  "dbOnlineDownloadRecordsActorSub": "演员订阅",
+  "dbOnlineDownloadRecordsSeriesSub": "综合订阅",
+  "dbOnlineDownloadRecordsWatched": "看过列表",
+  "dbOnlineDownloadRecordsCheck": "手动下载检测",
+  "dbOnlineDownloadRecordsResourceDate": "资源日期",
+  "dbOnlineDownloadRecordsResourceName": "资源名称",
+  "dbOnlineDownloadRecordsError": "失败原因",
+  "dbOnlineDownloadRecordsRepush": "重推",
+  "dbOnlineDownloadRecordsRepushing": "重推中",
+  "dbOnlineDownloadRecordsExpand": "展开记录详情",
+  "dbOnlineDownloadRecordsCollapse": "收起记录详情",
+  "dbOnlineDownloadRecordsUnknownVideo": "未知番号",
+  "dbOnlineDownloadRecordsNoName": "未记录资源名",
+  "dbOnlineDownloadRecordsNoDownloader": "未记录",
+  "dbOnlineDownloadRecordsUnknownSource": "未知来源",
+  "dbOnlineDownloadRecordsUnknownProtocol": "未知协议",
+  "dbOnlineDownloadRecordsRequiresDatabase": "请先在 DBO 后台启用数据库",
+  "dbOnlineDownloadRecordsQuota": "剩余配额",
+  "dbOnlineDownloadRecordsRepushedTo": "已重推到 {downloader}",
+  "@dbOnlineDownloadRecordsRepushedTo": {
+    "placeholders": {
+      "downloader": {
+        "type": "String"
+      }
+    }
+  },
+  "dbOnlineDownloadRecordsHd": "高清",
+  "dbOnlineDownloadRecordsMagnet": "磁链",
+  "dbOnlineDownloadRecordsStats": "共 {total} 条，筛选后 {filtered} 条",
+  "@dbOnlineDownloadRecordsStats": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "filtered": {
+        "type": "int"
+      }
+    }
+  }
 }

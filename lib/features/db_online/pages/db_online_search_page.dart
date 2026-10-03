@@ -1,3 +1,4 @@
+import 'package:omm/shared/catalog_search_field.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
@@ -134,7 +135,6 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     final l = AppL10n.of(context);
 
     return GlowBackground(
@@ -155,73 +155,28 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  border: Border.all(color: colors.cardBorder),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 14),
-                    SearchTypeMenu<DbOnlineSearchType>(
-                      value: _searchType,
-                      options: [
-                        for (final type in DbOnlineSearchType.values)
-                          SearchTypeOption<DbOnlineSearchType>(
-                            value: type,
-                            label: type.label(l),
-                            icon: type.icon,
-                          ),
-                      ],
-                      onChanged: _changeSearchType,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        autofocus: true,
-                        textInputAction: TextInputAction.search,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: InputDecoration(
-                          hintText: _searchType.placeholder(l),
-                          hintStyle: TextStyle(
-                            color: colors.muted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          isCollapsed: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                          ),
-                          border: InputBorder.none,
-                        ),
-                        style: TextStyle(
-                          color: colors.text,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        onChanged: _onChanged,
-                        onSubmitted: _submitSearch,
+              child: CatalogSearchField(
+                controller: _controller,
+                hintText: _searchType.placeholder(l),
+                autofocus: true,
+                leading: SearchTypeMenu<DbOnlineSearchType>(
+                  value: _searchType,
+                  options: [
+                    for (final type in DbOnlineSearchType.values)
+                      SearchTypeOption<DbOnlineSearchType>(
+                        value: type,
+                        label: type.label(l),
+                        icon: type.icon,
                       ),
-                    ),
-                    if (_controller.text.isNotEmpty)
-                      IconButton(
-                        icon: Icon(Icons.close, size: 16, color: colors.muted),
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() {
-                            _submittedQuery = '';
-                            _searchSerial++;
-                          });
-                        },
-                      ),
-                    IconButton(
-                      tooltip: l.searchTitle,
-                      icon: Icon(Icons.search, size: 18, color: colors.muted),
-                      onPressed: _submitSearch,
-                    ),
-                    const SizedBox(width: 4),
                   ],
+                  onChanged: _changeSearchType,
                 ),
+                onChanged: _onChanged,
+                onSubmitted: _submitSearch,
+                onCleared: () => setState(() {
+                  _submittedQuery = '';
+                  _searchSerial++;
+                }),
               ),
             ),
             Expanded(

@@ -137,9 +137,14 @@ class ResourcePanelTabButton extends StatelessWidget {
 
 /// Resource-quality badges shared by the OMM and DBO resource panels.
 class ResourceTagBadges extends StatelessWidget {
-  const ResourceTagBadges({super.key, required this.tags});
+  const ResourceTagBadges({
+    super.key,
+    required this.tags,
+    this.showNormal = false,
+  });
 
   final List<String> tags;
+  final bool showNormal;
 
   @override
   Widget build(BuildContext context) {
@@ -157,11 +162,16 @@ class ResourceTagBadges extends StatelessWidget {
       (tag) => tag.contains('字幕') || tag.contains('sub'),
     );
     final hasCrack = normalized.any(
-      (tag) => tag.contains('破解') || tag.contains('无码'),
+      (tag) => tag.contains('破解') || tag.contains('无码') || tag == 'uncensored',
     );
     final hasLada = normalized.any((tag) => tag == 'lada');
 
-    if (!hasUhd && !hasHd && !hasSubtitle && !hasCrack && !hasLada) {
+    if (!showNormal &&
+        !hasUhd &&
+        !hasHd &&
+        !hasSubtitle &&
+        !hasCrack &&
+        !hasLada) {
       return const SizedBox.shrink();
     }
 
@@ -172,6 +182,12 @@ class ResourceTagBadges extends StatelessWidget {
         spacing: 4,
         runSpacing: 4,
         children: [
+          if (showNormal && !hasUhd && !hasHd)
+            _ResourceTagBadge(
+              label: l.dbOnlineDownloadRecordsNormal,
+              icon: Icons.video_file_outlined,
+              color: appColors(context).muted,
+            ),
           if (hasUhd)
             const _ResourceTagBadge(
               label: 'UHD',

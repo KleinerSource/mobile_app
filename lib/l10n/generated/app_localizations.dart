@@ -14458,6 +14458,240 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'个关联'**
   String get actorAssociationCountSuffix;
+
+  /// No description provided for @dbOnlineDownloadRecordsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载记录'**
+  String get dbOnlineDownloadRecordsTitle;
+
+  /// No description provided for @dbOnlineDownloadRecordsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无下载记录'**
+  String get dbOnlineDownloadRecordsEmpty;
+
+  /// No description provided for @dbOnlineDownloadRecordsSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索番号、标题、资源名'**
+  String get dbOnlineDownloadRecordsSearch;
+
+  /// No description provided for @dbOnlineDownloadRecordsFilters.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选条件'**
+  String get dbOnlineDownloadRecordsFilters;
+
+  /// No description provided for @dbOnlineDownloadRecordsStartDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始日期'**
+  String get dbOnlineDownloadRecordsStartDate;
+
+  /// No description provided for @dbOnlineDownloadRecordsEndDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束日期'**
+  String get dbOnlineDownloadRecordsEndDate;
+
+  /// No description provided for @dbOnlineDownloadRecordsInvalidDates.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束日期不能早于开始日期'**
+  String get dbOnlineDownloadRecordsInvalidDates;
+
+  /// No description provided for @dbOnlineDownloadRecordsResourceTypes.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源类型'**
+  String get dbOnlineDownloadRecordsResourceTypes;
+
+  /// No description provided for @dbOnlineDownloadRecordsAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get dbOnlineDownloadRecordsAll;
+
+  /// No description provided for @dbOnlineDownloadRecordsNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'普通'**
+  String get dbOnlineDownloadRecordsNormal;
+
+  /// No description provided for @dbOnlineDownloadRecordsDownloader.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载器'**
+  String get dbOnlineDownloadRecordsDownloader;
+
+  /// No description provided for @dbOnlineDownloadRecordsSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源'**
+  String get dbOnlineDownloadRecordsSource;
+
+  /// No description provided for @dbOnlineDownloadRecordsStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get dbOnlineDownloadRecordsStatus;
+
+  /// No description provided for @dbOnlineDownloadRecordsSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功'**
+  String get dbOnlineDownloadRecordsSuccess;
+
+  /// No description provided for @dbOnlineDownloadRecordsFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get dbOnlineDownloadRecordsFailed;
+
+  /// No description provided for @dbOnlineDownloadRecordsManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动推送'**
+  String get dbOnlineDownloadRecordsManual;
+
+  /// No description provided for @dbOnlineDownloadRecordsVideoSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'影片订阅'**
+  String get dbOnlineDownloadRecordsVideoSub;
+
+  /// No description provided for @dbOnlineDownloadRecordsActorSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员订阅'**
+  String get dbOnlineDownloadRecordsActorSub;
+
+  /// No description provided for @dbOnlineDownloadRecordsSeriesSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'综合订阅'**
+  String get dbOnlineDownloadRecordsSeriesSub;
+
+  /// No description provided for @dbOnlineDownloadRecordsWatched.
+  ///
+  /// In zh, this message translates to:
+  /// **'看过列表'**
+  String get dbOnlineDownloadRecordsWatched;
+
+  /// No description provided for @dbOnlineDownloadRecordsCheck.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动下载检测'**
+  String get dbOnlineDownloadRecordsCheck;
+
+  /// No description provided for @dbOnlineDownloadRecordsResourceDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源日期'**
+  String get dbOnlineDownloadRecordsResourceDate;
+
+  /// No description provided for @dbOnlineDownloadRecordsResourceName.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源名称'**
+  String get dbOnlineDownloadRecordsResourceName;
+
+  /// No description provided for @dbOnlineDownloadRecordsError.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败原因'**
+  String get dbOnlineDownloadRecordsError;
+
+  /// No description provided for @dbOnlineDownloadRecordsRepush.
+  ///
+  /// In zh, this message translates to:
+  /// **'重推'**
+  String get dbOnlineDownloadRecordsRepush;
+
+  /// No description provided for @dbOnlineDownloadRecordsRepushing.
+  ///
+  /// In zh, this message translates to:
+  /// **'重推中'**
+  String get dbOnlineDownloadRecordsRepushing;
+
+  /// No description provided for @dbOnlineDownloadRecordsExpand.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开记录详情'**
+  String get dbOnlineDownloadRecordsExpand;
+
+  /// No description provided for @dbOnlineDownloadRecordsCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起记录详情'**
+  String get dbOnlineDownloadRecordsCollapse;
+
+  /// No description provided for @dbOnlineDownloadRecordsUnknownVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知番号'**
+  String get dbOnlineDownloadRecordsUnknownVideo;
+
+  /// No description provided for @dbOnlineDownloadRecordsNoName.
+  ///
+  /// In zh, this message translates to:
+  /// **'未记录资源名'**
+  String get dbOnlineDownloadRecordsNoName;
+
+  /// No description provided for @dbOnlineDownloadRecordsNoDownloader.
+  ///
+  /// In zh, this message translates to:
+  /// **'未记录'**
+  String get dbOnlineDownloadRecordsNoDownloader;
+
+  /// No description provided for @dbOnlineDownloadRecordsUnknownSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知来源'**
+  String get dbOnlineDownloadRecordsUnknownSource;
+
+  /// No description provided for @dbOnlineDownloadRecordsUnknownProtocol.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知协议'**
+  String get dbOnlineDownloadRecordsUnknownProtocol;
+
+  /// No description provided for @dbOnlineDownloadRecordsRequiresDatabase.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在 DBO 后台启用数据库'**
+  String get dbOnlineDownloadRecordsRequiresDatabase;
+
+  /// No description provided for @dbOnlineDownloadRecordsQuota.
+  ///
+  /// In zh, this message translates to:
+  /// **'剩余配额'**
+  String get dbOnlineDownloadRecordsQuota;
+
+  /// No description provided for @dbOnlineDownloadRecordsRepushedTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'已重推到 {downloader}'**
+  String dbOnlineDownloadRecordsRepushedTo(String downloader);
+
+  /// No description provided for @dbOnlineDownloadRecordsHd.
+  ///
+  /// In zh, this message translates to:
+  /// **'高清'**
+  String get dbOnlineDownloadRecordsHd;
+
+  /// No description provided for @dbOnlineDownloadRecordsMagnet.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁链'**
+  String get dbOnlineDownloadRecordsMagnet;
+
+  /// No description provided for @dbOnlineDownloadRecordsStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {total} 条，筛选后 {filtered} 条'**
+  String dbOnlineDownloadRecordsStats(int total, int filtered);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

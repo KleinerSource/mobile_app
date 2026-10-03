@@ -2743,5 +2743,61 @@
   "resourceSeriesCountSuffix": "series",
   "taskCountSuffix": "tasks",
   "dbOnlineSubscriptionsManageTitle": "Subscription management",
-  "actorAssociationCountSuffix": "associations"
+  "actorAssociationCountSuffix": "associations",
+  "dbOnlineDownloadRecordsTitle": "Download records",
+  "dbOnlineDownloadRecordsEmpty": "No download records",
+  "dbOnlineDownloadRecordsSearch": "Search code, title, or resource name",
+  "dbOnlineDownloadRecordsFilters": "Filters",
+  "dbOnlineDownloadRecordsStartDate": "Start date",
+  "dbOnlineDownloadRecordsEndDate": "End date",
+  "dbOnlineDownloadRecordsInvalidDates": "End date must be on or after start date",
+  "dbOnlineDownloadRecordsResourceTypes": "Resource types",
+  "dbOnlineDownloadRecordsAll": "All",
+  "dbOnlineDownloadRecordsNormal": "Normal",
+  "dbOnlineDownloadRecordsDownloader": "Downloader",
+  "dbOnlineDownloadRecordsSource": "Source",
+  "dbOnlineDownloadRecordsStatus": "Status",
+  "dbOnlineDownloadRecordsSuccess": "Success",
+  "dbOnlineDownloadRecordsFailed": "Failed",
+  "dbOnlineDownloadRecordsManual": "Manual push",
+  "dbOnlineDownloadRecordsVideoSub": "Movie subscription",
+  "dbOnlineDownloadRecordsActorSub": "Actor subscription",
+  "dbOnlineDownloadRecordsSeriesSub": "Combined subscription",
+  "dbOnlineDownloadRecordsWatched": "Watched list",
+  "dbOnlineDownloadRecordsCheck": "Manual download check",
+  "dbOnlineDownloadRecordsResourceDate": "Resource date",
+  "dbOnlineDownloadRecordsResourceName": "Resource name",
+  "dbOnlineDownloadRecordsError": "Failure reason",
+  "dbOnlineDownloadRecordsRepush": "Push again",
+  "dbOnlineDownloadRecordsRepushing": "Pushing",
+  "dbOnlineDownloadRecordsExpand": "Expand record details",
+  "dbOnlineDownloadRecordsCollapse": "Collapse record details",
+  "dbOnlineDownloadRecordsUnknownVideo": "Unknown code",
+  "dbOnlineDownloadRecordsNoName": "Resource name not recorded",
+  "dbOnlineDownloadRecordsNoDownloader": "Not recorded",
+  "dbOnlineDownloadRecordsUnknownSource": "Unknown source",
+  "dbOnlineDownloadRecordsUnknownProtocol": "Unknown protocol",
+  "dbOnlineDownloadRecordsRequiresDatabase": "Enable the database in DBO settings first",
+  "dbOnlineDownloadRecordsQuota": "Remaining quota",
+  "dbOnlineDownloadRecordsRepushedTo": "Pushed to {downloader}",
+  "@dbOnlineDownloadRecordsRepushedTo": {
+    "placeholders": {
+      "downloader": {
+        "type": "String"
+      }
+    }
+  },
+  "dbOnlineDownloadRecordsHd": "HD",
+  "dbOnlineDownloadRecordsMagnet": "Magnet",
+  "dbOnlineDownloadRecordsStats": "{total} total, {filtered} matching",
+  "@dbOnlineDownloadRecordsStats": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "filtered": {
+        "type": "int"
+      }
+    }
+  }
 }

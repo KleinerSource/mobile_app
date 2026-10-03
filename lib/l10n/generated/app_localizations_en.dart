@@ -8018,4 +8018,128 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get actorAssociationCountSuffix => 'associations';
+
+  @override
+  String get dbOnlineDownloadRecordsTitle => 'Download records';
+
+  @override
+  String get dbOnlineDownloadRecordsEmpty => 'No download records';
+
+  @override
+  String get dbOnlineDownloadRecordsSearch =>
+      'Search code, title, or resource name';
+
+  @override
+  String get dbOnlineDownloadRecordsFilters => 'Filters';
+
+  @override
+  String get dbOnlineDownloadRecordsStartDate => 'Start date';
+
+  @override
+  String get dbOnlineDownloadRecordsEndDate => 'End date';
+
+  @override
+  String get dbOnlineDownloadRecordsInvalidDates =>
+      'End date must be on or after start date';
+
+  @override
+  String get dbOnlineDownloadRecordsResourceTypes => 'Resource types';
+
+  @override
+  String get dbOnlineDownloadRecordsAll => 'All';
+
+  @override
+  String get dbOnlineDownloadRecordsNormal => 'Normal';
+
+  @override
+  String get dbOnlineDownloadRecordsDownloader => 'Downloader';
+
+  @override
+  String get dbOnlineDownloadRecordsSource => 'Source';
+
+  @override
+  String get dbOnlineDownloadRecordsStatus => 'Status';
+
+  @override
+  String get dbOnlineDownloadRecordsSuccess => 'Success';
+
+  @override
+  String get dbOnlineDownloadRecordsFailed => 'Failed';
+
+  @override
+  String get dbOnlineDownloadRecordsManual => 'Manual push';
+
+  @override
+  String get dbOnlineDownloadRecordsVideoSub => 'Movie subscription';
+
+  @override
+  String get dbOnlineDownloadRecordsActorSub => 'Actor subscription';
+
+  @override
+  String get dbOnlineDownloadRecordsSeriesSub => 'Combined subscription';
+
+  @override
+  String get dbOnlineDownloadRecordsWatched => 'Watched list';
+
+  @override
+  String get dbOnlineDownloadRecordsCheck => 'Manual download check';
+
+  @override
+  String get dbOnlineDownloadRecordsResourceDate => 'Resource date';
+
+  @override
+  String get dbOnlineDownloadRecordsResourceName => 'Resource name';
+
+  @override
+  String get dbOnlineDownloadRecordsError => 'Failure reason';
+
+  @override
+  String get dbOnlineDownloadRecordsRepush => 'Push again';
+
+  @override
+  String get dbOnlineDownloadRecordsRepushing => 'Pushing';
+
+  @override
+  String get dbOnlineDownloadRecordsExpand => 'Expand record details';
+
+  @override
+  String get dbOnlineDownloadRecordsCollapse => 'Collapse record details';
+
+  @override
+  String get dbOnlineDownloadRecordsUnknownVideo => 'Unknown code';
+
+  @override
+  String get dbOnlineDownloadRecordsNoName => 'Resource name not recorded';
+
+  @override
+  String get dbOnlineDownloadRecordsNoDownloader => 'Not recorded';
+
+  @override
+  String get dbOnlineDownloadRecordsUnknownSource => 'Unknown source';
+
+  @override
+  String get dbOnlineDownloadRecordsUnknownProtocol => 'Unknown protocol';
+
+  @override
+  String get dbOnlineDownloadRecordsRequiresDatabase =>
+      'Enable the database in DBO settings first';
+
+  @override
+  String get dbOnlineDownloadRecordsQuota => 'Remaining quota';
+
+  @override
+  String dbOnlineDownloadRecordsRepushedTo(String downloader) {
+    return 'Pushed to $downloader';
+  }
+
+  @override
+  String get dbOnlineDownloadRecordsHd => 'HD';
+
+  @override
+  String get dbOnlineDownloadRecordsMagnet => 'Magnet';
+
+  @override
+  String dbOnlineDownloadRecordsStats(int total, int filtered) {
+    return '$total total, $filtered matching';
+  }
 }

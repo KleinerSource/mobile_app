@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glass.dart';
@@ -26,6 +27,10 @@ Future<bool> pushDbOnlineResource({
   required ValueChanged<bool> onPushing,
   String? site,
   String? date,
+  Map<String, dynamic>? recordResource,
+  Map<String, int> downloaderQuotas = const {},
+  String Function(String downloader)? successMessage,
+  VoidCallback? onSubmitted,
 }) async {
   if (url.trim().isEmpty || !isCurrent()) return false;
   final l = AppL10n.of(context);
@@ -59,6 +64,21 @@ Future<bool> pushDbOnlineResource({
                     ListTile(
                       leading: const Icon(Icons.download_outlined, size: 20),
                       title: Text(downloader.displayName),
+                      trailing: downloaderQuotas[downloader.name] == null
+                          ? null
+                          : Tooltip(
+                              message: l.dbOnlineDownloadRecordsQuota,
+                              child: Text(
+                                downloaderQuotas[downloader.name].toString(),
+                                style: AppText.mono(
+                                  context,
+                                  color:
+                                      downloaderQuotas[downloader.name]! <= 49
+                                      ? const Color(0xFFEF4444)
+                                      : appColors(context).accent,
+                                ),
+                              ),
+                            ),
                       onTap: () => Navigator.pop(context, downloader.name),
                     ),
                   const SizedBox(height: 8),
@@ -67,28 +87,33 @@ Future<bool> pushDbOnlineResource({
             ),
           );
     if (selected == null || !context.mounted || !isCurrent()) return false;
+    onSubmitted?.call();
     final result = await repository.pushDownload(
       urls: [url],
       downloader: selected,
       videoInfo: videoInfo,
       recordResources: [
-        {
-          'url': url,
-          'name': name,
-          'resource_protocol': protocol,
-          'resource_site': site ?? '',
-          'resource_flags': _resourceFlags(tags),
-          'resource_date': date ?? '',
-          'video_code': videoInfo['code'] ?? '',
-          'video_title': videoInfo['title'] ?? '',
-        },
+        recordResource ??
+            {
+              'url': url,
+              'name': name,
+              'resource_protocol': protocol,
+              'resource_site': site ?? '',
+              'resource_flags': _resourceFlags(tags),
+              'resource_date': date ?? '',
+              'video_code': videoInfo['code'] ?? '',
+              'video_title': videoInfo['title'] ?? '',
+            },
       ],
     );
     if (!context.mounted || !isCurrent()) return false;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.message.isEmpty ? l.resourcePushDownload : result.message,
+          successMessage?.call(result.downloader) ??
+              (result.message.isEmpty
+                  ? l.resourcePushDownload
+                  : result.message),
         ),
         duration: const Duration(seconds: 2),
       ),

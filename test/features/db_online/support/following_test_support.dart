@@ -209,6 +209,8 @@ Future<ProviderContainer> pumpFollowingTest(
   FollowingTestBackend backend,
   Widget page, {
   Duration? Function(int, Object)? retry,
+  Locale locale = const Locale('zh'),
+  double textScale = 1,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -235,7 +237,13 @@ Future<ProviderContainer> pumpFollowingTest(
         ),
       ],
       child: MaterialApp(
-        locale: const Locale('zh'),
+        locale: locale,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
         home: page,

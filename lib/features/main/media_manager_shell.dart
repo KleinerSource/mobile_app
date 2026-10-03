@@ -23,6 +23,7 @@ import 'package:omm/features/db_online/pages/db_online_home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/pages/db_online_following_page.dart';
+import 'package:omm/features/db_online/pages/db_online_download_records_page.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/features/media_browser/pages/media_browser_favorites_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_home_page.dart';
@@ -222,10 +223,23 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
                 onTap: onTap,
               ),
             ),
+            GlassMenuEntry<Object?>.action(
+              value: 'download-records',
+              builder: (context, selected, onTap) => GlassMenuRow(
+                icon: Icons.history_rounded,
+                label: l.dbOnlineDownloadRecordsTitle,
+                selected: selected,
+                onTap: onTap,
+              ),
+            ),
           ],
-          onQuickMenuSelected: (_) => unawaited(
+          onQuickMenuSelected: (value) => unawaited(
             Navigator.of(context).push<void>(
-              MaterialPageRoute(builder: (_) => const DbOnlineFollowingPage()),
+              MaterialPageRoute(
+                builder: (_) => value == 'download-records'
+                    ? const DbOnlineDownloadRecordsPage()
+                    : const DbOnlineFollowingPage(),
+              ),
             ),
           ),
         ),

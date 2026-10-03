@@ -7836,4 +7836,125 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get actorAssociationCountSuffix => '个关联';
+
+  @override
+  String get dbOnlineDownloadRecordsTitle => '下载记录';
+
+  @override
+  String get dbOnlineDownloadRecordsEmpty => '暂无下载记录';
+
+  @override
+  String get dbOnlineDownloadRecordsSearch => '搜索番号、标题、资源名';
+
+  @override
+  String get dbOnlineDownloadRecordsFilters => '筛选条件';
+
+  @override
+  String get dbOnlineDownloadRecordsStartDate => '开始日期';
+
+  @override
+  String get dbOnlineDownloadRecordsEndDate => '结束日期';
+
+  @override
+  String get dbOnlineDownloadRecordsInvalidDates => '结束日期不能早于开始日期';
+
+  @override
+  String get dbOnlineDownloadRecordsResourceTypes => '资源类型';
+
+  @override
+  String get dbOnlineDownloadRecordsAll => '全部';
+
+  @override
+  String get dbOnlineDownloadRecordsNormal => '普通';
+
+  @override
+  String get dbOnlineDownloadRecordsDownloader => '下载器';
+
+  @override
+  String get dbOnlineDownloadRecordsSource => '来源';
+
+  @override
+  String get dbOnlineDownloadRecordsStatus => '状态';
+
+  @override
+  String get dbOnlineDownloadRecordsSuccess => '成功';
+
+  @override
+  String get dbOnlineDownloadRecordsFailed => '失败';
+
+  @override
+  String get dbOnlineDownloadRecordsManual => '手动推送';
+
+  @override
+  String get dbOnlineDownloadRecordsVideoSub => '影片订阅';
+
+  @override
+  String get dbOnlineDownloadRecordsActorSub => '演员订阅';
+
+  @override
+  String get dbOnlineDownloadRecordsSeriesSub => '综合订阅';
+
+  @override
+  String get dbOnlineDownloadRecordsWatched => '看过列表';
+
+  @override
+  String get dbOnlineDownloadRecordsCheck => '手动下载检测';
+
+  @override
+  String get dbOnlineDownloadRecordsResourceDate => '资源日期';
+
+  @override
+  String get dbOnlineDownloadRecordsResourceName => '资源名称';
+
+  @override
+  String get dbOnlineDownloadRecordsError => '失败原因';
+
+  @override
+  String get dbOnlineDownloadRecordsRepush => '重推';
+
+  @override
+  String get dbOnlineDownloadRecordsRepushing => '重推中';
+
+  @override
+  String get dbOnlineDownloadRecordsExpand => '展开记录详情';
+
+  @override
+  String get dbOnlineDownloadRecordsCollapse => '收起记录详情';
+
+  @override
+  String get dbOnlineDownloadRecordsUnknownVideo => '未知番号';
+
+  @override
+  String get dbOnlineDownloadRecordsNoName => '未记录资源名';
+
+  @override
+  String get dbOnlineDownloadRecordsNoDownloader => '未记录';
+
+  @override
+  String get dbOnlineDownloadRecordsUnknownSource => '未知来源';
+
+  @override
+  String get dbOnlineDownloadRecordsUnknownProtocol => '未知协议';
+
+  @override
+  String get dbOnlineDownloadRecordsRequiresDatabase => '请先在 DBO 后台启用数据库';
+
+  @override
+  String get dbOnlineDownloadRecordsQuota => '剩余配额';
+
+  @override
+  String dbOnlineDownloadRecordsRepushedTo(String downloader) {
+    return '已重推到 $downloader';
+  }
+
+  @override
+  String get dbOnlineDownloadRecordsHd => '高清';
+
+  @override
+  String get dbOnlineDownloadRecordsMagnet => '磁链';
+
+  @override
+  String dbOnlineDownloadRecordsStats(int total, int filtered) {
+    return '共 $total 条，筛选后 $filtered 条';
+  }
 }
