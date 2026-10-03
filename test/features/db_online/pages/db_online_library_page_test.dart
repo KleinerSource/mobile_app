@@ -87,6 +87,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('DB ONLINE'), findsOneWidget);
+    expect(find.text('DBONLINE'), findsNothing);
     expect(requests, isNotEmpty);
     expect(requests.last, {
       'page': '1',

@@ -384,7 +384,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
         child: Column(
           children: [
             PageHeader(
-              eyebrow: 'DBONLINE',
+              eyebrow: 'DB ONLINE',
               title: Text(
                 AppL10n.of(context).libraryTitle,
                 style: AppText.pageTitle(context),

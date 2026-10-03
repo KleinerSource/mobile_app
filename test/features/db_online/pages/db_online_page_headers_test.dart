@@ -12,9 +12,13 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 
 import '../support/following_test_support.dart';
 
-void _checkHeader(WidgetTester tester, String title) {
+void _checkHeader(
+  WidgetTester tester,
+  String title, {
+  String eyebrow = 'DB ONLINE',
+}) {
   final header = find.byType(SettingsSubPageHeader);
-  final label = find.descendant(of: header, matching: find.text('DB ONLINE'));
+  final label = find.descendant(of: header, matching: find.text(eyebrow));
   final heading = find.descendant(of: header, matching: find.text(title));
   final back = find.byTooltip('返回');
   expect(header, findsOneWidget);
@@ -82,6 +86,7 @@ void main() {
   ];
 
   for (final (page, title, path, data) in pages) {
+    final eyebrow = page is DbOnlineFollowingPage ? '我的' : 'DB ONLINE';
     testWidgets('$title 加载、失败、重试和成功保留双抬头，返回仅退出当前页', (tester) async {
       final pending = Completer<Object?>();
       var retried = false;
@@ -106,12 +111,12 @@ void main() {
         retry: (_, _) => null,
       );
       expect(backend.to(path), hasLength(1));
-      _checkHeader(tester, title);
+      _checkHeader(tester, title, eyebrow: eyebrow);
       final before = tester.getRect(find.byType(SettingsSubPageHeader));
 
       pending.complete({'success': false, 'error': '测试请求失败'});
       await pumpFollowingFrames(tester);
-      _checkHeader(tester, title);
+      _checkHeader(tester, title, eyebrow: eyebrow);
       expect(find.text('重试'), findsOneWidget);
       expect(tester.getRect(find.byType(SettingsSubPageHeader)), before);
 
@@ -119,10 +124,10 @@ void main() {
       await tester.ensureVisible(find.text('重试'));
       await tester.tap(find.text('重试').hitTestable());
       await tester.pump();
-      _checkHeader(tester, title);
+      _checkHeader(tester, title, eyebrow: eyebrow);
       await pumpFollowingFrames(tester);
       expect(backend.to(path), hasLength(2));
-      _checkHeader(tester, title);
+      _checkHeader(tester, title, eyebrow: eyebrow);
       expect(tester.getRect(find.byType(SettingsSubPageHeader)), before);
 
       await tester.tap(find.byTooltip('返回'));

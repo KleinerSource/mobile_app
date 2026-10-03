@@ -12,12 +12,14 @@ class DbOnlineFollowingLayout extends StatelessWidget {
     super.key,
     required this.title,
     required this.body,
+    this.eyebrow = 'DB ONLINE',
     this.actions = const [],
     this.filters,
     this.scrollController,
   });
 
   final String title;
+  final String eyebrow;
   final Widget body;
   final List<Widget> actions;
   final Widget? filters;
@@ -34,7 +36,7 @@ class DbOnlineFollowingLayout extends StatelessWidget {
           header: Column(
             children: [
               SettingsSubPageHeader(
-                eyebrow: 'DB ONLINE',
+                eyebrow: eyebrow,
                 title: title,
                 trailing: actions.isEmpty
                     ? null

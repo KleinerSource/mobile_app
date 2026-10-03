@@ -238,6 +238,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
         )
         .join(', ');
     return DbOnlineFollowingLayout(
+      eyebrow: l.tabYou,
       title: l.dbOnlineFollowingTitle,
       scrollController: _scroll,
       actions: [
