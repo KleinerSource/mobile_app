@@ -2630,7 +2630,7 @@
   ,"dbOnlineSubscriptionFeatureRequiresOnlineAccount": "请先在 DBO 后台配置在线账户"
   ,"dbOnlineSubscriptionTitle": "订阅操作"
   ,"dbOnlineSubscriptionPreDownload": "预下载"
-  ,"dbOnlineSubscriptionWashMode": "洗版"
+  ,"dbOnlineSubscriptionWashMode": "洗板"
   ,"dbOnlineSubscriptionDownloadMode": "下载模式"
   ,"dbOnlineSubscriptionStrictMode": "严格"
   ,"dbOnlineSubscriptionFileSize": "文件大小"
@@ -2800,4 +2800,27 @@
       }
     }
   }
+  ,"dbOnlineWatchedTitle": "看过影片"
+  ,"dbOnlineWatchedType": "类型"
+  ,"dbOnlineWatchedRating": "评分"
+  ,"dbOnlineWatchedSort": "排序"
+  ,"dbOnlineWatchedSortAdded": "添加时间"
+  ,"dbOnlineWatchedSortReleased": "发布日期"
+  ,"dbOnlineWatchedRecheck": "复查"
+  ,"dbOnlineWatchedEmpty": "暂无匹配的看过影片"
+  ,"dbOnlineWatchedRequiresAccount": "请先在当前服务器配置在线账户"
+  ,"dbOnlineWatchedRecheckHint": "按当前筛选复查全部看过影片，符合条件的资源将交给服务器下载器处理。"
+  ,"dbOnlineWatchedStart": "开始复查"
+  ,"dbOnlineWatchedStarted": "已提交 {total} 部影片的复查任务"
+  ,"@dbOnlineWatchedStarted": {"placeholders": {"total": {"type": "int"}}}
+  ,"dbOnlineWatchedNoMatches": "没有可复查的匹配影片"
+  ,"dbOnlineWatchedQueued": "复查排队中"
+  ,"dbOnlineWatchedProgress": "复查中：{completed} / {total}"
+  ,"@dbOnlineWatchedProgress": {"placeholders": {"completed": {"type": "int"}, "total": {"type": "int"}}}
+  ,"dbOnlineWatchedReconnecting": "正在恢复复查进度连接"
+  ,"dbOnlineWatchedPresetLoading": "正在读取本地订阅预设"
+  ,"dbOnlineWatchedUseDefaults": "使用默认条件"
+  ,"dbOnlineWatchedInvalidSize": "文件大小须为非负数，最大值不能小于最小值；0 表示不限"
+  ,"dbOnlineWatchedInvalidFiles": "最大文件数须为 0–10 的整数"
+  ,"dbOnlineWatchedInvalidDate": "起始日期须为有效的 YYYY-MM-DD 日期"
 }

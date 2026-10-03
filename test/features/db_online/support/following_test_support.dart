@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/core/api/api_client.dart';
@@ -211,6 +212,7 @@ Future<ProviderContainer> pumpFollowingTest(
   Duration? Function(int, Object)? retry,
   Locale locale = const Locale('zh'),
   double textScale = 1,
+  List<Override> extraOverrides = const [],
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -235,6 +237,7 @@ Future<ProviderContainer> pumpFollowingTest(
             ),
           ),
         ),
+        ...extraOverrides,
       ],
       child: MaterialApp(
         locale: locale,

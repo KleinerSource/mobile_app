@@ -2800,4 +2800,27 @@
       }
     }
   }
+  ,"dbOnlineWatchedTitle": "Watched movies"
+  ,"dbOnlineWatchedType": "Type"
+  ,"dbOnlineWatchedRating": "Rating"
+  ,"dbOnlineWatchedSort": "Sort"
+  ,"dbOnlineWatchedSortAdded": "Added"
+  ,"dbOnlineWatchedSortReleased": "Release date"
+  ,"dbOnlineWatchedRecheck": "Recheck"
+  ,"dbOnlineWatchedEmpty": "No watched movies match these filters"
+  ,"dbOnlineWatchedRequiresAccount": "Configure an online account on this server first"
+  ,"dbOnlineWatchedRecheckHint": "Recheck all watched movies matching the current filters. Matching resources are sent to the server’s downloaders."
+  ,"dbOnlineWatchedStart": "Start recheck"
+  ,"dbOnlineWatchedStarted": "Submitted a recheck for {total} movies"
+  ,"@dbOnlineWatchedStarted": {"placeholders": {"total": {"type": "int"}}}
+  ,"dbOnlineWatchedNoMatches": "No matching movies to recheck"
+  ,"dbOnlineWatchedQueued": "Recheck queued"
+  ,"dbOnlineWatchedProgress": "Rechecking: {completed} / {total}"
+  ,"@dbOnlineWatchedProgress": {"placeholders": {"completed": {"type": "int"}, "total": {"type": "int"}}}
+  ,"dbOnlineWatchedReconnecting": "Reconnecting to recheck progress"
+  ,"dbOnlineWatchedPresetLoading": "Loading the local subscription preset"
+  ,"dbOnlineWatchedUseDefaults": "Use default requirements"
+  ,"dbOnlineWatchedInvalidSize": "File sizes must be non-negative; maximum must be at least minimum. Use 0 for no limit."
+  ,"dbOnlineWatchedInvalidFiles": "Maximum file count must be an integer from 0 to 10"
+  ,"dbOnlineWatchedInvalidDate": "Enter a valid start date in YYYY-MM-DD format"
 }

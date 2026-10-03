@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/dbo/db_online_watched.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
@@ -219,6 +220,59 @@ class DbOnlineApi {
       'sort_by': normalizedSort,
       'order_by': normalizedOrder,
     });
+  }
+
+  /// 在线账户的已看清单使用额外一层 JavDB API data 信封。
+  Future<DbOnlineMoviePage> watchedMoviesPage({
+    DbOnlineWatchedFilter filter = const DbOnlineWatchedFilter(),
+    int page = 1,
+  }) async {
+    final response = await _dio.get<dynamic>(
+      '/subs/watched',
+      queryParameters: {
+        ...filter.toJson(),
+        'page': page,
+        'limit': DbOnlineWatchedFilter.pageSize,
+      },
+    );
+    return unwrapStd<DbOnlineMoviePage>(response.data, (data) {
+      final payload = data is Map ? data['data'] : null;
+      final raw = payload is Map ? payload['movies'] : null;
+      final movies = raw is List
+          ? raw
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList()
+          : <DbOnlineMovie>[];
+      return DbOnlineMoviePage(
+        movies: movies,
+        page: page,
+        limit: DbOnlineWatchedFilter.pageSize,
+        hasMore: movies.length >= DbOnlineWatchedFilter.pageSize,
+      );
+    });
+  }
+
+  Future<int> recheckWatchedVideos({
+    required DbOnlineWatchedFilter filter,
+    required DbOnlineRecheckRequirements requirements,
+  }) async {
+    final response = await _dio.post<dynamic>(
+      '/videos/recheck',
+      data: {
+        'scope': 'watched',
+        'filters': filter.toJson(),
+        'requirements': requirements.toJson(),
+      },
+      options: Options(receiveTimeout: const Duration(minutes: 5)),
+    );
+    return unwrapStd<int>(
+      response.data,
+      (data) => data is Map ? _intValue(data['total']) ?? 0 : 0,
+    );
   }
 
   /// 获取本地影片库的一页，与网页版影片库共享筛选与排序参数。

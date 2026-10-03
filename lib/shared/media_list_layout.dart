@@ -27,10 +27,13 @@ abstract final class MediaListLayout {
 
 /// 按实际可用宽度计算列数，支持分屏、横屏安全区及弹层中的影片网格。
 class MediaGridDelegate extends SliverGridDelegate {
-  const MediaGridDelegate({this.square = false});
+  const MediaGridDelegate({this.square = false, this.textScaleFactor = 1});
 
   /// 音乐专辑保留方形封面，影片始终使用统一竖版比例。
   final bool square;
+
+  /// 大字体为卡片的信息区增加空间，封面比例和列数保持一致。
+  final double textScaleFactor;
 
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
@@ -41,19 +44,22 @@ class MediaGridDelegate extends SliverGridDelegate {
         (constraints.crossAxisExtent -
             MediaListLayout.crossAxisSpacing * (columns - 1)) /
         columns;
+    final baseHeight = square
+        ? itemWidth + 62
+        : itemWidth / MediaCardTemplate.gridChildAspectRatio;
+    final extraHeight = textScaleFactor > 1 ? 62 * (textScaleFactor - 1) : 0;
     return SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: columns,
       crossAxisSpacing: MediaListLayout.crossAxisSpacing,
       mainAxisSpacing: MediaListLayout.mainAxisSpacing,
-      childAspectRatio: square
-          ? itemWidth / (itemWidth + 62)
-          : MediaCardTemplate.gridChildAspectRatio,
+      childAspectRatio: itemWidth / (baseHeight + extraHeight),
     ).getLayout(constraints);
   }
 
   @override
   bool shouldRelayout(covariant MediaGridDelegate oldDelegate) =>
-      square != oldDelegate.square;
+      square != oldDelegate.square ||
+      textScaleFactor != oldDelegate.textScaleFactor;
 }
 
 /// 横版卡片的纵向列表统一使用相同的行间距。

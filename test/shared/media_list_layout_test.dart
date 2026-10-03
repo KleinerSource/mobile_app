@@ -101,4 +101,38 @@ void main() {
     });
   }
 
+  testWidgets('窄屏大字体网格增加信息区高度并保留三列和封面比例', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      await app(
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(320, 900),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: GridView.builder(
+            padding: MediaListLayout.padding,
+            gridDelegate: const MediaGridDelegate(textScaleFactor: 2),
+            itemCount: 6,
+            itemBuilder: (_, index) =>
+                SizedBox.expand(key: ValueKey(index), child: _card(index)),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final first = tester.getRect(find.byKey(const ValueKey(0)));
+    final third = tester.getRect(find.byKey(const ValueKey(2)));
+    final nextRow = tester.getRect(find.byKey(const ValueKey(3)));
+    expect(first.top, third.top);
+    expect(nextRow.top, greaterThan(first.bottom));
+    expect(first.height, greaterThan(first.width / 0.5));
+    for (final poster in find.byType(Poster).evaluate()) {
+      final size = tester.getSize(find.byWidget(poster.widget));
+      expect(size.width / size.height, closeTo(2 / 3, 0.001));
+    }
+    expect(tester.takeException(), isNull);
+  });
 }
