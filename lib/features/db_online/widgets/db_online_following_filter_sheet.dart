@@ -11,6 +11,7 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
+import 'db_online_filter_chip_row.dart';
 import 'db_online_following_widgets.dart';
 
 class DbOnlineFollowingFilterSheet extends ConsumerStatefulWidget {
@@ -90,9 +91,11 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
             label(l.dbOnlineFollowingConditions),
             DbOnlineFollowingButtonRow(
               options: [
-                (value: 'm', label: l.dbOnlineLibraryDownload),
-                (value: 'c', label: l.dbOnlineLibrarySubtitle),
-                (value: 's', label: l.dbOnlineFollowingSingleActor),
+                for (final option in dbOnlineResourceConditions)
+                  (
+                    value: option.letter,
+                    label: dbOnlineResourceConditionLabel(l, option),
+                  ),
               ],
               isSelected: _filter.basic.contains,
               onSelected: (value) {
@@ -102,7 +105,7 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
                     : selected.add(value);
                 _change(
                   _filter.copyWith(
-                    basic: ['m', 'c', 's'].where(selected.contains).toList(),
+                    basic: dbOnlineResourceConditionLetters(selected),
                   ),
                 );
               },
