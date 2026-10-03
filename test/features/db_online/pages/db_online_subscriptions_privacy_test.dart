@@ -481,7 +481,7 @@ void main() {
     expect(_privateText('私人影片'), findsNothing);
   });
 
-  testWidgets('视图切换统一作用于订阅影片板块与实体影片弹层，黑名单不显示', (tester) async {
+  testWidgets('视图切换统一作用于订阅影片板块与实体影片弹层，弹层与黑名单不显示切换器', (tester) async {
     final container = await _pumpPage(tester, observer: _NavigationObserver());
     final headerToggle = find.descendant(
       of: find.byType(PageHeader),
@@ -532,24 +532,22 @@ void main() {
     await tester.tap(find.text('私人演员'));
     await tester.pumpAndSettle();
     final sheet = find.byType(DbOnlineSubscriptionVideosSheet);
+    // 弹层不提供切换器，沿用订阅管理页头的统一视图模式。
     expect(
-      find.descendant(
-        of: find.byType(SheetHeader),
-        matching: find.byType(MediaViewModeToggle),
-      ),
-      findsOneWidget,
+      find.descendant(of: sheet, matching: find.byType(MediaViewModeToggle)),
+      findsNothing,
     );
     final sheetCards = tester.widgetList<CatalogMovieCard>(
       find.descendant(of: sheet, matching: find.byType(CatalogMovieCard)),
     );
     expect(sheetCards, isNotEmpty);
     expect(sheetCards.every((card) => card.landscape), isTrue);
-    await tester.tap(
-      find.descendant(
-        of: sheet,
-        matching: find.byIcon(Icons.view_list_rounded),
-      ),
-    );
+    Navigator.of(tester.element(sheet)).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('私人演员'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: sheet, matching: find.byType(CatalogListMovieCard)),

@@ -228,9 +228,6 @@ class _DbOnlineSubscriptionVideosSheetState
                       ? Icons.person_outline_rounded
                       : Icons.layers_outlined,
                   title: hidden ? '▆▆▆▆▆' : widget.title,
-                  trailing: const MediaViewModePreferenceToggle(
-                    preferenceKey: _subscriptionViewModeKey,
-                  ),
                 ),
               ),
               SizedBox(
