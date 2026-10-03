@@ -191,7 +191,7 @@ class _DbOnlineEntityMoviesPageState
         ),
         if (_isActor)
           DbOnlineFilterSection(
-            title: l.dbOnlineFilterYear,
+            title: l.dbOnlineFollowingYear,
             options: [
               (value: '', label: l.filterAll),
               for (var year = currentYear; year >= 2011; year--)
