@@ -417,6 +417,38 @@ class DbOnlineApi {
 
   static const _searchEntityTypes = {'series', 'maker', 'director', 'list'};
 
+  /// 实体（演员/系列/片商/导演/清单）的影片列表，与网页端实体落地页
+  /// 共用同一组端点：`/{actors|series|makers|directors|lists}/{id}/movies`。
+  Future<DbOnlineMoviePage> entityMoviesPage({
+    required String kind,
+    required String id,
+    int page = 1,
+    int limit = 24,
+    String sortBy = 'release',
+  }) {
+    final segment = _entityMovieSegments[kind.trim()];
+    if (segment == null) {
+      throw ArgumentError.value(kind, 'kind', AppErrorCode.validationFailed);
+    }
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw ArgumentError.value(id, 'id', AppErrorCode.validationFailed);
+    }
+    return _moviesPage('/$segment/${Uri.encodeComponent(normalizedId)}/movies', {
+      'page': page,
+      'limit': limit,
+      'sort_by': sortBy,
+    });
+  }
+
+  static const _entityMovieSegments = {
+    'actor': 'actors',
+    'series': 'series',
+    'maker': 'makers',
+    'director': 'directors',
+    'list': 'lists',
+  };
+
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
   /// 转换为 Oh My Media 的整数影片 ID。refresh 控制是否强制访问在线 API。
   Future<DbOnlineMovieDetail> detail(

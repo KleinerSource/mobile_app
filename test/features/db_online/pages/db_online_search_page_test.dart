@@ -151,4 +151,95 @@ void main() {
     expect(requests, contains('/api/search'));
     expect(find.text('系列结果'), findsOneWidget);
   });
+
+  testWidgets('点击演员卡片进入演员影片列表', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    String? moviesPath;
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final path = options.uri.path;
+          if (path.endsWith('/movies')) {
+            moviesPath = path;
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                data: {
+                  'success': true,
+                  'data': {
+                    'movies': [
+                      {
+                        'id': 'movie-1',
+                        'number': 'ABC-004',
+                        'title': '演员影片',
+                        'can_play': true,
+                      },
+                    ],
+                    'current_page': 1,
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'data': {
+                  'actors': [
+                    {
+                      'id': 'actor-1',
+                      'name': '演员结果',
+                      'uncensored': true,
+                      'videos_count': 6,
+                    },
+                  ],
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    final client = ApiClient(dio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(client),
+          dboMediaRepositoryProvider.overrideWithValue(
+            DboMediaRepository(DboMediaSourceAdapter(client.dbOnline)),
+          ),
+          sharedPrefsProvider.overrideWithValue(preferences),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: Scaffold(body: DbOnlineSearchPage()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('列表搜索'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('演员搜索').first);
+    await tester.enterText(find.byType(TextField), '演员');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    // 无码演员在卡片底部显示无码标识。
+    expect(find.text('演员结果'), findsOneWidget);
+    expect(find.text('无码'), findsOneWidget);
+
+    await tester.tap(find.text('演员结果'));
+    await tester.pumpAndSettle();
+
+    expect(moviesPath, '/api/actors/actor-1/movies');
+    expect(find.text('演员影片'), findsOneWidget);
+  });
 }

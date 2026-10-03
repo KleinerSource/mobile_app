@@ -9,6 +9,7 @@ class DbOnlineActorSearchItem {
     this.otherName,
     this.gender,
     this.avatarUrl,
+    this.uncensored = false,
     this.videosCount = 0,
   });
 
@@ -18,6 +19,7 @@ class DbOnlineActorSearchItem {
   final String? otherName;
   final int? gender;
   final String? avatarUrl;
+  final bool uncensored;
   final int videosCount;
 
   factory DbOnlineActorSearchItem.fromJson(Object? raw) {
@@ -32,6 +34,7 @@ class DbOnlineActorSearchItem {
       otherName: _searchString(json['other_name']),
       gender: _searchInt(json['gender']),
       avatarUrl: _searchString(json['avatar_url']),
+      uncensored: json['uncensored'] == true,
       videosCount:
           _searchInt(json['videos_count'] ?? json['movies_count']) ?? 0,
     );

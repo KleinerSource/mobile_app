@@ -137,6 +137,42 @@ void main() {
     );
   });
 
+  test('entityMoviesPage 按实体类型映射端点并解析影片', () async {
+    final adapter = _EntityMoviesAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    final actors = await api.entityMoviesPage(
+      kind: 'actor',
+      id: 'kd96',
+      page: 2,
+    );
+    final lists = await api.entityMoviesPage(kind: 'list', id: 'list-1');
+
+    expect(actors.movies.single.number, 'ABC-003');
+    expect(actors.movies.single.canPlay, isTrue);
+    expect(actors.hasMore, isFalse);
+    expect(lists.movies.single.number, 'ABC-003');
+    expect(adapter.requests, <String>[
+      '/api/actors/kd96/movies?page=2&limit=24&sort_by=release',
+      '/api/lists/list-1/movies?page=1&limit=24&sort_by=release',
+    ]);
+  });
+
+  test('entityMoviesPage 拒绝未知实体类型与空 ID', () {
+    final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
+
+    expect(
+      () => api.entityMoviesPage(kind: 'publisher', id: 'p1'),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => api.entityMoviesPage(kind: 'actor', id: '  '),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('searchActors 拒绝空搜索关键词', () {
     final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
 
@@ -374,6 +410,45 @@ class _DbOnlineSearchAdapter implements HttpClientAdapter {
               'can_play': true,
             },
           ],
+        },
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _EntityMoviesAdapter implements HttpClientAdapter {
+  final requests = <String>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(
+      options.uri.path +
+          (options.uri.hasQuery ? '?${options.uri.query}' : ''),
+    );
+    return ResponseBody.fromString(
+      jsonEncode({
+        'success': true,
+        'data': {
+          'movies': [
+            {
+              'id': 'movie-1',
+              'number': 'ABC-003',
+              'title': '实体影片',
+              'can_play': true,
+            },
+          ],
+          'current_page': 1,
         },
       }),
       200,

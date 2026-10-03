@@ -12,6 +12,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
@@ -22,6 +23,7 @@ import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
+import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
@@ -426,12 +428,7 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.9,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
+                gridDelegate: _entityGridDelegate,
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final actor = value.actors[index];
                   return _DbOnlineSearchEntityCard(
@@ -440,8 +437,16 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
                     label: AppL10n.of(context).searchModeActorSearch,
                     count: actor.videosCount,
                     icon: Icons.person_outline_rounded,
+                    imageUrl: actor.avatarUrl,
+                    uncensored: actor.uncensored,
                     subscriptionKind: 'actor',
                     subscriptionData: {'actor_avatar': actor.avatarUrl ?? ''},
+                    onTap: () => _openEntityMovies(
+                      context,
+                      kind: 'actor',
+                      id: actor.id,
+                      title: actor.name,
+                    ),
                   );
                 }, childCount: value.actors.length),
               ),
@@ -537,12 +542,7 @@ class _DbOnlineEntitySearchResultsState
           sliver: PagedSliverGrid<int, DbOnlineSearchEntity>(
             pagingController: _pagingController,
             showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.9,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
+            gridDelegate: _entityGridDelegate,
             builderDelegate: PagedChildBuilderDelegate<DbOnlineSearchEntity>(
               itemBuilder: (context, item, _) => _DbOnlineSearchEntityCard(
                 id: item.id,
@@ -550,8 +550,15 @@ class _DbOnlineEntitySearchResultsState
                 label: type.label(AppL10n.of(context)),
                 count: item.moviesCount,
                 icon: type.icon,
+                imageUrl: item.imageUrl,
                 subscriptionKind: 'series',
                 subscriptionData: {'sub_type': type.apiType},
+                onTap: () => _openEntityMovies(
+                  context,
+                  kind: type.apiType,
+                  id: item.id,
+                  title: item.name,
+                ),
               ),
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),
@@ -575,7 +582,9 @@ class _DbOnlineEntitySearchResultsState
   }
 }
 
-class _DbOnlineSearchEntityCard extends StatelessWidget {
+/// 实体搜索结果的纵向卡片：头像在上（无图时显示类型占位块），订阅按钮
+/// 靠右上角，底部为名称、无码标识与作品数；点击进入实体影片列表。
+class _DbOnlineSearchEntityCard extends ConsumerWidget {
   const _DbOnlineSearchEntityCard({
     required this.id,
     required this.name,
@@ -583,7 +592,10 @@ class _DbOnlineSearchEntityCard extends StatelessWidget {
     required this.count,
     required this.icon,
     required this.subscriptionKind,
+    this.imageUrl,
+    this.uncensored = false,
     this.subscriptionData = const <String, dynamic>{},
+    this.onTap,
   });
 
   final String id;
@@ -591,33 +603,61 @@ class _DbOnlineSearchEntityCard extends StatelessWidget {
   final String label;
   final int count;
   final IconData icon;
+  final String? imageUrl;
+  final bool uncensored;
   final String subscriptionKind;
   final Map<String, dynamic> subscriptionData;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = appColors(context);
+    final l = AppL10n.of(context);
+    final config = ref.watch(mediaRuntimeConfigProvider);
+    final image = imageUrl != null && config != null
+        ? resolveServerUrl(config, imageUrl!)
+        : null;
+
     return Material(
       color: colors.surface,
       borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(icon, size: 22, color: colors.accent),
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (image != null)
+                    Image.network(
+                      image,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _EntityAvatarFallback(
+                        icon: icon,
+                        label: label,
+                      ),
+                    )
+                  else
+                    _EntityAvatarFallback(icon: icon, label: label),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: DbOnlineSubscriptionAction(
+                      kind: subscriptionKind,
+                      id: id,
+                      title: name,
+                      initial: subscriptionData,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -628,21 +668,39 @@ class _DbOnlineSearchEntityCard extends StatelessWidget {
                       context,
                     ).copyWith(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 3),
-                  Text(label, style: AppText.meta(context)),
-                  if (count > 0)
-                    Text(
-                      AppL10n.of(context).libraryCount(count),
-                      style: AppText.meta(context),
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (uncensored) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            l.dbOnlineCategoryUncensored,
+                            style: AppText.meta(context),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (count > 0)
+                        Flexible(
+                          child: Text(
+                            l.libraryCount(count),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.meta(context),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ),
-            DbOnlineSubscriptionAction(
-              kind: subscriptionKind,
-              id: id,
-              title: name,
-              initial: subscriptionData,
             ),
           ],
         ),
@@ -650,6 +708,65 @@ class _DbOnlineSearchEntityCard extends StatelessWidget {
     );
   }
 }
+
+/// 无图实体的占位头像：强调色底 + 类型图标与标签（网页端同款）。
+class _EntityAvatarFallback extends StatelessWidget {
+  const _EntityAvatarFallback({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.accent.withValues(alpha: 0.10),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 30, color: colors.accent),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.meta(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _openEntityMovies(
+  BuildContext context, {
+  required String kind,
+  required String id,
+  required String title,
+}) {
+  unawaited(
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => DbOnlineEntityMoviesPage(kind: kind, id: id, title: title),
+      ),
+    ),
+  );
+}
+
+/// 实体搜索结果网格：纵向卡片三列布局。
+const _entityGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+  crossAxisCount: 3,
+  childAspectRatio: 0.72,
+  crossAxisSpacing: 10,
+  mainAxisSpacing: 10,
+);
 
 String _entityKey(DbOnlineSearchEntity item) {
   final id = item.id.trim();

@@ -228,6 +228,52 @@ class DbOnlineEntitySearchPageRequest {
   int get hashCode => Object.hash(serverId, type, query, page, limit);
 }
 
+/// 实体（演员/系列/片商/导演/清单）的影片列表按实体读取一页数据。
+final dbOnlineEntityMoviesPageProvider = FutureProvider.autoDispose
+    .family<DbOnlineMoviePage, DbOnlineEntityMoviesPageRequest>((
+      ref,
+      request,
+    ) {
+      _checkServerScope(ref, request.serverId);
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .entityMoviesPage(
+            kind: request.kind,
+            id: request.id,
+            page: request.page,
+            limit: request.limit,
+          );
+    });
+
+class DbOnlineEntityMoviesPageRequest {
+  const DbOnlineEntityMoviesPageRequest({
+    required this.serverId,
+    required this.kind,
+    required this.id,
+    required this.page,
+    required this.limit,
+  });
+
+  final String serverId;
+  final String kind;
+  final String id;
+  final int page;
+  final int limit;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DbOnlineEntityMoviesPageRequest &&
+      other.serverId == serverId &&
+      other.kind == kind &&
+      other.id == id &&
+      other.page == page &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(serverId, kind, id, page, limit);
+}
+
 class DbOnlineMovieDetailRequest {
   const DbOnlineMovieDetailRequest({
     required this.serverId,
