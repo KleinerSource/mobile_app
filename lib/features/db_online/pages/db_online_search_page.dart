@@ -428,7 +428,7 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
               sliver: SliverGrid(
-                gridDelegate: _entityGridDelegate,
+                gridDelegate: _actorGridDelegate,
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final actor = value.actors[index];
                   return _DbOnlineSearchEntityCard(
@@ -539,25 +539,24 @@ class _DbOnlineEntitySearchResultsState
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, DbOnlineSearchEntity>(
+          sliver: PagedSliverList<int, DbOnlineSearchEntity>(
             pagingController: _pagingController,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: _entityGridDelegate,
             builderDelegate: PagedChildBuilderDelegate<DbOnlineSearchEntity>(
-              itemBuilder: (context, item, _) => _DbOnlineSearchEntityCard(
-                id: item.id,
-                name: item.name,
-                label: type.label(AppL10n.of(context)),
-                count: item.moviesCount,
-                icon: type.icon,
-                imageUrl: item.imageUrl,
-                subscriptionKind: 'series',
-                subscriptionData: {'sub_type': type.apiType},
-                onTap: () => _openEntityMovies(
-                  context,
-                  kind: type.apiType,
+              itemBuilder: (context, item, _) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _DbOnlineSearchEntityRow(
                   id: item.id,
-                  title: item.name,
+                  name: item.name,
+                  count: item.moviesCount,
+                  icon: type.icon,
+                  subscriptionKind: 'series',
+                  subscriptionData: {'sub_type': type.apiType},
+                  onTap: () => _openEntityMovies(
+                    context,
+                    kind: type.apiType,
+                    id: item.id,
+                    title: item.name,
+                  ),
                 ),
               ),
               firstPageProgressIndicatorBuilder: (_) =>
@@ -582,8 +581,94 @@ class _DbOnlineEntitySearchResultsState
   }
 }
 
-/// 实体搜索结果的纵向卡片：头像在上（无图时显示类型占位块），订阅按钮
-/// 靠右上角，底部为名称、无码标识与作品数；点击进入实体影片列表。
+/// 系列、片商、导演、清单的列表行：这类实体没有头像，一行一条，
+/// 左侧类型图标 + 名称与作品数 + 右侧订阅按钮，点击进入影片列表。
+class _DbOnlineSearchEntityRow extends StatelessWidget {
+  const _DbOnlineSearchEntityRow({
+    required this.id,
+    required this.name,
+    required this.count,
+    required this.icon,
+    required this.subscriptionKind,
+    this.subscriptionData = const <String, dynamic>{},
+    this.onTap,
+  });
+
+  final String id;
+  final String name;
+  final int count;
+  final IconData icon;
+  final String subscriptionKind;
+  final Map<String, dynamic> subscriptionData;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.accent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(icon, size: 22, color: colors.accent),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    if (count > 0) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        AppL10n.of(context).libraryCount(count),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.meta(context),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              DbOnlineSubscriptionAction(
+                kind: subscriptionKind,
+                id: id,
+                title: name,
+                initial: subscriptionData,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 演员搜索结果的纵向卡片：头像在上（无图时显示类型占位块），订阅按钮
+/// 靠右上角，底部为名称与作品数、无码标识悬浮在头像右下角；点击进入
+/// 演员影片列表。系列等无头像实体改用 [_DbOnlineSearchEntityRow]。
 class _DbOnlineSearchEntityCard extends ConsumerWidget {
   const _DbOnlineSearchEntityCard({
     required this.id,
@@ -617,6 +702,18 @@ class _DbOnlineSearchEntityCard extends ConsumerWidget {
     final image = imageUrl != null && config != null
         ? resolveServerUrl(config, imageUrl!)
         : null;
+    final nameStyle = AppText.body(context).copyWith(
+      fontWeight: FontWeight.w700,
+    );
+    final metaStyle = AppText.meta(context);
+    // 底部信息块固定高度：名称恒定两行 + 间距 + 元信息一行（含内边距）。
+    // 高度按当前字体缩放计算，保证每张卡片的头像区域高度一致。
+    final scaler = MediaQuery.textScalerOf(context);
+    final nameLineHeight =
+        scaler.scale(nameStyle.fontSize ?? 14) * (nameStyle.height ?? 1.5);
+    final metaLineHeight = scaler.scale(metaStyle.fontSize ?? 12) * 1.3;
+    final bottomHeight =
+        18 + nameLineHeight * 2 + 4 + metaLineHeight;
 
     return Material(
       color: colors.surface,
@@ -652,54 +749,60 @@ class _DbOnlineSearchEntityCard extends ConsumerWidget {
                       initial: subscriptionData,
                     ),
                   ),
+                  if (uncensored)
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.bg.withValues(alpha: 0.82),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          l.dbOnlineCategoryUncensored,
+                          strutStyle: const StrutStyle(
+                            fontSize: 10.5,
+                            height: 1.0,
+                            forceStrutHeight: true,
+                          ),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (uncensored) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1.5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.accent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            l.dbOnlineCategoryUncensored,
-                            style: AppText.meta(context),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      if (count > 0)
-                        Flexible(
-                          child: Text(
-                            l.libraryCount(count),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.meta(context),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
+            SizedBox(
+              height: bottomHeight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: nameStyle,
+                    ),
+                    const SizedBox(height: 4),
+                    if (count > 0)
+                      Text(
+                        l.libraryCount(count),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: metaStyle,
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -760,10 +863,13 @@ void _openEntityMovies(
   );
 }
 
-/// 实体搜索结果网格：纵向卡片三列布局。
-const _entityGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+/// 演员搜索结果网格：纵向卡片三列布局，头像在上。
+///
+/// 宽高比 0.62 = 固定的底部信息块（两行名称 + 一行元信息）加上接近
+/// 正方形的头像区域。
+const _actorGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
   crossAxisCount: 3,
-  childAspectRatio: 0.72,
+  childAspectRatio: 0.62,
   crossAxisSpacing: 10,
   mainAxisSpacing: 10,
 );
