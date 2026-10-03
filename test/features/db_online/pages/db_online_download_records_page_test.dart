@@ -112,6 +112,8 @@ void main() {
       expect(badge.left, closeTo(card.left + 12, 1));
       expect(repush.left - badge.right, closeTo(8, 1));
       expect(repush.center.dy, closeTo(badge.center.dy, 1));
+      expect(repush.size.height, closeTo(badge.size.height, 0.01));
+      expect(repush.size.width, closeTo(badge.size.width, 0.01));
       expect(repush.right, lessThan(expand.left));
       expect(tester.takeException(), isNull);
     });
@@ -607,6 +609,14 @@ void main() {
         ];
       await pumpRecords(tester, backend, locale: locale, textScale: 2);
       expect(tester.takeException(), isNull);
+      final badge = tester.getRect(find.byType(CoverBadgePill));
+      final repush = tester.getRect(
+        find.descendant(
+          of: find.byType(DbOnlineDownloadRecordCard),
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      expect(repush.height, closeTo(badge.height, 0.01));
       await tester.tap(find.byTooltip(localeCode == 'zh' ? '筛选条件' : 'Filters'));
       await pumpFollowingFrames(tester);
       expect(find.byType(DbOnlineDownloadRecordFilterSheet), findsOneWidget);

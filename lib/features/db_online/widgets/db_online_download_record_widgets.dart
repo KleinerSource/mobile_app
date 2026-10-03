@@ -146,7 +146,7 @@ class DbOnlineDownloadRecordCard extends StatelessWidget {
                             ? const Color(0xFF10B981)
                             : const Color(0xFFEF4444),
                       ),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: onRepush,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: colors.accent,
@@ -154,25 +154,41 @@ class DbOnlineDownloadRecordCard extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          minimumSize: const Size(0, 32),
+                          padding:
+                              CoverBadgePill.contentPadding +
+                              const EdgeInsets.all(CoverBadgePill.borderWidth),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                          textStyle: CoverBadgePill.labelStyle,
                         ),
-                        icon: pushing
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (pushing)
+                              SizedBox.square(
+                                dimension: CoverBadgePill.iconSize,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                  strokeWidth: 1.5,
+                                  color: colors.accent,
                                 ),
                               )
-                            : const Icon(Icons.refresh_rounded, size: 16),
-                        label: Text(
-                          pushing
-                              ? l.dbOnlineDownloadRecordsRepushing
-                              : l.dbOnlineDownloadRecordsRepush,
+                            else
+                              const Icon(
+                                Icons.refresh_rounded,
+                                size: CoverBadgePill.iconSize,
+                              ),
+                            const SizedBox(width: CoverBadgePill.iconSpacing),
+                            Flexible(
+                              child: Text(
+                                pushing
+                                    ? l.dbOnlineDownloadRecordsRepushing
+                                    : l.dbOnlineDownloadRecordsRepush,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

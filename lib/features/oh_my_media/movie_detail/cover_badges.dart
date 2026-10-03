@@ -308,6 +308,22 @@ class CoverBadgePill extends StatelessWidget {
     this.tooltip,
   });
 
+  static const contentPadding = EdgeInsets.symmetric(
+    horizontal: 7,
+    vertical: 3.5,
+  );
+  static const borderWidth = 0.8;
+  static const iconSize = 11.0;
+  static const iconSpacing = 3.0;
+  static const labelStyle = TextStyle(
+    color: Colors.white,
+    fontFamily: 'Inter',
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
+    height: 1.1,
+  );
+
   final IconData icon;
   final String label;
   final Color color;
@@ -318,13 +334,13 @@ class CoverBadgePill extends StatelessWidget {
     return Tooltip(
       message: tooltip ?? label,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+        padding: contentPadding,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.24),
-            width: 0.8,
+            width: borderWidth,
           ),
           boxShadow: [
             BoxShadow(
@@ -337,19 +353,9 @@ class CoverBadgePill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 11),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: 'Inter',
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                height: 1.1,
-              ),
-            ),
+            Icon(icon, color: Colors.white, size: iconSize),
+            const SizedBox(width: iconSpacing),
+            Text(label, style: labelStyle),
           ],
         ),
       ),
