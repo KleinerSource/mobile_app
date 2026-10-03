@@ -52,44 +52,6 @@ class DbOnlineFollowingLayout extends StatelessWidget {
   );
 }
 
-class DbOnlineFollowingActionIcon extends StatelessWidget {
-  const DbOnlineFollowingActionIcon({
-    super.key,
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.busy = false,
-  });
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-  final bool busy;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: busy ? null : onPressed,
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colors.surface,
-          border: Border.all(color: colors.cardBorder),
-        ),
-        child: busy
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(icon, size: 18, color: colors.text),
-      ),
-    );
-  }
-}
-
 class DbOnlineFollowingButtonRow extends StatelessWidget {
   const DbOnlineFollowingButtonRow({
     super.key,

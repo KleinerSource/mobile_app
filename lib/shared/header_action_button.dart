@@ -10,6 +10,7 @@ class HeaderActionButton extends StatelessWidget {
     required this.onPressed,
     this.tooltip,
     this.loading = false,
+    this.color,
   });
 
   static const double tapTargetSize = 48;
@@ -18,6 +19,7 @@ class HeaderActionButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? tooltip;
   final bool loading;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
@@ -26,20 +28,26 @@ class HeaderActionButton extends StatelessWidget {
       tooltip: tooltip,
       iconSize: HeaderActionIcon.size,
       padding: const EdgeInsets.all(6),
-      onPressed: onPressed,
-      icon: HeaderActionIcon(icon: icon, loading: loading),
+      onPressed: loading ? null : onPressed,
+      icon: HeaderActionIcon(icon: icon, loading: loading, color: color),
     ),
   );
 }
 
-/// 供普通操作与 PopupMenuButton 共用的圆形图标。
+/// 供普通操作与菜单入口共用的圆形图标。
 class HeaderActionIcon extends StatelessWidget {
-  const HeaderActionIcon({super.key, required this.icon, this.loading = false});
+  const HeaderActionIcon({
+    super.key,
+    required this.icon,
+    this.loading = false,
+    this.color,
+  });
 
   static const double size = 36;
 
   final IconData icon;
   final bool loading;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +69,7 @@ class HeaderActionIcon extends StatelessWidget {
                 color: colors.accent,
               ),
             )
-          : Icon(icon, size: 18, color: colors.text),
+          : Icon(icon, size: 18, color: color ?? colors.text),
     );
   }
 }

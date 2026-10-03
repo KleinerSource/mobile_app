@@ -7,6 +7,7 @@ import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 
@@ -71,15 +72,15 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
             'skipped' => l.dbOnlineSubscriptionSkipped,
             _ => l.dbOnlineSubscriptionSubscribed,
           };
+    final iconData = subscribed
+        ? Icons.check_circle_rounded
+        : Icons.add_circle_outline;
     final icon = statusLoading
         ? const SizedBox.square(
             dimension: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : Icon(
-            subscribed ? Icons.check_circle_rounded : Icons.add_circle_outline,
-            color: subscribed ? colors.accent : colors.muted,
-          );
+        : Icon(iconData, color: subscribed ? colors.accent : colors.muted);
     void onPressed() => _openActions(
       context,
       ref,
@@ -104,10 +105,12 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
               ],
             ),
           )
-        : IconButton(
+        : HeaderActionButton(
             tooltip: actionLabel,
-            onPressed: statusLoading ? null : onPressed,
-            icon: icon,
+            onPressed: onPressed,
+            loading: statusLoading,
+            icon: iconData,
+            color: subscribed ? colors.accent : colors.muted,
           );
   }
 

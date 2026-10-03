@@ -6,6 +6,7 @@ import 'package:omm/shared/movie_detail_scaffold.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/page_header.dart';
 
 Widget _app(Widget page, {double scale = 1}) => MaterialApp(
@@ -20,6 +21,73 @@ Widget _app(Widget page, {double scale = 1}) => MaterialApp(
 );
 
 void main() {
+  testWidgets('右侧普通操作与菜单复用圆形尺寸，保留状态颜色且点击留白有效', (tester) async {
+    var taps = 0;
+    var selected = 0;
+    await tester.pumpWidget(
+      _app(
+        PageHeader(
+          eyebrow: '我的',
+          title: const Text('影片详情'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HeaderActionButton(
+                icon: Icons.favorite,
+                color: Colors.teal,
+                tooltip: '收藏',
+                onPressed: () => taps++,
+              ),
+              GlassMenuAnchor<String>(
+                tooltip: '更多',
+                width: 224,
+                entries: [
+                  GlassMenuEntry<String>.action(
+                    value: 'action',
+                    builder: (context, active, onTap) => GlassMenuRow(
+                      label: '菜单项',
+                      selected: active,
+                      onTap: onTap,
+                    ),
+                  ),
+                ],
+                onSelected: (_) => selected++,
+                child: const SizedBox.square(
+                  dimension: HeaderActionButton.tapTargetSize,
+                  child: Center(
+                    child: HeaderActionIcon(icon: Icons.more_horiz),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final button = tester.getRect(find.byType(HeaderActionButton));
+    final menu = tester.getRect(find.byType(GlassMenuAnchor<String>));
+    expect(button.size, const Size.square(48));
+    expect(menu.size, button.size);
+    expect(menu.center.dy, button.center.dy);
+    for (final element in find.byType(HeaderActionIcon).evaluate()) {
+      expect(
+        tester.getSize(find.byWidget(element.widget)),
+        const Size.square(36),
+      );
+    }
+    expect(tester.widget<Icon>(find.byIcon(Icons.favorite)).color, Colors.teal);
+    await tester.tapAt(button.topLeft + const Offset(2, 2));
+    expect(taps, 1);
+    await tester.tapAt(menu.topLeft + const Offset(2, 2));
+    await tester.pumpAndSettle();
+    expect(find.text('菜单项'), findsOneWidget);
+    await tester.tap(find.text('菜单项'));
+    await tester.pumpAndSettle();
+    expect(selected, 1);
+    expect(find.text('菜单项'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [const Size(320, 720), const Size(844, 390)]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('圆形操作在 ${size.width}/$scale 下点击与加载区域不跳动', (tester) async {
@@ -42,7 +110,7 @@ void main() {
                   icon: Icons.cloud_download_outlined,
                   tooltip: '扫描资源',
                   loading: busy,
-                  onPressed: busy ? null : () => taps++,
+                  onPressed: () => taps++,
                 ),
               ),
             ),

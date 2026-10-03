@@ -17,6 +17,7 @@ import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart'
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
@@ -251,7 +252,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
             initial: const {'sub_type': 'follow'},
           ),
         if (database)
-          DbOnlineFollowingActionIcon(
+          HeaderActionButton(
             icon: Icons.people_outline_rounded,
             tooltip: l.dbOnlineFollowingUsers,
             onPressed: () => Navigator.of(context).push<void>(
@@ -261,7 +262,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
               ),
             ),
           ),
-        DbOnlineFollowingActionIcon(
+        HeaderActionButton(
           icon: Icons.tune_rounded,
           tooltip: l.dbOnlineFollowingFilters,
           onPressed: query ? () => _filters(database) : null,

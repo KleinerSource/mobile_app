@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -423,7 +424,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
           : _resolvedUsername,
       scrollController: _scroll,
       actions: [
-        DbOnlineFollowingActionIcon(
+        HeaderActionButton(
           icon: Icons.refresh_rounded,
           tooltip: l.fanartRefresh,
           onPressed: _refresh,

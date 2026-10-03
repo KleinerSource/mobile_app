@@ -9,6 +9,7 @@ import 'package:omm/features/db_online/pages/db_online_review_resources_page.dar
 import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/header_action_button.dart';
 
 import '../support/following_test_support.dart';
 
@@ -35,9 +36,42 @@ void _checkHeader(
     tester.widget<Text>(label).style!.fontSize,
     lessThan(tester.widget<Text>(heading).style!.fontSize!),
   );
+  final actions = find.descendant(
+    of: header,
+    matching: find.byType(HeaderActionButton),
+  );
+  for (final element in actions.evaluate()) {
+    final button = find.byWidget(element.widget);
+    final circle = find.descendant(
+      of: button,
+      matching: find.byType(HeaderActionIcon),
+    );
+    expect(tester.getSize(button), const Size.square(48));
+    expect(tester.getSize(circle), const Size.square(36));
+    expect(tester.getCenter(circle), tester.getCenter(button));
+    expect(tester.getCenter(button).dy, closeTo(headingRect.center.dy, 1));
+  }
 }
 
 void main() {
+  testWidgets('关注页筛选在在线查询不可用时仍复用圆形样式且禁止操作', (tester) async {
+    final backend = FollowingTestBackend()..onlineQuery = false;
+    await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
+    _checkHeader(tester, '关注列表', eyebrow: '我的');
+    final action = find.widgetWithIcon(HeaderActionButton, Icons.tune_rounded);
+    final filter = find.descendant(
+      of: action,
+      matching: find.byType(IconButton),
+    );
+    expect(filter, findsOneWidget);
+    expect(tester.widget<IconButton>(filter).onPressed, isNull);
+    await tester.tap(action);
+    await pumpFollowingFrames(tester);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(backend.to('/subs/tags'), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   final pages = <(Widget, String, String, Object)>[
     (
       const DbOnlineLatestMoviesPage(sortBy: 'release'),
@@ -159,7 +193,7 @@ void main() {
             title: title,
             actions: [
               for (var i = 0; i < 3; i++)
-                DbOnlineFollowingActionIcon(
+                HeaderActionButton(
                   icon: Icons.refresh,
                   tooltip: '操作 $i',
                   onPressed: () => tapped++,

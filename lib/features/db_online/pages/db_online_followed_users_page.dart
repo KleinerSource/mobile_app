@@ -7,6 +7,7 @@ import 'package:omm/features/db_online/providers/db_online_following_providers.d
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
@@ -227,15 +228,15 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
         title: l.dbOnlineFollowingUsers,
         scrollController: _scroll,
         actions: [
-          DbOnlineFollowingActionIcon(
+          HeaderActionButton(
             icon: Icons.person_add_alt_rounded,
             tooltip: l.dbOnlineFollowingAddUser,
             onPressed: database && !_busy ? _add : null,
           ),
-          DbOnlineFollowingActionIcon(
+          HeaderActionButton(
             icon: Icons.refresh_rounded,
             tooltip: l.dbOnlineFollowingRefreshUsers,
-            busy: _busy,
+            loading: _busy,
             onPressed:
                 database && capabilities.asData?.value.onlineAccount == true
                 ? _refreshUsers
