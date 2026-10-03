@@ -38,7 +38,7 @@ class DbOnlineSearchPage extends ConsumerStatefulWidget {
   ConsumerState<DbOnlineSearchPage> createState() => _DbOnlineSearchPageState();
 }
 
-enum DbOnlineSearchType { list, video, actor, series }
+enum DbOnlineSearchType { list, video, actor, series, maker, director, playlist }
 
 extension on DbOnlineSearchType {
   String label(AppL10n l) => switch (this) {
@@ -46,6 +46,9 @@ extension on DbOnlineSearchType {
     DbOnlineSearchType.video => l.searchModeVideo,
     DbOnlineSearchType.actor => l.searchModeActorSearch,
     DbOnlineSearchType.series => l.searchModeSeries,
+    DbOnlineSearchType.maker => l.searchModeMaker,
+    DbOnlineSearchType.director => l.searchModeDirector,
+    DbOnlineSearchType.playlist => l.searchModePlaylist,
   };
 
   String placeholder(AppL10n l) => switch (this) {
@@ -53,6 +56,9 @@ extension on DbOnlineSearchType {
     DbOnlineSearchType.video => l.searchPlaceholderVideo,
     DbOnlineSearchType.actor => l.searchPlaceholderActor,
     DbOnlineSearchType.series => l.searchPlaceholderSeries,
+    DbOnlineSearchType.maker => l.searchPlaceholderMaker,
+    DbOnlineSearchType.director => l.searchPlaceholderDirector,
+    DbOnlineSearchType.playlist => l.searchPlaceholderPlaylist,
   };
 
   IconData get icon => switch (this) {
@@ -60,6 +66,18 @@ extension on DbOnlineSearchType {
     DbOnlineSearchType.video => Icons.movie_outlined,
     DbOnlineSearchType.actor => Icons.person_outline_rounded,
     DbOnlineSearchType.series => Icons.layers_outlined,
+    DbOnlineSearchType.maker => Icons.business_outlined,
+    DbOnlineSearchType.director => Icons.videocam_outlined,
+    DbOnlineSearchType.playlist => Icons.playlist_play_outlined,
+  };
+
+  /// 实体搜索类型对应的服务端 type 参数；清单在服务端叫 `list`。
+  String get apiType => switch (this) {
+    DbOnlineSearchType.series => 'series',
+    DbOnlineSearchType.maker => 'maker',
+    DbOnlineSearchType.director => 'director',
+    DbOnlineSearchType.playlist => 'list',
+    _ => throw StateError('$this is not an entity search type'),
   };
 }
 
@@ -194,10 +212,17 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                         key: ValueKey('actor:$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,
                       ),
-                      DbOnlineSearchType.series => _DbOnlineSeriesSearchResults(
-                        key: ValueKey('series:$_submittedQuery:$_searchSerial'),
-                        query: _submittedQuery,
-                      ),
+                      DbOnlineSearchType.series ||
+                      DbOnlineSearchType.maker ||
+                      DbOnlineSearchType.director ||
+                      DbOnlineSearchType.playlist =>
+                        _DbOnlineEntitySearchResults(
+                          key: ValueKey(
+                            '${_searchType.name}:$_submittedQuery:$_searchSerial',
+                          ),
+                          type: _searchType,
+                          query: _submittedQuery,
+                        ),
                     },
             ),
           ],
@@ -428,18 +453,23 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
   }
 }
 
-class _DbOnlineSeriesSearchResults extends ConsumerStatefulWidget {
-  const _DbOnlineSeriesSearchResults({super.key, required this.query});
+class _DbOnlineEntitySearchResults extends ConsumerStatefulWidget {
+  const _DbOnlineEntitySearchResults({
+    super.key,
+    required this.type,
+    required this.query,
+  });
 
+  final DbOnlineSearchType type;
   final String query;
 
   @override
-  ConsumerState<_DbOnlineSeriesSearchResults> createState() =>
-      _DbOnlineSeriesSearchResultsState();
+  ConsumerState<_DbOnlineEntitySearchResults> createState() =>
+      _DbOnlineEntitySearchResultsState();
 }
 
-class _DbOnlineSeriesSearchResultsState
-    extends ConsumerState<_DbOnlineSeriesSearchResults> {
+class _DbOnlineEntitySearchResultsState
+    extends ConsumerState<_DbOnlineEntitySearchResults> {
   static const _pageSize = 24;
 
   final _pagingController = PagingController<int, DbOnlineSearchEntity>(
@@ -461,10 +491,11 @@ class _DbOnlineSeriesSearchResultsState
   Future<void> _fetchPage(int page) async {
     try {
       final result = await ref.read(
-        dbOnlineSeriesSearchPageProvider(
-          DbOnlineSeriesSearchPageRequest(
+        dbOnlineEntitySearchPageProvider(
+          DbOnlineEntitySearchPageRequest(
             serverId:
                 ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+            type: widget.type.apiType,
             query: widget.query,
             page: page,
             limit: _pageSize,
@@ -497,6 +528,7 @@ class _DbOnlineSeriesSearchResultsState
 
   @override
   Widget build(BuildContext context) {
+    final type = widget.type;
     return CustomScrollView(
       primary: false,
       slivers: [
@@ -515,10 +547,11 @@ class _DbOnlineSeriesSearchResultsState
               itemBuilder: (context, item, _) => _DbOnlineSearchEntityCard(
                 id: item.id,
                 name: item.name,
-                label: AppL10n.of(context).searchModeSeries,
+                label: type.label(AppL10n.of(context)),
                 count: item.moviesCount,
-                icon: Icons.layers_outlined,
+                icon: type.icon,
                 subscriptionKind: 'series',
+                subscriptionData: {'sub_type': type.apiType},
               ),
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),

@@ -45,7 +45,9 @@ abstract interface class DboMediaOperationsSource {
 
   Future<DbOnlineActorSearchResult> searchActors({required String query});
 
-  Future<DbOnlineSearchEntityPage> searchSeriesPage({
+  /// 按实体类型搜索（series/maker/director/list）。
+  Future<DbOnlineSearchEntityPage> searchEntitiesPage({
+    required String type,
     required String query,
     int page = 1,
     int limit = 24,

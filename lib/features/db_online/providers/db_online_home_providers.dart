@@ -84,15 +84,17 @@ final dbOnlineActorSearchProvider = FutureProvider.autoDispose
       return ref.watch(dboMediaRepositoryProvider).searchActors(query: query);
     });
 
-final dbOnlineSeriesSearchPageProvider = FutureProvider.autoDispose
-    .family<DbOnlineSearchEntityPage, DbOnlineSeriesSearchPageRequest>((
+/// 实体搜索（系列、片商、导演、清单）按类型读取一页数据。
+final dbOnlineEntitySearchPageProvider = FutureProvider.autoDispose
+    .family<DbOnlineSearchEntityPage, DbOnlineEntitySearchPageRequest>((
       ref,
       request,
     ) {
       _checkServerScope(ref, request.serverId);
       return ref
           .watch(dboMediaRepositoryProvider)
-          .searchSeriesPage(
+          .searchEntitiesPage(
+            type: request.type,
             query: request.query,
             page: request.page,
             limit: request.limit,
@@ -198,29 +200,32 @@ class DbOnlineSearchPageRequest {
   int get hashCode => Object.hash(serverId, query, page, limit);
 }
 
-class DbOnlineSeriesSearchPageRequest {
-  const DbOnlineSeriesSearchPageRequest({
+class DbOnlineEntitySearchPageRequest {
+  const DbOnlineEntitySearchPageRequest({
     required this.serverId,
+    required this.type,
     required this.query,
     required this.page,
     required this.limit,
   });
 
   final String serverId;
+  final String type;
   final String query;
   final int page;
   final int limit;
 
   @override
   bool operator ==(Object other) =>
-      other is DbOnlineSeriesSearchPageRequest &&
+      other is DbOnlineEntitySearchPageRequest &&
       other.serverId == serverId &&
+      other.type == type &&
       other.query == query &&
       other.page == page &&
       other.limit == limit;
 
   @override
-  int get hashCode => Object.hash(serverId, query, page, limit);
+  int get hashCode => Object.hash(serverId, type, query, page, limit);
 }
 
 class DbOnlineMovieDetailRequest {

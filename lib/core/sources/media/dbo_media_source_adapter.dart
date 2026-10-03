@@ -292,12 +292,19 @@ class DboMediaSourceAdapter implements DboMediaSource {
       _call(() => api.searchActors(query: query));
 
   @override
-  Future<DbOnlineSearchEntityPage> searchSeriesPage({
+  Future<DbOnlineSearchEntityPage> searchEntitiesPage({
+    required String type,
     required String query,
     int page = 1,
     int limit = 24,
-  }) =>
-      _call(() => api.searchSeriesPage(query: query, page: page, limit: limit));
+  }) => _call(
+    () => api.searchEntitiesPage(
+      type: type,
+      query: query,
+      page: page,
+      limit: limit,
+    ),
+  );
 
   @override
   Future<List<DbOnlineSubtitleFile>> findSubtitles(String code) =>

@@ -101,11 +101,17 @@ class DboMediaRepository {
   Future<DbOnlineActorSearchResult> searchActors({required String query}) =>
       _source.searchActors(query: query);
 
-  Future<DbOnlineSearchEntityPage> searchSeriesPage({
+  Future<DbOnlineSearchEntityPage> searchEntitiesPage({
+    required String type,
     required String query,
     int page = 1,
     int limit = 24,
-  }) => _source.searchSeriesPage(query: query, page: page, limit: limit);
+  }) => _source.searchEntitiesPage(
+    type: type,
+    query: query,
+    page: page,
+    limit: limit,
+  );
 
   Future<List<DbOnlineSubtitleFile>> findSubtitles(String code) =>
       _source.findSubtitles(code);

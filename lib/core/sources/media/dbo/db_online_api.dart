@@ -387,25 +387,35 @@ class DbOnlineApi {
     });
   }
 
-  /// 搜索 dbonline 系列。系列搜索沿用通用搜索接口的实体响应格式。
-  Future<DbOnlineSearchEntityPage> searchSeriesPage({
+  /// 搜索 dbonline 实体（系列、片商、导演、清单）。
+  ///
+  /// 与网页端一致走通用搜索接口，`type` 使用服务端实体白名单，响应为
+  /// `data.items` 的实体列表格式。
+  Future<DbOnlineSearchEntityPage> searchEntitiesPage({
+    required String type,
     required String query,
     int page = 1,
     int limit = 24,
   }) {
+    final normalizedType = type.trim();
+    if (!_searchEntityTypes.contains(normalizedType)) {
+      throw ArgumentError.value(type, 'type', AppErrorCode.validationFailed);
+    }
     final normalized = query.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(query, 'query', AppErrorCode.validationFailed);
     }
     return _searchEntitiesPage('/search', {
       'q': normalized,
-      'type': 'series',
+      'type': normalizedType,
       'page': page,
       'limit': limit,
       'movie_type': 'all',
       'movie_sort_by': 'relevance',
     });
   }
+
+  static const _searchEntityTypes = {'series', 'maker', 'director', 'list'};
 
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
   /// 转换为 Oh My Media 的整数影片 ID。refresh 控制是否强制访问在线 API。

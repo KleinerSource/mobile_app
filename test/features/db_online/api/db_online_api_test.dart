@@ -89,22 +89,51 @@ void main() {
     expect(() => api.searchPage(query: '  '), throwsA(isA<ArgumentError>()));
   });
 
-  test('searchActors 解析演员结果，searchSeriesPage 使用实体搜索参数', () async {
+  test('searchActors 解析演员结果，searchEntitiesPage 使用实体搜索参数', () async {
     final adapter = _DbOnlineEntitySearchAdapter();
     final api = DbOnlineApi(
       Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
     );
 
     final actors = await api.searchActors(query: '演员');
-    final series = await api.searchSeriesPage(query: '系列', page: 2, limit: 24);
+    final series = await api.searchEntitiesPage(
+      type: 'series',
+      query: '系列',
+      page: 2,
+      limit: 24,
+    );
+    final makers = await api.searchEntitiesPage(type: 'maker', query: '片商');
+    final directors = await api.searchEntitiesPage(
+      type: 'director',
+      query: '导演',
+    );
+    final lists = await api.searchEntitiesPage(type: 'list', query: '清单');
 
     expect(actors.actors.single.id, 'actor-1');
     expect(actors.actors.single.videosCount, 12);
-    expect(series.items.single.name, '系列结果');
+    expect(series.items.single.name, '实体结果');
+    expect(makers.items.single.name, '实体结果');
+    expect(directors.items.single.moviesCount, 4);
+    expect(lists.items.single.id, 'entity-1');
     expect(adapter.actorRequest, '/api/search/actors?q=%E6%BC%94%E5%91%98');
-    expect(
-      adapter.seriesRequest,
+    expect(adapter.entityRequests, <String>[
       '/api/search?q=%E7%B3%BB%E5%88%97&type=series&page=2&limit=24&movie_type=all&movie_sort_by=relevance',
+      '/api/search?q=%E7%89%87%E5%95%86&type=maker&page=1&limit=24&movie_type=all&movie_sort_by=relevance',
+      '/api/search?q=%E5%AF%BC%E6%BC%94&type=director&page=1&limit=24&movie_type=all&movie_sort_by=relevance',
+      '/api/search?q=%E6%B8%85%E5%8D%95&type=list&page=1&limit=24&movie_type=all&movie_sort_by=relevance',
+    ]);
+  });
+
+  test('searchEntitiesPage 拒绝空关键词与未知实体类型', () {
+    final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
+
+    expect(
+      () => api.searchEntitiesPage(type: 'maker', query: '  '),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => api.searchEntitiesPage(type: 'studio', query: '片商'),
+      throwsA(isA<ArgumentError>()),
     );
   });
 
@@ -357,7 +386,7 @@ class _DbOnlineSearchAdapter implements HttpClientAdapter {
 
 class _DbOnlineEntitySearchAdapter implements HttpClientAdapter {
   String? actorRequest;
-  String? seriesRequest;
+  final entityRequests = <String>[];
 
   @override
   void close({bool force = false}) {}
@@ -380,10 +409,10 @@ class _DbOnlineEntitySearchAdapter implements HttpClientAdapter {
         'total': 1,
       });
     }
-    seriesRequest = request;
+    entityRequests.add(request);
     return _response({
       'items': [
-        {'id': 'series-1', 'name': '系列结果', 'movies_count': 4},
+        {'id': 'entity-1', 'name': '实体结果', 'movies_count': 4},
       ],
       'total': 1,
     });
