@@ -14,11 +14,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
     String? requestPath;
+    var lastQuery = const <String, String>{};
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
           requestPath = options.uri.path;
+          lastQuery = options.uri.queryParameters;
           handler.resolve(
             Response<dynamic>(
               requestOptions: options,
@@ -68,5 +70,17 @@ void main() {
     expect(requestPath, '/api/makers/mk-1/movies');
     expect(find.text('示例片商'), findsOneWidget);
     expect(find.text('片商影片'), findsOneWidget);
+
+    // 页头筛选按钮打开弹层，选择资源条件后按参数重新加载。
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('资源条件'), findsOneWidget);
+
+    await tester.tap(find.text('字幕').first);
+    await tester.pumpAndSettle();
+
+    expect(requestPath, '/api/makers/mk-1/movies');
+    expect(lastQuery['filter'], 'c');
+    expect(lastQuery['sort_by'], 'release');
   });
 }

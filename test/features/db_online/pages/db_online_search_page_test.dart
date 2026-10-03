@@ -320,4 +320,74 @@ void main() {
     expect(find.text('关键词A'), findsNothing);
     expect(find.text('输入关键词开始搜索'), findsOneWidget);
   });
+
+  testWidgets('列表搜索通过筛选弹层过滤并按参数重新搜索', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final queries = <Map<String, String>>[];
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          queries.add(options.uri.queryParameters);
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'data': {
+                  'movies': [
+                    {
+                      'id': 'movie-1',
+                      'number': 'ABC-001',
+                      'title': '搜索到的 DBO 影片',
+                      'can_play': true,
+                    },
+                  ],
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    final client = ApiClient(dio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(client),
+          dboMediaRepositoryProvider.overrideWithValue(
+            DboMediaRepository(DboMediaSourceAdapter(client.dbOnline)),
+          ),
+          sharedPrefsProvider.overrideWithValue(preferences),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: Scaffold(body: DbOnlineSearchPage()),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), '关键词');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    expect(queries.last['movie_type'], 'all');
+
+    // 页头筛选按钮打开弹层，选择类型与资源条件后立即按参数重搜。
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('资源条件'), findsOneWidget);
+
+    await tester.tap(find.text('无码').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('字幕').first);
+    await tester.pumpAndSettle();
+
+    expect(queries.last['movie_type'], '1');
+    expect(queries.last['movie_filter_by'], 'subtitle');
+    expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
+  });
 }

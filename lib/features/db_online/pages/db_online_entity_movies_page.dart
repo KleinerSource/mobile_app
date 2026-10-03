@@ -22,7 +22,7 @@ import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
-import 'package:omm/features/db_online/widgets/db_online_filter_chip_row.dart';
+import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
 /// 实体（演员/系列/片商/导演/清单）的影片列表落地页。
@@ -168,54 +168,48 @@ class _DbOnlineEntityMoviesPageState
     unawaited(_refresh());
   }
 
-  /// 落地页过滤器行：资源筛选（多选）+ 演员年份 + 排序，与网页端一致。
-  Widget _filterRow() {
-    final l = AppL10n.of(context);
-    return DbOnlineFilterChipRow(
-      groups: [
-        [
-          CompactFilterButton(
-            label: l.filterAll,
-            active: _resourceFilters.isEmpty,
-            onTap: () => _applyFilter(_resourceFilters.clear),
-          ),
-          for (final option in dbOnlineResourceConditions)
-            CompactFilterButton(
-              label: dbOnlineResourceConditionLabel(l, option),
-              active: _resourceFilters.contains(option.letter),
-              onTap: () => _applyFilter(() {
-                if (!_resourceFilters.remove(option.letter)) {
-                  _resourceFilters.add(option.letter);
-                }
-              }),
-            ),
-        ],
+  bool get _filtersActive =>
+      _resourceFilters.isNotEmpty || _year.isNotEmpty || _sortBy != 'release';
+
+  /// 落地页过滤器弹层：资源条件（多选）+ 演员年份 + 排序，
+  /// 与关注列表的筛选弹层同款交互，选择后立即生效并保持打开。
+  Future<void> _openFilterSheet() {
+    final currentYear = DateTime.now().year;
+    return showDbOnlineFilterSheet(
+      context,
+      sections: (l) => [
+        DbOnlineFilterSection(
+          title: l.dbOnlineFollowingConditions,
+          options: dbOnlineResourceConditionOptions(l),
+          selected: _filterParam,
+          multiSelect: true,
+          onSelected: (value) => _applyFilter(() {
+            _resourceFilters
+              ..clear()
+              ..addAll(value.split(',').where((item) => item.isNotEmpty));
+          }),
+        ),
         if (_isActor)
-          [
-            CompactFilterButton(
-              label: l.filterAll,
-              active: _year.isEmpty,
-              onTap: () => _applyFilter(() => _year = ''),
-            ),
-            for (var year = DateTime.now().year; year >= 2011; year--)
-              CompactFilterButton(
-                label: '$year',
-                active: _year == '$year',
-                onTap: () => _applyFilter(() => _year = '$year'),
-              ),
+          DbOnlineFilterSection(
+            title: l.dbOnlineFilterYear,
+            options: [
+              (value: '', label: l.filterAll),
+              for (var year = currentYear; year >= 2011; year--)
+                (value: '$year', label: '$year'),
+            ],
+            selected: _year,
+            onSelected: (value) => _applyFilter(() => _year = value),
+          ),
+        DbOnlineFilterSection(
+          title: l.dbOnlineSort,
+          options: [
+            (value: 'release', label: l.dbOnlineLibrarySortDate),
+            (value: 'update', label: l.dbOnlineRecentUpdated),
+            (value: 'score', label: l.dbOnlineLibraryCommunityRating),
           ],
-        [
-          for (final (value, label) in [
-            ('release', l.dbOnlineLibrarySortDate),
-            ('update', l.dbOnlineRecentUpdated),
-            ('score', l.dbOnlineLibraryCommunityRating),
-          ])
-            CompactFilterButton(
-              label: label,
-              active: _sortBy == value,
-              onTap: () => _applyFilter(() => _sortBy = value),
-            ),
-        ],
+          selected: _sortBy,
+          onSelected: (value) => _applyFilter(() => _sortBy = value),
+        ),
       ],
     );
   }
@@ -267,23 +261,25 @@ class _DbOnlineEntityMoviesPageState
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
-            header: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SettingsSubPageHeader(
-                  eyebrow: 'DB ONLINE',
-                  title: widget.title,
-                  trailing: MediaViewModeToggle(
+            header: SettingsSubPageHeader(
+              eyebrow: 'DB ONLINE',
+              title: widget.title,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CompactFilterButton(
+                    label: '',
+                    icon: Icons.tune_rounded,
+                    active: _filtersActive,
+                    onTap: () => unawaited(_openFilterSheet()),
+                  ),
+                  const SizedBox(width: 8),
+                  MediaViewModeToggle(
                     mode: _viewMode,
                     onChanged: (mode) => unawaited(_setViewMode(mode)),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _filterRow(),
-                ),
-              ],
+                ],
+              ),
             ),
             body: RefreshIndicator(
               onRefresh: _refresh,

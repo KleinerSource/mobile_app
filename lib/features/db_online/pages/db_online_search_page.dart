@@ -19,8 +19,8 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/filter_chip.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_history.dart';
 import 'package:omm/shared/search_type_menu.dart';
@@ -29,7 +29,7 @@ import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
-import 'package:omm/features/db_online/widgets/db_online_filter_chip_row.dart';
+import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 
 /// dbonline 搜索页。
@@ -168,56 +168,52 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
     });
   }
 
-  /// 影片列表搜索过滤器：类型 / 资源筛选（多选）/ 排序，与网页端一致。
-  Widget _movieFilterRow() {
-    final l = AppL10n.of(context);
-    return DbOnlineFilterChipRow(
-      groups: [
-        [
-          for (final (value, label) in [
-            ('all', l.filterAll),
-            ('0', l.dbOnlineCategoryCensored),
-            ('1', l.dbOnlineCategoryUncensored),
-            ('2', l.dbOnlineCategoryWestern),
-            ('3', 'FC2'),
-            ('4', l.dbOnlineCategoryAnime),
-          ])
-            CompactFilterButton(
-              label: label,
-              active: _movieType == value,
-              onTap: () => _applyMovieFilter(() => _movieType = value),
-            ),
-        ],
-        [
-          CompactFilterButton(
-            label: l.filterAll,
-            active: _resourceFilters.isEmpty,
-            onTap: () => _applyMovieFilter(_resourceFilters.clear),
-          ),
-          for (final option in dbOnlineResourceConditions)
-            CompactFilterButton(
-              label: dbOnlineResourceConditionLabel(l, option),
-              active: _resourceFilters.contains(option.letter),
-              onTap: () => _applyMovieFilter(() {
-                if (!_resourceFilters.remove(option.letter)) {
-                  _resourceFilters.add(option.letter);
-                }
-              }),
-            ),
-        ],
-        [
-          for (final (value, label) in [
-            ('relevance', l.dbOnlineSortRelevance),
-            ('release', l.dbOnlineLibrarySortDate),
-            ('update', l.dbOnlineRecentUpdated),
-            ('score', l.dbOnlineLibraryCommunityRating),
-          ])
-            CompactFilterButton(
-              label: label,
-              active: _movieSortBy == value,
-              onTap: () => _applyMovieFilter(() => _movieSortBy = value),
-            ),
-        ],
+  bool get _filtersActive =>
+      _movieType != 'all' ||
+      _resourceFilters.isNotEmpty ||
+      _movieSortBy != 'relevance';
+
+  /// 影片列表搜索过滤器弹层：类型 / 资源条件（多选）/ 排序，
+  /// 与关注列表的筛选弹层同款交互，选择后立即生效并保持打开。
+  Future<void> _openMovieFilterSheet() {
+    return showDbOnlineFilterSheet(
+      context,
+      sections: (l) => [
+        DbOnlineFilterSection(
+          title: l.dbOnlineCategorySection,
+          options: [
+            (value: 'all', label: l.filterAll),
+            (value: '0', label: l.dbOnlineCategoryCensored),
+            (value: '1', label: l.dbOnlineCategoryUncensored),
+            (value: '2', label: l.dbOnlineCategoryWestern),
+            (value: '3', label: 'FC2'),
+            (value: '4', label: l.dbOnlineCategoryAnime),
+          ],
+          selected: _movieType,
+          onSelected: (value) => _applyMovieFilter(() => _movieType = value),
+        ),
+        DbOnlineFilterSection(
+          title: l.dbOnlineFollowingConditions,
+          options: dbOnlineResourceConditionOptions(l),
+          selected: dbOnlineResourceConditionLetters(_resourceFilters).join(','),
+          multiSelect: true,
+          onSelected: (value) => _applyMovieFilter(() {
+            _resourceFilters
+              ..clear()
+              ..addAll(value.split(',').where((item) => item.isNotEmpty));
+          }),
+        ),
+        DbOnlineFilterSection(
+          title: l.dbOnlineSort,
+          options: [
+            (value: 'relevance', label: l.dbOnlineSortRelevance),
+            (value: 'release', label: l.dbOnlineLibrarySortDate),
+            (value: 'update', label: l.dbOnlineRecentUpdated),
+            (value: 'score', label: l.dbOnlineLibraryCommunityRating),
+          ],
+          selected: _movieSortBy,
+          onSelected: (value) => _applyMovieFilter(() => _movieSortBy = value),
+        ),
       ],
     );
   }
@@ -268,9 +264,21 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
               eyebrow: l.searchTitle.toUpperCase(),
               title: Text(l.searchFind, style: AppText.pageTitle(context)),
               trailing: _searchType == DbOnlineSearchType.list
-                  ? MediaViewModeToggle(
-                      mode: _viewMode,
-                      onChanged: (mode) => unawaited(_setViewMode(mode)),
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CompactFilterButton(
+                          label: '',
+                          icon: Icons.tune_rounded,
+                          active: _filtersActive,
+                          onTap: () => unawaited(_openMovieFilterSheet()),
+                        ),
+                        const SizedBox(width: 8),
+                        MediaViewModeToggle(
+                          mode: _viewMode,
+                          onChanged: (mode) => unawaited(_setViewMode(mode)),
+                        ),
+                      ],
                     )
                   : null,
             ),
@@ -300,57 +308,37 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                 }),
               ),
             ),
-            // 过滤器行属于内容区（外层保持 PageHeader/搜索框/内容区的
-            // 统一间距契约），列表搜索时渲染在内容区顶部。
+            // 过滤器通过页头按钮 + 弹层操作，与关注列表一致。
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 与网页端一致：只在已有搜索关键词时显示过滤器。
-                  if (_searchType == DbOnlineSearchType.list &&
-                      _submittedQuery.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _movieFilterRow(),
-                    ),
-                  Expanded(
-                    child: _submittedQuery.isEmpty
-                        ? _emptyArea()
-                        : switch (_searchType) {
-                            DbOnlineSearchType.list => _DbOnlineSearchResults(
-                              key: ValueKey(
-                                'list:$_submittedQuery:$_searchSerial',
-                              ),
-                              query: _submittedQuery,
-                              viewMode: _viewMode,
-                              movieType: _movieType,
-                              movieSortBy: _movieSortBy,
-                              movieFilterBy: _movieFilterParam,
-                            ),
-                            DbOnlineSearchType.video =>
-                              const _DbOnlineSearchEmptyHint(),
-                            DbOnlineSearchType.actor =>
-                              _DbOnlineActorSearchResults(
-                                key: ValueKey(
-                                  'actor:$_submittedQuery:$_searchSerial',
-                                ),
-                                query: _submittedQuery,
-                              ),
-                            DbOnlineSearchType.series ||
-                            DbOnlineSearchType.maker ||
-                            DbOnlineSearchType.director ||
-                            DbOnlineSearchType.playlist =>
-                              _DbOnlineEntitySearchResults(
-                                key: ValueKey(
-                                  '${_searchType.name}:$_submittedQuery:$_searchSerial',
-                                ),
-                                type: _searchType,
-                                query: _submittedQuery,
-                              ),
-                          },
-                  ),
-                ],
-              ),
+              child: _submittedQuery.isEmpty
+                  ? _emptyArea()
+                  : switch (_searchType) {
+                      DbOnlineSearchType.list => _DbOnlineSearchResults(
+                        key: ValueKey('list:$_submittedQuery:$_searchSerial'),
+                        query: _submittedQuery,
+                        viewMode: _viewMode,
+                        movieType: _movieType,
+                        movieSortBy: _movieSortBy,
+                        movieFilterBy: _movieFilterParam,
+                      ),
+                      DbOnlineSearchType.video =>
+                        const _DbOnlineSearchEmptyHint(),
+                      DbOnlineSearchType.actor => _DbOnlineActorSearchResults(
+                        key: ValueKey('actor:$_submittedQuery:$_searchSerial'),
+                        query: _submittedQuery,
+                      ),
+                      DbOnlineSearchType.series ||
+                      DbOnlineSearchType.maker ||
+                      DbOnlineSearchType.director ||
+                      DbOnlineSearchType.playlist =>
+                        _DbOnlineEntitySearchResults(
+                          key: ValueKey(
+                            '${_searchType.name}:$_submittedQuery:$_searchSerial',
+                          ),
+                          type: _searchType,
+                          query: _submittedQuery,
+                        ),
+                    },
             ),
           ],
         ),

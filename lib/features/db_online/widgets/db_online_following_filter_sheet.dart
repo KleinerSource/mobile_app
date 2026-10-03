@@ -11,8 +11,8 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
-import 'db_online_filter_chip_row.dart';
 import 'db_online_following_widgets.dart';
+import 'db_online_list_filter_sheets.dart';
 
 class DbOnlineFollowingFilterSheet extends ConsumerStatefulWidget {
   const DbOnlineFollowingFilterSheet({
