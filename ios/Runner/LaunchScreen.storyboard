@@ -23,6 +23,9 @@
                                     <constraint firstAttribute="height" constant="132" id="kYQ-1c-hF9"/>
                                 </constraints>
                             </imageView>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="LaunchLogoMask" translatesAutoresizingMaskIntoConstraints="NO" id="M7m-As-K1d">
+                                <rect key="frame" x="130.5" y="360.0" width="132" height="132"/>
+                            </imageView>
                         </subviews>
                         <color key="backgroundColor" name="LaunchBackground"/>
                         <constraints>
@@ -30,6 +33,8 @@
                             <constraint firstItem="F6g-Qm-8rA" firstAttribute="centerY" secondItem="vW1-fx-2pA" secondAttribute="centerY" id="Lkz-Nm-0sQ"/>
                             <constraint firstItem="M7m-As-K1d" firstAttribute="centerX" secondItem="vW1-fx-2pA" secondAttribute="centerX" id="M1a-Ms-K4g"/>
                             <constraint firstItem="M7m-As-K1d" firstAttribute="centerY" secondItem="vW1-fx-2pA" secondAttribute="centerY" id="M2b-Ms-K5h"/>
+                            <constraint firstItem="M7m-As-K1d" firstAttribute="width" secondItem="F6g-Qm-8rA" secondAttribute="width" id="M3c-Ms-K6i"/>
+                            <constraint firstItem="M7m-As-K1d" firstAttribute="height" secondItem="F6g-Qm-8rA" secondAttribute="height" id="M4d-Ms-K7j"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="q7C-5x-W3a"/>
                     </view>

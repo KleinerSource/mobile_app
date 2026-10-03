@@ -6,4 +6,9 @@
             android:gravity="center"
             android:src="@mipmap/ic_launcher" />
     </item>
+    <item
+        android:width="48dp"
+        android:height="48dp"
+        android:gravity="center"
+        android:drawable="@drawable/launch_logo_mask" />
 </layer-list>
