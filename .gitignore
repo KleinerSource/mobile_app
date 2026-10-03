@@ -12,11 +12,6 @@ build/
 # iOS
 ios/Pods/
 ios/.symlinks/
-ios/Flutter/Flutter.framework
-ios/Flutter/Flutter.podspec
-ios/Flutter/App.framework
-ios/Flutter/ephemeral/
-
 # Android
 android/.gradle/
 android/local.properties
@@ -31,61 +26,9 @@ android/app/debug/
 *.iml
 
 # Generated
-.fvm/
 
-# Superpowers brainstorming session
-.superpowers/
-web/
-ios/
-android/
-
-# Keep the iOS network policy in source control.
-!ios/
-ios/*
-!ios/Runner/
-ios/Runner/*
-!ios/Runner/Info.plist
-!ios/Runner/AppDelegate.swift
-!ios/Runner/LaunchScreen.storyboard
-!ios/Runner/Base.lproj/
-!ios/Runner/Base.lproj/LaunchScreen.storyboard
-!ios/Runner/Assets.xcassets/
-ios/Runner/Assets.xcassets/*
-!ios/Runner/Assets.xcassets/AppIcon.appiconset/
-!ios/Runner/Assets.xcassets/AppIcon.appiconset/**
-!ios/Runner/Assets.xcassets/LaunchLogo.imageset/
-!ios/Runner/Assets.xcassets/LaunchLogo.imageset/**
 
 # Keep the Android minimum SDK required by flutter_secure_storage in source control.
-!android/
-android/*
-!android/app/
-android/app/*
-!android/app/build.gradle.kts
-!android/app/src/
-!android/app/src/main/
-!android/app/src/main/AndroidManifest.xml
-!android/app/src/main/kotlin/
-!android/app/src/main/kotlin/com/
-!android/app/src/main/kotlin/com/omm/
-!android/app/src/main/kotlin/com/omm/MainActivity.kt
-android/app/src/debug/
-android/app/src/profile/
-android/app/src/main/res/
-!android/app/src/main/res/
-android/app/src/main/res/*
-!android/app/src/main/res/mipmap-*/
-android/app/src/main/res/mipmap-*/*
-!android/app/src/main/res/mipmap-*/ic_launcher.png
-!android/app/src/main/res/drawable/
-!android/app/src/main/res/drawable/launch_background.xml
-!android/app/src/main/res/drawable-v21/
-!android/app/src/main/res/drawable-v21/launch_background.xml
-!android/app/src/main/res/values/
-!android/app/src/main/res/values/colors.xml
-android/app/src/main/res/values/styles.xml
-!android/app/src/main/res/values-v31/
-!android/app/src/main/res/values-v31/styles.xml
 windows/
 macos/
 linux/
@@ -95,5 +38,7 @@ progress.md
 task_plan.md
 release.keystore.base64
 release.keystore
-work/senplayer-ksplayer-cache/
+work/
 .planning/
+web/
+android/.kotlin/
