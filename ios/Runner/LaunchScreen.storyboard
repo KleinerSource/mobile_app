@@ -16,11 +16,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="F6g-Qm-8rA">
-                                <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
-                                        <real key="value" value="29"/>
-                                    </userDefinedRuntimeAttribute>
-                                </userDefinedRuntimeAttributes>
+
                                 <rect key="frame" x="130.5" y="360.0" width="132" height="132"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="132" id="W5v-Kr-5mB"/>
@@ -32,6 +28,8 @@
                         <constraints>
                             <constraint firstItem="F6g-Qm-8rA" firstAttribute="centerX" secondItem="vW1-fx-2pA" secondAttribute="centerX" id="r0h-Xq-4Vg"/>
                             <constraint firstItem="F6g-Qm-8rA" firstAttribute="centerY" secondItem="vW1-fx-2pA" secondAttribute="centerY" id="Lkz-Nm-0sQ"/>
+                            <constraint firstItem="M7m-As-K1d" firstAttribute="centerX" secondItem="vW1-fx-2pA" secondAttribute="centerX" id="M1a-Ms-K4g"/>
+                            <constraint firstItem="M7m-As-K1d" firstAttribute="centerY" secondItem="vW1-fx-2pA" secondAttribute="centerY" id="M2b-Ms-K5h"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="q7C-5x-W3a"/>
                     </view>
@@ -43,6 +41,7 @@
     </scenes>
     <resources>
         <image name="LaunchLogo" width="1024" height="1024"/>
+        <image name="LaunchLogoMask" width="132" height="132"/>
         <namedColor name="LaunchBackground">
             <color red="0.95294117647058818" green="0.94901960784313721" blue="0.97254901960784312" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
