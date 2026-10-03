@@ -10,8 +10,10 @@ import 'package:omm/features/db_online/providers/db_online_subscription_provider
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/main/media_manager_shell.dart';
+import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/glass_menu.dart';
+import 'package:omm/shared/media_view_mode.dart';
 
 import '../support/following_test_support.dart';
 
@@ -375,6 +377,33 @@ void main() {
       'landscape',
     );
     expect(backend.to('/subs/tags'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('视图切换位于页头右侧，320px 页头不溢出', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    // 只验证页头；窄屏影片卡片布局不在此用例范围内。
+    final backend = FollowingTestBackend()
+      ..respond = (request) => request.path == '/subs/tags'
+          ? {
+              'success': true,
+              'data': {'movies': [], 'has_more': false},
+            }
+          : null;
+    await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
+    final toggle = find.descendant(
+      of: find.byType(SettingsSubPageHeader),
+      matching: find.byType(MediaViewModeToggle),
+    );
+    expect(toggle, findsOneWidget);
+    expect(tester.getRect(toggle).right, lessThanOrEqualTo(320 - 22 + 0.01));
+    expect(
+      tester.getRect(find.byTooltip('关注用户')).right,
+      lessThanOrEqualTo(tester.getRect(toggle).left),
+    );
     expect(tester.takeException(), isNull);
   });
 }

@@ -2823,4 +2823,7 @@
   ,"dbOnlineWatchedInvalidSize": "文件大小须为非负数，最大值不能小于最小值；0 表示不限"
   ,"dbOnlineWatchedInvalidFiles": "最大文件数须为 0–10 的整数"
   ,"dbOnlineWatchedInvalidDate": "起始日期须为有效的 YYYY-MM-DD 日期"
+  ,"detailFavoriteAction": "收藏"
+  ,"detailUnfavoriteAction": "取消收藏"
+  ,"actionRefresh": "刷新"
 }

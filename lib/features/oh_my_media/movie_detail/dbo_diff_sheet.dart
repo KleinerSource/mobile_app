@@ -367,6 +367,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                 ].join(' · ')
               : null,
           trailing: IconButton(
+            tooltip: AppL10n.of(context).actionRefresh,
             icon: const Icon(Icons.refresh, size: 18),
             onPressed: _loading ? null : _load,
           ),

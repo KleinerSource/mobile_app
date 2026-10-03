@@ -272,6 +272,7 @@ class _DbOnlineResourcesSheetState
               title: l.detailFetchResources,
               subtitle: widget.movie.code,
               trailing: IconButton(
+                tooltip: l.actionRefresh,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 onPressed: _loadingResources ? null : _loadResources,
               ),

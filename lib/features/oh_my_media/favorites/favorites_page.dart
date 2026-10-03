@@ -577,6 +577,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           ),
                           HeaderActionButton(
                             icon: Icons.settings,
+                            tooltip: AppL10n.of(context).settingsTitle,
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>

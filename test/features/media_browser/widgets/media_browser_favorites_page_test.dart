@@ -17,6 +17,10 @@ import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart'
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
+import 'package:omm/shared/page_header.dart';
+import 'package:omm/shared/media_view_mode.dart';
+import 'package:omm/shared/media_section_tab.dart';
+import 'package:omm/shared/library_sort_buttons.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   _PrivacyState(this.enabled);
@@ -183,6 +187,56 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
+  });
+
+  testWidgets('排序器与视图切换位于 header 右侧并与设置按钮同排', (tester) async {
+    final repo = _RecordingRepo(page: _page([_item('a', '收藏条目 A')]));
+    await _pumpFavorites(tester, repo);
+
+    final header = find.byType(PageHeader);
+    final sort = find.descendant(
+      of: header,
+      matching: find.byType(LibrarySortButton),
+    );
+    final toggle = find.descendant(
+      of: header,
+      matching: find.byType(MediaViewModeToggle),
+    );
+    final settings = find.descendant(
+      of: header,
+      matching: find.byTooltip('设置'),
+    );
+    expect(sort, findsOneWidget);
+    expect(toggle, findsOneWidget);
+    expect(settings, findsOneWidget);
+    expect(tester.getRect(sort).right, lessThan(tester.getRect(toggle).left));
+    expect(
+      tester.getRect(toggle).right,
+      lessThan(tester.getRect(settings).left),
+    );
+    expect(
+      tester.getCenter(sort).dy,
+      closeTo(tester.getCenter(settings).dy, 0.01),
+    );
+    final typeRow = find.ancestor(
+      of: find.byType(MediaSectionTab).first,
+      matching: find.byType(ListView),
+    );
+    expect(
+      find.descendant(of: typeRow, matching: find.byType(MediaViewModeToggle)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: typeRow, matching: find.byType(LibrarySortButton)),
+      findsNothing,
+    );
+
+    await tester.tap(sort);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('名称（A-Z）'));
+    await tester.pumpAndSettle();
+    expect(repo.pageRequests.last['sortBy'], 'SortName');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('类型 chip 切换后按新类型重新请求', (tester) async {

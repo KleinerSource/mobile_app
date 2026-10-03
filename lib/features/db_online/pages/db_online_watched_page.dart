@@ -305,6 +305,10 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
             tooltip: l.dbOnlineWatchedRecheck,
             onPressed: _recheck,
           ),
+        if (canQuery) ...[
+          const SizedBox(width: 4),
+          const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
+        ],
       ],
       filters: canQuery
           ? Padding(
@@ -312,20 +316,12 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      DbOnlineSortFilterButtons(
-                        ascending: _filter.orderBy == 'asc',
-                        filterActive:
-                            _filter.type != 'all' || _filter.star.isNotEmpty,
-                        onSort: () => unawaited(_openSortMenu()),
-                        onFilter: () => unawaited(_openFilterMenu()),
-                      ),
-                      const Spacer(),
-                      const MediaViewModePreferenceToggle(
-                        preferenceKey: _viewModeKey,
-                      ),
-                    ],
+                  DbOnlineSortFilterButtons(
+                    ascending: _filter.orderBy == 'asc',
+                    filterActive:
+                        _filter.type != 'all' || _filter.star.isNotEmpty,
+                    onSort: () => unawaited(_openSortMenu()),
+                    onFilter: () => unawaited(_openFilterMenu()),
                   ),
                   if (scheduler != null &&
                       (scheduler.rechecking || scheduler.recheckQueued)) ...[

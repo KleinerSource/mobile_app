@@ -1,3 +1,4 @@
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
@@ -161,17 +162,13 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              leading: IconButton(
-                tooltip: l.back,
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: c.surface.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 18),
+              leading: Center(
+                child: HeaderActionButton(
+                  icon: Icons.arrow_back,
+                  tooltip: l.back,
+                  style: HeaderActionStyle.overlay,
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
-                onPressed: () => Navigator.of(context).maybePop(),
               ),
               flexibleSpace: FlexibleSpaceBar(
                 background: _Hero(

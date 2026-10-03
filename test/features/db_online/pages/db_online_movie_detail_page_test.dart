@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
@@ -13,7 +14,6 @@ import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/glass_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -86,20 +86,23 @@ void main() {
 
   testWidgets('详情更多沿用封面悬浮栏风格并保留资源与字幕菜单', (tester) async {
     await pumpDetail(tester, hasCnsub: true);
-    final menu = find.byType(GlassMenuAnchor<String>);
+    final menu = find.byType(HeaderMenuButton<String>);
     expect(menu, findsOneWidget);
-    final action =
-        tester.widget<GlassMenuAnchor<String>>(menu).child as Container;
-    final back =
-        tester
-                .widget<IconButton>(
-                  find.widgetWithIcon(IconButton, Icons.arrow_back),
-                )
-                .icon
-            as Container;
-    expect(tester.getSize(menu), tester.getSize(find.byWidget(back)));
-    expect(action.decoration, back.decoration);
-    expect(action.padding, back.padding);
+    final back = find.widgetWithIcon(HeaderActionButton, Icons.arrow_back);
+    expect(tester.widget<HeaderMenuButton<String>>(menu).tooltip, '更多');
+    expect(
+      tester.widget<HeaderMenuButton<String>>(menu).style,
+      tester.widget<HeaderActionButton>(back).style,
+    );
+    expect(tester.getSize(menu), tester.getSize(back));
+    expect(
+      tester.getSize(
+        find.descendant(of: menu, matching: find.byType(HeaderActionIcon)),
+      ),
+      tester.getSize(
+        find.descendant(of: back, matching: find.byType(HeaderActionIcon)),
+      ),
+    );
     await tester.tapAt(tester.getRect(menu).topLeft + const Offset(2, 2));
     await tester.pumpAndSettle();
     expect(find.text('获取资源'), findsOneWidget);

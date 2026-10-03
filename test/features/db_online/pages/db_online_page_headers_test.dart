@@ -59,12 +59,9 @@ void main() {
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
     _checkHeader(tester, '关注列表', eyebrow: '我的');
     final action = find.widgetWithIcon(HeaderActionButton, Icons.tune_rounded);
-    final filter = find.descendant(
-      of: action,
-      matching: find.byType(IconButton),
-    );
+    final filter = find.descendant(of: action, matching: find.byType(InkWell));
     expect(filter, findsOneWidget);
-    expect(tester.widget<IconButton>(filter).onPressed, isNull);
+    expect(tester.widget<InkWell>(filter).onTap, isNull);
     await tester.tap(action);
     await pumpFollowingFrames(tester);
     expect(find.byType(BottomSheet), findsNothing);

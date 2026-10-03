@@ -243,6 +243,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           title: l.subtitleSearchTitle,
           subtitle: _keyword.isEmpty ? null : l.subtitleSearchKeyword(_keyword),
           trailing: IconButton(
+            tooltip: l.actionRefresh,
             icon: Icon(Icons.refresh, color: c.muted, size: 20),
             onPressed: _loading ? null : _load,
           ),
@@ -440,6 +441,7 @@ class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
         backgroundColor: c.bg,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
+          tooltip: l.back,
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).maybePop(),
         ),

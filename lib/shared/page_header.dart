@@ -14,6 +14,10 @@ class PageHeader extends StatelessWidget {
     this.subtitle,
   });
 
+  static const double horizontalPadding = 22;
+  static const double leadingWidth = 48;
+  static const double trailingGap = 8;
+
   final String eyebrow;
   final Widget title;
   final Widget? leading;
@@ -22,9 +26,14 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleInset = leading == null ? 0.0 : 48.0;
+    final titleInset = leading == null ? 0.0 : leadingWidth;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
+      padding: const EdgeInsets.fromLTRB(
+        horizontalPadding,
+        16,
+        horizontalPadding,
+        22,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -44,7 +53,7 @@ class PageHeader extends StatelessWidget {
             child: Row(
               children: [
                 if (leading != null)
-                  SizedBox(width: 48, height: 48, child: leading),
+                  SizedBox(width: leadingWidth, height: 48, child: leading),
                 Expanded(
                   child: DefaultTextStyle.merge(
                     maxLines: 1,
@@ -53,7 +62,7 @@ class PageHeader extends StatelessWidget {
                   ),
                 ),
                 if (trailing != null) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: trailingGap),
                   SizedBox(
                     height: 48,
                     child: Center(widthFactor: 1, child: trailing),

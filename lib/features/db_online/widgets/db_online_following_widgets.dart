@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,6 +7,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/page_header.dart';
 
 /// 关注相关页面沿用订阅管理的固定页头和共享页面布局。
 class DbOnlineFollowingLayout extends StatelessWidget {
@@ -25,6 +28,26 @@ class DbOnlineFollowingLayout extends StatelessWidget {
   final Widget? filters;
   final ScrollController? scrollController;
 
+  /// 窄屏上标题至少保留的宽度。
+  static const _minTitleWidth = 64.0;
+
+  /// 操作区保持自然尺寸；只有在窄屏放不下时整体缩小，避免页头溢出。
+  Widget _trailing(double headerWidth) {
+    final maxWidth =
+        headerWidth -
+        PageHeader.horizontalPadding * 2 -
+        PageHeader.leadingWidth -
+        PageHeader.trailingGap -
+        _minTitleWidth;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: math.max(0, maxWidth)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: appColors(context).bg,
@@ -35,12 +58,14 @@ class DbOnlineFollowingLayout extends StatelessWidget {
           scrollController: scrollController,
           header: Column(
             children: [
-              SettingsSubPageHeader(
-                eyebrow: eyebrow,
-                title: title,
-                trailing: actions.isEmpty
-                    ? null
-                    : Row(mainAxisSize: MainAxisSize.min, children: actions),
+              LayoutBuilder(
+                builder: (context, constraints) => SettingsSubPageHeader(
+                  eyebrow: eyebrow,
+                  title: title,
+                  trailing: actions.isEmpty
+                      ? null
+                      : _trailing(constraints.maxWidth),
+                ),
               ),
               if (filters != null) filters!,
             ],

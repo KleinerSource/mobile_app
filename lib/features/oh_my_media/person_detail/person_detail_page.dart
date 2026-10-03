@@ -1,3 +1,4 @@
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
@@ -381,16 +382,10 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
             child: MovieDetailNavigationBar(
               title: widget.actor.name,
               actions: [
-                IconButton(
+                HeaderActionButton(
+                  icon: Icons.cloud_sync_outlined,
                   tooltip: l.personSyncAssociations,
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: c.surface.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.cloud_sync_outlined, size: 18),
-                  ),
+                  style: HeaderActionStyle.overlay,
                   onPressed: _syncActor,
                 ),
               ],

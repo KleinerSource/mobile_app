@@ -228,43 +228,36 @@ class _DbOnlineSubscriptionVideosSheetState
                       ? Icons.person_outline_rounded
                       : Icons.layers_outlined,
                   title: hidden ? '▆▆▆▆▆' : widget.title,
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 32,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.only(right: 8),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _statuses.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 6),
-                        itemBuilder: (context, index) {
-                          final status = _statuses[index];
-                          final label = switch (status) {
-                            'pending' => l.dbOnlineSubscriptionPending,
-                            'completed' => l.dbOnlineSubscriptionCompleted,
-                            _ => l.dbOnlineSubscriptionSkipped,
-                          };
-                          final count = _statusCounts[status];
-                          return MediaSectionTab(
-                            label: count == null ? label : '$label($count)',
-                            selected: _status == status,
-                            onTap: () {
-                              if (_status == status) return;
-                              setState(() => _status = status);
-                              _reloadForQuery();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const MediaViewModePreferenceToggle(
+                  trailing: const MediaViewModePreferenceToggle(
                     preferenceKey: _subscriptionViewModeKey,
                   ),
-                ],
+                ),
+              ),
+              SizedBox(
+                height: 32,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _statuses.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
+                  itemBuilder: (context, index) {
+                    final status = _statuses[index];
+                    final label = switch (status) {
+                      'pending' => l.dbOnlineSubscriptionPending,
+                      'completed' => l.dbOnlineSubscriptionCompleted,
+                      _ => l.dbOnlineSubscriptionSkipped,
+                    };
+                    final count = _statusCounts[status];
+                    return MediaSectionTab(
+                      label: count == null ? label : '$label($count)',
+                      selected: _status == status,
+                      onTap: () {
+                        if (_status == status) return;
+                        setState(() => _status = status);
+                        _reloadForQuery();
+                      },
+                    );
+                  },
+                ),
               ),
               const SizedBox(height: 12),
               TextField(

@@ -38,6 +38,7 @@ import 'package:omm/features/settings/server_lines_page.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
+import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_section_tab.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
@@ -229,28 +230,24 @@ void _expectHeaderIconCenters(WidgetTester tester, Finder header) {
   final buttons = find.descendant(
     of: header,
     matching: find.byWidgetPredicate(
-      (widget) =>
-          widget is HeaderActionButton || widget is PopupMenuButton<String>,
+      (widget) => widget is HeaderActionButton || widget is HeaderMenuButton,
     ),
   );
+  expect(buttons, findsWidgets);
   for (final element in buttons.evaluate()) {
     final button = find.byWidget(element.widget);
+    final ink = find.descendant(of: button, matching: find.byType(InkWell));
     final circle = find.descendant(
       of: button,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Container &&
-            widget.decoration is BoxDecoration &&
-            (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
-      ),
+      matching: find.byType(HeaderActionIcon),
     );
     final icon = find.descendant(of: circle, matching: find.byType(Icon));
     final circleRect = tester.getRect(circle);
     expect(circleRect.size, const Size.square(36));
-    expect(tester.getSize(button), const Size.square(48));
+    expect(tester.getSize(ink), const Size.square(48));
     expect(tester.getCenter(icon).dx, closeTo(circleRect.center.dx, 0.01));
     expect(tester.getCenter(icon).dy, closeTo(circleRect.center.dy, 0.01));
-    expect(tester.getCenter(button), circleRect.center);
+    expect(tester.getCenter(ink), circleRect.center);
   }
 }
 
@@ -502,19 +499,17 @@ void main() {
     final titleRect = tester.getRect(header);
     _expectHeaderIconCenters(tester, header);
     expect(
-      find.descendant(of: header, matching: find.byType(IconButton)),
+      find.descendant(of: header, matching: find.byType(HeaderActionButton)),
       findsOneWidget,
     );
-    expect(
-      find.descendant(
-        of: header,
-        matching: find.byType(PopupMenuButton<String>),
-      ),
-      findsOneWidget,
+    final menu = find.descendant(
+      of: header,
+      matching: find.byType(HeaderMenuButton<String>),
     );
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    expect(menu, findsOneWidget);
+    await tester.tap(menu);
     await tester.pumpAndSettle();
-    expect(find.byType(PopupMenuItem<String>), findsWidgets);
+    expect(find.byType(GlassMenuRow), findsWidgets);
     await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('打开设置'));

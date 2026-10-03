@@ -11,6 +11,7 @@ import 'glass.dart';
 import 'media_metadata_widgets.dart';
 import 'movie_detail_formatters.dart';
 import 'poster.dart';
+import 'header_action_button.dart';
 
 /// 详情页的统一页面骨架。
 ///
@@ -95,23 +96,16 @@ class MovieDetailNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     return SafeArea(
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
         child: Row(
           children: [
-            IconButton(
+            HeaderActionButton(
+              icon: Icons.arrow_back,
               tooltip: AppL10n.of(context).back,
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: 0.6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.arrow_back, size: 18),
-              ),
+              style: HeaderActionStyle.overlay,
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             if (title == null)

@@ -10,6 +10,7 @@ import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/watch_record.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
@@ -348,19 +349,13 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
       ],
       actions: [
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: c.surface.withValues(alpha: 0.6),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isFavorited ? Icons.favorite : Icons.favorite_border,
-              size: 18,
-              color: isFavorited ? c.accent : null,
-            ),
-          ),
+        HeaderActionButton(
+          icon: isFavorited ? Icons.favorite : Icons.favorite_border,
+          color: isFavorited ? c.accent : null,
+          tooltip: isFavorited
+              ? AppL10n.of(context).detailUnfavoriteAction
+              : AppL10n.of(context).detailFavoriteAction,
+          style: HeaderActionStyle.overlay,
           onPressed: () async {
             final messenger = ScaffoldMessenger.of(context);
             final l = AppL10n.of(context);
@@ -1197,25 +1192,17 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
                       task.isActive,
                 ) ||
             previewStatus?.task?.isActive == true);
-    return GlassMenuAnchor<String>(
-      width: 244,
+    return HeaderMenuButton<String>(
+      icon: Icons.more_horiz,
+      tooltip: l.more,
+      menuWidth: 244,
+      style: HeaderActionStyle.overlay,
       entries: _movieMoreEntries(
         c,
         l,
         includePreview: isOmm,
         previewVideoReady: previewVideoReady,
         previewTaskActive: previewTaskActive,
-      ),
-      tooltip: l.more,
-      offset: const Offset(0, 8),
-      placement: GlassMenuPlacement.below,
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: c.surface.withValues(alpha: 0.6),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.more_horiz, size: 18),
       ),
       onSelected: (v) async {
         switch (v) {

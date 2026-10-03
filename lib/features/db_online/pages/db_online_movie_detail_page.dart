@@ -1,3 +1,4 @@
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/error_view.dart';
 import 'dart:async';
 
@@ -389,10 +390,12 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     final l = AppL10n.of(context);
-    return GlassMenuAnchor<String>(
-      width: 244,
+    return HeaderMenuButton<String>(
+      icon: Icons.more_horiz,
+      tooltip: l.more,
+      menuWidth: 244,
+      style: HeaderActionStyle.overlay,
       entries: [
         GlassMenuEntry<String>.action(
           value: 'resources',
@@ -414,9 +417,6 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
             ),
           ),
       ],
-      tooltip: l.more,
-      offset: const Offset(0, 8),
-      placement: GlassMenuPlacement.below,
       onSelected: (value) {
         if (value == 'resources') {
           unawaited(DbOnlineResourcesSheet.show(context, movie));
@@ -424,14 +424,6 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
           unawaited(DbOnlineSubtitleSheet.show(context, movie.code));
         }
       },
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.6),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.more_horiz, size: 18),
-      ),
     );
   }
 }

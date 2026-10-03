@@ -206,7 +206,8 @@ enum GlassMenuAlignment { start, center, end }
 class GlassMenuAnchor<T> extends StatefulWidget {
   const GlassMenuAnchor({
     super.key,
-    required this.child,
+    this.child,
+    this.builder,
     required this.entries,
     required this.onSelected,
     required this.width,
@@ -217,9 +218,16 @@ class GlassMenuAnchor<T> extends StatefulWidget {
     this.enabled = true,
     this.tooltip,
     this.onAnchorTap,
-  });
+  }) : assert(
+         (child == null) != (builder == null),
+         'Provide exactly one of child or builder.',
+       );
 
-  final Widget child;
+  final Widget? child;
+
+  /// 由锚点内容自行处理点击（例如绘制波纹），回调用于打开/关闭菜单；
+  /// 禁用时回调为 null。长按滑动选择仍由锚点统一处理。
+  final Widget Function(BuildContext context, VoidCallback? toggle)? builder;
   final List<GlassMenuEntry<T>> entries;
   final ValueChanged<T> onSelected;
   final double width;
@@ -428,15 +436,18 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final builder = widget.builder;
     Widget child = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: widget.enabled ? _toggle : null,
+      onTap: widget.enabled && builder == null ? _toggle : null,
       onLongPressStart: widget.enabled ? _startLongPress : null,
       onLongPressMoveUpdate: widget.enabled
           ? (details) => _updateSelection(details.globalPosition)
           : null,
       onLongPressEnd: widget.enabled ? _finishLongPress : null,
-      child: widget.child,
+      child:
+          builder?.call(context, widget.enabled ? _toggle : null) ??
+          widget.child!,
     );
     if (widget.tooltip?.trim().isNotEmpty == true) {
       child = Tooltip(message: widget.tooltip!, child: child);

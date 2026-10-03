@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/features/db_online/pages/db_online_followed_users_page.dart';
 import 'package:omm/features/db_online/pages/db_online_review_resources_page.dart';
 
@@ -187,9 +188,9 @@ void main() {
       backend,
       const DbOnlineFollowedUsersPage(serverId: 'a'),
     );
-    final refresh = tester.widget<IconButton>(
+    final refresh = tester.widget<HeaderActionButton>(
       find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == '刷新用户评论',
+        (widget) => widget is HeaderActionButton && widget.tooltip == '刷新用户评论',
       ),
     );
     expect(refresh.onPressed, isNull);

@@ -467,6 +467,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
               title: l.resourceOnline,
               subtitle: _movieTitle,
               trailing: IconButton(
+                tooltip: l.actionRefresh,
                 icon: const Icon(Icons.refresh, size: 18),
                 onPressed: _loadingResources ? null : _load,
               ),

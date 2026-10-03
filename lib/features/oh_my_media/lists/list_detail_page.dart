@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
@@ -59,28 +60,19 @@ class ListDetailPage extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              leading: IconButton(
-                tooltip: l10n.back,
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: c.surface.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 18),
+              leading: Center(
+                child: HeaderActionButton(
+                  icon: Icons.arrow_back,
+                  tooltip: l10n.back,
+                  style: HeaderActionStyle.overlay,
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
-                onPressed: () => Navigator.of(context).maybePop(),
               ),
               actions: [
-                IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: c.surface.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.more_horiz, size: 18),
-                  ),
+                HeaderActionButton(
+                  icon: Icons.more_horiz,
+                  tooltip: l10n.more,
+                  style: HeaderActionStyle.overlay,
                   onPressed: () => _showMoreSheet(context, ref, list),
                 ),
                 const SizedBox(width: 6),

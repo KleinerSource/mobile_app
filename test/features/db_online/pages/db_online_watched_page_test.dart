@@ -14,9 +14,11 @@ import 'package:omm/features/db_online/widgets/db_online_watched_recheck_sheet.d
 import 'package:omm/features/main/media_manager_shell.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/pagination_footer.dart';
 
@@ -630,6 +632,13 @@ void main() {
     final backend = WatchedTestBackend()
       ..movies = [watchedMovie(1), watchedMovie(2)];
     final container = await pumpWatchedTest(tester, backend);
+    expect(
+      find.descendant(
+        of: find.byType(SettingsSubPageHeader),
+        matching: find.byType(MediaViewModeToggle),
+      ),
+      findsOneWidget,
+    );
     expect(find.byType(PagedSliverGrid<int, DbOnlineMovie>), findsOneWidget);
     await tester.tap(find.byIcon(Icons.view_list_rounded));
     await pumpFollowingFrames(tester);

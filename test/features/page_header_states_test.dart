@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -337,7 +338,10 @@ void main() {
           findsWidgets,
         );
         expect(
-          find.descendant(of: navigation, matching: find.byType(IconButton)),
+          find.descendant(
+            of: navigation,
+            matching: find.byType(HeaderActionButton),
+          ),
           findsWidgets,
         );
       }

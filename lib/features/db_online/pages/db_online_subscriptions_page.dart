@@ -604,39 +604,36 @@ class _DbOnlineSubscriptionsPageState
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (capabilities != null && _showsViewModeToggle) ...[
+            const MediaViewModePreferenceToggle(
+              preferenceKey: _subscriptionViewModeKey,
+            ),
+            const SizedBox(width: 4),
+          ],
           if (actions.isNotEmpty)
-            PopupMenuButton<String>(
+            HeaderMenuButton<String>(
+              icon: Icons.more_vert_rounded,
               tooltip: l.dbOnlineSubscriptionTitle,
-              padding: EdgeInsets.zero,
+              menuWidth: 232,
               onSelected: (action) => _handleHeaderAction(action, l),
-              itemBuilder: (context) => [
+              entries: [
                 for (final action in actions)
-                  PopupMenuItem(
+                  GlassMenuEntry<String>.action(
                     value: action,
-                    child: action == 'autosync'
-                        ? Row(
-                            children: [
-                              Expanded(
-                                child: Text(l.dbOnlineSubscriptionAutoSync),
-                              ),
-                              if (autoSyncEnabled) ...[
-                                const SizedBox(width: 12),
-                                Text(
-                                  l.dbOnlineSubscriptionAutoSyncOn,
-                                  style: AppText.meta(context),
-                                ),
-                              ],
-                            ],
-                          )
-                        : Text(_headerActionLabel(action, l)),
+                    builder: (context, selected, onTap) => GlassMenuRow(
+                      icon: _headerActionIcon(action),
+                      label: _headerActionLabel(action, l),
+                      selected: selected,
+                      trailing: action == 'autosync' && autoSyncEnabled
+                          ? Text(
+                              l.dbOnlineSubscriptionAutoSyncOn,
+                              style: AppText.meta(context),
+                            )
+                          : null,
+                      onTap: onTap,
+                    ),
                   ),
               ],
-              child: const SizedBox.square(
-                dimension: HeaderActionButton.tapTargetSize,
-                child: Center(
-                  child: HeaderActionIcon(icon: Icons.more_vert_rounded),
-                ),
-              ),
             ),
           HeaderActionButton(
             tooltip: l.dbOnlineSubscriptionSettings,
@@ -675,14 +672,11 @@ class _DbOnlineSubscriptionsPageState
   }
 
   Widget _sectionPicker(List<(String, String, IconData)> sections) {
-    final picker = SizedBox(
+    return SizedBox(
       height: 32,
       child: ListView.separated(
         controller: _sectionPickerController,
-        padding: EdgeInsets.only(
-          left: 22,
-          right: _showsViewModeToggle ? 8 : 22,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         scrollDirection: Axis.horizontal,
         itemCount: sections.length,
         separatorBuilder: (_, _) => const SizedBox(width: 6),
@@ -707,20 +701,21 @@ class _DbOnlineSubscriptionsPageState
         },
       ),
     );
-    // 保持同一棵树，切到黑名单时分区列表不会重建而丢失滚动位置。
-    return Row(
-      children: [
-        Expanded(child: picker),
-        if (_showsViewModeToggle)
-          const Padding(
-            padding: EdgeInsets.only(right: 22),
-            child: MediaViewModePreferenceToggle(
-              preferenceKey: _subscriptionViewModeKey,
-            ),
-          ),
-      ],
-    );
   }
+
+  IconData _headerActionIcon(String action) => switch (action) {
+    'preset' => Icons.tune_rounded,
+    'run' => Icons.play_arrow_rounded,
+    'share' => Icons.ios_share_rounded,
+    'fetch-list' => Icons.cloud_download_outlined,
+    'sync-preset' => Icons.settings_suggest_outlined,
+    'autosync' => Icons.schedule_rounded,
+    'sync' => Icons.sync_rounded,
+    'prefix' => Icons.playlist_add_rounded,
+    'blacklist-test' => Icons.rule_rounded,
+    'blacklist-add' => Icons.add_circle_outline_rounded,
+    _ => Icons.more_horiz_rounded,
+  };
 
   String _headerActionLabel(String action, AppL10n l) => switch (action) {
     'preset' => l.dbOnlineSubscriptionPreset,

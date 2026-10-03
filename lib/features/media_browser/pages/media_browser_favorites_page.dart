@@ -29,6 +29,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/media_list_row.dart';
+import 'package:omm/shared/library_sort_buttons.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
@@ -455,7 +456,7 @@ class _MediaBrowserFavoritesPageState
               children: [
                 Column(
                   children: [
-                    // ===== 固定 header：收藏夹 + 条目数量 + 设置入口 =====
+                    // ===== 固定 header：收藏夹 + 条目数量 + 排序/视图/设置 =====
                     PageHeader(
                       eyebrow: l.favoritesTitle,
                       title: Text(
@@ -467,6 +468,19 @@ class _MediaBrowserFavoritesPageState
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Tooltip(
+                            message: _sort.label(l),
+                            child: LibrarySortButton(
+                              ascending: _sort.order == 'Ascending',
+                              onTap: () => unawaited(_showSortSheet()),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          MediaViewModeToggle(
+                            mode: _viewMode,
+                            onChanged: (mode) => unawaited(_setViewMode(mode)),
+                          ),
+                          const SizedBox(width: 4),
                           HeaderActionButton(
                             icon: Icons.settings_outlined,
                             tooltip: AppL10n.of(context).settingsTitle,
@@ -496,7 +510,7 @@ class _MediaBrowserFavoritesPageState
                               controller: _scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
                               slivers: [
-                                // ===== 筛选行：类型 chips + 排序 + 视图切换 =====
+                                // ===== 筛选行：类型 chips =====
                                 SliverToBoxAdapter(
                                   child: Padding(
                                     padding: const EdgeInsets.only(bottom: 14),
@@ -525,18 +539,6 @@ class _MediaBrowserFavoritesPageState
                                               ),
                                             ),
                                           ],
-                                          const SizedBox(width: 6),
-                                          _SortPill(
-                                            label: _sort.label(l),
-                                            onTap: () =>
-                                                unawaited(_showSortSheet()),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          MediaViewModeToggle(
-                                            mode: _viewMode,
-                                            onChanged: (mode) =>
-                                                unawaited(_setViewMode(mode)),
-                                          ),
                                         ],
                                       ),
                                     ),
@@ -977,42 +979,3 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ============ 首屏错误 ============
-
-// ============ 排序 pill + 视图切换 ============
-class _SortPill extends StatelessWidget {
-  const _SortPill({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          color: colors.chipBg,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.swap_vert, size: 14, color: colors.text),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: colors.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 11.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

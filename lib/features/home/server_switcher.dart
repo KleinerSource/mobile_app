@@ -13,6 +13,7 @@ import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
+import '../../shared/header_action_button.dart';
 import '../../shared/server_avatar.dart';
 import '../settings/server_selection_display_settings.dart';
 import 'server_switch_transition.dart';
@@ -165,21 +166,28 @@ class _HomeServerSwitcherMenuState
                 ),
               ),
           ],
-          child: DecoratedBox(
-            key: _avatarKey,
-            decoration: BoxDecoration(
-              // 首页入口位于海报/背景图上，使用中性磨砂底板承接透明头像，
-              // 避免底层画面直接穿透；头像本身不恢复紫色渐变背景。
-              color: colors.sheetBackground,
-              shape: BoxShape.circle,
-            ),
-            child: ServerAvatar(
-              displayName: displayName,
-              avatarUrl: avatarUrl,
-              size: 36,
-              colors: colors,
-              project: widget.activeServer.project,
-              showBackground: false,
+          builder: (context, toggle) => HeaderCircleInk(
+            onTap: toggle,
+            diameter: 36,
+            tapTargetSize: 36,
+            child: Ink(
+              key: _avatarKey,
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                // 首页入口位于海报/背景图上，使用中性磨砂底板承接透明头像，
+                // 避免底层画面直接穿透；头像本身不恢复紫色渐变背景。
+                color: colors.sheetBackground,
+                shape: BoxShape.circle,
+              ),
+              child: ServerAvatar(
+                displayName: displayName,
+                avatarUrl: avatarUrl,
+                size: 36,
+                colors: colors,
+                project: widget.activeServer.project,
+                showBackground: false,
+              ),
             ),
           ),
         );

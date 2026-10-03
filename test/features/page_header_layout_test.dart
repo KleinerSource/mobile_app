@@ -140,7 +140,11 @@ void main() {
         await tester.tap(button);
         expect(taps, 1);
         expect(
-          tester.widget<IconButton>(find.byType(IconButton)).onPressed,
+          tester
+              .widget<InkWell>(
+                find.descendant(of: button, matching: find.byType(InkWell)),
+              )
+              .onTap,
           isNull,
         );
         expect(tester.takeException(), isNull);

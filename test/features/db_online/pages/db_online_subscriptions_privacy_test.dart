@@ -17,6 +17,7 @@ import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_section_tab.dart';
 import 'package:omm/shared/media_view_mode.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -359,7 +360,13 @@ void main() {
       expect(find.text('2026-01-01'), findsNothing);
       expect(find.byType(ImageFiltered), findsNWidgets(2));
       expect(find.byType(GlassMenuPanel), findsNothing);
-      expect(find.byType(GlassMenuAnchor<String>), findsNothing);
+      expect(
+        find.ancestor(
+          of: find.byType(CatalogMovieCard).first,
+          matching: find.byType(GlassMenuAnchor<String>),
+        ),
+        findsNothing,
+      );
 
       await tester.tap(find.byType(CatalogMovieCard).first);
       await tester.pumpAndSettle();
@@ -476,7 +483,15 @@ void main() {
 
   testWidgets('视图切换统一作用于订阅影片板块与实体影片弹层，黑名单不显示', (tester) async {
     final container = await _pumpPage(tester, observer: _NavigationObserver());
-    expect(find.byType(MediaViewModeToggle), findsOneWidget);
+    final headerToggle = find.descendant(
+      of: find.byType(PageHeader),
+      matching: find.byType(MediaViewModeToggle),
+    );
+    expect(headerToggle, findsOneWidget);
+    expect(
+      tester.getRect(headerToggle).bottom,
+      lessThan(tester.getRect(find.byType(MediaSectionTab).first).top),
+    );
     await tester.tap(find.byIcon(Icons.view_list_rounded));
     await tester.pumpAndSettle();
     expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
@@ -517,6 +532,13 @@ void main() {
     await tester.tap(find.text('私人演员'));
     await tester.pumpAndSettle();
     final sheet = find.byType(DbOnlineSubscriptionVideosSheet);
+    expect(
+      find.descendant(
+        of: find.byType(SheetHeader),
+        matching: find.byType(MediaViewModeToggle),
+      ),
+      findsOneWidget,
+    );
     final sheetCards = tester.widgetList<CatalogMovieCard>(
       find.descendant(of: sheet, matching: find.byType(CatalogMovieCard)),
     );
