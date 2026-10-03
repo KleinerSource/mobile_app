@@ -2832,4 +2832,6 @@
   ,"detailFavoriteAction": "收藏"
   ,"detailUnfavoriteAction": "取消收藏"
   ,"actionRefresh": "刷新"
+  ,"searchHistoryTitle": "搜索历史"
+  ,"searchHistoryClear": "清空"
 }

@@ -32,6 +32,7 @@ import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/search_history.dart';
 
 /// MediaBrowser 搜索页。
 ///
@@ -83,10 +84,39 @@ class _MediaBrowserSearchPageState
       }
       return;
     }
+    _recordHistory(query);
     setState(() {
       _submittedQuery = query;
       _searchSerial++;
     });
+  }
+
+  /// 搜索历史按服务器独立保存；提交时记录。
+  void _recordHistory(String query) {
+    final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    unawaited(ref.read(searchHistoryStoreProvider).add(serverId, query));
+  }
+
+  Future<void> _clearHistory(String serverId) async {
+    await ref.read(searchHistoryStoreProvider).clear(serverId);
+    if (mounted) setState(() {});
+  }
+
+  Widget _emptyArea() {
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final history = ref.read(searchHistoryStoreProvider).load(serverId);
+    if (history.isEmpty) {
+      return _MediaBrowserSearchEmptyHint(hint: AppL10n.of(context).searchEmpty);
+    }
+    return SearchHistorySection(
+      entries: history,
+      onSelected: (entry) {
+        _controller.text = entry;
+        _submitSearch(entry);
+      },
+      onClear: () => unawaited(_clearHistory(serverId)),
+    );
   }
 
   Future<void> _setViewMode(MediaViewMode mode) async {
@@ -188,7 +218,7 @@ class _MediaBrowserSearchPageState
               ),
               Expanded(
                 child: _submittedQuery.isEmpty
-                    ? _MediaBrowserSearchEmptyHint(hint: l.searchEmpty)
+                    ? _emptyArea()
                     : _MediaBrowserSearchResults(
                         key: ValueKey('$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,

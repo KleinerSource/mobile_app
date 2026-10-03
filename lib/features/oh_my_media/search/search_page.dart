@@ -10,6 +10,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_codes.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -29,6 +30,7 @@ import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
+import 'package:omm/shared/search_history.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
@@ -172,9 +174,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _submitSearch(String value) {
-    if (_searchType != MovieSearchType.actor) return;
     final query = value.trim();
     if (query.isEmpty) return;
+    _recordHistory(query);
+    if (_searchType != MovieSearchType.actor) return;
     _debounce.cancel();
     final requestId = ++_actorRequestId;
     setState(() {
@@ -190,12 +193,40 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _selectActor(ActorItem actor) {
     _debounce.cancel();
     ++_actorRequestId;
+    _recordHistory(actor.name);
     setState(() {
       _selectedActorId = actor.id;
       _actorSuggestions = const [];
       _actorSearchError = null;
       _actorSearchLoading = false;
     });
+  }
+
+  /// 搜索历史按服务器独立保存；显式提交、选中演员以及打开搜索结果
+  /// 详情时记录（实时搜索没有提交动作，以打开详情视为有效搜索）。
+  void _recordHistory(String query) {
+    final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    unawaited(ref.read(searchHistoryStoreProvider).add(serverId, query));
+  }
+
+  Future<void> _clearHistory(String serverId) async {
+    await ref.read(searchHistoryStoreProvider).clear(serverId);
+    if (mounted) setState(() {});
+  }
+
+  Widget _emptyArea() {
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final history = ref.read(searchHistoryStoreProvider).load(serverId);
+    if (history.isEmpty) return _EmptyHint();
+    return SearchHistorySection(
+      entries: history,
+      onSelected: (entry) {
+        _controller.text = entry;
+        _onChanged(entry);
+      },
+      onClear: () => unawaited(_clearHistory(serverId)),
+    );
   }
 
   Future<void> _setViewMode(MediaViewMode mode) async {
@@ -306,7 +337,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             Expanded(
               child: _query.isEmpty
-                  ? _EmptyHint()
+                  ? _emptyArea()
                   : _searchType == MovieSearchType.actor &&
                         _selectedActorId == null
                   ? _ActorSuggestions(
@@ -563,6 +594,14 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   }
 
   Future<void> _openMovie(int movieId) async {
+    // 实时搜索没有提交动作，打开结果详情时把当前关键词记入历史。
+    if (widget.actorId == null) {
+      final serverId =
+          ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+      unawaited(
+        ref.read(searchHistoryStoreProvider).add(serverId, widget.query),
+      );
+    }
     final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movieId);
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),

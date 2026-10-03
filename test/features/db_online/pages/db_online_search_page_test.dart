@@ -242,4 +242,82 @@ void main() {
     expect(moviesPath, '/api/actors/actor-1/movies');
     expect(find.text('演员影片'), findsOneWidget);
   });
+
+  testWidgets('提交搜索后记录历史，点击历史重搜并可一键清空', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'data': {
+                  'movies': [
+                    {
+                      'id': 'movie-1',
+                      'number': 'ABC-001',
+                      'title': '搜索到的 DBO 影片',
+                      'can_play': true,
+                    },
+                  ],
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    final client = ApiClient(dio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(client),
+          dboMediaRepositoryProvider.overrideWithValue(
+            DboMediaRepository(DboMediaSourceAdapter(client.dbOnline)),
+          ),
+          sharedPrefsProvider.overrideWithValue(preferences),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: Scaffold(body: DbOnlineSearchPage()),
+        ),
+      ),
+    );
+
+    // 无历史时空态提示照旧。
+    expect(find.text('搜索历史'), findsNothing);
+    expect(find.text('输入关键词开始搜索'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '关键词A');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
+
+    // 清空输入后回到空态，展示按服务器保存的历史。
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(find.text('搜索历史'), findsOneWidget);
+    expect(find.text('关键词A'), findsOneWidget);
+
+    // 点击历史关键词重新搜索。
+    await tester.tap(find.text('关键词A'));
+    await tester.pumpAndSettle();
+    expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
+
+    // 一键清空后回到空态提示。
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清空'));
+    await tester.pumpAndSettle();
+    expect(find.text('搜索历史'), findsNothing);
+    expect(find.text('关键词A'), findsNothing);
+    expect(find.text('输入关键词开始搜索'), findsOneWidget);
+  });
 }

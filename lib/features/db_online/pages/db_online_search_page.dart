@@ -21,6 +21,7 @@ import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/search_history.dart';
 import 'package:omm/shared/search_type_menu.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
@@ -121,6 +122,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
       }
       return;
     }
+    _recordHistory(query);
     if (_searchType == DbOnlineSearchType.video) {
       FocusScope.of(context).unfocus();
       unawaited(
@@ -145,6 +147,32 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
       _submittedQuery = '';
       _searchSerial++;
     });
+  }
+
+  /// 搜索历史按服务器独立保存；提交时记录（含番号直达）。
+  void _recordHistory(String query) {
+    final serverId = ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    unawaited(ref.read(searchHistoryStoreProvider).add(serverId, query));
+  }
+
+  Future<void> _clearHistory(String serverId) async {
+    await ref.read(searchHistoryStoreProvider).clear(serverId);
+    if (mounted) setState(() {});
+  }
+
+  Widget _emptyArea() {
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final history = ref.read(searchHistoryStoreProvider).load(serverId);
+    if (history.isEmpty) return const _DbOnlineSearchEmptyHint();
+    return SearchHistorySection(
+      entries: history,
+      onSelected: (entry) {
+        _controller.text = entry;
+        _submitSearch(entry);
+      },
+      onClear: () => unawaited(_clearHistory(serverId)),
+    );
   }
 
   Future<void> _setViewMode(MediaViewMode mode) async {
@@ -201,7 +229,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
             ),
             Expanded(
               child: _submittedQuery.isEmpty
-                  ? const _DbOnlineSearchEmptyHint()
+                  ? _emptyArea()
                   : switch (_searchType) {
                       DbOnlineSearchType.list => _DbOnlineSearchResults(
                         key: ValueKey('list:$_submittedQuery:$_searchSerial'),

@@ -2832,4 +2832,6 @@
   ,"detailFavoriteAction": "Add to favorites"
   ,"detailUnfavoriteAction": "Remove from favorites"
   ,"actionRefresh": "Refresh"
+  ,"searchHistoryTitle": "Search history"
+  ,"searchHistoryClear": "Clear"
 }
