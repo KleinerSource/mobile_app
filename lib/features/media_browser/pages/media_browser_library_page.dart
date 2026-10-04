@@ -538,10 +538,7 @@ class _MediaBrowserLibraryPageState
                             : 'Ascending',
                       );
                     } else {
-                      _reloadWith(
-                        sortBy: option.value,
-                        sortOrder: 'Ascending',
-                      );
+                      _reloadWith(sortBy: option.value, sortOrder: 'Ascending');
                     }
                   },
                 ),
@@ -1205,104 +1202,105 @@ class _MediaBrowserAdvancedFilterSheetState
     final l = AppL10n.of(context);
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SheetHeader(
-              icon: Icons.filter_alt_outlined,
-              title: l.mediaBrowserAdvancedFilter,
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              trailing: TextButton(onPressed: _reset, child: Text(l.reset)),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l.mediaBrowserSort, style: AppText.eyebrow(context)),
-                  const SizedBox(height: 8),
-                  SortOptionChipRow(
-                    options: widget.sortOptions,
-                    selected: _sortBy,
-                    ascending: _sortOrder == 'Ascending',
-                    onSelected: (value, ascending) => setState(() {
-                      _sortBy = value;
-                      _sortOrder = ascending ? 'Ascending' : 'Descending';
-                    }),
-                  ),
-                  const SizedBox(height: 18),
-                  _MediaBrowserDropdownField(
-                    key: const ValueKey('media-browser-filter-genre'),
-                    values: _selectedGenres,
-                    hint: l.mediaBrowserFilterGenresHint,
-                    icon: Icons.category_outlined,
-                    onTap: () async {
-                      final values = await _pickFilterValues(
-                        title: l.mediaBrowserFilterType,
-                        icon: Icons.category_outlined,
-                        items: widget.genreOptions,
-                        selected: _selectedGenres,
-                      );
-                      if (mounted && values != null) {
-                        setState(() => _selectedGenres = values);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _MediaBrowserDropdownField(
-                    key: const ValueKey('media-browser-filter-tag'),
-                    values: _selectedTags,
-                    hint: l.mediaBrowserFilterTagsHint,
-                    icon: Icons.label_outline_rounded,
-                    onTap: () async {
-                      final values = await _pickFilterValues(
-                        title: l.movieEditorTag,
-                        icon: Icons.label_outline_rounded,
-                        items: widget.tagOptions,
-                        selected: _selectedTags,
-                      );
-                      if (mounted && values != null) {
-                        setState(() => _selectedTags = values);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _MediaBrowserDropdownField(
-                    key: const ValueKey('media-browser-filter-year'),
-                    values: _selectedYears,
-                    hint: l.mediaBrowserFilterYearHint,
-                    icon: Icons.calendar_today_outlined,
-                    onTap: () async {
-                      final values = await _pickFilterValues(
-                        title: l.mediaBrowserFilterYear,
-                        icon: Icons.calendar_today_outlined,
-                        items: widget.yearOptions,
-                        selected: _selectedYears,
-                      );
-                      if (mounted && values != null) {
-                        setState(() => _selectedYears = values);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  SheetActionBar.buttons(
-                    padding: EdgeInsets.zero,
-                    buttons: [
-                      FilledButton.icon(
-                        onPressed: _submit,
-                        style: sheetPrimaryButtonStyle(context),
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: Text(l.confirm),
-                      ),
-                    ],
-                  ),
-                ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetHeader(
+            icon: Icons.filter_alt_outlined,
+            title: l.mediaBrowserAdvancedFilter,
+            padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+            trailing: TextButton(onPressed: _reset, child: Text(l.reset)),
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.mediaBrowserSort, style: AppText.eyebrow(context)),
+                    const SizedBox(height: 8),
+                    SortOptionChipRow(
+                      options: widget.sortOptions,
+                      selected: _sortBy,
+                      ascending: _sortOrder == 'Ascending',
+                      onSelected: (value, ascending) => setState(() {
+                        _sortBy = value;
+                        _sortOrder = ascending ? 'Ascending' : 'Descending';
+                      }),
+                    ),
+                    const SizedBox(height: 18),
+                    _MediaBrowserDropdownField(
+                      key: const ValueKey('media-browser-filter-genre'),
+                      values: _selectedGenres,
+                      hint: l.mediaBrowserFilterGenresHint,
+                      icon: Icons.category_outlined,
+                      onTap: () async {
+                        final values = await _pickFilterValues(
+                          title: l.mediaBrowserFilterType,
+                          icon: Icons.category_outlined,
+                          items: widget.genreOptions,
+                          selected: _selectedGenres,
+                        );
+                        if (mounted && values != null) {
+                          setState(() => _selectedGenres = values);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _MediaBrowserDropdownField(
+                      key: const ValueKey('media-browser-filter-tag'),
+                      values: _selectedTags,
+                      hint: l.mediaBrowserFilterTagsHint,
+                      icon: Icons.label_outline_rounded,
+                      onTap: () async {
+                        final values = await _pickFilterValues(
+                          title: l.movieEditorTag,
+                          icon: Icons.label_outline_rounded,
+                          items: widget.tagOptions,
+                          selected: _selectedTags,
+                        );
+                        if (mounted && values != null) {
+                          setState(() => _selectedTags = values);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _MediaBrowserDropdownField(
+                      key: const ValueKey('media-browser-filter-year'),
+                      values: _selectedYears,
+                      hint: l.mediaBrowserFilterYearHint,
+                      icon: Icons.calendar_today_outlined,
+                      onTap: () async {
+                        final values = await _pickFilterValues(
+                          title: l.mediaBrowserFilterYear,
+                          icon: Icons.calendar_today_outlined,
+                          items: widget.yearOptions,
+                          selected: _selectedYears,
+                        );
+                        if (mounted && values != null) {
+                          setState(() => _selectedYears = values);
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
+              FilledButton.icon(
+                onPressed: _submit,
+                style: sheetPrimaryButtonStyle(context),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: Text(l.confirm),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -129,109 +129,115 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
     final l = AppL10n.of(context);
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SheetHeader(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+            child: SheetHeader(
               icon: Icons.audiotrack_outlined,
               title: l.audioExtractTitle,
               subtitle: widget.movie.title,
               padding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<String>(
-              initialValue: _format,
-              isExpanded: true,
-              decoration: settingsInputDecoration(
-                context,
-                labelText: l.audioExtractFormat,
-                prefixIcon: const Icon(Icons.audio_file_outlined),
-              ),
-              items: [
-                for (final option in _audioFormatOptions)
-                  DropdownMenuItem(
-                    value: option.value,
-                    child: Text(option.label),
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: _format,
+                    isExpanded: true,
+                    decoration: settingsInputDecoration(
+                      context,
+                      labelText: l.audioExtractFormat,
+                      prefixIcon: const Icon(Icons.audio_file_outlined),
+                    ),
+                    items: [
+                      for (final option in _audioFormatOptions)
+                        DropdownMenuItem(
+                          value: option.value,
+                          child: Text(option.label),
+                        ),
+                    ],
+                    onChanged: _submitting
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            AppHaptics.selection();
+                            setState(() => _format = value);
+                          },
                   ),
-              ],
-              onChanged: _submitting
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      AppHaptics.selection();
-                      setState(() => _format = value);
-                    },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _bitrateKbps,
-              isExpanded: true,
-              decoration: settingsInputDecoration(
-                context,
-                labelText: l.audioExtractBitrate,
-                prefixIcon: const Icon(Icons.speed_outlined),
-              ),
-              items: [
-                for (final bitrate in _audioBitrateOptions)
-                  DropdownMenuItem(
-                    value: bitrate,
-                    child: Text('$bitrate kbps'),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: _bitrateKbps,
+                    isExpanded: true,
+                    decoration: settingsInputDecoration(
+                      context,
+                      labelText: l.audioExtractBitrate,
+                      prefixIcon: const Icon(Icons.speed_outlined),
+                    ),
+                    items: [
+                      for (final bitrate in _audioBitrateOptions)
+                        DropdownMenuItem(
+                          value: bitrate,
+                          child: Text('$bitrate kbps'),
+                        ),
+                    ],
+                    onChanged: _submitting
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            AppHaptics.selection();
+                            setState(() => _bitrateKbps = value);
+                          },
                   ),
-              ],
-              onChanged: _submitting
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      AppHaptics.selection();
-                      setState(() => _bitrateKbps = value);
-                    },
+                  if (_error != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: c.danger.withValues(alpha: 0.10),
+                        border: Border.all(
+                          color: c.danger.withValues(alpha: 0.28),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(_error!, style: TextStyle(color: c.danger)),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: c.danger.withValues(alpha: 0.10),
-                  border: Border.all(color: c.danger.withValues(alpha: 0.28)),
-                  borderRadius: BorderRadius.circular(12),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: _submitting ? null : () => Navigator.pop(context),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(l.cancel),
+              ),
+              FilledButton.icon(
+                onPressed: _submitting ? null : _submit,
+                style: sheetPrimaryButtonStyle(context),
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.playlist_add, size: 18),
+                label: Text(
+                  _submitting ? l.audioExtractSubmitting : l.audioExtractSubmit,
                 ),
-                child: Text(_error!, style: TextStyle(color: c.danger)),
               ),
             ],
-            const SizedBox(height: 20),
-            SheetActionBar.buttons(
-              padding: EdgeInsets.zero,
-              buttons: [
-                OutlinedButton(
-                  onPressed: _submitting
-                      ? null
-                      : () => Navigator.pop(context),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: Text(l.cancel),
-                ),
-                FilledButton.icon(
-                  onPressed: _submitting ? null : _submit,
-                  style: sheetPrimaryButtonStyle(context),
-                  icon: _submitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.playlist_add, size: 18),
-                  label: Text(
-                    _submitting
-                        ? l.audioExtractSubmitting
-                        : l.audioExtractSubmit,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1726,9 +1726,8 @@ class _DbOnlineSubscriptionsPageState
       context: context,
       isScrollControlled: true,
       minHeight: sheetMinHeight(context),
-      builder: (_) => DbOnlineSubscriptionShareExportSheet(
-        l: AppL10n.of(context),
-      ),
+      builder: (_) =>
+          DbOnlineSubscriptionShareExportSheet(l: AppL10n.of(context)),
     );
     if (!mounted || selection == null) return;
     final seriesTypes = List<String>.from(
@@ -1766,36 +1765,38 @@ class _DbOnlineSubscriptionsPageState
       context: context,
       builder: (context) => SafeArea(
         top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            22,
-            12,
-            22,
-            18 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SheetHeader(
-                icon: Icons.file_download_outlined,
-                title: l.dbOnlineSubscriptionImport,
-              ),
-              TextField(
-                controller: controller,
-                minLines: 4,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  labelText: l.dbOnlineSubscriptionShareText,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SheetHeader(
+              icon: Icons.file_download_outlined,
+              title: l.dbOnlineSubscriptionImport,
+            ),
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                child: TextField(
+                  controller: controller,
+                  minLines: 4,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    labelText: l.dbOnlineSubscriptionShareText,
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, controller.text.trim()),
-                style: sheetPrimaryButtonStyle(context),
-                child: Text(l.dbOnlineSubscriptionImport),
-              ),
-            ],
-          ),
+            ),
+            SheetActionBar.buttons(
+              buttons: [
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(context, controller.text.trim()),
+                  style: sheetPrimaryButtonStyle(context),
+                  child: Text(l.dbOnlineSubscriptionImport),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -1848,36 +1849,37 @@ class _DbOnlineSubscriptionsPageState
       context: context,
       builder: (context) => SafeArea(
         top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            22,
-            12,
-            22,
-            18 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SheetHeader(
-                icon: Icons.add_rounded,
-                title: l.dbOnlineSubscriptionSeries,
-              ),
-              TextField(
-                controller: controller,
-                minLines: 4,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  labelText: l.dbOnlineSubscriptionCode,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SheetHeader(
+              icon: Icons.add_rounded,
+              title: l.dbOnlineSubscriptionSeries,
+            ),
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                child: TextField(
+                  controller: controller,
+                  minLines: 4,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    labelText: l.dbOnlineSubscriptionCode,
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, controller.text),
-                style: sheetPrimaryButtonStyle(context),
-                child: Text(l.dbOnlineSubscriptionSave),
-              ),
-            ],
-          ),
+            ),
+            SheetActionBar.buttons(
+              buttons: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, controller.text),
+                  style: sheetPrimaryButtonStyle(context),
+                  child: Text(l.dbOnlineSubscriptionSave),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -1917,68 +1919,80 @@ class _DbOnlineSubscriptionsPageState
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
           top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              22,
-              12,
-              22,
-              18 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SheetHeader(
-                  icon: Icons.block_rounded,
-                  title: l.dbOnlineSubscriptionBlacklistAdd,
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: entryType,
-                  decoration: InputDecoration(
-                    labelText: l.dbOnlineSubscriptionType,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.block_rounded,
+                title: l.dbOnlineSubscriptionBlacklistAdd,
+              ),
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: entryType,
+                        decoration: InputDecoration(
+                          labelText: l.dbOnlineSubscriptionType,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'video_code',
+                            child: Text(
+                              l.dbOnlineSubscriptionBlacklistVideoCode,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'category',
+                            child: Text(
+                              l.dbOnlineSubscriptionBlacklistCategory,
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setSheetState(() => entryType = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: rulesController,
+                        minLines: 2,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          labelText: entryType == 'category'
+                              ? l.dbOnlineSubscriptionBlacklistCategory
+                              : l.dbOnlineSubscriptionCode,
+                        ),
+                      ),
+                      TextField(
+                        controller: reasonController,
+                        decoration: InputDecoration(
+                          labelText: l.dbOnlineSubscriptionReason,
+                        ),
+                      ),
+                    ],
                   ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'video_code',
-                      child: Text(l.dbOnlineSubscriptionBlacklistVideoCode),
-                    ),
-                    DropdownMenuItem(
-                      value: 'category',
-                      child: Text(l.dbOnlineSubscriptionBlacklistCategory),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) setSheetState(() => entryType = value);
-                  },
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: rulesController,
-                  minLines: 2,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: entryType == 'category'
-                        ? l.dbOnlineSubscriptionBlacklistCategory
-                        : l.dbOnlineSubscriptionCode,
+              ),
+              SheetActionBar.buttons(
+                buttons: [
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, {
+                      'entry_type': entryType,
+                      'rules': rulesController.text,
+                      'reason': reasonController.text,
+                    }),
+                    style: sheetPrimaryButtonStyle(context),
+                    child: Text(l.dbOnlineSubscriptionSave),
                   ),
-                ),
-                TextField(
-                  controller: reasonController,
-                  decoration: InputDecoration(
-                    labelText: l.dbOnlineSubscriptionReason,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, {
-                    'entry_type': entryType,
-                    'rules': rulesController.text,
-                    'reason': reasonController.text,
-                  }),
-                  style: sheetPrimaryButtonStyle(context),
-                  child: Text(l.dbOnlineSubscriptionSave),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -2016,66 +2030,78 @@ class _DbOnlineSubscriptionsPageState
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
           top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              22,
-              12,
-              22,
-              18 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SheetHeader(
-                  icon: Icons.rule_rounded,
-                  title: l.dbOnlineSubscriptionBlacklistTest,
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: entryType,
-                  decoration: InputDecoration(
-                    labelText: l.dbOnlineSubscriptionType,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.rule_rounded,
+                title: l.dbOnlineSubscriptionBlacklistTest,
+              ),
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: entryType,
+                        decoration: InputDecoration(
+                          labelText: l.dbOnlineSubscriptionType,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'video_code',
+                            child: Text(
+                              l.dbOnlineSubscriptionBlacklistVideoCode,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'category',
+                            child: Text(
+                              l.dbOnlineSubscriptionBlacklistCategory,
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setSheetState(() => entryType = value);
+                          }
+                        },
+                      ),
+                      TextField(
+                        controller: codesController,
+                        minLines: 2,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          labelText: l.dbOnlineSubscriptionTestContent,
+                        ),
+                      ),
+                      if (entryType == 'category')
+                        TextField(
+                          controller: categoryRuleController,
+                          decoration: InputDecoration(
+                            labelText: l.dbOnlineSubscriptionCategoryRule,
+                          ),
+                        ),
+                    ],
                   ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'video_code',
-                      child: Text(l.dbOnlineSubscriptionBlacklistVideoCode),
-                    ),
-                    DropdownMenuItem(
-                      value: 'category',
-                      child: Text(l.dbOnlineSubscriptionBlacklistCategory),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) setSheetState(() => entryType = value);
-                  },
                 ),
-                TextField(
-                  controller: codesController,
-                  minLines: 2,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: l.dbOnlineSubscriptionTestContent,
+              ),
+              SheetActionBar.buttons(
+                buttons: [
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, {
+                      'entry_type': entryType,
+                      'codes': codesController.text,
+                      'category_rule': categoryRuleController.text,
+                    }),
+                    style: sheetPrimaryButtonStyle(context),
+                    child: Text(l.dbOnlineSubscriptionCheck),
                   ),
-                ),
-                if (entryType == 'category')
-                  TextField(
-                    controller: categoryRuleController,
-                    decoration: InputDecoration(
-                      labelText: l.dbOnlineSubscriptionCategoryRule,
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, {
-                    'entry_type': entryType,
-                    'codes': codesController.text,
-                    'category_rule': categoryRuleController.text,
-                  }),
-                  style: sheetPrimaryButtonStyle(context),
-                  child: Text(l.dbOnlineSubscriptionCheck),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -2295,10 +2321,7 @@ Widget _subscriptionMovieTile(
     // 已完成的绿点放在标题前，其余订阅状态角标仍留在标题下方。
     final completed =
         item.status == 'completed' && item.data['overdue'] != true;
-    final badges = [
-      if (!completed) ?overlays.status,
-      ?overlays.filters,
-    ];
+    final badges = [if (!completed) ?overlays.status, ?overlays.filters];
     return CatalogListMovieCard(
       title: item.title,
       code: code,

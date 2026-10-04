@@ -47,157 +47,166 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
         : _addController.text.isNotEmpty;
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SheetHeader(
-              icon: Icons.drive_file_rename_outline,
-              title: l.fileBatchRenameTitle,
-              subtitle: l.fileBatchRenameSubtitle,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: DropdownButtonFormField<_BatchRenameMode>(
-                initialValue: _mode,
-                decoration: sheetInputDecoration(
-                  context,
-                  labelText: l.fileRenameMode,
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: _BatchRenameMode.replace,
-                    child: Text(l.fileRenameModeReplace),
-                  ),
-                  DropdownMenuItem(
-                    value: _BatchRenameMode.add,
-                    child: Text(l.fileRenameModeAdd),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() => _mode = value);
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (_mode == _BatchRenameMode.replace) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: sheetInputDecoration(
-                    context,
-                    labelText: l.fileRenameSearchLabel,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: TextField(
-                  controller: _replacementController,
-                  decoration: sheetInputDecoration(
-                    context,
-                    labelText: l.fileRenameReplaceLabel,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ] else ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: TextField(
-                  controller: _addController,
-                  decoration: sheetInputDecoration(
-                    context,
-                    labelText: l.fileRenameAddTextLabel,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: DropdownButtonFormField<bool>(
-                  initialValue: _addBefore,
-                  decoration: sheetInputDecoration(
-                    context,
-                    labelText: l.fileRenameAddPosition,
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: true,
-                      child: Text(l.fileRenameAddBefore),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetHeader(
+            icon: Icons.drive_file_rename_outline,
+            title: l.fileBatchRenameTitle,
+            subtitle: l.fileBatchRenameSubtitle,
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: DropdownButtonFormField<_BatchRenameMode>(
+                      initialValue: _mode,
+                      decoration: sheetInputDecoration(
+                        context,
+                        labelText: l.fileRenameMode,
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: _BatchRenameMode.replace,
+                          child: Text(l.fileRenameModeReplace),
+                        ),
+                        DropdownMenuItem(
+                          value: _BatchRenameMode.add,
+                          child: Text(l.fileRenameModeAdd),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _mode = value);
+                      },
                     ),
-                    DropdownMenuItem(
-                      value: false,
-                      child: Text(l.fileRenameAddAfter),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_mode == _BatchRenameMode.replace) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: sheetInputDecoration(
+                          context,
+                          labelText: l.fileRenameSearchLabel,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: TextField(
+                        controller: _replacementController,
+                        decoration: sheetInputDecoration(
+                          context,
+                          labelText: l.fileRenameReplaceLabel,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ] else ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: TextField(
+                        controller: _addController,
+                        decoration: sheetInputDecoration(
+                          context,
+                          labelText: l.fileRenameAddTextLabel,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: DropdownButtonFormField<bool>(
+                        initialValue: _addBefore,
+                        decoration: sheetInputDecoration(
+                          context,
+                          labelText: l.fileRenameAddPosition,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: true,
+                            child: Text(l.fileRenameAddBefore),
+                          ),
+                          DropdownMenuItem(
+                            value: false,
+                            child: Text(l.fileRenameAddAfter),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _addBefore = value);
+                        },
+                      ),
                     ),
                   ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _addBefore = value);
-                  },
-                ),
-              ),
-            ],
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
-              child: Text(
-                l.filePreviewSection,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-                itemCount: previews.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (_, index) {
-                  final preview = previews[index];
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      preview.renamed,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
+                    child: Text(
+                      l.filePreviewSection,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    subtitle: preview.original == preview.renamed
-                        ? null
-                        : Text(
-                            preview.original,
+                  ),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+                      itemCount: previews.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        final preview = previews[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            preview.renamed,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                  );
-                },
+                          subtitle: preview.original == preview.renamed
+                              ? null
+                              : Text(
+                                  preview.original,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
-            SheetActionBar.buttons(
-              buttons: [
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: Text(AppL10n.of(context).cancel),
-                ),
-                FilledButton(
-                  onPressed: canSubmit
-                      ? () => Navigator.of(context).pop(draft)
-                      : null,
-                  style: sheetPrimaryButtonStyle(context),
-                  child: Text(AppL10n.of(context).fileApply),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(AppL10n.of(context).cancel),
+              ),
+              FilledButton(
+                onPressed: canSubmit
+                    ? () => Navigator.of(context).pop(draft)
+                    : null,
+                style: sheetPrimaryButtonStyle(context),
+                child: Text(AppL10n.of(context).fileApply),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

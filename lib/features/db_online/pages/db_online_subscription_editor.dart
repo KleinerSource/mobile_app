@@ -104,87 +104,86 @@ class _DbOnlineSubscriptionEditorState
         : l.dbOnlineSubscriptionAdd;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          22,
-          8,
-          22,
-          18 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SheetHeader(
-                icon: widget.kind == 'actor'
-                    ? Icons.person_add_alt_1_rounded
-                    : widget.kind == 'series'
-                    ? Icons.layers_outlined
-                    : Icons.subscriptions_outlined,
-                title: title,
-              ),
-              // 实体展示与网页端一致：影片显示番号+名称只读字段，演员
-              // 显示头像+名称，综合订阅显示类型图标+名称，均不显示编号。
-              if (!widget.presetOnly) ...[
-                if (widget.kind == 'video') ...[
-                  _field(_id, l.dbOnlineSubscriptionCode, readOnly: true),
-                  _field(_name, l.dbOnlineSubscriptionName, readOnly: true),
-                ],
-                if (widget.kind == 'actor') _actorPreview(),
-                if (widget.kind == 'series') _seriesPreview(l),
-              ],
-              DbOnlineDownloadRequirementsFields(
-                controller: _requirements,
-                qualityTrailing: SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.dbOnlineSubscriptionActive),
-                  value: _active,
-                  onChanged: (value) => setState(() => _active = value),
-                ),
-              ),
-              _field(
-                _overdueDays,
-                l.dbOnlineSubscriptionOverdueDays,
-                numeric: true,
-              ),
-              if (widget.kind == 'actor') ...[
-                _categoriesBlock(
-                  label: l.dbOnlineSubscriptionIncludeCategories,
-                  hint: l.dbOnlineSubscriptionIncludeCategoriesHint,
-                  selected: _includeCategories,
-                  max: 5,
-                  onChanged: (value) =>
-                      setState(() => _includeCategories = value),
-                ),
-                _categoriesBlock(
-                  label: l.dbOnlineSubscriptionExcludeCategories,
-                  hint: l.dbOnlineSubscriptionExcludeCategoriesHint,
-                  selected: _excludeCategories,
-                  max: 1,
-                  onChanged: (value) =>
-                      setState(() => _excludeCategories = value),
-                ),
-              ],
-              const SizedBox(height: 12),
-              SheetActionBar.buttons(
-                padding: EdgeInsets.zero,
-                buttons: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: sheetSecondaryButtonStyle(context),
-                    child: Text(l.dbOnlineSubscriptionCancel),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetHeader(
+            icon: widget.kind == 'actor'
+                ? Icons.person_add_alt_1_rounded
+                : widget.kind == 'series'
+                ? Icons.layers_outlined
+                : Icons.subscriptions_outlined,
+            title: title,
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 实体展示与网页端一致：影片显示番号+名称只读字段，演员
+                  // 显示头像+名称，综合订阅显示类型图标+名称，均不显示编号。
+                  if (!widget.presetOnly) ...[
+                    if (widget.kind == 'video') ...[
+                      _field(_id, l.dbOnlineSubscriptionCode, readOnly: true),
+                      _field(_name, l.dbOnlineSubscriptionName, readOnly: true),
+                    ],
+                    if (widget.kind == 'actor') _actorPreview(),
+                    if (widget.kind == 'series') _seriesPreview(l),
+                  ],
+                  DbOnlineDownloadRequirementsFields(
+                    controller: _requirements,
+                    qualityTrailing: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l.dbOnlineSubscriptionActive),
+                      value: _active,
+                      onChanged: (value) => setState(() => _active = value),
+                    ),
                   ),
-                  FilledButton(
-                    onPressed: _save,
-                    style: sheetPrimaryButtonStyle(context),
-                    child: Text(l.dbOnlineSubscriptionSave),
+                  _field(
+                    _overdueDays,
+                    l.dbOnlineSubscriptionOverdueDays,
+                    numeric: true,
                   ),
+                  if (widget.kind == 'actor') ...[
+                    _categoriesBlock(
+                      label: l.dbOnlineSubscriptionIncludeCategories,
+                      hint: l.dbOnlineSubscriptionIncludeCategoriesHint,
+                      selected: _includeCategories,
+                      max: 5,
+                      onChanged: (value) =>
+                          setState(() => _includeCategories = value),
+                    ),
+                    _categoriesBlock(
+                      label: l.dbOnlineSubscriptionExcludeCategories,
+                      hint: l.dbOnlineSubscriptionExcludeCategoriesHint,
+                      selected: _excludeCategories,
+                      max: 1,
+                      onChanged: (value) =>
+                          setState(() => _excludeCategories = value),
+                    ),
+                  ],
                 ],
+              ),
+            ),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(l.dbOnlineSubscriptionCancel),
+              ),
+              FilledButton(
+                onPressed: _save,
+                style: sheetPrimaryButtonStyle(context),
+                child: Text(l.dbOnlineSubscriptionSave),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -321,7 +320,8 @@ class _DbOnlineSubscriptionEditorState
                 ),
               ),
               TextButton.icon(
-                onPressed: () => _pickCategories(label, selected, max, onChanged),
+                onPressed: () =>
+                    _pickCategories(label, selected, max, onChanged),
                 icon: const Icon(Icons.category_outlined, size: 18),
                 label: Text(widget.l.dbOnlineSubscriptionSelectCategories),
               ),
@@ -336,10 +336,7 @@ class _DbOnlineSubscriptionEditorState
                 children: [
                   for (final id in selected)
                     CompactFilterButton(
-                      label: _categoryName(
-                        categories?.asData?.value,
-                        id,
-                      ),
+                      label: _categoryName(categories?.asData?.value, id),
                       active: true,
                       trailingIcon: Icons.close_rounded,
                       onTap: () => onChanged(

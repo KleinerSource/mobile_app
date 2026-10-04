@@ -15,17 +15,19 @@ const List<String> _shareSeriesTypes = [
 const String _shareExportFormKey = 'db_online.subscriptions.share_export.v1';
 
 /// 综合订阅子类型的标签与图标（导出配置与编辑器实体预览共用）。
-(String, IconData) _seriesTypeMeta(AppL10n l, String subType) => switch (
-  subType
-) {
-  'maker' => (l.dbOnlineSeriesTypeMaker, Icons.domain_outlined),
-  'publisher' => (l.dbOnlineSeriesTypePublisher, Icons.business_center_outlined),
-  'director' => (l.dbOnlineSeriesTypeDirector, Icons.videocam_outlined),
-  'list' => (l.dbOnlineSeriesTypeList, Icons.featured_play_list_outlined),
-  'prefix' => (l.dbOnlineSeriesTypePrefix, Icons.tag_outlined),
-  'follow' => (l.dbOnlineSeriesTypeFollow, Icons.person_search_outlined),
-  _ => (l.dbOnlineSeriesTypeSeries, Icons.workspaces_outlined),
-};
+(String, IconData) _seriesTypeMeta(AppL10n l, String subType) =>
+    switch (subType) {
+      'maker' => (l.dbOnlineSeriesTypeMaker, Icons.domain_outlined),
+      'publisher' => (
+        l.dbOnlineSeriesTypePublisher,
+        Icons.business_center_outlined,
+      ),
+      'director' => (l.dbOnlineSeriesTypeDirector, Icons.videocam_outlined),
+      'list' => (l.dbOnlineSeriesTypeList, Icons.featured_play_list_outlined),
+      'prefix' => (l.dbOnlineSeriesTypePrefix, Icons.tag_outlined),
+      'follow' => (l.dbOnlineSeriesTypeFollow, Icons.person_search_outlined),
+      _ => (l.dbOnlineSeriesTypeSeries, Icons.workspaces_outlined),
+    };
 
 /// 订阅分享码导出配置：选择影片/演员/综合订阅（七种子类型）后生成
 /// 分享码，选择会持久化，与网页端 SubscriptionShareModal 行为一致。
@@ -108,76 +110,85 @@ class _ShareExportSheetState
       ),
     );
     Widget chip(String label, IconData icon, bool active, VoidCallback onTap) =>
-        CompactFilterButton(label: label, icon: icon, active: active, onTap: onTap);
+        CompactFilterButton(
+          label: label,
+          icon: icon,
+          active: active,
+          onTap: onTap,
+        );
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          22,
-          8,
-          22,
-          18 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SheetHeader(
-                icon: Icons.ios_share_rounded,
-                title: l.dbOnlineSubscriptionExport,
-                trailing: TextButton(
-                  onPressed: _canExport
-                      ? () => Navigator.pop(context, _result)
-                      : null,
-                  child: Text(l.dbOnlineSubscriptionShareGenerate),
-                ),
-              ),
-              sectionLabel(l.dbOnlineSubscriptionShareSelectTypes),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetHeader(
+            icon: Icons.ios_share_rounded,
+            title: l.dbOnlineSubscriptionExport,
+            trailing: TextButton(
+              onPressed: _canExport
+                  ? () => Navigator.pop(context, _result)
+                  : null,
+              child: Text(l.dbOnlineSubscriptionShareGenerate),
+            ),
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  chip(
-                    l.dbOnlineSubscriptionShareVideoSubs,
-                    Icons.movie_outlined,
-                    _video,
-                    () => setState(() {
-                      _video = !_video;
-                      _persist();
-                    }),
+                  sectionLabel(l.dbOnlineSubscriptionShareSelectTypes),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      chip(
+                        l.dbOnlineSubscriptionShareVideoSubs,
+                        Icons.movie_outlined,
+                        _video,
+                        () => setState(() {
+                          _video = !_video;
+                          _persist();
+                        }),
+                      ),
+                      chip(
+                        l.dbOnlineSubscriptionShareActorSubs,
+                        Icons.person_outline_rounded,
+                        _actor,
+                        () => setState(() {
+                          _actor = !_actor;
+                          _persist();
+                        }),
+                      ),
+                    ],
                   ),
-                  chip(
-                    l.dbOnlineSubscriptionShareActorSubs,
-                    Icons.person_outline_rounded,
-                    _actor,
-                    () => setState(() {
-                      _actor = !_actor;
-                      _persist();
-                    }),
+                  sectionLabel(l.dbOnlineSubscriptionComprehensive),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final type in _shareSeriesTypes)
+                        chip(
+                          _seriesTypeMeta(l, type).$1,
+                          _seriesTypeMeta(l, type).$2,
+                          _types.contains(type),
+                          () => _toggleType(type),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    l.dbOnlineSubscriptionShareExportHint,
+                    style: AppText.meta(context).copyWith(color: colors.muted),
                   ),
                 ],
               ),
-              sectionLabel(l.dbOnlineSubscriptionComprehensive),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final type in _shareSeriesTypes)
-                    chip(
-                      _seriesTypeMeta(l, type).$1,
-                      _seriesTypeMeta(l, type).$2,
-                      _types.contains(type),
-                      () => _toggleType(type),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                l.dbOnlineSubscriptionShareExportHint,
-                style: AppText.meta(context).copyWith(color: colors.muted),
-              ),
-              const SizedBox(height: 14),
+            ),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
               FilledButton(
                 onPressed: _canExport
                     ? () => Navigator.pop(context, _result)
@@ -187,7 +198,7 @@ class _ShareExportSheetState
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -215,7 +226,8 @@ class DbOnlineSubscriptionShareResultSheet extends StatefulWidget {
       _ShareResultSheetState();
 }
 
-class _ShareResultSheetState extends State<DbOnlineSubscriptionShareResultSheet> {
+class _ShareResultSheetState
+    extends State<DbOnlineSubscriptionShareResultSheet> {
   bool _copied = false;
 
   int _count(String key) =>
@@ -232,8 +244,10 @@ class _ShareResultSheetState extends State<DbOnlineSubscriptionShareResultSheet>
     final l = AppL10n.of(context);
     final colors = appColors(context);
     final stats = <(String, int)>[
-      if (widget.video) (l.dbOnlineSubscriptionShareVideoSubs, _count('video_count')),
-      if (widget.actor) (l.dbOnlineSubscriptionShareActorSubs, _count('actor_count')),
+      if (widget.video)
+        (l.dbOnlineSubscriptionShareVideoSubs, _count('video_count')),
+      if (widget.actor)
+        (l.dbOnlineSubscriptionShareActorSubs, _count('actor_count')),
       if (widget.seriesTypes.isNotEmpty) ...[
         (l.dbOnlineSubscriptionComprehensive, _count('series_count')),
         (l.dbOnlineSubscriptionShareSeriesVideos, _count('series_video_count')),
@@ -253,97 +267,111 @@ class _ShareResultSheetState extends State<DbOnlineSubscriptionShareResultSheet>
     }
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SheetHeader(
-              icon: Icons.ios_share_rounded,
-              title: l.dbOnlineSubscriptionShare,
-            ),
-            if (stats.isNotEmpty) ...[
-              for (final (label, value) in stats)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(label, style: AppText.meta(context)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetHeader(
+            icon: Icons.ios_share_rounded,
+            title: l.dbOnlineSubscriptionShare,
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (stats.isNotEmpty) ...[
+                    for (final (label, value) in stats)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(label, style: AppText.meta(context)),
+                            ),
+                            Text(
+                              '$value',
+                              style: AppText.meta(
+                                context,
+                              ).copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        '$value',
+                    const SizedBox(height: 4),
+                  ],
+                  if (breakdown.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final entry in breakdown.entries)
+                            _ShareStatPill(
+                              icon: _seriesTypeMeta(l, entry.key).$2,
+                              label:
+                                  '${_seriesTypeMeta(l, entry.key).$1} '
+                                  '${entry.value['count']}',
+                            ),
+                        ],
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        l.dbOnlineSubscriptionShareCode,
                         style: AppText.meta(
                           context,
                         ).copyWith(fontWeight: FontWeight.w700),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              const SizedBox(height: 4),
-            ],
-            if (breakdown.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final entry in breakdown.entries)
-                      _ShareStatPill(
-                        icon: _seriesTypeMeta(l, entry.key).$2,
-                        label:
-                            '${_seriesTypeMeta(l, entry.key).$1} '
-                            '${entry.value['count']}',
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 180),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.chipBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.cardBorder),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        widget.shareText,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
                       ),
-                  ],
-                ),
-              ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  l.dbOnlineSubscriptionShareCode,
-                  style: AppText.meta(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 180),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.chipBg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colors.cardBorder),
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  widget.shareText,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    height: 1.4,
+                    ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
+              FilledButton.icon(
+                onPressed: widget.shareText.isEmpty ? null : _copy,
+                style: sheetPrimaryButtonStyle(context),
+                icon: Icon(
+                  _copied ? Icons.check_rounded : Icons.copy_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  _copied
+                      ? l.dbOnlineSubscriptionShareCopied
+                      : l.dbOnlineSubscriptionShareCopy,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: widget.shareText.isEmpty ? null : _copy,
-              style: sheetPrimaryButtonStyle(context),
-              icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 18),
-              label: Text(
-                _copied
-                    ? l.dbOnlineSubscriptionShareCopied
-                    : l.dbOnlineSubscriptionShareCopy,
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
