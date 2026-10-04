@@ -17,28 +17,27 @@ double floatingTabBarContentBottomInset(BuildContext context) {
 /// 悬浮胶囊导航项。
 ///
 /// [quickMenuEntries] 仅供需要在某个 Tab 上挂载快捷菜单的场景使用；普通
-/// 导航项只需要提供标题和图标即可。[center] 用于五格导航的中间主入口：
-/// 渲染为强调色圆形按钮且只显示图标，避免其余项文字被挤压溢出。
+/// 导航项只需要提供标题和图标即可。五格及以上的奇数格导航无需额外配置：
+/// [FloatingTabBar] 会自动把正中间一项渲染为圆形仅图标主按钮。
 class FloatingTabSpec<T> {
   const FloatingTabSpec({
     required this.label,
     required this.icon,
     this.quickMenuEntries,
     this.onQuickMenuSelected,
-    this.center = false,
   });
 
   final String label;
   final IconData icon;
   final List<GlassMenuEntry<T>>? quickMenuEntries;
   final ValueChanged<T>? onQuickMenuSelected;
-  final bool center;
 }
 
 /// 统一的悬浮毛玻璃底部导航。
 ///
 /// 媒体管理器和文件管理器共用同一套材质、激活态和布局，业务层只负责
-/// 提供 Tab 数据以及点击回调。
+/// 提供 Tab 数据以及点击回调。出现第 5 个图标（奇数格 ≥5）时，正中间
+/// 一项自动渲染为强调色圆形仅图标按钮，其余项保持图标与激活标题。
 class FloatingTabBar<T> extends StatelessWidget {
   const FloatingTabBar({
     super.key,
@@ -50,6 +49,10 @@ class FloatingTabBar<T> extends StatelessWidget {
   final List<FloatingTabSpec<T>> tabs;
   final int active;
   final ValueChanged<int> onTap;
+
+  /// 五格及以上的奇数格导航中，正中间一项的序号；其余布局返回 -1。
+  int get _centerIndex =>
+      tabs.length >= 5 && tabs.length.isOdd ? tabs.length ~/ 2 : -1;
 
   @override
   Widget build(BuildContext context) {
@@ -96,11 +99,14 @@ class FloatingTabBar<T> extends StatelessWidget {
             ),
             child: Row(
               children: [
+                // 出现第 5 个图标起，奇数格导航自动把正中间一项升级为
+                // 强调色圆形仅图标按钮，避免其余项标题被挤压溢出。
                 for (var i = 0; i < tabs.length; i++)
                   Expanded(
                     child: _FloatingTabItem<T>(
                       spec: tabs[i],
                       active: i == active,
+                      center: i == _centerIndex,
                       onTap: () => onTap(i),
                     ),
                   ),
@@ -117,20 +123,20 @@ class _FloatingTabItem<T> extends StatelessWidget {
   const _FloatingTabItem({
     required this.spec,
     required this.active,
+    required this.center,
     required this.onTap,
   });
 
   final FloatingTabSpec<T> spec;
   final bool active;
+  final bool center;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final tabContent = Center(
-      child: spec.center
-          ? _centerCircle(context, c)
-          : _pill(context, c),
+      child: center ? _centerCircle(context, c) : _pill(context, c),
     );
 
     final entries = spec.quickMenuEntries;
