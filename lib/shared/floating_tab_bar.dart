@@ -215,39 +215,45 @@ class _FloatingTabItem<T> extends StatelessWidget {
 
   /// 紧凑导航项：图标在上、标题在下，标题不随激活状态收起，保证
   /// 「影片库」「收藏夹」等三至四字标题在五格布局中完整可见。
+  /// 选中背景铺满整格（左右各留 3dp），避免窄条选中态的局促观感。
   Widget _compactPill(BuildContext context, AppColors c) {
     final contentColor = active ? c.tabActiveText : c.muted;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-      decoration: BoxDecoration(
-        color: active ? c.tabActiveBg : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(spec.icon, size: 20, color: contentColor),
-          const SizedBox(height: 2),
-          Text(
-            spec.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            strutStyle: const StrutStyle(
-              fontSize: 10.5,
-              height: 1.15,
-              forceStrutHeight: true,
-            ),
-            style: TextStyle(
-              color: contentColor,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w700,
-              fontSize: 10.5,
-              letterSpacing: -0.1,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: constraints.maxWidth - 6,
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          decoration: BoxDecoration(
+            color: active ? c.tabActiveBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
           ),
-        ],
-      ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(spec.icon, size: 20, color: contentColor),
+              const SizedBox(height: 2),
+              Text(
+                spec.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                strutStyle: const StrutStyle(
+                  fontSize: 10.5,
+                  height: 1.15,
+                  forceStrutHeight: true,
+                ),
+                style: TextStyle(
+                  color: contentColor,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
