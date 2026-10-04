@@ -240,6 +240,35 @@ void main() {
     );
   });
 
+  test('categoryFilterVideos 优先类别 ID 并在无 ID 时回退名称', () async {
+    final adapter = _CategoryFilterAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    final byId = await api.categoryFilterVideos(
+      categoryId: 'cat-1',
+      category: '类别名',
+    );
+    final byName = await api.categoryFilterVideos(category: '类别名');
+
+    expect(byId.single.number, 'ABC-004');
+    expect(byName.single.number, 'ABC-004');
+    expect(adapter.requests, <String>[
+      '/api/videos/filter?category_id=cat-1',
+      '/api/videos/filter?category=%E7%B1%BB%E5%88%AB%E5%90%8D',
+    ]);
+  });
+
+  test('categoryFilterVideos 拒绝空类别参数', () {
+    final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
+
+    expect(
+      () => api.categoryFilterVideos(categoryId: ' ', category: '  '),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('searchActors 拒绝空搜索关键词', () {
     final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
 
@@ -479,6 +508,43 @@ class _DbOnlineSearchAdapter implements HttpClientAdapter {
               'can_play': true,
             },
           ],
+        },
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _CategoryFilterAdapter implements HttpClientAdapter {
+  final requests = <String>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(
+      options.uri.path +
+          (options.uri.hasQuery ? '?${options.uri.query}' : ''),
+    );
+    return ResponseBody.fromString(
+      jsonEncode({
+        'success': true,
+        'data': {
+          'videos': [
+            {'id': 'movie-1', 'number': 'ABC-004', 'title': '类别影片'},
+          ],
+          'filter': {
+            'category': {'external_id': 'cat-1', 'name': '类别名'},
+          },
+          'count': 1,
         },
       }),
       200,

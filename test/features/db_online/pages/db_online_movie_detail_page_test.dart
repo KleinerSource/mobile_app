@@ -3,18 +3,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo_media_source_adapter.dart';
+import 'package:omm/features/db_online/pages/db_online_category_movies_page.dart';
+import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+void _popTopRoute(WidgetTester tester) =>
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+
+/// 系列/类型区块可能在视口外未被 sliver 构建，先滚动到可见再点击。
+Future<void> _scrollToAndTap(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    300,
+    scrollable: find
+        .descendant(
+          of: find.byType(CustomScrollView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
 
 void main() {
   const config = ServerConfig(
@@ -125,5 +149,123 @@ void main() {
     await pumpDetail(tester, hasCnsub: false);
 
     expect(find.byIcon(Icons.closed_caption_rounded), findsNothing);
+  });
+
+  testWidgets('详情演员/系列/类型点击进入对应列表页', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final requestPaths = <String>[];
+    final requestQueries = <Map<String, String>>[];
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requestPaths.add(options.uri.path);
+          requestQueries.add(
+            options.uri.queryParameters.map(
+              (key, value) => MapEntry(key, value.toString()),
+            ),
+          );
+          final path = options.uri.path;
+          Object? data;
+          if (path.startsWith('/actors/') || path.startsWith('/series/')) {
+            data = {
+              'movies': [
+                {'id': 'movie-1', 'number': 'ABC-002', 'title': '列表影片'},
+              ],
+              'current_page': 1,
+            };
+          } else if (path == '/videos/filter') {
+            data = {
+              'videos': [
+                {'id': 'movie-2', 'number': 'ABC-003', 'title': '类别影片'},
+              ],
+              'count': 1,
+            };
+          } else {
+            data = {
+              'code': 'ABC-001',
+              'title': '跳转测试影片',
+              'actors': [
+                {'external_id': 'actor-1', 'name': '演员甲'},
+              ],
+              'series': {'external_id': 'series-1', 'name': '系列甲'},
+              'categories': [
+                {'external_id': 'cat-1', 'name': '类别甲'},
+                {'name': '类别乙'},
+              ],
+              'magnets': [],
+              'ed2ks': [],
+            };
+          }
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {'success': true, 'source': 'database', 'data': data},
+            ),
+          );
+        },
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        key: UniqueKey(),
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(preferences),
+          mediaRuntimeConfigProvider.overrideWithValue(config),
+          requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+          dboMediaRepositoryProvider.overrideWithValue(
+            DboMediaRepository(DboMediaSourceAdapter(DbOnlineApi(dio))),
+          ),
+          dbOnlineSubscriptionCapabilitiesProvider.overrideWith(
+            (ref, serverId) async => const DbOnlineSubscriptionCapabilities(
+              database: false,
+              onlineAccount: false,
+              onlineQuery: false,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: DbOnlineMovieDetailPage(code: 'ABC-001'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 演员卡片 → 演员实体影片页。
+    await tester.tap(find.text('演员甲'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DbOnlineEntityMoviesPage), findsOneWidget);
+    expect(requestPaths, contains('/api/actors/actor-1/movies'));
+    _popTopRoute(tester);
+    await tester.pumpAndSettle();
+
+    // 系列 Chip → 系列实体影片页。
+    await _scrollToAndTap(tester, find.text('◇ 系列甲'));
+    expect(find.byType(DbOnlineEntityMoviesPage), findsOneWidget);
+    expect(requestPaths, contains('/api/series/series-1/movies'));
+    _popTopRoute(tester);
+    await tester.pumpAndSettle();
+
+    // 有 external_id 的类型 Chip → 类别影片页（category_id 筛选）。
+    await _scrollToAndTap(tester, find.text('类别甲'));
+    expect(find.byType(DbOnlineCategoryMoviesPage), findsOneWidget);
+    final byIdQuery = requestQueries.last;
+    expect(byIdQuery['category_id'], 'cat-1');
+    _popTopRoute(tester);
+    await tester.pumpAndSettle();
+
+    // 无 external_id 的类型 Chip → 按名称回退筛选。
+    await _scrollToAndTap(tester, find.text('类别乙'));
+    expect(find.byType(DbOnlineCategoryMoviesPage), findsOneWidget);
+    final byNameQuery = requestQueries.last;
+    expect(byNameQuery.containsKey('category_id'), isFalse);
+    expect(byNameQuery['category'], '类别乙');
+    _popTopRoute(tester);
+    await tester.pumpAndSettle();
   });
 }

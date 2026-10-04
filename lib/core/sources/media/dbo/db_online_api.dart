@@ -497,6 +497,44 @@ class DbOnlineApi {
   };
   static const _entityMovieSortBys = {'release', 'update', 'score'};
 
+  /// 按类别筛选影片，与网页端 `/filter` 落地页共用 `/videos/filter` 端点。
+  ///
+  /// `categoryId` 为类别 external_id，优先于 [category] 名称；两者皆空时
+  /// 视为非法请求。响应是 `data.videos` 的一次性全量列表，无分页参数。
+  Future<List<DbOnlineMovie>> categoryFilterVideos({
+    String categoryId = '',
+    String category = '',
+  }) async {
+    final normalizedId = categoryId.trim();
+    final normalizedName = category.trim();
+    if (normalizedId.isEmpty && normalizedName.isEmpty) {
+      throw ArgumentError.value(
+        categoryId,
+        'categoryId',
+        AppErrorCode.validationFailed,
+      );
+    }
+    final response = await _dio.get<dynamic>(
+      '/videos/filter',
+      queryParameters: {
+        if (normalizedId.isNotEmpty) 'category_id': normalizedId,
+        if (normalizedId.isEmpty) 'category': normalizedName,
+      },
+    );
+    return unwrapStd<List<DbOnlineMovie>>(response.data, (data) {
+      final rawVideos = data is Map ? data['videos'] : null;
+      return rawVideos is List
+          ? rawVideos
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList(growable: false)
+          : const <DbOnlineMovie>[];
+    });
+  }
+
   /// 影片排行榜（日/周/月榜），一次性返回全量结果。
   ///
   /// `period`：daily/weekly/monthly；`type`：0=有码、1=无码、2=欧美、

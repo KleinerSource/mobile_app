@@ -315,6 +315,41 @@ class DbOnlineEntityMoviesPageRequest {
   );
 }
 
+/// 类别筛选的影片列表（一次性全量），供详情页类型 Chip 的落地页使用。
+final dbOnlineCategoryMoviesProvider = FutureProvider.autoDispose
+    .family<List<DbOnlineMovie>, DbOnlineCategoryMoviesRequest>((ref, request) {
+      _checkServerScope(ref, request.serverId);
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .categoryFilterVideos(
+            categoryId: request.categoryId,
+            category: request.categoryName,
+          );
+    });
+
+class DbOnlineCategoryMoviesRequest {
+  const DbOnlineCategoryMoviesRequest({
+    required this.serverId,
+    this.categoryId = '',
+    this.categoryName = '',
+  });
+
+  final String serverId;
+  final String categoryId;
+  final String categoryName;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DbOnlineCategoryMoviesRequest &&
+      other.serverId == serverId &&
+      other.categoryId == categoryId &&
+      other.categoryName == categoryName;
+
+  @override
+  int get hashCode => Object.hash(serverId, categoryId, categoryName);
+}
+
 class DbOnlineMovieDetailRequest {
   const DbOnlineMovieDetailRequest({
     required this.serverId,
