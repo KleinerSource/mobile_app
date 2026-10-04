@@ -309,8 +309,8 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             ),
           ),
         ),
-        // 操作区与 OMM 详情页的"播放 + 合集"行同构：有播放按钮时订阅
-        // 并排等宽，仅订阅（不可播放）时整宽。
+        // 操作区与 OMM 详情页的"播放 + 合集"行同构：播放占 2/3、订阅
+        // 占 1/3（主操作更宽），仅订阅（不可播放）时整宽。
         if (movie.canPlay || subscriptionAvailable)
           SliverToBoxAdapter(
             child: Padding(
@@ -319,6 +319,7 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
                 children: [
                   if (movie.canPlay)
                     Expanded(
+                      flex: 2,
                       child: _PlayButton(
                         movie: movie,
                         loadPlaybackMovie: widget.loadPlaybackMovie,
