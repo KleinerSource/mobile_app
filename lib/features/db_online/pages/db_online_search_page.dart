@@ -392,7 +392,6 @@ class _DbOnlineSearchResultsState
   final _pagingController = PagingController<int, DbOnlineMovie>(
     firstPageKey: 1,
   );
-  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -404,7 +403,6 @@ class _DbOnlineSearchResultsState
   void dispose() {
     _requests.dispose();
     _pagingController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -495,8 +493,8 @@ class _DbOnlineSearchResultsState
     );
 
     return CustomScrollView(
-      controller: _scrollController,
-      primary: false,
+      // 接入 Tab 级 PrimaryScrollController，状态栏点击可回顶。
+      primary: true,
       slivers: [
         SliverPadding(
           padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
@@ -536,7 +534,8 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
           return EmptyView(message: AppL10n.of(context).searchNoResult);
         }
         return CustomScrollView(
-          primary: false,
+          // 接入 Tab 级 PrimaryScrollController，状态栏点击可回顶。
+          primary: true,
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
@@ -648,7 +647,8 @@ class _DbOnlineEntitySearchResultsState
   Widget build(BuildContext context) {
     final type = widget.type;
     return CustomScrollView(
-      primary: false,
+      // 接入 Tab 级 PrimaryScrollController，状态栏点击可回顶。
+      primary: true,
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),

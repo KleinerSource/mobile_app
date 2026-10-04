@@ -117,6 +117,13 @@ class FollowingTestBackend {
               'has_cnsub': true,
               'magnets_count': 2,
               'can_play': true,
+              'preview_images': [
+                {
+                  'large_url': 'https://example.test/l1.jpg',
+                  'thumb_url': 'https://example.test/s1.jpg',
+                },
+                {'large_url': 'https://example.test/l2.jpg'},
+              ],
             },
           ],
           'has_more': false,

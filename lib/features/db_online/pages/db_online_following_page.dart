@@ -249,6 +249,8 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
           width: double.infinity,
           landscape: viewMode == MediaViewMode.landscape,
           compact: viewMode == MediaViewMode.list,
+          // 列表模式升级为预览条目：左封面 + 右预览图翻页。
+          previewList: viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
         return viewMode == MediaViewMode.landscape

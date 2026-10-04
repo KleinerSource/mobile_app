@@ -5,7 +5,7 @@ import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/shared/poster.dart';
 
 /// 榜单列表模式的预览条目：左侧竖版封面，右侧预览图横向滑动切换，
-/// 底部显示标题、元信息与角标。
+/// 角标叠加在预览图左下角，底部显示标题（可带前缀指示器）与元信息。
 ///
 /// 图片地址与角标由 [DbOnlineMovieCard] 解析后传入，这里只负责布局与
 /// 翻页交互；无预览图时右侧回退为大封面。
@@ -19,6 +19,7 @@ class DbOnlineRankingPreviewCard extends StatefulWidget {
     this.fallbackPreviewUrl,
     required this.meta,
     this.badges = const <Widget>[],
+    this.titleLeading,
     this.privacyId,
     this.onTap,
   });
@@ -35,7 +36,13 @@ class DbOnlineRankingPreviewCard extends StatefulWidget {
   /// 无预览图时右侧展示的回退图（大封面）。
   final String? fallbackPreviewUrl;
   final String meta;
+
+  /// 叠加在预览图左下角的角标组。
   final List<Widget> badges;
+
+  /// 标题前的小指示器（订阅已完成绿点等）。
+  final Widget? titleLeading;
+
   final Object? privacyId;
   final VoidCallback? onTap;
 
@@ -101,10 +108,6 @@ class _DbOnlineRankingPreviewCardState extends State<DbOnlineRankingPreviewCard>
               value: widget.meta,
               style: AppText.meta(context).copyWith(color: colors.muted),
             ),
-            if (widget.badges.isNotEmpty) ...[
-              const SizedBox(height: 7),
-              Wrap(spacing: 5, runSpacing: 4, children: widget.badges),
-            ],
           ],
         ),
       ),
@@ -142,6 +145,26 @@ class _DbOnlineRankingPreviewCardState extends State<DbOnlineRankingPreviewCard>
           fit: StackFit.expand,
           children: [
             preview,
+            // 角标叠加在预览图左下角，右侧预留页码指示器的空间。
+            if (widget.badges.isNotEmpty)
+              Positioned(
+                left: 6,
+                right: 6,
+                bottom: 6,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: urls.length > 1 ? 46 : 0,
+                    ),
+                    child: Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: widget.badges,
+                    ),
+                  ),
+                ),
+              ),
             if (urls.length > 1)
               Positioned(
                 right: 6,
@@ -183,7 +206,7 @@ class _DbOnlineRankingPreviewCardState extends State<DbOnlineRankingPreviewCard>
     final text = code?.isNotEmpty == true
         ? '[${code!}] $displayTitle'
         : displayTitle;
-    return _privacyText(
+    final titleText = _privacyText(
       value: text,
       style: TextStyle(
         color: colors.text,
@@ -193,6 +216,16 @@ class _DbOnlineRankingPreviewCardState extends State<DbOnlineRankingPreviewCard>
         height: 1.2,
       ),
       maxLines: 2,
+    );
+    final leading = widget.titleLeading;
+    if (leading == null) return titleText;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 与 14/1.2 行高的首行文本光学居中对齐。
+        Padding(padding: const EdgeInsets.only(top: 2.5, right: 5), child: leading),
+        Expanded(child: titleText),
+      ],
     );
   }
 

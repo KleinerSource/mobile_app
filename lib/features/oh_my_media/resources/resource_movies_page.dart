@@ -17,6 +17,7 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
@@ -149,62 +150,66 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 180,
-              pinned: true,
-              backgroundColor: c.bg,
-              surfaceTintColor: Colors.transparent,
-              title: Text(
-                widget.resource.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              leading: Center(
-                child: HeaderActionButton(
-                  icon: Icons.arrow_back,
-                  tooltip: l.back,
-                  style: HeaderActionStyle.overlay,
-                  onPressed: () => Navigator.of(context).maybePop(),
+        child: StatusBarScrollToTop(
+          // 列表持自有控制器（分页位置恢复），由此接入状态栏点击回顶。
+          scrollController: _scrollController,
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 180,
+                pinned: true,
+                backgroundColor: c.bg,
+                surfaceTintColor: Colors.transparent,
+                title: Text(
+                  widget.resource.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: _Hero(
-                  kind: widget.kind,
-                  item: widget.resource,
-                  overrideCount: _totalCount,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: MediaListLayout.padding.copyWith(top: 18, bottom: 80),
-              sliver: PagedSliverGrid<int, MovieListItem>(
-                pagingController: _controller,
-                showNoMoreItemsIndicatorAsGridChild: false,
-                gridDelegate: const MediaGridDelegate(),
-                builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                  itemBuilder: (ctx, m, idx) => MovieCard(
-                    movie: m,
-                    posterUrlBuilder: urlBuilder,
-                    onTap: () => unawaited(_openMovie(m.id)),
+                leading: Center(
+                  child: HeaderActionButton(
+                    icon: Icons.arrow_back,
+                    tooltip: l.back,
+                    style: HeaderActionStyle.overlay,
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  firstPageProgressIndicatorBuilder: (_) =>
-                      const Center(child: CupertinoActivityIndicator()),
-                  firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                    message: _controller.error == null
-                        ? l.loadFailed
-                        : localizedErrorMessage(l, _controller.error!),
-                    onRetry: () => _controller.refresh(),
+                ),
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _Hero(
+                    kind: widget.kind,
+                    item: widget.resource,
+                    overrideCount: _totalCount,
                   ),
-                  noItemsFoundIndicatorBuilder: (_) =>
-                      EmptyView(message: l.resourceMoviesEmpty),
-                  noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                 ),
               ),
-            ),
-          ],
+              SliverPadding(
+                padding: MediaListLayout.padding.copyWith(top: 18, bottom: 80),
+                sliver: PagedSliverGrid<int, MovieListItem>(
+                  pagingController: _controller,
+                  showNoMoreItemsIndicatorAsGridChild: false,
+                  gridDelegate: const MediaGridDelegate(),
+                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                    itemBuilder: (ctx, m, idx) => MovieCard(
+                      movie: m,
+                      posterUrlBuilder: urlBuilder,
+                      onTap: () => unawaited(_openMovie(m.id)),
+                    ),
+                    firstPageProgressIndicatorBuilder: (_) =>
+                        const Center(child: CupertinoActivityIndicator()),
+                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                      message: _controller.error == null
+                          ? l.loadFailed
+                          : localizedErrorMessage(l, _controller.error!),
+                      onRetry: () => _controller.refresh(),
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) =>
+                        EmptyView(message: l.resourceMoviesEmpty),
+                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

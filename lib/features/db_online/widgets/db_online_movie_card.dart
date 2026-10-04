@@ -104,6 +104,8 @@ class DbOnlineMovieCard extends ConsumerWidget {
 
     if (previewList) {
       final rating = showRating ? normalizeMediaRating(movie.score) : null;
+      // 已完成的绿点放在名称前，其余订阅状态角标留在预览图左下角。
+      final subscriptionCompleted = _isSubscriptionCompleted(subscriptionStatus);
       return DbOnlineRankingPreviewCard(
         title: movie.title.trim().isEmpty
             ? l.movieCardUntitledTitle
@@ -114,11 +116,15 @@ class DbOnlineMovieCard extends ConsumerWidget {
         fallbackPreviewUrl: _fallbackPreviewUrl(movie, config),
         meta: _metaText(context, movie),
         badges: [
-          if (subscriptionBadge != null) subscriptionBadge,
+          if (!subscriptionCompleted && subscriptionBadge != null)
+            subscriptionBadge,
           if (magnetBadge != null) magnetBadge,
           if (playBadge != null) playBadge,
           if (rating != null) RatingBadge(rating: rating),
         ],
+        titleLeading: subscriptionCompleted
+            ? _subscriptionCompletedDot(l)
+            : null,
         privacyId: privacyId,
         onTap: handleTap,
       );
@@ -210,19 +216,7 @@ Widget? _subscriptionStatusBadge(
     ),
   };
   if (status == 'completed') {
-    return Semantics(
-      container: true,
-      label: label,
-      child: Container(
-        width: 11,
-        height: 11,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 1.5),
-        ),
-      ),
-    );
+    return _subscriptionCompletedDot(l);
   }
   return DbOnlineSubscriptionStatusBadge(
     label: label,
@@ -230,6 +224,27 @@ Widget? _subscriptionStatusBadge(
     icon: icon,
   );
 }
+
+/// 订阅已完成（未逾期）时只显示绿点，不占用文字角标。
+bool _isSubscriptionCompleted(DbOnlineSubscriptionStatus? subscription) =>
+    subscription?.subscribed == true &&
+    !subscription!.overdue &&
+    subscription.status == 'completed';
+
+/// 订阅已完成的绿点指示器；封面角标与预览条目名称行前共用。
+Widget _subscriptionCompletedDot(AppL10n l) => Semantics(
+  container: true,
+  label: l.dbOnlineSubscriptionCompleted,
+  child: Container(
+    width: 11,
+    height: 11,
+    decoration: BoxDecoration(
+      color: const Color(0xFF22C55E),
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white, width: 1.5),
+    ),
+  ),
+);
 
 Widget? _magnetBadge(AppL10n l, int count) {
   if (count <= 0) return null;

@@ -362,6 +362,14 @@ void main() {
       tester.widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard)).compact,
       isTrue,
     );
+    // 列表模式渲染预览条目：左封面 + 右预览图翻页。
+    expect(
+      tester.widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard)).previewList,
+      isTrue,
+    );
+    expect(find.byType(PageView), findsOneWidget);
+    expect(find.text('[ABC-001] 关注影片'), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.crop_landscape_rounded));
     await pumpFollowingFrames(tester);
     expect(

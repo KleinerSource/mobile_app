@@ -31,6 +31,7 @@ import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_type_menu.dart';
 import 'package:omm/shared/search_history.dart';
+import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
@@ -658,96 +659,103 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final isPortrait = widget.viewMode == MediaViewMode.portrait;
     final isLandscape = widget.viewMode == MediaViewMode.landscape;
-    return CustomScrollView(
-      key: _previewViewportKey,
-      controller: _scrollController,
-      primary: false,
-      slivers: [
-        SliverPadding(
-          padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
-          sliver: isPortrait
-              ? PagedSliverGrid<int, MovieListItem>(
-                  pagingController: _controller,
-                  showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: const MediaGridDelegate(),
-                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                    itemBuilder: (ctx, movie, _) => MovieCard(
-                      key: ValueKey(movie.id),
-                      movie: movie,
-                      posterUrlBuilder: urlBuilder,
-                      onTap: () => unawaited(_openMovie(movie.id)),
-                    ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const Center(child: CircularProgressIndicator()),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _controller.error == null
-                          ? AppL10n.of(context).loadFailed
-                          : localizedErrorMessage(
-                              AppL10n.of(context),
-                              _controller.error!,
-                            ),
-                      onRetry: _controller.refresh,
-                    ),
-                    newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                      onRetry: _controller.retryLastFailedRequest,
-                    ),
-                    noItemsFoundIndicatorBuilder: (_) =>
-                        EmptyView(message: AppL10n.of(context).searchNoResult),
-                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-                  ),
-                )
-              : PagedSliverList<int, MovieListItem>(
-                  pagingController: _controller,
-                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                    itemBuilder: (ctx, movie, _) => isLandscape
-                        ? MediaLandscapeListItem(
-                            child: OmmMoviePreviewCard(
-                              key: _previewItemKeys.putIfAbsent(
-                                movie.id,
-                                GlobalKey.new,
+    return StatusBarScrollToTop(
+      // 搜索 Tab 的结果列表持自有控制器（分页位置恢复/自动预览），
+      // 由此接入状态栏点击回顶。
+      scrollController: _scrollController,
+      child: CustomScrollView(
+        key: _previewViewportKey,
+        controller: _scrollController,
+        primary: false,
+        slivers: [
+          SliverPadding(
+            padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
+            sliver: isPortrait
+                ? PagedSliverGrid<int, MovieListItem>(
+                    pagingController: _controller,
+                    showNoMoreItemsIndicatorAsGridChild: false,
+                    gridDelegate: const MediaGridDelegate(),
+                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                      itemBuilder: (ctx, movie, _) => MovieCard(
+                        key: ValueKey(movie.id),
+                        movie: movie,
+                        posterUrlBuilder: urlBuilder,
+                        onTap: () => unawaited(_openMovie(movie.id)),
+                      ),
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CircularProgressIndicator()),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: _controller.error == null
+                            ? AppL10n.of(context).loadFailed
+                            : localizedErrorMessage(
+                                AppL10n.of(context),
+                                _controller.error!,
                               ),
-                              movie: movie,
-                              posterUrlBuilder: urlBuilder,
-                              coordinator: _previewCoordinator,
-                              autoPlayPreview: movie.id == _autoPreviewId,
+                        onRetry: _controller.refresh,
+                      ),
+                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                        onRetry: _controller.retryLastFailedRequest,
+                      ),
+                      noItemsFoundIndicatorBuilder: (_) => EmptyView(
+                        message: AppL10n.of(context).searchNoResult,
+                      ),
+                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+                    ),
+                  )
+                : PagedSliverList<int, MovieListItem>(
+                    pagingController: _controller,
+                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                      itemBuilder: (ctx, movie, _) => isLandscape
+                          ? MediaLandscapeListItem(
+                              child: OmmMoviePreviewCard(
+                                key: _previewItemKeys.putIfAbsent(
+                                  movie.id,
+                                  GlobalKey.new,
+                                ),
+                                movie: movie,
+                                posterUrlBuilder: urlBuilder,
+                                coordinator: _previewCoordinator,
+                                autoPlayPreview: movie.id == _autoPreviewId,
+                                onTap: () => unawaited(_openMovie(movie.id)),
+                              ),
+                            )
+                          : CatalogListMovieCard(
+                              key: ValueKey(movie.id),
+                              title: movie.title,
+                              imageUrl: movie.posterUuid == null
+                                  ? null
+                                  : urlBuilder(movie.posterUuid!),
+                              meta: formatMediaCardMeta(
+                                AppL10n.of(context),
+                                year: movie.year,
+                                duration: movie.runtime,
+                              ),
+                              privacyId: movie.id,
                               onTap: () => unawaited(_openMovie(movie.id)),
                             ),
-                          )
-                        : CatalogListMovieCard(
-                            key: ValueKey(movie.id),
-                            title: movie.title,
-                            imageUrl: movie.posterUuid == null
-                                ? null
-                                : urlBuilder(movie.posterUuid!),
-                            meta: formatMediaCardMeta(
-                              AppL10n.of(context),
-                              year: movie.year,
-                              duration: movie.runtime,
-                            ),
-                            privacyId: movie.id,
-                            onTap: () => unawaited(_openMovie(movie.id)),
-                          ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const Center(child: CircularProgressIndicator()),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _controller.error == null
-                          ? AppL10n.of(context).loadFailed
-                          : localizedErrorMessage(
-                              AppL10n.of(context),
-                              _controller.error!,
-                            ),
-                      onRetry: _controller.refresh,
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CircularProgressIndicator()),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: _controller.error == null
+                            ? AppL10n.of(context).loadFailed
+                            : localizedErrorMessage(
+                                AppL10n.of(context),
+                                _controller.error!,
+                              ),
+                        onRetry: _controller.refresh,
+                      ),
+                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                        onRetry: _controller.retryLastFailedRequest,
+                      ),
+                      noItemsFoundIndicatorBuilder: (_) => EmptyView(
+                        message: AppL10n.of(context).searchNoResult,
+                      ),
+                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                     ),
-                    newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                      onRetry: _controller.retryLastFailedRequest,
-                    ),
-                    noItemsFoundIndicatorBuilder: (_) =>
-                        EmptyView(message: AppL10n.of(context).searchNoResult),
-                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
-                ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }

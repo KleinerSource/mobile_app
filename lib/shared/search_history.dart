@@ -74,7 +74,8 @@ class SearchHistorySection extends StatelessWidget {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     return ListView(
-      primary: false,
+      // 接入所在搜索 Tab 的 PrimaryScrollController，状态栏点击可回顶。
+      primary: true,
       padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
       children: [
         Row(

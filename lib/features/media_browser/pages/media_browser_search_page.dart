@@ -33,6 +33,7 @@ import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/search_history.dart';
+import 'package:omm/shared/status_bar_scroll_to_top.dart';
 
 /// MediaBrowser 搜索页。
 ///
@@ -107,7 +108,9 @@ class _MediaBrowserSearchPageState
         ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final history = ref.read(searchHistoryStoreProvider).load(serverId);
     if (history.isEmpty) {
-      return _MediaBrowserSearchEmptyHint(hint: AppL10n.of(context).searchEmpty);
+      return _MediaBrowserSearchEmptyHint(
+        hint: AppL10n.of(context).searchEmpty,
+      );
     }
     return SearchHistorySection(
       entries: history,
@@ -395,8 +398,7 @@ class _MediaBrowserSearchResultsState
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
-          serverId:
-              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+          serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           query: media_models.MediaQuery(
             searchText: widget.query,
             sortBy: 'SortName',
@@ -628,6 +630,11 @@ class _MediaBrowserSearchResultsState
         ],
       ),
     );
-    return isStash ? PreviewScope(child: content) : content;
+    // 结果列表持自有控制器（拖拽多选/位置恢复），由此接入状态栏点击回顶。
+    final withScrollToTop = StatusBarScrollToTop(
+      scrollController: _scrollController,
+      child: content,
+    );
+    return isStash ? PreviewScope(child: withScrollToTop) : withScrollToTop;
   }
 }

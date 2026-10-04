@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/features/db_online/pages/db_online_rankings_page.dart';
+import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
+import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -15,6 +18,7 @@ void main() {
   Future<void> pumpPage(
     WidgetTester tester, {
     required Dio dio,
+    bool completedSubscription = false,
   }) async {
     final client = ApiClient(dio);
     await tester.pumpWidget(
@@ -25,8 +29,25 @@ void main() {
             await SharedPreferences.getInstance(),
           ),
           mediaRuntimeConfigProvider.overrideWithValue(
-            const ServerConfig(baseUrl: 'https://example.test'),
+            completedSubscription
+                ? const ServerConfig(
+                    baseUrl: 'https://example.test',
+                    activeServerId: 'server-1',
+                  )
+                : const ServerConfig(baseUrl: 'https://example.test'),
           ),
+          if (completedSubscription) ...[
+            dbOnlineSubscriptionCapabilitiesProvider.overrideWith(
+              (ref, serverId) async => const DbOnlineSubscriptionCapabilities(
+                database: true,
+                onlineAccount: false,
+                onlineQuery: false,
+              ),
+            ),
+            dbOnlineMovieSubscriptionStatusesProvider(
+              'server-1',
+            ).overrideWith(() => _CompletedStatusesNotifier()),
+          ],
         ],
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
@@ -113,9 +134,7 @@ void main() {
     expect(find.text('榜单演员'), findsOneWidget);
   });
 
-  testWidgets('列表模式渲染预览条目：封面 + 预览图翻页 + 标题与角标', (
-    tester,
-  ) async {
+  testWidgets('列表模式渲染预览条目：封面 + 预览图翻页 + 标题', (tester) async {
     SharedPreferences.setMockInitialValues({
       'db_online.rankings.view_mode.v1': 'list',
     });
@@ -129,9 +148,62 @@ void main() {
     expect(find.text('[ABC-001] 榜单影片'), findsOneWidget);
     expect(find.text('1/2'), findsOneWidget);
     expect(find.text('1'), findsOneWidget); // 名次徽章
-    // 磁链角标：榜单夹具 magnets_count = 3。
+    // 磁链角标叠加在预览图内，不再单独占用标题下的一行。
     expect(find.text('3'), findsOneWidget);
+    final preview = tester.getRect(find.byType(PageView));
+    final magnet = tester.getRect(find.text('3'));
+    expect(magnet.top, greaterThan(preview.top));
+    expect(magnet.bottom, lessThan(preview.bottom));
+    expect(magnet.left, greaterThan(preview.left));
   });
+
+  testWidgets('订阅已完成的绿点放在名称前，其余角标叠加预览图左下角', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'db_online.rankings.view_mode.v1': 'list',
+    });
+    final requests = <String>[];
+    await pumpPage(
+      tester,
+      dio: rankingDio(top250Authorized: false, requests: requests),
+      completedSubscription: true,
+    );
+
+    expect(find.byType(PageView), findsOneWidget);
+    final dot = find.bySemanticsLabel('已完成');
+    expect(dot, findsOneWidget);
+    final title = find.text('[ABC-001] 榜单影片');
+    expect(title, findsOneWidget);
+    expect(
+      tester.getCenter(dot).dy,
+      closeTo(tester.getRect(title).top + 8.4, 3),
+    );
+    expect(tester.getRect(dot).right, lessThan(tester.getRect(title).left));
+    // 磁链角标仍在预览图左下角。
+    final preview = tester.getRect(find.byType(PageView));
+    final magnet = tester.getRect(find.text('3'));
+    expect(magnet.bottom, lessThan(preview.bottom));
+  });
+}
+
+/// 预置 ABC-001 已完成订阅状态，避免卡片触发批量状态查询。
+class _CompletedStatusesNotifier
+    extends DbOnlineMovieSubscriptionStatusesNotifier {
+  _CompletedStatusesNotifier() : super('server-1');
+
+  @override
+  Map<String, DbOnlineSubscriptionStatus> build() {
+    return {
+      ...super.build(),
+      'ABC-001': const DbOnlineSubscriptionStatus(
+        subscribed: true,
+        sourceType: 'video',
+        status: 'completed',
+        active: true,
+      ),
+    };
+  }
 }
 
 Map<String, dynamic> _responseFor(String path, {required bool top250Authorized}) {
