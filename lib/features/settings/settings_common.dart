@@ -397,7 +397,8 @@ class SettingsSubPageHeader extends StatelessWidget {
   /// 主标题最大行数；长文件名等场景传 1 避免头部被撑高。
   final int? titleMaxLines;
 
-  /// 头部底部留白；工具栏紧跟头部时传 PageHeader.toolbarTopGap 收窄间距。
+  /// 头部底部留白；下一块是工具栏时传 PageHeader.toolbarTopGap，
+  /// 主列表直接跟随时传 PageHeader.aboveListGap。
   final double bottomPadding;
 
   @override

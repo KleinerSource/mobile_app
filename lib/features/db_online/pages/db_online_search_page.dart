@@ -45,7 +45,15 @@ class DbOnlineSearchPage extends ConsumerStatefulWidget {
   ConsumerState<DbOnlineSearchPage> createState() => _DbOnlineSearchPageState();
 }
 
-enum DbOnlineSearchType { list, video, actor, series, maker, director, playlist }
+enum DbOnlineSearchType {
+  list,
+  video,
+  actor,
+  series,
+  maker,
+  director,
+  playlist,
+}
 
 extension on DbOnlineSearchType {
   String label(AppL10n l) => switch (this) {
@@ -191,7 +199,9 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
         DbOnlineFilterSection(
           title: l.dbOnlineFollowingConditions,
           options: dbOnlineResourceConditionOptions(l),
-          selected: dbOnlineResourceConditionLetters(_resourceFilters).join(','),
+          selected: dbOnlineResourceConditionLetters(
+            _resourceFilters,
+          ).join(','),
           multiSelect: true,
           onSelected: (value) => _applyMovieFilter(() {
             _resourceFilters
@@ -279,7 +289,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                 22,
                 0,
                 22,
-                PageHeader.toolbarBottomGap,
+                PageHeader.aboveListGap,
               ),
               child: CatalogSearchField(
                 controller: _controller,
@@ -327,14 +337,14 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                       DbOnlineSearchType.series ||
                       DbOnlineSearchType.maker ||
                       DbOnlineSearchType.director ||
-                      DbOnlineSearchType.playlist =>
-                        _DbOnlineEntitySearchResults(
-                          key: ValueKey(
-                            '${_searchType.name}:$_submittedQuery:$_searchSerial',
-                          ),
-                          type: _searchType,
-                          query: _submittedQuery,
+                      DbOnlineSearchType
+                          .playlist => _DbOnlineEntitySearchResults(
+                        key: ValueKey(
+                          '${_searchType.name}:$_submittedQuery:$_searchSerial',
                         ),
+                        type: _searchType,
+                        query: _submittedQuery,
+                      ),
                     },
             ),
           ],
@@ -657,7 +667,7 @@ class _DbOnlineEntitySearchResultsState
       primary: true,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+          padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
           sliver: PagedSliverList<int, DbOnlineSearchEntity>(
             pagingController: _pagingController,
             builderDelegate: PagedChildBuilderDelegate<DbOnlineSearchEntity>(
@@ -794,7 +804,8 @@ void _openEntityMovies(
   unawaited(
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => DbOnlineEntityMoviesPage(kind: kind, id: id, title: title),
+        builder: (_) =>
+            DbOnlineEntityMoviesPage(kind: kind, id: id, title: title),
       ),
     ),
   );

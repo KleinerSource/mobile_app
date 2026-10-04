@@ -18,6 +18,7 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -188,6 +189,7 @@ class _DbOnlineLatestMoviesPageState
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: 'DB ONLINE',
+              bottomPadding: PageHeader.aboveListGap,
               title: title,
               trailing: MediaViewModeToggle(
                 mode: _viewMode,

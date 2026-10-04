@@ -302,9 +302,7 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    localizedErrorMessage(l, downloaderState.error!),
-                  ),
+                  child: Text(localizedErrorMessage(l, downloaderState.error!)),
                 ),
                 IconButton(
                   tooltip: l.commonRetry,

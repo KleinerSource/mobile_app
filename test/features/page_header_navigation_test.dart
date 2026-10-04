@@ -257,21 +257,36 @@ void main() {
       testWidgets('工具栏与搜索框按需显示，在 $size/$scale 下间距统一并固定', (tester) async {
         await tester.binding.setSurfaceSize(size);
         addTearDown(() => tester.binding.setSurfaceSize(null));
-        for (final entry in <(Widget, String, bool)>[
+        // 第 4 位是工具栏底部到列表顶部的期望间距：OMM/MediaBrowser 沿用
+        // 16；db_online 用 aboveListGap，加上列表自带的 contentTopInset
+        // 后与块间间距（toolbarTopGap）同为 12 的节奏。
+        for (final entry in <(Widget, String, bool, double)>[
           (
             const MoviesPage(showBackButton: false, maxItems: 0),
             'oh-my-media',
             true,
+            16,
           ),
-          (const SearchPage(), 'oh-my-media', true),
-          (const DbOnlineSearchPage(), 'db_online', true),
-          (const MediaBrowserSearchPage(), 'emby', true),
-          (const DbOnlineLibraryPage(), 'db_online', false),
-          (const MediaBrowserLibraryPage(showBackButton: false), 'emby', true),
+          (const SearchPage(), 'oh-my-media', true, 16),
+          (
+            const DbOnlineSearchPage(),
+            'db_online',
+            true,
+            PageHeader.aboveListGap,
+          ),
+          (const MediaBrowserSearchPage(), 'emby', true, 16),
+          (const DbOnlineLibraryPage(), 'db_online', false, 0),
+          (
+            const MediaBrowserLibraryPage(showBackButton: false),
+            'emby',
+            true,
+            16,
+          ),
           (
             const MediaBrowserLibraryPage(showBackButton: false),
             'feiniu',
             false,
+            0,
           ),
         ]) {
           await _open(
@@ -299,7 +314,7 @@ void main() {
             final toolbarContent = find.byWidget(toolbar.child!);
             final toolbarRect = tester.getRect(toolbarContent);
             expect(toolbarRect.top, headerRect.bottom);
-            expect(tester.getRect(body).top - toolbarRect.bottom, 16);
+            expect(tester.getRect(body).top - toolbarRect.bottom, entry.$4);
             await tester.drag(body, const Offset(0, -250));
             await tester.pumpAndSettle();
             expect(tester.getRect(toolbarContent), toolbarRect);
@@ -315,6 +330,7 @@ void main() {
       testWidgets('六种媒体源底部双行抬头在 $size/$scale 下高度与位置统一', (tester) async {
         addTearDown(() => tester.binding.setSurfaceSize(null));
         Rect? referenceHeader;
+        double? referenceContentHeight;
         Rect? referenceSmall;
         Rect? referenceLarge;
         Size? referenceToggle;
@@ -389,7 +405,8 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
-            final header = find.byType(PageHeader).hitTestable();
+            // 存在性不做命中测试：底距收窄后头部中心点可能落在文字空隙上。
+            final header = find.byType(PageHeader);
             expect(header, findsOneWidget, reason: '$project/$index');
             final small = find.descendant(
               of: header,
@@ -445,7 +462,12 @@ void main() {
                     project == 'feiniu')) {
               _expectHeaderIconCenters(tester, header);
             }
+            // 双行抬头的内容高度跨源统一；底部留白随页面配置变化
+            // （下方是工具栏用 toolbarTopGap，列表直接跟随用 aboveListGap），
+            // 因此只比较去掉 bottomPadding 后的内容高度。
+            final contentHeight = headerRect.height - pageHeader.bottomPadding;
             referenceHeader ??= headerRect;
+            referenceContentHeight ??= contentHeight;
             referenceSmall ??= smallRect;
             referenceLarge ??= largeRect;
             expect(
@@ -454,8 +476,8 @@ void main() {
               reason: '$project/$index',
             );
             expect(
-              headerRect.height,
-              closeTo(referenceHeader.height, 0.01),
+              contentHeight,
+              closeTo(referenceContentHeight, 0.01),
               reason: '$project/$index',
             );
             expect(

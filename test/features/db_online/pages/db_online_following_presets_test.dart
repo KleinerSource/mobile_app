@@ -59,12 +59,12 @@ void main() {
       backend.to('/subs/tags').last.queryParameters['filter_by'],
       '0:t:m::::',
     );
-    // 工具栏与列表间距遵循统一节奏：toolbarBottomGap + contentTopInset。
+    // 工具栏与列表间距遵循统一节奏：aboveListGap + contentTopInset。
     expect(
       tester.getTopLeft(find.byType(DbOnlineMovieCard)).dy -
           tester.getBottomLeft(find.byType(CompactFilterButton).first).dy,
       greaterThanOrEqualTo(
-        PageHeader.toolbarBottomGap + MediaListLayout.contentTopInset,
+        PageHeader.aboveListGap + MediaListLayout.contentTopInset,
       ),
     );
     final horizontal = find.byWidgetPredicate(

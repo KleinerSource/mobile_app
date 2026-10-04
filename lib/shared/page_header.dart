@@ -20,12 +20,13 @@ class PageHeader extends StatelessWidget {
   static const double leadingWidth = 48;
   static const double trailingGap = 8;
 
-  /// 带工具栏页面：头部与工具栏的统一间距（作为 bottomPadding 传入）。
+  /// 相邻块（头部→工具栏、工具栏→搜索框等）之间的统一间距。
   static const double toolbarTopGap = 12;
 
-  /// 工具栏底部留白；配合列表顶部的呼吸空间
-  /// （MediaListLayout.contentTopInset）使工具栏与列表间距同为 12。
-  static const double toolbarBottomGap = 8;
+  /// 紧邻主列表的块（头部/工具栏/搜索框）的统一底部留白；配合列表顶部的
+  /// 呼吸空间（MediaListLayout.contentTopInset）与块间间距同为 12，
+  /// 任意组件缺失或增减时，列表与上一块的间距保持不变。
+  static const double aboveListGap = 8;
 
   final String eyebrow;
   final Widget title;
@@ -33,7 +34,8 @@ class PageHeader extends StatelessWidget {
   final Widget? trailing;
   final Widget? subtitle;
 
-  /// 头部底部留白；工具栏紧跟头部时传 [toolbarTopGap] 收窄间距。
+  /// 头部底部留白；下一块是工具栏时传 [toolbarTopGap]，
+  /// 主列表直接跟随时传 [aboveListGap]，保持块间节奏一致。
   final double bottomPadding;
 
   @override

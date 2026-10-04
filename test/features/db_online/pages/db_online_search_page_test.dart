@@ -8,7 +8,9 @@ import 'package:omm/core/sources/media/dbo_media_source_adapter.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
+import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/movie_card.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -389,5 +391,74 @@ void main() {
     expect(queries.last['movie_type'], '1');
     expect(queries.last['movie_filter_by'], 'subtitle');
     expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
+  });
+
+  testWidgets('列表搜索的列表模式保持紧凑行，不启用预览条目', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'db_online.search.view_mode.v1': 'list',
+    });
+    final preferences = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'data': {
+                  'movies': [
+                    {
+                      'id': 'movie-1',
+                      'number': 'ABC-001',
+                      'title': '搜索到的 DBO 影片',
+                      'can_play': true,
+                      'preview_images': [
+                        {
+                          'large_url': 'https://example.test/l1.jpg',
+                          'thumb_url': 'https://example.test/s1.jpg',
+                        },
+                        {'large_url': 'https://example.test/l2.jpg'},
+                      ],
+                    },
+                  ],
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    final client = ApiClient(dio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(client),
+          dboMediaRepositoryProvider.overrideWithValue(
+            DboMediaRepository(DboMediaSourceAdapter(client.dbOnline)),
+          ),
+          sharedPrefsProvider.overrideWithValue(preferences),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: Scaffold(body: DbOnlineSearchPage()),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), '关键词');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    // 即使接口返回 preview_images，列表搜索仍用紧凑行。
+    final card = tester.widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard));
+    expect(card.compact, isTrue);
+    expect(card.previewList, isFalse);
+    expect(find.byType(CatalogListMovieCard), findsOneWidget);
+    expect(find.byType(PageView), findsNothing);
   });
 }

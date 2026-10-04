@@ -122,6 +122,10 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
               ),
             ),
             _ChipRow(
+              // 还有内容类型行时用块间距，单独成行时由列表间距承接。
+              bottom: board == _Board.top250
+                  ? PageHeader.aboveListGap
+                  : PageHeader.toolbarTopGap,
               children: [
                 if (top250Available)
                   CompactFilterButton(
@@ -130,16 +134,35 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                     active: _board == _Board.top250,
                     onTap: () => setState(() => _board = _Board.top250),
                   ),
-                _boardChip(l.dbOnlineRankingDaily, Icons.wb_sunny_outlined, _Board.daily),
-                _boardChip(l.dbOnlineRankingWeekly, Icons.date_range_outlined, _Board.weekly),
-                _boardChip(l.dbOnlineRankingMonthly, Icons.calendar_month_outlined, _Board.monthly),
-                _boardChip(l.dbOnlineRankingActors, Icons.people_outline_rounded, _Board.actors),
+                _boardChip(
+                  l.dbOnlineRankingDaily,
+                  Icons.wb_sunny_outlined,
+                  _Board.daily,
+                ),
+                _boardChip(
+                  l.dbOnlineRankingWeekly,
+                  Icons.date_range_outlined,
+                  _Board.weekly,
+                ),
+                _boardChip(
+                  l.dbOnlineRankingMonthly,
+                  Icons.calendar_month_outlined,
+                  _Board.monthly,
+                ),
+                _boardChip(
+                  l.dbOnlineRankingActors,
+                  Icons.people_outline_rounded,
+                  _Board.actors,
+                ),
               ],
             ),
             if (board != _Board.top250)
               _ChipRow(
                 children: [
-                  for (final (index, label) in _contentTypeLabels(l, board).indexed)
+                  for (final (index, label) in _contentTypeLabels(
+                    l,
+                    board,
+                  ).indexed)
                     CompactFilterButton(
                       label: label,
                       active: _contentType == index,
@@ -267,11 +290,11 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final result = await client.dbOnline.ranking.subscribeTop250(
-            type: _top250TypeForRequest(),
-            typeValue: _top250Value,
-            ignoreWatched: _ignoreWatched,
-            startRank: _startRank,
-          );
+        type: _top250TypeForRequest(),
+        typeValue: _top250Value,
+        ignoreWatched: _ignoreWatched,
+        startRank: _startRank,
+      );
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -293,10 +316,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
     }
   }
 
-  String _subscribeSummary(
-    AppL10n l,
-    DbOnlineTop250SubscribeResult result,
-  ) => [
+  String _subscribeSummary(AppL10n l, DbOnlineTop250SubscribeResult result) => [
     l.dbOnlineRankingSubscribeAdded(result.added),
     l.dbOnlineRankingSubscribeSkippedSubscribed(result.skippedSubscribed),
     l.dbOnlineRankingSubscribeSkippedBlacklist(result.skippedBlacklist),
@@ -488,15 +508,21 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
 
 /// 横向滚动的筛选 chip 行。
 class _ChipRow extends StatelessWidget {
-  const _ChipRow({required this.children});
+  const _ChipRow({
+    required this.children,
+    this.bottom = PageHeader.aboveListGap,
+  });
 
   final List<Widget> children;
+
+  /// 底部留白；多行 chip 之间传块间距，最后一行保持列表间距。
+  final double bottom;
 
   @override
   Widget build(BuildContext context) {
     // 横向滚动 + Row 自然撑高，chips 文字随系统字体缩放时行高自适应。
     return Padding(
-      padding: const EdgeInsets.only(bottom: PageHeader.toolbarBottomGap),
+      padding: EdgeInsets.only(bottom: bottom),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -605,7 +631,8 @@ class _MovieRankingBoard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
-    final serverId = ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
     final request = DbOnlineRankingPageRequest(
       serverId: serverId,
       period: period,
@@ -753,7 +780,7 @@ class _Top250BoardState extends ConsumerState<_Top250Board> {
       primary: true,
       slivers: [
         SliverPadding(
-          padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
+          padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
           sliver: widget.viewMode == MediaViewMode.portrait
               ? PagedSliverGrid<int, DbOnlineMovie>(
                   pagingController: _pagingController,
@@ -784,10 +811,10 @@ class _Top250BoardState extends ConsumerState<_Top250Board> {
           message: _pagingController.error?.toString() ?? l.loadFailed,
           onRetry: _pagingController.refresh,
         ),
-        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-          onRetry: _pagingController.retryLastFailedRequest,
-        ),
-        noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.dbOnlineNoData),
+        newPageErrorIndicatorBuilder: (_) =>
+            PaginationRetry(onRetry: _pagingController.retryLastFailedRequest),
+        noItemsFoundIndicatorBuilder: (_) =>
+            EmptyView(message: l.dbOnlineNoData),
         noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
       );
 }
@@ -801,8 +828,12 @@ class _ActorRankingBoard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
-    final serverId = ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
-    final request = DbOnlineRankingActorsRequest(serverId: serverId, type: type);
+    final serverId =
+        ref.watch(mediaRuntimeConfigProvider)?.activeServerId ?? '';
+    final request = DbOnlineRankingActorsRequest(
+      serverId: serverId,
+      type: type,
+    );
     final actors = ref.watch(dbOnlineRankingActorsProvider(request));
     return actors.when(
       loading: () => const Center(child: CircularProgressIndicator()),

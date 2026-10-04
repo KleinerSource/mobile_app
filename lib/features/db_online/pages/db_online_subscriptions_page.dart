@@ -182,7 +182,7 @@ class _DbOnlineSubscriptionsPageState
   }
 
   Widget _stateContent(Widget body) => SettingsFixedHeaderLayout(
-    header: _header(AppL10n.of(context), null, null),
+    header: _header(AppL10n.of(context), null, null, hasBlockBelow: false),
     body: body,
   );
 
@@ -234,19 +234,28 @@ class _DbOnlineSubscriptionsPageState
         ? ref.watch(dbOnlineSubscriptionAutoSyncProvider(serverId))
         : null;
 
+    // 头部/横幅的底距随其后是否有块切换：下面还有块用块间距，
+    // 列表直接跟随时用列表间距，保证组件增减不改变列表与上一块的间距。
+    final showsNotice = !capabilities.database || !capabilities.onlineAccount;
+    final hasToolbar = sections.isNotEmpty;
     return SettingsFixedHeaderLayout(
       scrollController: _scrollController,
       header: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _header(l, capabilities, autoSync),
-          if (!capabilities.database || !capabilities.onlineAccount)
-            _capabilityNotice(capabilities, l),
-          if (sections.isNotEmpty) _sectionPicker(sections),
-          if (sections.isNotEmpty && _section != 'online')
+          _header(
+            l,
+            capabilities,
+            autoSync,
+            hasBlockBelow: showsNotice || hasToolbar,
+          ),
+          if (showsNotice)
+            _capabilityNotice(capabilities, l, hasToolbar: hasToolbar),
+          if (hasToolbar) _sectionPicker(sections),
+          if (hasToolbar && _section != 'online')
             _searchField(l)
-          else if (sections.isNotEmpty)
-            const SizedBox(height: PageHeader.toolbarBottomGap),
+          else if (hasToolbar)
+            const SizedBox(height: PageHeader.aboveListGap),
         ],
       ),
       body: RefreshIndicator(
@@ -564,8 +573,9 @@ class _DbOnlineSubscriptionsPageState
   Widget _header(
     AppL10n l,
     DbOnlineSubscriptionCapabilities? capabilities,
-    AsyncValue<Map<String, dynamic>>? autoSync,
-  ) {
+    AsyncValue<Map<String, dynamic>>? autoSync, {
+    required bool hasBlockBelow,
+  }) {
     final canManageOnlineSync =
         capabilities != null &&
         capabilities.database &&
@@ -595,7 +605,9 @@ class _DbOnlineSubscriptionsPageState
         false;
     return PageHeader(
       eyebrow: l.tabYou.toUpperCase(),
-      bottomPadding: PageHeader.toolbarTopGap,
+      bottomPadding: hasBlockBelow
+          ? PageHeader.toolbarTopGap
+          : PageHeader.aboveListGap,
       title: Text(
         l.dbOnlineSubscriptionsManageTitle,
         style: AppText.pageTitle(context),
@@ -652,15 +664,21 @@ class _DbOnlineSubscriptionsPageState
 
   Widget _capabilityNotice(
     DbOnlineSubscriptionCapabilities capabilities,
-    AppL10n l,
-  ) {
+    AppL10n l, {
+    required bool hasToolbar,
+  }) {
     final missing = <String>[
       if (!capabilities.database) l.dbOnlineSubscriptionFeatureRequiresDatabase,
       if (!capabilities.onlineAccount)
         l.dbOnlineSubscriptionFeatureRequiresOnlineAccount,
     ];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, PageHeader.toolbarTopGap),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        0,
+        22,
+        hasToolbar ? PageHeader.toolbarTopGap : PageHeader.aboveListGap,
+      ),
       child: Material(
         color: appColors(context).surface,
         borderRadius: BorderRadius.circular(14),
@@ -739,7 +757,7 @@ class _DbOnlineSubscriptionsPageState
         22,
         PageHeader.toolbarTopGap,
         22,
-        PageHeader.toolbarBottomGap,
+        PageHeader.aboveListGap,
       ),
       child: Container(
         decoration: BoxDecoration(

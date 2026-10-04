@@ -313,9 +313,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
                             padding: EdgeInsets.only(right: 7),
                             child: SizedBox.square(
                               dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
                         ],
@@ -344,10 +342,8 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
                               child: CompactFilterButton(
                                 label: preset.name,
                                 active: _presetId == preset.id,
-                                onTap: () => _apply(
-                                  preset.filter,
-                                  presetId: preset.id,
-                                ),
+                                onTap: () =>
+                                    _apply(preset.filter, presetId: preset.id),
                               ),
                             ),
                         ],

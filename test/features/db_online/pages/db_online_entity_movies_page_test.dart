@@ -6,7 +6,9 @@ import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/features/db_online/settings/db_online_backend_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -146,6 +148,75 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(lastQuery['filter'], 'p');
+  });
+
+  testWidgets('列表模式渲染预览条目：封面 + 预览图翻页 + 标题', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'db_online.entity_movies.view_mode.v1': 'list',
+    });
+    final preferences = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'data': {
+                  'movies': [
+                    {
+                      'id': 'movie-1',
+                      'number': 'ABC-003',
+                      'title': '片商影片',
+                      'can_play': true,
+                      'preview_images': [
+                        {
+                          'large_url': 'https://example.test/l1.jpg',
+                          'thumb_url': 'https://example.test/s1.jpg',
+                        },
+                        {'large_url': 'https://example.test/l2.jpg'},
+                      ],
+                    },
+                  ],
+                  'current_page': 1,
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+          sharedPrefsProvider.overrideWithValue(preferences),
+          mediaRuntimeConfigProvider.overrideWithValue(
+            const ServerConfig(baseUrl: 'https://example.test'),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: Scaffold(
+            body: DbOnlineEntityMoviesPage(
+              kind: 'maker',
+              id: 'mk-1',
+              title: '示例片商',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PageView), findsOneWidget);
+    expect(find.text('[ABC-003] 片商影片'), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
   });
 }
 

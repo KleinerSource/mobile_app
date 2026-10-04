@@ -20,6 +20,7 @@ import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -236,6 +237,8 @@ class _DbOnlineEntityMoviesPageState
           width: double.infinity,
           landscape: _viewMode == MediaViewMode.landscape,
           compact: _viewMode == MediaViewMode.list,
+          // 列表模式升级为预览条目：左封面 + 右预览图翻页。
+          previewList: _viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
         return _viewMode == MediaViewMode.landscape
@@ -271,6 +274,7 @@ class _DbOnlineEntityMoviesPageState
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: 'DB ONLINE',
+              bottomPadding: PageHeader.aboveListGap,
               title: widget.title,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
