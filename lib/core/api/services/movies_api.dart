@@ -117,10 +117,6 @@ abstract class MoviesApi {
   @POST('/movies/batch/duplicate-nfo/apply')
   Future<dynamic> applyDuplicateNfo(@Body() Map<String, dynamic> body);
 
-  /// 提交下载请求 · body: { movie_ids, requirements: {...} }
-  @POST('/movies/download')
-  Future<dynamic> requestDownload(@Body() Map<String, dynamic> body);
-
   // ===== 海报裁剪 + 水印 =====
 
   /// 应用裁剪 + 水印 · body: { subtitle, exsub, crack, uhd, crop_offset }

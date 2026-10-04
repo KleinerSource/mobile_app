@@ -174,11 +174,6 @@ abstract interface class OmmMediaOperationsSource {
 
   Future<String?> applyDuplicateNfo(Map<String, dynamic> payload);
 
-  Future<String?> requestDownload({
-    required List<MediaRef> movies,
-    required Map<String, dynamic> requirements,
-  });
-
   /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
   Future<String?> applyPosterCrop(
     MediaRef movie, {

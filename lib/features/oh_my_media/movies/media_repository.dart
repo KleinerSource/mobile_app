@@ -277,14 +277,6 @@ class MediaRepository {
   Future<String?> applyDuplicateNfo(Map<String, dynamic> payload) =>
       _operations.applyDuplicateNfo(payload);
 
-  Future<String?> requestDownload({
-    required List<int> movieIds,
-    required Map<String, dynamic> requirements,
-  }) => _operations.requestDownload(
-    movies: movieIds.map(_movieRef).toList(growable: false),
-    requirements: requirements,
-  );
-
   Future<String?> applyPosterCrop(
     int id, {
     required double cropOffset,

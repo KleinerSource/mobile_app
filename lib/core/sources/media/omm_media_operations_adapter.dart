@@ -827,21 +827,6 @@ class OmmMediaOperationsAdapter
   }
 
   @override
-  Future<String?> requestDownload({
-    required List<MediaRef> movies,
-    required Map<String, dynamic> requirements,
-  }) async {
-    final raw = await _call(
-      () => client.movies.requestDownload({
-        'movie_ids': movies.map(_ommId).toList(growable: false),
-        'requirements': requirements,
-      }),
-    );
-    _throwIfUnsuccessful(raw);
-    return envelopeMessageOrNull(raw);
-  }
-
-  @override
   Future<String?> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,

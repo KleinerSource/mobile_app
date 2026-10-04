@@ -38,7 +38,6 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
 import 'advanced_filter_sheet.dart';
-import 'batch_download_sheet.dart';
 import 'batch_duplicate_nfo_sheet.dart';
 import 'batch_edit_sheet.dart';
 import 'batch_merge_sheet.dart';
@@ -564,12 +563,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             onTap: selected.isEmpty ? null : _onBatchEdit,
                           ),
                           EntityBatchAction(
-                            icon: Icons.cloud_download_outlined,
-                            label: l.moviesBatchDownload,
-                            color: const Color(0xFF34F5A5),
-                            onTap: selected.isEmpty ? null : _onBatchDownload,
-                          ),
-                          EntityBatchAction(
                             icon: Icons.sync_rounded,
                             label: l.moviesBatchScan,
                             onTap: selected.isEmpty
@@ -782,11 +775,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       _exitSelection();
       _reload(preserveScroll: true);
     }
-  }
-
-  Future<void> _onBatchDownload() async {
-    final ok = await BatchDownloadSheet.show(context, _selectedIds.toList());
-    if (ok == true) _exitSelection();
   }
 
   Future<void> _onBatchResourceScan() async {

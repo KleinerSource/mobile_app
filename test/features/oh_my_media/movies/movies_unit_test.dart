@@ -416,12 +416,6 @@ class _FakeOperations implements OmmMediaOperationsSource {
   Future<String?> applyDuplicateNfo(Map<String, dynamic> payload) async => null;
 
   @override
-  Future<String> requestDownload({
-    required List<source_models.MediaRef> movies,
-    required Map<String, dynamic> requirements,
-  }) => throw UnimplementedError();
-
-  @override
   Future<String?> applyPosterCrop(
     source_models.MediaRef movie, {
     required double cropOffset,
