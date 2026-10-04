@@ -13,6 +13,7 @@ import 'package:omm/features/main/media_manager_shell.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
 import 'package:omm/shared/glass_menu.dart';
+import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_view_mode.dart';
 
 import '../support/following_test_support.dart';
@@ -284,10 +285,14 @@ void main() {
         .singleWhere((request) => request.method == 'POST');
     expect((create.data as Map)['external_id'], '1,2');
     expect((create.data as Map)['sub_type'], 'follow');
-    expect(find.byTooltip('已订阅'), findsOneWidget);
+    // 行内统计徽标与按钮共用"订阅中"文案，按组件类型限定到操作按钮。
+    final subscribedButton = find.byWidgetPredicate(
+      (widget) => widget is HeaderActionButton && widget.tooltip == '订阅中',
+    );
+    expect(subscribedButton, findsOneWidget);
     expect(subscriptionReloads, greaterThan(beforeCreate));
     final beforeEdit = subscriptionReloads;
-    await tester.tap(find.byTooltip('已订阅'));
+    await tester.tap(subscribedButton);
     await pumpFollowingFrames(tester);
     await tester.tap(find.text('编辑订阅'));
     await pumpFollowingFrames(tester);
@@ -302,7 +307,7 @@ void main() {
     );
     expect(subscriptionReloads, greaterThan(beforeEdit));
     final beforeDelete = subscriptionReloads;
-    await tester.tap(find.byTooltip('已订阅'));
+    await tester.tap(subscribedButton);
     await pumpFollowingFrames(tester);
     await tester.tap(find.text('移除'));
     await pumpFollowingFrames(tester);

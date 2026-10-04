@@ -6,6 +6,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/glass.dart';
@@ -13,8 +14,10 @@ import 'package:omm/shared/localized_error_message.dart';
 
 /// 订阅入口按钮。
 ///
-/// [showLabel] 为 true 时渲染详情页操作区的整宽描边按钮（与播放按钮同高、
-/// 已订阅时高亮强调色）；否则渲染卡片与搜索行尾部的图标按钮。
+/// [showLabel] 为 true 时渲染详情页操作区的按钮（宽度随父级：与播放
+/// 按钮并排等宽或独占整行），订阅后按状态实心填充（与封面角标共用
+/// 同一颜色/图标/文案映射：订阅中黄、已完成绿、已跳过红、超期橙），
+/// 未订阅为中性描边；否则渲染卡片与搜索行尾部的图标按钮。
 class DbOnlineSubscriptionAction extends ConsumerWidget {
   const DbOnlineSubscriptionAction({
     super.key,
@@ -67,18 +70,23 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     final subscribed = subscription?.subscribed ?? false;
     final colors = appColors(context);
     final l = AppL10n.of(context);
-    final actionLabel = !subscribed
-        ? l.dbOnlineSubscriptionAdd
-        : subscription!.overdue
-        ? l.dbOnlineSubscriptionOverdue
-        : switch (subscription.status) {
-            'completed' => l.dbOnlineSubscriptionCompleted,
-            'skipped' => l.dbOnlineSubscriptionSkipped,
-            _ => l.dbOnlineSubscriptionSubscribed,
-          };
-    final iconData = subscribed
-        ? Icons.check_circle_rounded
-        : Icons.add_circle_outline;
+    // 文案/图标/配色与封面角标共用同一映射：未订阅=中性描边，
+    // 其余状态实心填充状态色（订阅中黄、已完成绿、已跳过红、超期橙）。
+    final style = dbOnlineSubscriptionStatusStyle(
+      l,
+      subscribed: subscribed,
+      status: subscription?.status ?? '',
+      overdue: subscription?.overdue ?? false,
+    );
+    final actionLabel = style.label;
+    final iconData = style.icon;
+    final stateColor = style.color;
+    // 状态色的反色文字，与 app_theme 的 accent 反色约定一致。
+    final onStateColor = stateColor == null
+        ? null
+        : ThemeData.estimateBrightnessForColor(stateColor) == Brightness.light
+        ? const Color(0xFF1A1A22)
+        : Colors.white;
     void onPressed() => _openActions(
       context,
       ref,
@@ -88,20 +96,21 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       subscription: subscription,
     );
 
-    // 带标签形态用于详情页操作区，与媒体库模块的操作按钮共用同一套
-    // 描边样式（12px 圆角 + Inter 字体），已订阅时高亮强调色。
+    // 带标签形态用于详情页操作区，与播放按钮共用 12px 圆角 + Inter 的
+    // 规范；订阅后按状态实心填充，未订阅保持中性描边。
     return showLabel
         ? SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: statusLoading ? null : onPressed,
               style: OutlinedButton.styleFrom(
-                foregroundColor: subscribed ? colors.accent : colors.text,
+                foregroundColor: stateColor == null
+                    ? colors.text
+                    : onStateColor,
+                backgroundColor: stateColor,
                 disabledForegroundColor: colors.muted,
                 side: BorderSide(
-                  color: subscribed
-                      ? colors.accent.withValues(alpha: 0.55)
-                      : colors.cardBorder,
+                  color: stateColor == null ? colors.cardBorder : Colors.transparent,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -120,12 +129,16 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    actionLabel,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+                  Flexible(
+                    child: Text(
+                      actionLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                   if (subscribed) ...[
@@ -141,7 +154,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
             onPressed: onPressed,
             loading: statusLoading,
             icon: iconData,
-            color: subscribed ? colors.accent : colors.muted,
+            color: stateColor ?? colors.muted,
           );
   }
 

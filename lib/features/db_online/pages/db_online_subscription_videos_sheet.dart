@@ -336,7 +336,7 @@ class _DbOnlineSubscriptionVideosSheetState
           status,
           _subscriptionQueueStatusLabel(status, l),
           switch (status) {
-            'pending' => Icons.schedule_rounded,
+            'pending' => Icons.notifications_active_outlined,
             'skipped' => Icons.skip_next_rounded,
             _ => Icons.done_all_rounded,
           },

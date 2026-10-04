@@ -32,6 +32,7 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/pages/db_online_category_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
@@ -238,6 +239,20 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         ? null
         : resolveServerUrl(config, image);
     final posterBadgeVisibility = ref.watch(posterBadgeVisibilityProvider);
+    // 订阅入口依赖服务端 database 能力；与播放按钮共用一行时需要提前
+    // 知道它是否渲染，避免 Expanded 留空。
+    final subscriptionCapabilities = ref.watch(
+      dbOnlineSubscriptionCapabilitiesProvider(
+        config?.activeServerId ?? '',
+      ),
+    );
+    final subscriptionAvailable =
+        movie.code.trim().isNotEmpty &&
+        subscriptionCapabilities.when(
+          data: (value) => value.database,
+          loading: () => false,
+          error: (_, _) => false,
+        );
     final isDatabaseSource = movie.source == 'database';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sourceBadgeColor = isDatabaseSource
@@ -294,33 +309,42 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             ),
           ),
         ),
-        if (movie.canPlay)
+        // 操作区与 OMM 详情页的"播放 + 合集"行同构：有播放按钮时订阅
+        // 并排等宽，仅订阅（不可播放）时整宽。
+        if (movie.canPlay || subscriptionAvailable)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-              child: _PlayButton(
-                movie: movie,
-                loadPlaybackMovie: widget.loadPlaybackMovie,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+              child: Row(
+                children: [
+                  if (movie.canPlay)
+                    Expanded(
+                      child: _PlayButton(
+                        movie: movie,
+                        loadPlaybackMovie: widget.loadPlaybackMovie,
+                      ),
+                    ),
+                  if (movie.canPlay && subscriptionAvailable)
+                    const SizedBox(width: 10),
+                  if (subscriptionAvailable)
+                    Expanded(
+                      child: DbOnlineSubscriptionAction(
+                        kind: 'video',
+                        id: movie.code,
+                        title: displayTitle,
+                        showLabel: true,
+                        initial: {
+                          'video_id': movie.videoId ?? '',
+                          'cover_url': movie.coverUrl ?? '',
+                          'thumb_url': movie.thumbUrl ?? '',
+                          'release_date': movie.date ?? '',
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            child: DbOnlineSubscriptionAction(
-              kind: 'video',
-              id: movie.code,
-              title: displayTitle,
-              showLabel: true,
-              initial: {
-                'video_id': movie.videoId ?? '',
-                'cover_url': movie.coverUrl ?? '',
-                'thumb_url': movie.thumbUrl ?? '',
-                'release_date': movie.date ?? '',
-              },
-            ),
-          ),
-        ),
         if (movie.overview?.isNotEmpty == true)
           SliverToBoxAdapter(
             child: Padding(

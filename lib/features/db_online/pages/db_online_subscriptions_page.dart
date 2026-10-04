@@ -878,8 +878,8 @@ class _DbOnlineSubscriptionsPageState
         entityStat(
           l.dbOnlineSubscriptionPending,
           pendingCount,
-          Icons.schedule_rounded,
-          const Color(0xFFF59E0B),
+          Icons.notifications_active_outlined,
+          const Color(0xFFEAB308),
           iconOnly: isEntitySubscription,
         ),
       if (completedCount != null && completedCount > 0)
@@ -2141,11 +2141,18 @@ void _openSubscriptionMovieDetail(
       int.tryParse(data['matched_flags']?.toString() ?? '') ?? 0;
   Widget? statusBadge;
 
-  if (overdue) {
+  if (overdue || status == 'pending' || status == 'skipped') {
+    // 与封面角标/详情按钮共用同一状态映射，避免图标配色漂移。
+    final style = dbOnlineSubscriptionStatusStyle(
+      l,
+      subscribed: true,
+      status: status,
+      overdue: overdue,
+    );
     statusBadge = DbOnlineSubscriptionStatusBadge(
-      label: l.dbOnlineSubscriptionOverdue,
-      color: const Color(0xFFF97316),
-      icon: Icons.schedule_rounded,
+      label: style.label,
+      color: style.color!,
+      icon: style.icon,
     );
   } else if (status == 'completed') {
     statusBadge = Semantics(
@@ -2160,18 +2167,6 @@ void _openSubscriptionMovieDetail(
           border: Border.all(color: Colors.white, width: 1.5),
         ),
       ),
-    );
-  } else if (status == 'pending') {
-    statusBadge = DbOnlineSubscriptionStatusBadge(
-      label: l.dbOnlineSubscriptionPendingBadge,
-      color: const Color(0xFFEAB308),
-      icon: Icons.notifications_active_outlined,
-    );
-  } else if (status == 'skipped') {
-    statusBadge = DbOnlineSubscriptionStatusBadge(
-      label: l.dbOnlineSubscriptionSkipped,
-      color: const Color(0xFFEF4444),
-      icon: Icons.skip_next_rounded,
     );
   }
 

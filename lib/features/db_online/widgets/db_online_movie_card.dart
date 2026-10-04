@@ -185,43 +185,19 @@ Widget? _subscriptionStatusBadge(
   DbOnlineSubscriptionStatus? subscription,
 ) {
   if (subscription?.subscribed != true) return null;
-  final l = AppL10n.of(context);
-  final status = subscription!.overdue
-      ? 'overdue'
-      : switch (subscription.status) {
-          'completed' => 'completed',
-          'skipped' => 'skipped',
-          _ => 'pending',
-        };
-  final (label, color, icon) = switch (status) {
-    'overdue' => (
-      l.dbOnlineSubscriptionOverdue,
-      const Color(0xFFF97316),
-      Icons.schedule_rounded,
-    ),
-    'completed' => (
-      l.dbOnlineSubscriptionCompleted,
-      const Color(0xFF22C55E),
-      Icons.check_circle_rounded,
-    ),
-    'skipped' => (
-      l.dbOnlineSubscriptionSkipped,
-      const Color(0xFFEF4444),
-      Icons.skip_next_rounded,
-    ),
-    _ => (
-      l.dbOnlineSubscriptionPendingBadge,
-      const Color(0xFFEAB308),
-      Icons.notifications_active_outlined,
-    ),
-  };
-  if (status == 'completed') {
-    return _subscriptionCompletedDot(l);
+  final style = dbOnlineSubscriptionStatusStyle(
+    AppL10n.of(context),
+    subscribed: true,
+    status: subscription!.status,
+    overdue: subscription.overdue,
+  );
+  if (subscription.status == 'completed' && !subscription.overdue) {
+    return _subscriptionCompletedDot(AppL10n.of(context));
   }
   return DbOnlineSubscriptionStatusBadge(
-    label: label,
-    color: color,
-    icon: icon,
+    label: style.label,
+    color: style.color!,
+    icon: style.icon,
   );
 }
 
