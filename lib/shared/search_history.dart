@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -55,8 +56,9 @@ final searchHistoryStoreProvider = Provider<SearchHistoryStore>((ref) {
 });
 
 /// 搜索页空态下的历史记录区：横向换行 chips，点击直接搜索，
-/// 右上提供一键清空。
-class SearchHistorySection extends StatelessWidget {
+/// 右上提供清空按钮。为防误触需点两次：第一次进入确认态并高亮，
+/// 再次点击才真正清空；确认态 3 秒后自动复位。
+class SearchHistorySection extends StatefulWidget {
   const SearchHistorySection({
     super.key,
     required this.entries,
@@ -69,8 +71,48 @@ class SearchHistorySection extends StatelessWidget {
   final VoidCallback onClear;
 
   @override
+  State<SearchHistorySection> createState() => _SearchHistorySectionState();
+}
+
+class _SearchHistorySectionState extends State<SearchHistorySection> {
+  static const _confirmResetDelay = Duration(seconds: 3);
+
+  Timer? _confirmResetTimer;
+  bool _confirming = false;
+
+  @override
+  void didUpdateWidget(SearchHistorySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 切换服务器会换一批历史记录，确认态不应延续到新列表。
+    if (oldWidget.entries != widget.entries) _resetConfirm();
+  }
+
+  @override
+  void dispose() {
+    _confirmResetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _resetConfirm() {
+    _confirmResetTimer?.cancel();
+    _confirmResetTimer = null;
+    if (_confirming) setState(() => _confirming = false);
+  }
+
+  void _handleClearTap() {
+    if (!_confirming) {
+      setState(() => _confirming = true);
+      _confirmResetTimer?.cancel();
+      _confirmResetTimer = Timer(_confirmResetDelay, _resetConfirm);
+      return;
+    }
+    _resetConfirm();
+    widget.onClear();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (entries.isEmpty) return const SizedBox.shrink();
+    if (widget.entries.isEmpty) return const SizedBox.shrink();
     final colors = appColors(context);
     final l = AppL10n.of(context);
     return ListView(
@@ -89,12 +131,19 @@ class SearchHistorySection extends StatelessWidget {
               ),
             ),
             TextButton.icon(
-              onPressed: onClear,
-              icon: const Icon(Icons.delete_sweep_outlined, size: 15),
-              label: Text(l.searchHistoryClear),
+              onPressed: _handleClearTap,
+              icon: Icon(
+                _confirming
+                    ? Icons.delete_sweep_rounded
+                    : Icons.delete_sweep_outlined,
+                size: 15,
+              ),
+              label: Text(
+                _confirming ? l.searchHistoryClearConfirm : l.searchHistoryClear,
+              ),
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                foregroundColor: colors.muted,
+                foregroundColor: _confirming ? colors.danger : colors.muted,
                 textStyle: AppText.meta(context),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
@@ -106,7 +155,7 @@ class SearchHistorySection extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final entry in entries)
+            for (final entry in widget.entries)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 240),
                 child: Material(
@@ -115,7 +164,10 @@ class SearchHistorySection extends StatelessWidget {
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(100),
-                    onTap: () => onSelected(entry),
+                    onTap: () {
+                      _resetConfirm();
+                      widget.onSelected(entry);
+                    },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,

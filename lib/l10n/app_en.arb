@@ -2888,5 +2888,6 @@
   ,"dbOnlineRankingAutoSaved": "Auto-subscribe settings saved"
   ,"searchHistoryTitle": "Search history"
   ,"searchHistoryClear": "Clear"
+  ,"searchHistoryClearConfirm": "Tap to confirm"
   ,"dbOnlineSortRelevance": "Relevance"
 }

@@ -2888,5 +2888,6 @@
   ,"dbOnlineRankingAutoSaved": "已保存自动订阅配置"
   ,"searchHistoryTitle": "搜索历史"
   ,"searchHistoryClear": "清空"
+  ,"searchHistoryClearConfirm": "确认清空？"
   ,"dbOnlineSortRelevance": "相关度"
 }
