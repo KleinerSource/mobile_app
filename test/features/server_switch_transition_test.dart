@@ -236,7 +236,7 @@ void main() {
         18,
         versionInfo: ServerVersionInfo(
           projectName: 'db_online',
-          version: '1.14.0',
+          version: '1.15.0',
         ),
       ),
     );

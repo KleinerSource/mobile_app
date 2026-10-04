@@ -164,7 +164,7 @@ void _main_0() {
                 18,
                 versionInfo: const ServerVersionInfo(
                   projectName: 'db_online',
-                  version: '1.14.0',
+                  version: '1.15.0',
                 ),
               );
             },
@@ -398,7 +398,7 @@ void _main_0() {
                 24,
                 versionInfo: const ServerVersionInfo(
                   projectName: 'db_online',
-                  version: '1.14.0',
+                  version: '1.15.0',
                 ),
               );
             },
@@ -677,7 +677,7 @@ void _main_0() {
         isA<ServerCompatibilityException>().having(
           (error) => error.message,
           'message',
-          allOf(contains('db_online >= 1.14.0'), contains('1.13.9')),
+          allOf(contains('db_online >= 1.15.0'), contains('1.13.9')),
         ),
       ),
     );
@@ -778,7 +778,7 @@ void _main_0() {
         isA<ServerCompatibilityException>().having(
           (error) => error.message,
           'message',
-          allOf(contains('db_online >= 1.14.0'), contains('1.13.9')),
+          allOf(contains('db_online >= 1.15.0'), contains('1.13.9')),
         ),
       ),
     );
@@ -1280,7 +1280,7 @@ void _main_3() {
   test('dbonline 项目和开发版/构建元数据版本通过', () {
     final info = requireCompatibleServerVersion({
       'success': true,
-      'data': {'project_name': 'db_online', 'version': 'v1.14.0-dev+build.7'},
+      'data': {'project_name': 'db_online', 'version': 'v1.15.0-dev+build.7'},
     });
     expect(info.project, ServerProject.dbOnline);
     expect(isSupportedServerVersion('1.14.14-dev', '1.14.0'), isTrue);
@@ -1318,17 +1318,17 @@ void _main_3() {
     );
   });
 
-  test('dbonline 低于 1.14.0 时拒绝并提示实际版本', () {
+  test('dbonline 低于 1.15.0 时拒绝并提示实际版本', () {
     expect(
       () => requireCompatibleServerVersion({
         'success': true,
-        'data': {'project_name': 'db_online', 'version': '1.13.9'},
+        'data': {'project_name': 'db_online', 'version': '1.14.0'},
       }),
       throwsA(
         isA<ServerCompatibilityException>().having(
           (error) => error.message,
           'message',
-          allOf(contains('db_online >= 1.14.0'), contains('当前版本为 1.13.9')),
+          allOf(contains('db_online >= 1.15.0'), contains('当前版本为 1.14.0')),
         ),
       ),
     );
@@ -1611,7 +1611,7 @@ void _main_4() {
         request.response.write(
           jsonEncode({
             'success': true,
-            'data': {'project_name': 'db_online', 'version': '1.14.0'},
+            'data': {'project_name': 'db_online', 'version': '1.15.0'},
           }),
         );
       } else if (request.uri.path == '/api/health') {
