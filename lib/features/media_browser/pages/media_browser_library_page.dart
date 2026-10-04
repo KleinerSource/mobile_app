@@ -513,35 +513,36 @@ class _MediaBrowserLibraryPageState
                 icon: Icons.sort_rounded,
                 title: l.mediaBrowserSort,
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-                trailing: LibraryOrderButton(
-                  label: _sortOrder == 'Ascending'
-                      ? AppL10n.of(context).mediaBrowserAscending
-                      : AppL10n.of(context).mediaBrowserDescending,
-                  ascending: _sortOrder == 'Ascending',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _reloadWith(
-                      sortOrder: _sortOrder == 'Ascending'
-                          ? 'Descending'
-                          : 'Ascending',
-                    );
-                  },
-                ),
               ),
+              // 点击未选中项选中并按升序；点击已选中项切换升降序，
+              // 与筛选弹层内排序区的交互一致。
               for (final option in _availableSortOptions)
                 ListTile(
                   dense: true,
                   title: Text(option.label(l)),
                   trailing: option.value == _sortBy
                       ? Icon(
-                          Icons.check_rounded,
+                          _sortOrder == 'Ascending'
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded,
                           color: colors.accent,
                           size: 18,
                         )
                       : null,
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    _reloadWith(sortBy: option.value);
+                    if (option.value == _sortBy) {
+                      _reloadWith(
+                        sortOrder: _sortOrder == 'Ascending'
+                            ? 'Descending'
+                            : 'Ascending',
+                      );
+                    } else {
+                      _reloadWith(
+                        sortBy: option.value,
+                        sortOrder: 'Ascending',
+                      );
+                    }
                   },
                 ),
               const SizedBox(height: 8),
@@ -1226,13 +1227,10 @@ class _MediaBrowserAdvancedFilterSheetState
                     options: widget.sortOptions,
                     selected: _sortBy,
                     ascending: _sortOrder == 'Ascending',
-                    onSelected: (value) => setState(() => _sortBy = value),
-                    onToggleOrder: () => setState(
-                      () => _sortOrder =
-                          _sortOrder == 'Ascending' ? 'Descending' : 'Ascending',
-                    ),
-                    ascendingLabel: l.mediaBrowserAscending,
-                    descendingLabel: l.mediaBrowserDescending,
+                    onSelected: (value, ascending) => setState(() {
+                      _sortBy = value;
+                      _sortOrder = ascending ? 'Ascending' : 'Descending';
+                    }),
                   ),
                   const SizedBox(height: 18),
                   _MediaBrowserDropdownField(

@@ -208,12 +208,10 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                   ],
                   selected: _sortBy,
                   ascending: _sortOrder == 'asc',
-                  onSelected: (value) => setState(() => _sortBy = value),
-                  onToggleOrder: () => setState(
-                    () => _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc',
-                  ),
-                  ascendingLabel: l.moviesSortAscending,
-                  descendingLabel: l.moviesSortDescending,
+                  onSelected: (value, ascending) => setState(() {
+                    _sortBy = value;
+                    _sortOrder = ascending ? 'asc' : 'desc';
+                  }),
                 ),
               ),
               const SizedBox(height: 14),

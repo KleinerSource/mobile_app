@@ -10,16 +10,17 @@ typedef DbOnlineFilterOption = ({String value, String label});
 
 /// 筛选弹层中的一组选项，支持单选与多选。
 ///
-/// 提供 [onToggleOrder] 的节按排序节渲染：字段 chip 行 + 行尾升降序切换。
+/// 提供 [onSortSelected] 的节按排序节渲染：点击字段选中，点击已选
+/// 字段切换升降序，无独立的升降序切换按钮。
 class DbOnlineFilterSection {
   const DbOnlineFilterSection({
     required this.title,
     required this.options,
     required this.selected,
-    required this.onSelected,
+    this.onSelected,
     this.multiSelect = false,
     this.ascending,
-    this.onToggleOrder,
+    this.onSortSelected,
   });
 
   final String title;
@@ -28,16 +29,18 @@ class DbOnlineFilterSection {
   /// 单选模式下是当前选中的值；多选模式下是逗号拼接的选中串（如
   /// "m,c"，空串表示未选）。
   final String selected;
-  final ValueChanged<String> onSelected;
+
+  /// 普通筛选节的选择回调；排序节改用 [onSortSelected]，可省略。
+  final ValueChanged<String>? onSelected;
 
   /// 多选模式：点击已选中的选项将其移除；值为空的选项（全部）清空选择。
   final bool multiSelect;
 
-  /// 排序节专用：当前升降序方向。
+  /// 排序节专用：当前升降序方向（展示用）。
   final bool? ascending;
 
-  /// 排序节专用：非空时行尾渲染升降序切换 chip。
-  final VoidCallback? onToggleOrder;
+  /// 排序节专用：非空时本节按排序节渲染，回调带切换后的方向。
+  final void Function(String value, bool ascending)? onSortSelected;
 }
 
 /// DBO 影片列表通用的筛选弹层：选择后立即生效，弹层保持打开。
@@ -66,23 +69,17 @@ Future<void> showDbOnlineFilterSheet(
                 ),
                 for (final section in sections(l)) ...[
                   _FilterSectionTitle(title: section.title),
-                  if (section.onToggleOrder != null)
+                  if (section.onSortSelected != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 22),
                       child: SortOptionChipRow(
                         options: section.options,
                         selected: section.selected,
-                        ascending: section.ascending ?? true,
-                        onSelected: (value) {
-                          section.onSelected(value);
+                        ascending: section.ascending ?? false,
+                        onSelected: (value, ascending) {
+                          section.onSortSelected?.call(value, ascending);
                           setSheetState(() {});
                         },
-                        onToggleOrder: () {
-                          section.onToggleOrder?.call();
-                          setSheetState(() {});
-                        },
-                        ascendingLabel: l.dbOnlineAscending,
-                        descendingLabel: l.dbOnlineDescending,
                       ),
                     )
                   else
@@ -101,11 +98,11 @@ Future<void> showDbOnlineFilterSheet(
                           } else if (!current.remove(value)) {
                             current.add(value);
                           }
-                          section.onSelected(
+                          section.onSelected?.call(
                             current.isEmpty ? '' : current.join(','),
                           );
                         } else {
-                          section.onSelected(value);
+                          section.onSelected?.call(value);
                         }
                         setSheetState(() {});
                       },

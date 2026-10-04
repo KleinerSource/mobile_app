@@ -227,9 +227,10 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           options: _resolve(_sortOptions, l),
           selected: _sortBy,
           ascending: _orderBy == 'asc',
-          onSelected: (value) => _reloadWith(sortBy: value),
-          onToggleOrder: () =>
-              _reloadWith(orderBy: _orderBy == 'asc' ? 'desc' : 'asc'),
+          onSortSelected: (value, ascending) => _reloadWith(
+            sortBy: value,
+            orderBy: ascending ? 'asc' : 'desc',
+          ),
         ),
         DbOnlineFilterSection(
           title: l.dbOnlineLibraryResourceType,

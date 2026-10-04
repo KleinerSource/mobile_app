@@ -104,7 +104,8 @@ class CompactSortButton extends StatelessWidget {
 }
 
 /// 排序选项 chip 行 · 筛选弹层内排序区的统一呈现：
-/// 字段 chips + 行尾升降序切换（[onToggleOrder] 为 null 时不显示切换 chip）。
+/// 点击未选中字段选中并按升序；点击已选中字段在升序/降序间切换，
+/// 当前方向以选中 chip 的箭头展示，无独立的升降序切换按钮。
 ///
 /// 不含水平内边距，由调用方按各自弹层布局包裹。
 class SortOptionChipRow extends StatelessWidget {
@@ -112,26 +113,21 @@ class SortOptionChipRow extends StatelessWidget {
     super.key,
     required this.options,
     required this.selected,
+    required this.ascending,
     required this.onSelected,
-    required this.ascendingLabel,
-    required this.descendingLabel,
-    this.ascending = true,
-    this.onToggleOrder,
   });
 
   final List<({String value, String label})> options;
   final String selected;
-  final ValueChanged<String> onSelected;
 
-  /// 当前升降序方向，仅用于行尾切换 chip 的展示。
+  /// 当前升降序方向，随选中 chip 的箭头展示。
   final bool ascending;
-  final VoidCallback? onToggleOrder;
-  final String ascendingLabel;
-  final String descendingLabel;
+
+  /// 点击排序字段：未选中字段回调 (字段, true)；已选中字段回调 (字段, 切换后的方向)。
+  final void Function(String value, bool ascending) onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final toggleOrder = onToggleOrder;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -141,18 +137,15 @@ class SortOptionChipRow extends StatelessWidget {
             CompactFilterButton(
               label: options[index].label,
               active: options[index].value == selected,
-              onTap: () => onSelected(options[index].value),
-            ),
-          ],
-          if (toggleOrder != null) ...[
-            const SizedBox(width: 7),
-            CompactFilterButton(
-              label: ascending ? ascendingLabel : descendingLabel,
-              icon: ascending
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              active: true,
-              onTap: toggleOrder,
+              trailingIcon: options[index].value == selected
+                  ? (ascending
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded)
+                  : null,
+              onTap: () => onSelected(
+                options[index].value,
+                options[index].value == selected ? !ascending : true,
+              ),
             ),
           ],
         ],

@@ -206,9 +206,11 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
           ],
           selected: _filter.sortBy,
           ascending: _filter.orderBy == 'asc',
-          onSelected: (value) => _apply(_filter.copyWith(sortBy: value)),
-          onToggleOrder: () => _apply(
-            _filter.copyWith(orderBy: _filter.orderBy == 'asc' ? 'desc' : 'asc'),
+          onSortSelected: (value, ascending) => _apply(
+            _filter.copyWith(
+              sortBy: value,
+              orderBy: ascending ? 'asc' : 'desc',
+            ),
           ),
         ),
         DbOnlineFilterSection(
