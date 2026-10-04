@@ -91,6 +91,13 @@ T unwrapStd<T>(Object? raw, T Function(Object?) decode) {
   return decode(envelope['data']);
 }
 
+/// 解析标准信封并额外返回顶层 `source` 字段（api=在线 / database=数据库回退）。
+(T, String?) unwrapStdWithSource<T>(Object? raw, T Function(Object?) decode) {
+  final envelope = _validateEnvelope(raw);
+  final source = envelope['source'];
+  return (decode(envelope['data']), source is String ? source : null);
+}
+
 PagedResult<T> unwrapMovieList<T>(
   Object? raw,
   T Function(Map<String, dynamic>) decodeItem,

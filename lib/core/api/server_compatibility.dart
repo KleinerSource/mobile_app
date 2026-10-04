@@ -28,7 +28,7 @@ enum ServerProject {
   dbOnline(
     projectName: 'db_online',
     displayName: 'DB Online',
-    minimumVersion: '1.14.0',
+    minimumVersion: '1.15.0',
   ),
   emby(
     projectName: 'emby',

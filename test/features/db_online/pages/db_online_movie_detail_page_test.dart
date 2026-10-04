@@ -11,7 +11,6 @@ import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo_media_source_adapter.dart';
-import 'package:omm/features/db_online/pages/db_online_category_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -151,41 +150,39 @@ void main() {
     expect(find.byIcon(Icons.closed_caption_rounded), findsNothing);
   });
 
-  testWidgets('详情演员/系列/类型点击进入对应列表页', (tester) async {
+  testWidgets('详情导演/片商/发行商/演员/系列/类型点击进入实体列表页', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
     final requestPaths = <String>[];
-    final requestQueries = <Map<String, String>>[];
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
           requestPaths.add(options.uri.path);
-          requestQueries.add(
-            options.uri.queryParameters.map(
-              (key, value) => MapEntry(key, value.toString()),
-            ),
-          );
           final path = options.uri.path;
+          const entityPrefixes = [
+            '/actors/',
+            '/series/',
+            '/makers/',
+            '/publishers/',
+            '/directors/',
+            '/categories/',
+          ];
           Object? data;
-          if (path.startsWith('/actors/') || path.startsWith('/series/')) {
+          if (entityPrefixes.any(path.startsWith)) {
             data = {
               'movies': [
                 {'id': 'movie-1', 'number': 'ABC-002', 'title': '列表影片'},
               ],
               'current_page': 1,
             };
-          } else if (path == '/videos/filter') {
-            data = {
-              'videos': [
-                {'id': 'movie-2', 'number': 'ABC-003', 'title': '类别影片'},
-              ],
-              'count': 1,
-            };
           } else {
             data = {
               'code': 'ABC-001',
               'title': '跳转测试影片',
+              'director': {'external_id': 'director-1', 'name': '导演甲'},
+              'maker': {'external_id': 'maker-1', 'name': '片商甲'},
+              'publisher': {'external_id': 'publisher-1', 'name': '发行商甲'},
               'actors': [
                 {'external_id': 'actor-1', 'name': '演员甲'},
               ],
@@ -251,21 +248,36 @@ void main() {
     _popTopRoute(tester);
     await tester.pumpAndSettle();
 
-    // 有 external_id 的类型 Chip → 类别影片页（category_id 筛选）。
-    await _scrollToAndTap(tester, find.text('类别甲'));
-    expect(find.byType(DbOnlineCategoryMoviesPage), findsOneWidget);
-    final byIdQuery = requestQueries.last;
-    expect(byIdQuery['category_id'], 'cat-1');
+    // 导演 Chip → 导演实体影片页。
+    await _scrollToAndTap(tester, find.text('◇ 导演甲'));
+    expect(find.byType(DbOnlineEntityMoviesPage), findsOneWidget);
+    expect(requestPaths, contains('/api/directors/director-1/movies'));
     _popTopRoute(tester);
     await tester.pumpAndSettle();
 
-    // 无 external_id 的类型 Chip → 按名称回退筛选。
-    await _scrollToAndTap(tester, find.text('类别乙'));
-    expect(find.byType(DbOnlineCategoryMoviesPage), findsOneWidget);
-    final byNameQuery = requestQueries.last;
-    expect(byNameQuery.containsKey('category_id'), isFalse);
-    expect(byNameQuery['category'], '类别乙');
+    // 片商 Chip → 片商实体影片页。
+    await _scrollToAndTap(tester, find.text('◇ 片商甲'));
+    expect(find.byType(DbOnlineEntityMoviesPage), findsOneWidget);
+    expect(requestPaths, contains('/api/makers/maker-1/movies'));
     _popTopRoute(tester);
     await tester.pumpAndSettle();
+
+    // 发行商 Chip → 发行商实体影片页。
+    await _scrollToAndTap(tester, find.text('◇ 发行商甲'));
+    expect(find.byType(DbOnlineEntityMoviesPage), findsOneWidget);
+    expect(requestPaths, contains('/api/publishers/publisher-1/movies'));
+    _popTopRoute(tester);
+    await tester.pumpAndSettle();
+
+    // 有 external_id 的类型 Chip → 类别实体影片页（/categories 端点）。
+    await _scrollToAndTap(tester, find.text('类别甲'));
+    expect(find.byType(DbOnlineEntityMoviesPage), findsOneWidget);
+    expect(requestPaths, contains('/api/categories/cat-1/movies'));
+    _popTopRoute(tester);
+    await tester.pumpAndSettle();
+
+    // 无 external_id 的类型 Chip 不可跳转，停留在详情页。
+    await _scrollToAndTap(tester, find.text('类别乙'));
+    expect(find.byType(DbOnlineEntityMoviesPage), findsNothing);
   });
 }

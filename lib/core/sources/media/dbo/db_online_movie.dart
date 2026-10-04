@@ -101,6 +101,7 @@ class DbOnlineMoviePage {
     required this.limit,
     this.total,
     required this.hasMore,
+    this.source,
   });
 
   final List<DbOnlineMovie> movies;
@@ -108,6 +109,10 @@ class DbOnlineMoviePage {
   final int limit;
   final int? total;
   final bool hasMore;
+
+  /// 数据来源（api=在线 / database=数据库回退），仅实体落地页等
+  /// 带 `source` 标注的端点返回，其余为 null。
+  final String? source;
 }
 
 /// dbonline 影片详情中的实体（导演、片商、演员、分类等）。

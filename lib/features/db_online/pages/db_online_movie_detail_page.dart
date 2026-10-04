@@ -33,13 +33,13 @@ import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
-import 'package:omm/features/db_online/pages/db_online_category_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 import 'package:omm/features/db_online/widgets/db_online_resource_sheets.dart';
 
-/// 打开实体（演员/系列）影片落地页，与搜索/排行榜页的跳转入口一致。
+/// 打开实体（演员/系列/片商/发行商/导演/清单/类别）影片落地页，
+/// 与搜索/排行榜页的跳转入口一致。
 void _openEntityMovies(
   BuildContext context, {
   required String kind,
@@ -51,24 +51,6 @@ void _openEntityMovies(
       MaterialPageRoute<void>(
         builder: (_) =>
             DbOnlineEntityMoviesPage(kind: kind, id: id, title: title),
-      ),
-    ),
-  );
-}
-
-/// 打开类别影片落地页；`categoryId` 为空时按名称回退筛选（与网页端一致）。
-void _openCategoryMovies(
-  BuildContext context, {
-  required String categoryId,
-  required String categoryName,
-}) {
-  unawaited(
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => DbOnlineCategoryMoviesPage(
-          categoryId: categoryId,
-          categoryName: categoryName,
-        ),
       ),
     ),
   );
@@ -388,6 +370,53 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
               ],
             ),
           ),
+        if (_hasPersonName(movie.director))
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.dbOnlineDirectorSection,
+              items: [movie.director!.name],
+              prefix: '◇ ',
+              ids: [_personExternalId(movie.director!) ?? ''],
+              onTapWithId: (id, title) => _openEntityMovies(
+                context,
+                kind: 'director',
+                id: id,
+                title: title,
+              ),
+            ),
+          ),
+        if (_hasPersonName(movie.maker))
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.dbOnlineMakerSection,
+              items: [movie.maker!.name],
+              prefix: '◇ ',
+              hueOffset: 1,
+              ids: [_personExternalId(movie.maker!) ?? ''],
+              onTapWithId: (id, title) => _openEntityMovies(
+                context,
+                kind: 'maker',
+                id: id,
+                title: title,
+              ),
+            ),
+          ),
+        if (_hasPersonName(movie.publisher))
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.dbOnlinePublisherSection,
+              items: [movie.publisher!.name],
+              prefix: '◇ ',
+              hueOffset: 2,
+              ids: [_personExternalId(movie.publisher!) ?? ''],
+              onTapWithId: (id, title) => _openEntityMovies(
+                context,
+                kind: 'publisher',
+                id: id,
+                title: title,
+              ),
+            ),
+          ),
         if (_hasPersonName(movie.series))
           SliverToBoxAdapter(
             child: MediaTaxonomySection(
@@ -416,15 +445,13 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
                   if (category.name.trim().isNotEmpty)
                     _personExternalId(category) ?? '',
               ],
-              onTapWithId: (id, name) => _openCategoryMovies(
+              // 类别落地页走 /categories/{id}/movies 在线查询，
+              // 无 external_id 的类别不提供跳转。
+              onTapWithId: (id, name) => _openEntityMovies(
                 context,
-                categoryId: id,
-                categoryName: name,
-              ),
-              onTap: (name) => _openCategoryMovies(
-                context,
-                categoryId: '',
-                categoryName: name,
+                kind: 'category',
+                id: id,
+                title: name,
               ),
             ),
           ),

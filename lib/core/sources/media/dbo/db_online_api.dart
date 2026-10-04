@@ -448,12 +448,14 @@ class DbOnlineApi {
 
   static const _searchEntityTypes = {'series', 'maker', 'director', 'list'};
 
-  /// 实体（演员/系列/片商/导演/清单）的影片列表，与网页端实体落地页
-  /// 共用同一组端点：`/{actors|series|makers|directors|lists}/{id}/movies`。
+  /// 实体（演员/系列/片商/发行商/导演/清单/类别）的影片列表，与网页端
+  /// 实体落地页共用同一组端点：
+  /// `/{actors|series|makers|publishers|directors|lists|categories}/{id}/movies`。
   ///
   /// `sortBy`：release/update/score；`filter` 是 m/c/s/p（有磁链/字幕/
-  /// 单人/可播放）按此顺序拼接的多选串；`year` 仅演员生效（2011 至当前
-  /// 年份）。
+  /// 单人/可播放）按此顺序拼接的多选串，仅除类别外的实体支持（类别 tag
+  /// 查询不支持资源条件）；`year` 仅演员生效（2011 至当前年份）。
+  /// 服务端在线优先，不可用时回退数据库，`source` 标注本次数据来源。
   Future<DbOnlineMoviePage> entityMoviesPage({
     required String kind,
     required String id,
@@ -476,7 +478,8 @@ class DbOnlineApi {
       throw ArgumentError.value(sortBy, 'sortBy', AppErrorCode.validationFailed);
     }
     final isActor = kind.trim() == 'actor';
-    final normalizedFilter = filter.trim();
+    final supportsFilter = kind.trim() != 'category';
+    final normalizedFilter = supportsFilter ? filter.trim() : '';
     final normalizedYear = isActor ? year.trim() : '';
     return _moviesPage('/$segment/${Uri.encodeComponent(normalizedId)}/movies', {
       'page': page,
@@ -492,48 +495,12 @@ class DbOnlineApi {
     'actor': 'actors',
     'series': 'series',
     'maker': 'makers',
+    'publisher': 'publishers',
     'director': 'directors',
     'list': 'lists',
+    'category': 'categories',
   };
   static const _entityMovieSortBys = {'release', 'update', 'score'};
-
-  /// 按类别筛选影片，与网页端 `/filter` 落地页共用 `/videos/filter` 端点。
-  ///
-  /// `categoryId` 为类别 external_id，优先于 [category] 名称；两者皆空时
-  /// 视为非法请求。响应是 `data.videos` 的一次性全量列表，无分页参数。
-  Future<List<DbOnlineMovie>> categoryFilterVideos({
-    String categoryId = '',
-    String category = '',
-  }) async {
-    final normalizedId = categoryId.trim();
-    final normalizedName = category.trim();
-    if (normalizedId.isEmpty && normalizedName.isEmpty) {
-      throw ArgumentError.value(
-        categoryId,
-        'categoryId',
-        AppErrorCode.validationFailed,
-      );
-    }
-    final response = await _dio.get<dynamic>(
-      '/videos/filter',
-      queryParameters: {
-        if (normalizedId.isNotEmpty) 'category_id': normalizedId,
-        if (normalizedId.isEmpty) 'category': normalizedName,
-      },
-    );
-    return unwrapStd<List<DbOnlineMovie>>(response.data, (data) {
-      final rawVideos = data is Map ? data['videos'] : null;
-      return rawVideos is List
-          ? rawVideos
-                .whereType<Map>()
-                .map(
-                  (item) =>
-                      DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
-                )
-                .toList(growable: false)
-          : const <DbOnlineMovie>[];
-    });
-  }
 
   /// 影片排行榜（日/周/月榜），一次性返回全量结果。
   ///
@@ -876,42 +843,54 @@ class DbOnlineApi {
     Map<String, dynamic> query,
   ) async {
     final response = await _dio.get<dynamic>(path, queryParameters: query);
-    return unwrapStd<DbOnlineMoviePage>(response.data, (data) {
-      if (data is! Map) {
+    final (result, source) = unwrapStdWithSource<DbOnlineMoviePage>(
+      response.data,
+      (data) {
+        if (data is! Map) {
+          return DbOnlineMoviePage(
+            movies: const <DbOnlineMovie>[],
+            page: _intValue(query['page']) ?? 1,
+            limit: _intValue(query['limit']) ?? 0,
+            hasMore: false,
+          );
+        }
+        final movies = data['movies'];
+        final items = movies is List
+            ? movies
+                  .whereType<Map>()
+                  .map(
+                    (item) =>
+                        DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
+                  )
+                  .toList(growable: false)
+            : const <DbOnlineMovie>[];
+        final page = _intValue(query['page']) ?? 1;
+        final limit = _intValue(query['limit']) ?? items.length;
+        final total = _intValue(data['total']);
+        final explicitHasMore = data['has_more'];
+        final hasMore = explicitHasMore is bool
+            ? explicitHasMore
+            : total != null && total > page * limit
+            ? true
+            : items.length >= limit && limit > 0;
         return DbOnlineMoviePage(
-          movies: const <DbOnlineMovie>[],
-          page: _intValue(query['page']) ?? 1,
-          limit: _intValue(query['limit']) ?? 0,
-          hasMore: false,
+          movies: items,
+          page: page,
+          limit: limit,
+          total: total,
+          hasMore: hasMore,
         );
-      }
-      final movies = data['movies'];
-      final items = movies is List
-          ? movies
-                .whereType<Map>()
-                .map(
-                  (item) =>
-                      DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
-                )
-                .toList(growable: false)
-          : const <DbOnlineMovie>[];
-      final page = _intValue(query['page']) ?? 1;
-      final limit = _intValue(query['limit']) ?? items.length;
-      final total = _intValue(data['total']);
-      final explicitHasMore = data['has_more'];
-      final hasMore = explicitHasMore is bool
-          ? explicitHasMore
-          : total != null && total > page * limit
-          ? true
-          : items.length >= limit && limit > 0;
-      return DbOnlineMoviePage(
-        movies: items,
-        page: page,
-        limit: limit,
-        total: total,
-        hasMore: hasMore,
-      );
-    });
+      },
+    );
+    if (source == null) return result;
+    return DbOnlineMoviePage(
+      movies: result.movies,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      hasMore: result.hasMore,
+      source: source,
+    );
   }
 
   Future<DbOnlineSearchEntityPage> _searchEntitiesPage(

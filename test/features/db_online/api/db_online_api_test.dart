@@ -185,14 +185,26 @@ void main() {
       page: 2,
     );
     final lists = await api.entityMoviesPage(kind: 'list', id: 'list-1');
+    final publishers = await api.entityMoviesPage(
+      kind: 'publisher',
+      id: 'pub-1',
+    );
+    final categories = await api.entityMoviesPage(
+      kind: 'category',
+      id: 'cat-1',
+    );
 
     expect(actors.movies.single.number, 'ABC-003');
     expect(actors.movies.single.canPlay, isTrue);
     expect(actors.hasMore, isFalse);
     expect(lists.movies.single.number, 'ABC-003');
+    expect(publishers.movies.single.number, 'ABC-003');
+    expect(categories.movies.single.number, 'ABC-003');
     expect(adapter.requests, <String>[
       '/api/actors/kd96/movies?page=2&limit=24&sort_by=release',
       '/api/lists/list-1/movies?page=1&limit=24&sort_by=release&order_by=desc',
+      '/api/publishers/pub-1/movies?page=1&limit=24&sort_by=release&order_by=desc',
+      '/api/categories/cat-1/movies?page=1&limit=24&sort_by=release&order_by=desc',
     ]);
   });
 
@@ -216,10 +228,17 @@ void main() {
       filter: 's',
       year: '2015',
     );
+    // 类别（tag）查询不支持 m/c/s/p 资源条件，筛选参数被忽略。
+    await api.entityMoviesPage(
+      kind: 'category',
+      id: 'cat-1',
+      filter: 'm,c',
+    );
 
     expect(adapter.requests, <String>[
       '/api/actors/kd96/movies?page=1&limit=24&sort_by=update&filter=m%2Cc&year=2015',
       '/api/makers/mk-1/movies?page=1&limit=24&sort_by=score&order_by=desc&filter=s',
+      '/api/categories/cat-1/movies?page=1&limit=24&sort_by=release&order_by=desc',
     ]);
     expect(
       () => api.entityMoviesPage(kind: 'actor', id: 'x', sortBy: 'hot'),
@@ -231,40 +250,11 @@ void main() {
     final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
 
     expect(
-      () => api.entityMoviesPage(kind: 'publisher', id: 'p1'),
+      () => api.entityMoviesPage(kind: 'studio', id: 'p1'),
       throwsA(isA<ArgumentError>()),
     );
     expect(
       () => api.entityMoviesPage(kind: 'actor', id: '  '),
-      throwsA(isA<ArgumentError>()),
-    );
-  });
-
-  test('categoryFilterVideos 优先类别 ID 并在无 ID 时回退名称', () async {
-    final adapter = _CategoryFilterAdapter();
-    final api = DbOnlineApi(
-      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
-    );
-
-    final byId = await api.categoryFilterVideos(
-      categoryId: 'cat-1',
-      category: '类别名',
-    );
-    final byName = await api.categoryFilterVideos(category: '类别名');
-
-    expect(byId.single.number, 'ABC-004');
-    expect(byName.single.number, 'ABC-004');
-    expect(adapter.requests, <String>[
-      '/api/videos/filter?category_id=cat-1',
-      '/api/videos/filter?category=%E7%B1%BB%E5%88%AB%E5%90%8D',
-    ]);
-  });
-
-  test('categoryFilterVideos 拒绝空类别参数', () {
-    final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
-
-    expect(
-      () => api.categoryFilterVideos(categoryId: ' ', category: '  '),
       throwsA(isA<ArgumentError>()),
     );
   });
@@ -508,43 +498,6 @@ class _DbOnlineSearchAdapter implements HttpClientAdapter {
               'can_play': true,
             },
           ],
-        },
-      }),
-      200,
-      headers: {
-        Headers.contentTypeHeader: ['application/json'],
-      },
-    );
-  }
-}
-
-class _CategoryFilterAdapter implements HttpClientAdapter {
-  final requests = <String>[];
-
-  @override
-  void close({bool force = false}) {}
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<List<int>>? requestStream,
-    Future<void>? cancelFuture,
-  ) async {
-    requests.add(
-      options.uri.path +
-          (options.uri.hasQuery ? '?${options.uri.query}' : ''),
-    );
-    return ResponseBody.fromString(
-      jsonEncode({
-        'success': true,
-        'data': {
-          'videos': [
-            {'id': 'movie-1', 'number': 'ABC-004', 'title': '类别影片'},
-          ],
-          'filter': {
-            'category': {'external_id': 'cat-1', 'name': '类别名'},
-          },
-          'count': 1,
         },
       }),
       200,

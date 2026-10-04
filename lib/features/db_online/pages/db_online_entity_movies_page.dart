@@ -29,10 +29,12 @@ import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
-/// 实体（演员/系列/片商/导演/清单）的影片列表落地页。
+/// 实体（演员/系列/片商/发行商/导演/清单/类别）的影片列表落地页。
 ///
-/// 与网页端 `/actor/:id/movies?type=...` 一致，按发布时间倒序分页；
-/// [kind] 使用服务端实体类型（actor/series/maker/director/list）。
+/// 与网页端实体落地页（`/{actor|series|maker|publisher|director|list|
+/// category}/:id/movies`）一致，服务端在线优先、不可用时回退数据库；
+/// [kind] 使用服务端实体类型（actor/series/maker/publisher/director/
+/// list/category）。
 /// 页头小字 [eyebrow] 由入口传入：搜索入口传搜索类型名，其余入口默认 DB ONLINE。
 class DbOnlineEntityMoviesPage extends ConsumerStatefulWidget {
   const DbOnlineEntityMoviesPage({
@@ -66,14 +68,20 @@ class _DbOnlineEntityMoviesPageState
 
   // 落地页过滤器，与网页端一致：资源条件多选（m/c/s/p，p 需服务端
   // can_play 开启）、排序单选、演员专属年份；复用共享选项与固定顺序。
+  // 类别（tag）查询不支持资源条件，仅保留排序。
   String _sortBy = 'release';
   final Set<String> _resourceFilters = {};
   String _year = '';
 
-  bool get _isActor => widget.kind == 'actor';
+  // 首页数据来源（api=在线 / database=回退），用于页头降级标注。
+  String? _dataSource;
 
-  String get _filterParam =>
-      dbOnlineResourceConditionLetters(_resourceFilters).join(',');
+  bool get _isActor => widget.kind == 'actor';
+  bool get _isCategory => widget.kind == 'category';
+
+  String get _filterParam => _isCategory
+      ? ''
+      : dbOnlineResourceConditionLetters(_resourceFilters).join(',');
 
   @override
   void initState() {
@@ -126,6 +134,9 @@ class _DbOnlineEntityMoviesPageState
       } else {
         _controller.appendPage(items, page + 1);
       }
+      if (page == 1 && _dataSource != result.source) {
+        setState(() => _dataSource = result.source);
+      }
       if (page == 1) _completeRefresh();
     } catch (error) {
       if (!pageRequest.isCurrent) return;
@@ -176,7 +187,9 @@ class _DbOnlineEntityMoviesPageState
   }
 
   bool get _filtersActive =>
-      _resourceFilters.isNotEmpty || _year.isNotEmpty || _sortBy != 'release';
+      (!_isCategory && _resourceFilters.isNotEmpty) ||
+      _year.isNotEmpty ||
+      _sortBy != 'release';
 
   // 服务端 can_play 状态在 build 中订阅，供筛选弹层读取快照。
   late bool _onlinePlayAvailable = false;
@@ -196,20 +209,22 @@ class _DbOnlineEntityMoviesPageState
           selected: _sortBy,
           onSelected: (value) => _applyFilter(() => _sortBy = value),
         ),
-        DbOnlineFilterSection(
-          title: l.dbOnlineFollowingConditions,
-          options: dbOnlineResourceConditionOptions(
-            l,
-            includePlayable: onlinePlayAvailable,
+        // 类别（tag）查询不支持 m/c/s/p 资源条件。
+        if (!_isCategory)
+          DbOnlineFilterSection(
+            title: l.dbOnlineFollowingConditions,
+            options: dbOnlineResourceConditionOptions(
+              l,
+              includePlayable: onlinePlayAvailable,
+            ),
+            selected: _filterParam,
+            multiSelect: true,
+            onSelected: (value) => _applyFilter(() {
+              _resourceFilters
+                ..clear()
+                ..addAll(value.split(',').where((item) => item.isNotEmpty));
+            }),
           ),
-          selected: _filterParam,
-          multiSelect: true,
-          onSelected: (value) => _applyFilter(() {
-            _resourceFilters
-              ..clear()
-              ..addAll(value.split(',').where((item) => item.isNotEmpty));
-          }),
-        ),
         if (_isActor)
           DbOnlineFilterSection(
             title: l.dbOnlineFollowingYear,
@@ -276,7 +291,10 @@ class _DbOnlineEntityMoviesPageState
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
-              eyebrow: widget.eyebrow,
+              // 在线不可用回退数据库时，页头标注来源提示数据为本地快照。
+              eyebrow: _dataSource == 'database'
+                  ? '${widget.eyebrow} · ${AppL10n.of(context).dbOnlineSourceDatabase}'
+                  : widget.eyebrow,
               bottomPadding: PageHeader.aboveListGap,
               title: widget.title,
               trailing: Row(
