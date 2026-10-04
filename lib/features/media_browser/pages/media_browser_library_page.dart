@@ -83,6 +83,8 @@ class _MediaBrowserLibraryPageState
     extends ConsumerState<MediaBrowserLibraryPage> {
   static const _pageSize = 24;
   static const _viewModeKey = 'media_browser.library.view_mode.v1';
+  static const _kDefaultSortBy = 'DateCreated';
+  static const _kDefaultSortOrder = 'Descending';
   static final _videoTypeOptions =
       <({String value, String Function(AppL10n l) label})>[
         (value: 'Movie', label: (l) => l.mediaBrowserTypeMovies),
@@ -122,8 +124,8 @@ class _MediaBrowserLibraryPageState
   List<String> _genreFilter = const [];
   List<String> _tagFilter = const [];
   List<String> _yearFilter = const [];
-  String _sortBy = 'DateCreated';
-  String _sortOrder = 'Descending';
+  String _sortBy = _kDefaultSortBy;
+  String _sortOrder = _kDefaultSortOrder;
   MediaViewMode _viewMode = MediaViewMode.portrait;
   int _requestSerial = 0;
   bool _pageRequestTriggeredByRefresh = false;
@@ -567,6 +569,7 @@ class _MediaBrowserLibraryPageState
       // 服务端类型接口不可用时，仍允许使用当前已加载条目的类型筛选。
     }
     if (!context.mounted) return;
+    final l = AppL10n.of(context);
 
     final result = await showGlassSheet<_MediaBrowserAdvancedFilter>(
       context: context,
@@ -575,6 +578,8 @@ class _MediaBrowserLibraryPageState
           genres: _genreFilter,
           tags: _tagFilter,
           years: _yearFilter,
+          sortBy: _sortBy,
+          sortOrder: _sortOrder,
         ),
         genreOptions: genreOptions,
         tagOptions: _filterOptions(
@@ -582,10 +587,20 @@ class _MediaBrowserLibraryPageState
           selected: _tagFilter,
         ),
         yearOptions: _yearOptions(selected: _yearFilter),
+        sortOptions: [
+          for (final option in _availableSortOptions)
+            (value: option.value, label: option.label(l)),
+        ],
       ),
     );
     if (!mounted || result == null) return;
-    _reloadWith(genres: result.genres, tags: result.tags, years: result.years);
+    _reloadWith(
+      genres: result.genres,
+      tags: result.tags,
+      years: result.years,
+      sortBy: result.sortBy,
+      sortOrder: result.sortOrder,
+    );
   }
 
   List<String> _filterOptions(
@@ -705,12 +720,14 @@ class _MediaBrowserLibraryPageState
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            LibrarySortButton(
-                              ascending: _sortOrder == 'Ascending',
-                              onTap: () => _openSortMenu(context),
-                            ),
-                            const SizedBox(width: 8),
-                            if (!isStash && !isFeiniu)
+                            // 排序已并入筛选弹层；仅支持排序的聚合服务
+                            // （Stash/飞牛）保留独立排序入口。
+                            if (isStash || isFeiniu)
+                              LibrarySortButton(
+                                ascending: _sortOrder == 'Ascending',
+                                onTap: () => _openSortMenu(context),
+                              )
+                            else
                               CompactFilterButton(
                                 label: '',
                                 icon: Icons.tune_rounded,
@@ -1096,11 +1113,15 @@ class _MediaBrowserAdvancedFilter {
     required this.genres,
     required this.tags,
     required this.years,
+    required this.sortBy,
+    required this.sortOrder,
   });
 
   final List<String> genres;
   final List<String> tags;
   final List<String> years;
+  final String sortBy;
+  final String sortOrder;
 }
 
 class _MediaBrowserAdvancedFilterSheet extends StatefulWidget {
@@ -1109,12 +1130,14 @@ class _MediaBrowserAdvancedFilterSheet extends StatefulWidget {
     required this.genreOptions,
     required this.tagOptions,
     required this.yearOptions,
+    required this.sortOptions,
   });
 
   final _MediaBrowserAdvancedFilter initial;
   final List<String> genreOptions;
   final List<String> tagOptions;
   final List<String> yearOptions;
+  final List<({String value, String label})> sortOptions;
 
   @override
   State<_MediaBrowserAdvancedFilterSheet> createState() =>
@@ -1126,6 +1149,8 @@ class _MediaBrowserAdvancedFilterSheetState
   late List<String> _selectedGenres;
   late List<String> _selectedTags;
   late List<String> _selectedYears;
+  late String _sortBy;
+  late String _sortOrder;
 
   @override
   void initState() {
@@ -1133,6 +1158,8 @@ class _MediaBrowserAdvancedFilterSheetState
     _selectedGenres = [...widget.initial.genres];
     _selectedTags = [...widget.initial.tags];
     _selectedYears = [...widget.initial.years];
+    _sortBy = widget.initial.sortBy;
+    _sortOrder = widget.initial.sortOrder;
   }
 
   void _reset() {
@@ -1140,6 +1167,8 @@ class _MediaBrowserAdvancedFilterSheetState
       _selectedGenres = [];
       _selectedTags = [];
       _selectedYears = [];
+      _sortBy = _MediaBrowserLibraryPageState._kDefaultSortBy;
+      _sortOrder = _MediaBrowserLibraryPageState._kDefaultSortOrder;
     });
   }
 
@@ -1149,6 +1178,8 @@ class _MediaBrowserAdvancedFilterSheetState
         genres: [..._selectedGenres],
         tags: [..._selectedTags],
         years: [..._selectedYears],
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
       ),
     );
   }
@@ -1189,6 +1220,21 @@ class _MediaBrowserAdvancedFilterSheetState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(l.mediaBrowserSort, style: AppText.eyebrow(context)),
+                  const SizedBox(height: 8),
+                  SortOptionChipRow(
+                    options: widget.sortOptions,
+                    selected: _sortBy,
+                    ascending: _sortOrder == 'Ascending',
+                    onSelected: (value) => setState(() => _sortBy = value),
+                    onToggleOrder: () => setState(
+                      () => _sortOrder =
+                          _sortOrder == 'Ascending' ? 'Descending' : 'Ascending',
+                    ),
+                    ascendingLabel: l.mediaBrowserAscending,
+                    descendingLabel: l.mediaBrowserDescending,
+                  ),
+                  const SizedBox(height: 18),
                   _MediaBrowserDropdownField(
                     key: const ValueKey('media-browser-filter-genre'),
                     values: _selectedGenres,

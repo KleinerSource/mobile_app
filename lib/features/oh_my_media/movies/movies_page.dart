@@ -398,17 +398,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _SortButton(
-                            sortBy: _currentFilter.sortBy,
-                            sortOrder: _currentFilter.sortOrder,
-                            onChanged: (sortBy, sortOrder) => _applyFilter(
-                              _currentFilter.copyWith(
-                                sortBy: sortBy,
-                                sortOrder: sortOrder,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           _FilterButton(
                             activeCount: _currentFilter.activeAdvancedCount,
                             onTap: _openAdvancedFilter,
@@ -900,35 +889,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }
 }
 
-const _kSortOptions = <String>[
-  'title',
-  'year',
-  'rating',
-  'file_size',
-  'created_at',
-  'updated_at',
-  'last_downloaded_at',
-];
-
-String _sortLabel(AppL10n l, String value) => switch (value) {
-  'title' => l.sortByTitle,
-  'year' => l.sortByYear,
-  'rating' => l.sortByRating,
-  'file_size' => l.moviesSortFileSize,
-  'created_at' => l.moviesSortCreatedAt,
-  'updated_at' => l.moviesSortUpdatedAt,
-  'last_downloaded_at' => l.moviesSortDownloadedAt,
-  _ => value,
-};
-
 String _updatedLabel(AppL10n l, bool? value) => switch (value) {
   true => l.moviesUpdated,
   false => l.moviesNotUpdated,
   _ => l.moviesUpdatedStatus,
 };
-
-String _sortOrderLabel(AppL10n l, String value) =>
-    value == 'asc' ? l.moviesSortAscending : l.moviesSortDescending;
 
 String _movieRuntimeLabel(AppL10n l, int minutes) =>
     l.mediaDurationMinutes(minutes);
@@ -973,121 +938,6 @@ class _FilterButton extends StatelessWidget {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SortButton extends StatelessWidget {
-  const _SortButton({
-    required this.sortBy,
-    required this.sortOrder,
-    required this.onChanged,
-  });
-  final String sortBy;
-  final String sortOrder;
-  final void Function(String sortBy, String sortOrder) onChanged;
-
-  Future<void> _openMenu(BuildContext context) async {
-    final c = appColors(context);
-    final l = AppL10n.of(context);
-    await showGlassSheet<void>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SheetHeader(
-              icon: Icons.sort_rounded,
-              title: l.moviesSortSheetTitle,
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              trailing: GestureDetector(
-                onTap: () {
-                  final next = sortOrder == 'asc' ? 'desc' : 'asc';
-                  Navigator.pop(ctx);
-                  onChanged(sortBy, next);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: c.chipBg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: c.cardBorder),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        sortOrder == 'asc'
-                            ? Icons.arrow_upward_rounded
-                            : Icons.arrow_downward_rounded,
-                        size: 14,
-                        color: c.accent,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _sortOrderLabel(l, sortOrder),
-                        style: TextStyle(
-                          color: c.accent,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            for (final opt in _kSortOptions)
-              ListTile(
-                dense: true,
-                title: Text(_sortLabel(l, opt)),
-                trailing: opt == sortBy
-                    ? Icon(Icons.check_rounded, color: c.accent, size: 18)
-                    : null,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onChanged(opt, sortOrder);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return GestureDetector(
-      onTap: () => _openMenu(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: c.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: c.cardBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.sort_rounded, size: 15, color: c.muted),
-            const SizedBox(width: 5),
-            Icon(
-              sortOrder == 'asc'
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              size: 12,
-              color: c.muted,
-            ),
           ],
         ),
       ),

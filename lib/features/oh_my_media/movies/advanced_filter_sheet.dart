@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/sheet_controls.dart';
@@ -12,6 +13,27 @@ import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'movie_filter.dart';
+
+const _kSortOptions = <String>[
+  'title',
+  'year',
+  'rating',
+  'file_size',
+  'created_at',
+  'updated_at',
+  'last_downloaded_at',
+];
+
+String _sortLabel(AppL10n l, String value) => switch (value) {
+  'title' => l.sortByTitle,
+  'year' => l.sortByYear,
+  'rating' => l.sortByRating,
+  'file_size' => l.moviesSortFileSize,
+  'created_at' => l.moviesSortCreatedAt,
+  'updated_at' => l.moviesSortUpdatedAt,
+  'last_downloaded_at' => l.moviesSortDownloadedAt,
+  _ => value,
+};
 
 /// 高级筛选 bottom sheet · 对齐 frontend_new AdvancedSearchModal
 class AdvancedFilterSheet extends ConsumerStatefulWidget {
@@ -46,6 +68,8 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
   late TextEditingController _yearToCtl;
   int? _ratingFrom;
   int? _ratingTo;
+  late String _sortBy;
+  late String _sortOrder;
 
   /// '' / 'include' / 'exclude'
   late String _subtitleMode;
@@ -74,6 +98,8 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
     _yearToCtl = TextEditingController(text: f.yearTo?.toString() ?? '');
     _ratingFrom = f.ratingFrom;
     _ratingTo = f.ratingTo;
+    _sortBy = f.sortBy;
+    _sortOrder = f.sortOrder;
     if (f.hasExternalSubtitle == true) {
       _subtitleMode = 'include';
     } else if (f.excludeHasExternalSubtitle == true) {
@@ -110,6 +136,8 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
       _ratingTo = null;
       _subtitleMode = '';
       _fileFilterMode = '';
+      _sortBy = 'created_at';
+      _sortOrder = 'desc';
     });
   }
 
@@ -145,6 +173,8 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
       clearExcludeHasExternalSubtitle: _subtitleMode != 'exclude',
       fileFilterMode: _fileFilterMode.isEmpty ? null : _fileFilterMode,
       clearFileFilterMode: _fileFilterMode.isEmpty,
+      sortBy: _sortBy,
+      sortOrder: _sortOrder,
     );
     Navigator.of(context).pop(next);
   }
@@ -169,6 +199,24 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
             children: [
+              _SectionCard(
+                title: l.moviesSortSheetTitle,
+                child: SortOptionChipRow(
+                  options: [
+                    for (final option in _kSortOptions)
+                      (value: option, label: _sortLabel(l, option)),
+                  ],
+                  selected: _sortBy,
+                  ascending: _sortOrder == 'asc',
+                  onSelected: (value) => setState(() => _sortBy = value),
+                  onToggleOrder: () => setState(
+                    () => _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc',
+                  ),
+                  ascendingLabel: l.moviesSortAscending,
+                  descendingLabel: l.moviesSortDescending,
+                ),
+              ),
+              const SizedBox(height: 14),
               _SectionCard(
                 title: l.settingsTags,
                 trailing: _ModeToggle(

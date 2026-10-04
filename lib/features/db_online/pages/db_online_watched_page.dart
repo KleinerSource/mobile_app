@@ -20,6 +20,7 @@ import 'package:omm/features/db_online/widgets/db_online_watched_recheck_sheet.d
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/localized_error_message.dart';
@@ -198,6 +199,19 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
       context,
       sections: (l) => [
         DbOnlineFilterSection(
+          title: l.dbOnlineSort,
+          options: [
+            (value: 'create', label: l.dbOnlineWatchedSortAdded),
+            (value: 'release', label: l.dbOnlineWatchedSortReleased),
+          ],
+          selected: _filter.sortBy,
+          ascending: _filter.orderBy == 'asc',
+          onSelected: (value) => _apply(_filter.copyWith(sortBy: value)),
+          onToggleOrder: () => _apply(
+            _filter.copyWith(orderBy: _filter.orderBy == 'asc' ? 'desc' : 'asc'),
+          ),
+        ),
+        DbOnlineFilterSection(
           title: l.dbOnlineWatchedType,
           options: dbOnlineCategoryOptions(l, includeAll: true),
           selected: _filter.type,
@@ -214,23 +228,6 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
           onSelected: (value) => _apply(_filter.copyWith(star: value)),
         ),
       ],
-    );
-  }
-
-  Future<void> _openSortMenu() {
-    final l = AppL10n.of(context);
-    return showDbOnlineSortSheet(
-      context,
-      options: [
-        (value: 'create', label: l.dbOnlineWatchedSortAdded),
-        (value: 'release', label: l.dbOnlineWatchedSortReleased),
-      ],
-      selected: _filter.sortBy,
-      ascending: _filter.orderBy == 'asc',
-      onSelected: (value) => _apply(_filter.copyWith(sortBy: value)),
-      onToggleOrder: () => _apply(
-        _filter.copyWith(orderBy: _filter.orderBy == 'asc' ? 'desc' : 'asc'),
-      ),
     );
   }
 
@@ -308,12 +305,14 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DbOnlineSortFilterButtons(
-                  ascending: _filter.orderBy == 'asc',
-                  filterActive:
-                      _filter.type != 'all' || _filter.star.isNotEmpty,
-                  onSort: () => unawaited(_openSortMenu()),
-                  onFilter: () => unawaited(_openFilterMenu()),
+                Tooltip(
+                  message: l.dbOnlineLibraryFilters,
+                  child: CompactFilterButton(
+                    label: '',
+                    icon: Icons.tune_rounded,
+                    active: _filter.type != 'all' || _filter.star.isNotEmpty,
+                    onTap: () => unawaited(_openFilterMenu()),
+                  ),
                 ),
                 if (scheduler != null &&
                     (scheduler.rechecking || scheduler.recheckQueued)) ...[

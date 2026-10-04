@@ -191,6 +191,12 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
       context,
       sections: (l) => [
         DbOnlineFilterSection(
+          title: l.dbOnlineSort,
+          options: dbOnlineMovieSortOptions(l),
+          selected: _movieSortBy,
+          onSelected: (value) => _applyMovieFilter(() => _movieSortBy = value),
+        ),
+        DbOnlineFilterSection(
           title: l.dbOnlineCategorySection,
           options: dbOnlineCategoryOptions(l, includeAll: true),
           selected: _movieType,
@@ -208,12 +214,6 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
               ..clear()
               ..addAll(value.split(',').where((item) => item.isNotEmpty));
           }),
-        ),
-        DbOnlineFilterSection(
-          title: l.dbOnlineSort,
-          options: dbOnlineMovieSortOptions(l),
-          selected: _movieSortBy,
-          onSelected: (value) => _applyMovieFilter(() => _movieSortBy = value),
         ),
       ],
     );

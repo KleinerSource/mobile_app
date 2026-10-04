@@ -1,6 +1,7 @@
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/error_view.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
@@ -222,6 +223,15 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
       context,
       sections: (l) => [
         DbOnlineFilterSection(
+          title: l.dbOnlineSort,
+          options: _resolve(_sortOptions, l),
+          selected: _sortBy,
+          ascending: _orderBy == 'asc',
+          onSelected: (value) => _reloadWith(sortBy: value),
+          onToggleOrder: () =>
+              _reloadWith(orderBy: _orderBy == 'asc' ? 'desc' : 'asc'),
+        ),
+        DbOnlineFilterSection(
           title: l.dbOnlineLibraryResourceType,
           options: dbOnlineLibraryResourceOptions(l),
           selected: _resourceFilter,
@@ -240,18 +250,6 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           onSelected: (value) => _reloadWith(minScore: value),
         ),
       ],
-    );
-  }
-
-  Future<void> _openSortMenu(BuildContext context) {
-    return showDbOnlineSortSheet(
-      context,
-      options: _resolve(_sortOptions, AppL10n.of(context)),
-      selected: _sortBy,
-      ascending: _orderBy == 'asc',
-      onSelected: (value) => _reloadWith(sortBy: value),
-      onToggleOrder: () =>
-          _reloadWith(orderBy: _orderBy == 'asc' ? 'desc' : 'asc'),
     );
   }
 
@@ -323,14 +321,17 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DbOnlineSortFilterButtons(
-                    ascending: _orderBy == 'asc',
-                    filterActive:
-                        _resourceFilter.isNotEmpty ||
-                        _userScore.isNotEmpty ||
-                        _minScore.isNotEmpty,
-                    onSort: () => _openSortMenu(context),
-                    onFilter: () => _openFilterMenu(context),
+                  Tooltip(
+                    message: AppL10n.of(context).dbOnlineLibraryFilters,
+                    child: CompactFilterButton(
+                      label: '',
+                      icon: Icons.tune_rounded,
+                      active:
+                          _resourceFilter.isNotEmpty ||
+                          _userScore.isNotEmpty ||
+                          _minScore.isNotEmpty,
+                      onTap: () => _openFilterMenu(context),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   MediaViewModeToggle(

@@ -80,35 +80,6 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
               icon: Icons.tune_rounded,
               title: l.dbOnlineFollowingFilters,
             ),
-            label(l.dbOnlineCategorySection),
-            DbOnlineFollowingButtonRow(
-              options: dbOnlineCategoryOptions(l),
-              isSelected: (value) => value == _filter.category,
-              onSelected: (value) => _change(_filter.copyWith(category: value)),
-            ),
-            label(l.dbOnlineFollowingConditions),
-            DbOnlineFollowingButtonRow(
-              options: [
-                for (final option in dbOnlineResourceConditions)
-                  if (onlinePlayAvailable || option.word.isNotEmpty)
-                    (
-                      value: option.letter,
-                      label: dbOnlineResourceConditionLabel(l, option),
-                    ),
-              ],
-              isSelected: _filter.basic.contains,
-              onSelected: (value) {
-                final selected = _filter.basic.toSet();
-                selected.contains(value)
-                    ? selected.remove(value)
-                    : selected.add(value);
-                _change(
-                  _filter.copyWith(
-                    basic: dbOnlineResourceConditionLetters(selected),
-                  ),
-                );
-              },
-            ),
             label(l.dbOnlineSort),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
@@ -140,6 +111,35 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
                   ),
                 ],
               ),
+            ),
+            label(l.dbOnlineCategorySection),
+            DbOnlineFollowingButtonRow(
+              options: dbOnlineCategoryOptions(l),
+              isSelected: (value) => value == _filter.category,
+              onSelected: (value) => _change(_filter.copyWith(category: value)),
+            ),
+            label(l.dbOnlineFollowingConditions),
+            DbOnlineFollowingButtonRow(
+              options: [
+                for (final option in dbOnlineResourceConditions)
+                  if (onlinePlayAvailable || option.word.isNotEmpty)
+                    (
+                      value: option.letter,
+                      label: dbOnlineResourceConditionLabel(l, option),
+                    ),
+              ],
+              isSelected: _filter.basic.contains,
+              onSelected: (value) {
+                final selected = _filter.basic.toSet();
+                selected.contains(value)
+                    ? selected.remove(value)
+                    : selected.add(value);
+                _change(
+                  _filter.copyWith(
+                    basic: dbOnlineResourceConditionLetters(selected),
+                  ),
+                );
+              },
             ),
             if (widget.database) ...[
               label(l.dbOnlineFollowingStyles),

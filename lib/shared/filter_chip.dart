@@ -103,6 +103,64 @@ class CompactSortButton extends StatelessWidget {
   }
 }
 
+/// 排序选项 chip 行 · 筛选弹层内排序区的统一呈现：
+/// 字段 chips + 行尾升降序切换（[onToggleOrder] 为 null 时不显示切换 chip）。
+///
+/// 不含水平内边距，由调用方按各自弹层布局包裹。
+class SortOptionChipRow extends StatelessWidget {
+  const SortOptionChipRow({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+    required this.ascendingLabel,
+    required this.descendingLabel,
+    this.ascending = true,
+    this.onToggleOrder,
+  });
+
+  final List<({String value, String label})> options;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  /// 当前升降序方向，仅用于行尾切换 chip 的展示。
+  final bool ascending;
+  final VoidCallback? onToggleOrder;
+  final String ascendingLabel;
+  final String descendingLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final toggleOrder = onToggleOrder;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var index = 0; index < options.length; index++) ...[
+            if (index > 0) const SizedBox(width: 7),
+            CompactFilterButton(
+              label: options[index].label,
+              active: options[index].value == selected,
+              onTap: () => onSelected(options[index].value),
+            ),
+          ],
+          if (toggleOrder != null) ...[
+            const SizedBox(width: 7),
+            CompactFilterButton(
+              label: ascending ? ascendingLabel : descendingLabel,
+              icon: ascending
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              active: true,
+              onTap: toggleOrder,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// 紫色 chip · 用于 filter 行。
 class FilterChipPill extends StatelessWidget {
   const FilterChipPill({

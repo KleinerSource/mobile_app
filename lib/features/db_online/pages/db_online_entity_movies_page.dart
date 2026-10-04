@@ -191,6 +191,12 @@ class _DbOnlineEntityMoviesPageState
       context,
       sections: (l) => [
         DbOnlineFilterSection(
+          title: l.dbOnlineSort,
+          options: dbOnlineEntityMovieSortOptions(l),
+          selected: _sortBy,
+          onSelected: (value) => _applyFilter(() => _sortBy = value),
+        ),
+        DbOnlineFilterSection(
           title: l.dbOnlineFollowingConditions,
           options: dbOnlineResourceConditionOptions(
             l,
@@ -215,12 +221,6 @@ class _DbOnlineEntityMoviesPageState
             selected: _year,
             onSelected: (value) => _applyFilter(() => _year = value),
           ),
-        DbOnlineFilterSection(
-          title: l.dbOnlineSort,
-          options: dbOnlineEntityMovieSortOptions(l),
-          selected: _sortBy,
-          onSelected: (value) => _applyFilter(() => _sortBy = value),
-        ),
       ],
     );
   }
