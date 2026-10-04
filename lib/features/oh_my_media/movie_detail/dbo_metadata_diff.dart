@@ -121,6 +121,28 @@ DboMetadataDiff buildDboMetadataDiff(
   );
 }
 
+/// DBO 详情里本地库不存储、仅作参考展示的实体（导演/片商）。
+/// 按展示顺序返回 `(kind, name, externalId)`；名称空白时不返回，
+/// [externalId] 存在时可跳转 DBO 模块的实体影片落地页。
+List<({String kind, String name, String? externalId})> dboReferenceEntries(
+  Map<String, dynamic>? metadata,
+) {
+  if (metadata == null) return const [];
+  final entries = <({String kind, String name, String? externalId})>[];
+  for (final kind in const ['director', 'maker']) {
+    final item = _metadataItem(metadata[kind]);
+    final name = _text(item?['name']);
+    if (name.isEmpty) continue;
+    final externalId = _text(item?['external_id']);
+    entries.add((
+      kind: kind,
+      name: name,
+      externalId: externalId.isEmpty ? null : externalId,
+    ));
+  }
+  return entries;
+}
+
 void _appendTextDiff(
   List<DboMetadataDiffItem> items, {
   required String field,

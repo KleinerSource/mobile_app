@@ -159,6 +159,29 @@ void _main_1() {
     expect(series.remoteName, '新系列');
     expect(series.localId, 3);
   });
+
+  test('导演与片商作为 DBO 参考信息返回', () {
+    final entries = dboReferenceEntries({
+      'code': 'ABC-001',
+      'director': {'name': ' 导演甲 ', 'external_id': ' d1 '},
+      'maker': {'name': '片商甲'},
+      'series': {'name': '系列甲'},
+    });
+    expect(
+      entries.map((entry) => (entry.kind, entry.name, entry.externalId)),
+      [('director', '导演甲', 'd1'), ('maker', '片商甲', null)],
+    );
+
+    // 名称空白或字段缺失时不返回；series 等其余实体不属于参考信息。
+    expect(
+      dboReferenceEntries({
+        'director': {'name': '   '},
+        'series': {'name': '系列甲'},
+      }),
+      isEmpty,
+    );
+    expect(dboReferenceEntries(null), isEmpty);
+  });
 }
 
 // ==================== 原 test/features/oh_my_media/movie_detail/movie_detail_formatters_test.dart ====================

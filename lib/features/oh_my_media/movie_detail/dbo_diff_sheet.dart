@@ -15,6 +15,7 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/core/sources/media/omm_metadata_operations_source.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
+import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/oh_my_media/resources/resources_providers.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -290,6 +291,19 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     });
   }
 
+  /// 跳转 DBO 模块的实体（导演/片商）影片落地页，与 DBO 详情页一致。
+  void _openDboEntityMovies(String kind, String externalId, String title) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => DbOnlineEntityMoviesPage(
+          kind: kind,
+          id: externalId,
+          title: title,
+        ),
+      ),
+    );
+  }
+
   void _setSectionSelection(List<DboMetadataDiffItem> items, bool selected) {
     setState(() {
       for (final item in items) {
@@ -353,6 +367,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     final dboTitle = _meta?['title']?.toString() ?? '';
     final dboCode =
         _meta?['code']?.toString() ?? _meta?['num']?.toString() ?? '';
+    final referenceEntries = dboReferenceEntries(_meta);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -372,6 +387,72 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
             onPressed: _loading ? null : _load,
           ),
         ),
+        // 导演/片商本地库不存储，仅作 DBO 参考信息；带 external_id 时
+        // 与 DBO 详情页一致跳转实体影片落地页，不参与勾选应用。
+        if (!_loading && _error == null && referenceEntries.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 22, 10),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 4,
+              children: [
+                for (final entry in referenceEntries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: entry.externalId == null
+                          ? null
+                          : () => _openDboEntityMovies(
+                              entry.kind,
+                              entry.externalId!,
+                              entry.name,
+                            ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 3,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${_dboReferenceLabel(l, entry.kind)}  ',
+                              style: TextStyle(
+                                color: c.muted,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                            Text(
+                              entry.name,
+                              style: TextStyle(
+                                color: entry.externalId == null
+                                    ? c.text
+                                    : c.accent,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            if (entry.externalId != null) ...[
+                              const SizedBox(width: 3),
+                              Icon(
+                                Icons.open_in_new_rounded,
+                                size: 12,
+                                color: c.accent,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         // ===== 主体 =====
         if (_loading)
           const SizedBox(
@@ -901,3 +982,9 @@ String _dboFieldLabel(AppL10n l, String? field, String fallback) =>
       'remove' => l.dboRemove,
       _ => fallback,
     };
+
+String _dboReferenceLabel(AppL10n l, String kind) => switch (kind) {
+  'director' => l.dbOnlineDirectorSection,
+  'maker' => l.dbOnlineMakerSection,
+  _ => kind,
+};

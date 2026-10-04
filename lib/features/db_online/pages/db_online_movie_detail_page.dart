@@ -370,6 +370,51 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
               ],
             ),
           ),
+        if (_hasPersonName(movie.series))
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.dbOnlineSeriesSection,
+              items: [movie.series!.name],
+              prefix: '◇ ',
+              ids: [_personExternalId(movie.series!) ?? ''],
+              onTapWithId: (id, title) => _openEntityMovies(
+                context,
+                kind: 'series',
+                id: id,
+                title: title,
+              ),
+            ),
+          ),
+        if (movie.categories.isNotEmpty)
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.dbOnlineCategorySection,
+              items: [
+                for (final category in movie.categories)
+                  if (category.name.trim().isNotEmpty) category.name,
+              ],
+              ids: [
+                for (final category in movie.categories)
+                  if (category.name.trim().isNotEmpty)
+                    _personExternalId(category) ?? '',
+              ],
+              // 类别落地页走 /categories/{id}/movies 在线查询，
+              // 无 external_id 的类别不提供跳转。
+              onTapWithId: (id, name) => _openEntityMovies(
+                context,
+                kind: 'category',
+                id: id,
+                title: name,
+              ),
+            ),
+          ),
+        if (movie.tags.isNotEmpty)
+          SliverToBoxAdapter(
+            child: MediaTaxonomySection(
+              title: l.movieEditorTag,
+              items: movie.tags,
+            ),
+          ),
         if (_hasPersonName(movie.director))
           SliverToBoxAdapter(
             child: MediaTaxonomySection(
@@ -415,51 +460,6 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
                 id: id,
                 title: title,
               ),
-            ),
-          ),
-        if (_hasPersonName(movie.series))
-          SliverToBoxAdapter(
-            child: MediaTaxonomySection(
-              title: l.dbOnlineSeriesSection,
-              items: [movie.series!.name],
-              prefix: '◇ ',
-              ids: [_personExternalId(movie.series!) ?? ''],
-              onTapWithId: (id, title) => _openEntityMovies(
-                context,
-                kind: 'series',
-                id: id,
-                title: title,
-              ),
-            ),
-          ),
-        if (movie.categories.isNotEmpty)
-          SliverToBoxAdapter(
-            child: MediaTaxonomySection(
-              title: l.dbOnlineCategorySection,
-              items: [
-                for (final category in movie.categories)
-                  if (category.name.trim().isNotEmpty) category.name,
-              ],
-              ids: [
-                for (final category in movie.categories)
-                  if (category.name.trim().isNotEmpty)
-                    _personExternalId(category) ?? '',
-              ],
-              // 类别落地页走 /categories/{id}/movies 在线查询，
-              // 无 external_id 的类别不提供跳转。
-              onTapWithId: (id, name) => _openEntityMovies(
-                context,
-                kind: 'category',
-                id: id,
-                title: name,
-              ),
-            ),
-          ),
-        if (movie.tags.isNotEmpty)
-          SliverToBoxAdapter(
-            child: MediaTaxonomySection(
-              title: l.movieEditorTag,
-              items: movie.tags,
             ),
           ),
         if (movie.relativeMovies.isNotEmpty && config != null)

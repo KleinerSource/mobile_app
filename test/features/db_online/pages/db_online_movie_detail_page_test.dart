@@ -24,17 +24,25 @@ void _popTopRoute(WidgetTester tester) =>
 
 /// 系列/类型区块可能在视口外未被 sliver 构建，先滚动到可见再点击。
 Future<void> _scrollToAndTap(WidgetTester tester, Finder finder) async {
+  final scrollable = find
+      .descendant(
+        of: find.byType(CustomScrollView).first,
+        matching: find.byType(Scrollable),
+      )
+      .first;
   await tester.scrollUntilVisible(
     finder,
     300,
-    scrollable: find
-        .descendant(
-          of: find.byType(CustomScrollView).first,
-          matching: find.byType(Scrollable),
-        )
-        .first,
+    scrollable: scrollable,
   );
   await tester.pumpAndSettle();
+  // 悬浮页头遮住视口顶部：目标贴顶时先向下补滚，避免点击命中页头。
+  var top = tester.getTopLeft(finder).dy;
+  for (var i = 0; top < 150 && i < 10; i++) {
+    await tester.drag(scrollable, const Offset(0, 80));
+    await tester.pumpAndSettle();
+    top = tester.getTopLeft(finder).dy;
+  }
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
