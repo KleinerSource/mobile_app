@@ -825,15 +825,38 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
               children: [
                 SettingsFixedHeaderLayout(
                   scrollController: _scrollController,
-                  header: SettingsSubPageHeader(
-                    eyebrow: l.audioEyebrow,
-                    bottomPadding: PageHeader.toolbarTopGap,
-                    title: l.settingsAudioManagement,
-                    count: _controller.itemList == null ? null : _totalCount,
-                    countSuffix: l.audioAssetCountSuffix,
-                    subtitle: _search == null
-                        ? null
-                        : l.audioSearchSubtitle(_search!),
+                  header: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SettingsSubPageHeader(
+                        eyebrow: l.audioEyebrow,
+                        bottomPadding: PageHeader.toolbarTopGap,
+                        title: l.settingsAudioManagement,
+                        count: _controller.itemList == null ? null : _totalCount,
+                        countSuffix: l.audioAssetCountSuffix,
+                        subtitle: _search == null
+                            ? null
+                            : l.audioSearchSubtitle(_search!),
+                      ),
+                      // 搜索栏固定在头部，不随列表滚动。
+                      Padding(
+                        // 提取任务区出现/消失时切换块间距与列表间距。
+                        padding: EdgeInsets.fromLTRB(
+                          22,
+                          0,
+                          22,
+                          extractionTasks.isNotEmpty
+                              ? PageHeader.toolbarTopGap
+                              : PageHeader.aboveListGap,
+                        ),
+                        child: _SearchField(
+                          controller: _searchController,
+                          onChanged: _onSearchChanged,
+                          onClear: _clearSearch,
+                        ),
+                      ),
+                    ],
                   ),
                   body: RefreshIndicator(
                     color: c.accent,
@@ -849,25 +872,8 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                       child: CustomScrollView(
                         controller: _scrollController,
                         primary: false,
+                        physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              // 提取任务区出现/消失时切换块间距与列表间距。
-                              padding: EdgeInsets.fromLTRB(
-                                22,
-                                0,
-                                22,
-                                extractionTasks.isNotEmpty
-                                    ? PageHeader.toolbarTopGap
-                                    : PageHeader.aboveListGap,
-                              ),
-                              child: _SearchField(
-                                controller: _searchController,
-                                onChanged: _onSearchChanged,
-                                onClear: _clearSearch,
-                              ),
-                            ),
-                          ),
                           if (extractionTasks.isNotEmpty) ...[
                             SliverToBoxAdapter(
                               child: Padding(

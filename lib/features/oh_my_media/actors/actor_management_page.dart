@@ -193,14 +193,10 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     });
   }
 
-  void _setSort(String field) {
+  void _setSort(String field, bool ascending) {
     setState(() {
-      if (_sortBy == field) {
-        _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc';
-      } else {
-        _sortBy = field;
-        _sortOrder = field == 'movie_count' ? 'desc' : 'asc';
-      }
+      _sortBy = field;
+      _sortOrder = ascending ? 'asc' : 'desc';
     });
     _reload();
     AppHaptics.selection();
@@ -359,15 +355,95 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           child: SafeArea(
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
-              header: SettingsSubPageHeader(
-                eyebrow: l.settingsGroupLibrary,
-                bottomPadding: PageHeader.toolbarTopGap,
-                title: l.settingsActors,
-                count: _hasLoaded ? _totalCount : null,
-                countSuffix: l.actorCountSuffix,
-                trailing: SettingsAddButton(
-                  onPressed: () => _showEditor(context),
-                ),
+              header: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SettingsSubPageHeader(
+                    eyebrow: l.settingsGroupLibrary,
+                    bottomPadding: PageHeader.toolbarTopGap,
+                    title: l.settingsActors,
+                    count: _hasLoaded ? _totalCount : null,
+                    countSuffix: l.actorCountSuffix,
+                    trailing: SettingsAddButton(
+                      onPressed: () => _showEditor(context),
+                    ),
+                  ),
+                  // 搜索栏与排序行固定在头部，不随列表滚动。
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      22,
+                      0,
+                      22,
+                      PageHeader.toolbarTopGap,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        border: Border.all(color: c.cardBorder),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 14),
+                          Icon(Icons.search, size: 18, color: c.muted),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              textAlignVertical: TextAlignVertical.center,
+                              onChanged: _onSearchChanged,
+                              decoration: InputDecoration(
+                                hintText: l.actorSearchHint,
+                                isCollapsed: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                border: InputBorder.none,
+                              ),
+                              style: TextStyle(
+                                color: c.text,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: c.muted,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 36,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: SortOptionChipRow(
+                        options: [
+                          (
+                            value: 'movie_count',
+                            label: l.actorSortMovieCount,
+                          ),
+                          (value: 'name', label: l.actorSortName),
+                          (value: 'created_at', label: l.actorSortCreatedAt),
+                        ],
+                        selected: _sortBy,
+                        ascending: _sortOrder == 'asc',
+                        onSelected: _setSort,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: PageHeader.aboveListGap),
+                ],
               ),
               body: RefreshIndicator(
                 color: c.accent,
@@ -380,96 +456,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            22,
-                            0,
-                            22,
-                            PageHeader.toolbarTopGap,
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: c.surface,
-                              border: Border.all(color: c.cardBorder),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 14),
-                                Icon(Icons.search, size: 18, color: c.muted),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchController,
-                                    textAlignVertical: TextAlignVertical.center,
-                                    onChanged: _onSearchChanged,
-                                    decoration: InputDecoration(
-                                      hintText: l.actorSearchHint,
-                                      isCollapsed: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                      border: InputBorder.none,
-                                    ),
-                                    style: TextStyle(
-                                      color: c.text,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                if (_searchController.text.isNotEmpty)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.close,
-                                      size: 16,
-                                      color: c.muted,
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _onSearchChanged('');
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: 36,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
-                            children: [
-                              CompactSortButton(
-                                label: l.actorSortMovieCount,
-                                active: _sortBy == 'movie_count',
-                                ascending: _sortOrder == 'asc',
-                                onTap: () => _setSort('movie_count'),
-                              ),
-                              const SizedBox(width: 7),
-                              CompactSortButton(
-                                label: l.actorSortName,
-                                active: _sortBy == 'name',
-                                ascending: _sortOrder == 'asc',
-                                onTap: () => _setSort('name'),
-                              ),
-                              const SizedBox(width: 7),
-                              CompactSortButton(
-                                label: l.actorSortCreatedAt,
-                                active: _sortBy == 'created_at',
-                                ascending: _sortOrder == 'asc',
-                                onTap: () => _setSort('created_at'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: PageHeader.aboveListGap),
-                      ),
                       SliverPadding(
                         padding: EdgeInsets.fromLTRB(
                           22,

@@ -147,14 +147,10 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _reload();
   }
 
-  void _setSort(String field) {
+  void _setSort(String field, bool ascending) {
     setState(() {
-      if (_sortBy == field) {
-        _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc';
-      } else {
-        _sortBy = field;
-        _sortOrder = field == 'movie_count' ? 'desc' : 'asc';
-      }
+      _sortBy = field;
+      _sortOrder = ascending ? 'asc' : 'desc';
     });
     _reload();
   }
@@ -321,19 +317,103 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
               children: [
                 SettingsFixedHeaderLayout(
                   scrollController: _scrollController,
-                  header: SettingsSubPageHeader(
-                    eyebrow: l.libraryTitle,
-                    bottomPadding: PageHeader.toolbarTopGap,
-                    title: widget.kind.plural(l),
-                    count: _totalCount,
-                    countSuffix: switch (widget.kind) {
-                      ResourceKind.genre => l.resourceGenreCountSuffix,
-                      ResourceKind.tag => l.resourceTagCountSuffix,
-                      ResourceKind.series => l.resourceSeriesCountSuffix,
-                    },
-                    trailing: SettingsAddButton(
-                      onPressed: () => _showEditor(context),
-                    ),
+                  header: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SettingsSubPageHeader(
+                        eyebrow: l.libraryTitle,
+                        bottomPadding: PageHeader.toolbarTopGap,
+                        title: widget.kind.plural(l),
+                        count: _totalCount,
+                        countSuffix: switch (widget.kind) {
+                          ResourceKind.genre => l.resourceGenreCountSuffix,
+                          ResourceKind.tag => l.resourceTagCountSuffix,
+                          ResourceKind.series => l.resourceSeriesCountSuffix,
+                        },
+                        trailing: SettingsAddButton(
+                          onPressed: () => _showEditor(context),
+                        ),
+                      ),
+                      // 搜索栏与排序行固定在头部，不随列表滚动。
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          22,
+                          0,
+                          22,
+                          PageHeader.toolbarTopGap,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: c.surface,
+                            border: Border.all(color: c.cardBorder),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 14),
+                              Icon(Icons.search, size: 18, color: c.muted),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  onChanged: _onSearchChanged,
+                                  decoration: InputDecoration(
+                                    hintText: widget.kind.searchHint(l),
+                                    hintStyle: TextStyle(
+                                      color: c.muted,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    isCollapsed: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  style: TextStyle(
+                                    color: c.text,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              if (_searchController.text.isNotEmpty)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: c.muted,
+                                  ),
+                                  onPressed: _clearSearch,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 36,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          child: SortOptionChipRow(
+                            options: [
+                              (value: 'name', label: l.resourceSortName),
+                              (
+                                value: 'movie_count',
+                                label: l.resourceSortMovieCount,
+                              ),
+                              (
+                                value: 'created_at',
+                                label: l.resourceSortCreatedAt,
+                              ),
+                            ],
+                            selected: _sortBy,
+                            ascending: _sortOrder == 'asc',
+                            onSelected: _setSort,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: PageHeader.aboveListGap),
+                    ],
                   ),
                   body: RefreshIndicator(
                     color: c.accent,
@@ -345,107 +425,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                       child: CustomScrollView(
                         controller: _scrollController,
                         primary: false,
+                        physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
-                          // 搜索栏
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                22,
-                                0,
-                                22,
-                                PageHeader.toolbarTopGap,
-                              ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: c.surface,
-                                  border: Border.all(color: c.cardBorder),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const SizedBox(width: 14),
-                                    Icon(
-                                      Icons.search,
-                                      size: 18,
-                                      color: c.muted,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _searchController,
-                                        textAlignVertical:
-                                            TextAlignVertical.center,
-                                        onChanged: _onSearchChanged,
-                                        decoration: InputDecoration(
-                                          hintText: widget.kind.searchHint(l),
-                                          hintStyle: TextStyle(
-                                            color: c.muted,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          isCollapsed: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                vertical: 14,
-                                              ),
-                                          border: InputBorder.none,
-                                        ),
-                                        style: TextStyle(
-                                          color: c.text,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    if (_searchController.text.isNotEmpty)
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.close,
-                                          size: 16,
-                                          color: c.muted,
-                                        ),
-                                        onPressed: _clearSearch,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          // 排序 chips
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: 36,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 22,
-                                ),
-                                children: [
-                                  CompactSortButton(
-                                    label: l.resourceSortName,
-                                    active: _sortBy == 'name',
-                                    ascending: _sortOrder == 'asc',
-                                    onTap: () => _setSort('name'),
-                                  ),
-                                  const SizedBox(width: 7),
-                                  CompactSortButton(
-                                    label: l.resourceSortMovieCount,
-                                    active: _sortBy == 'movie_count',
-                                    ascending: _sortOrder == 'asc',
-                                    onTap: () => _setSort('movie_count'),
-                                  ),
-                                  const SizedBox(width: 7),
-                                  CompactSortButton(
-                                    label: l.resourceSortCreatedAt,
-                                    active: _sortBy == 'created_at',
-                                    ascending: _sortOrder == 'asc',
-                                    onTap: () => _setSort('created_at'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SliverToBoxAdapter(
-                            child: SizedBox(height: PageHeader.aboveListGap),
-                          ),
                           // 列表
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(

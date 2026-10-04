@@ -268,20 +268,112 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
           child: SafeArea(
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
-              header: SettingsSubPageHeader(
-                eyebrow: l.settingsGroupMappings,
-                bottomPadding: PageHeader.toolbarTopGap,
-                title: switch (widget.type) {
-                  MappingType.tag => l.settingsMappingTags,
-                  MappingType.genre => l.settingsMappingGenres,
-                  MappingType.series => l.settingsMappingSeries,
-                },
-                count: _totalCount,
-                countSuffix: l.mappingCountSuffix,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [SettingsAddButton(onPressed: () => _showEditor())],
-                ),
+              header: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SettingsSubPageHeader(
+                    eyebrow: l.settingsGroupMappings,
+                    bottomPadding: PageHeader.toolbarTopGap,
+                    title: switch (widget.type) {
+                      MappingType.tag => l.settingsMappingTags,
+                      MappingType.genre => l.settingsMappingGenres,
+                      MappingType.series => l.settingsMappingSeries,
+                    },
+                    count: _totalCount,
+                    countSuffix: l.mappingCountSuffix,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [SettingsAddButton(onPressed: () => _showEditor())],
+                    ),
+                  ),
+                  // 搜索栏与状态筛选行固定在头部，不随列表滚动。
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      22,
+                      0,
+                      22,
+                      PageHeader.toolbarTopGap,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        border: Border.all(color: c.cardBorder),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 14),
+                          Icon(Icons.search, size: 18, color: c.muted),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              textAlignVertical: TextAlignVertical.center,
+                              onChanged: _onSearch,
+                              decoration: InputDecoration(
+                                hintText: l.mappingSearchHint,
+                                hintStyle: TextStyle(
+                                  color: c.muted,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                isCollapsed: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                border: InputBorder.none,
+                              ),
+                              style: TextStyle(
+                                color: c.text,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (_searchCtrl.text.isNotEmpty)
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: c.muted,
+                              ),
+                              onPressed: () {
+                                _clearSearch();
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Row(
+                      children: [
+                        CompactFilterButton(
+                          label: l.filterAll,
+                          icon: Icons.filter_list_rounded,
+                          active: _status == 'all',
+                          onTap: () => _setStatus('all'),
+                        ),
+                        const SizedBox(width: 7),
+                        CompactFilterButton(
+                          label: l.mappingFilterConvert,
+                          icon: Icons.swap_horiz_rounded,
+                          active: _status == 'convert',
+                          onTap: () => _setStatus('convert'),
+                        ),
+                        const SizedBox(width: 7),
+                        CompactFilterButton(
+                          label: l.mappingFilterDelete,
+                          icon: Icons.delete_outline_rounded,
+                          active: _status == 'delete',
+                          onTap: () => _setStatus('delete'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: PageHeader.aboveListGap),
+                ],
               ),
               body: RefreshIndicator(
                 color: c.accent,
@@ -293,102 +385,8 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                   child: CustomScrollView(
                     controller: _scrollController,
                     primary: false,
+                    physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
-                      // 搜索栏
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            22,
-                            0,
-                            22,
-                            PageHeader.toolbarTopGap,
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: c.surface,
-                              border: Border.all(color: c.cardBorder),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 14),
-                                Icon(Icons.search, size: 18, color: c.muted),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchCtrl,
-                                    textAlignVertical: TextAlignVertical.center,
-                                    onChanged: _onSearch,
-                                    decoration: InputDecoration(
-                                      hintText: l.mappingSearchHint,
-                                      hintStyle: TextStyle(
-                                        color: c.muted,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      isCollapsed: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                      border: InputBorder.none,
-                                    ),
-                                    style: TextStyle(
-                                      color: c.text,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                if (_searchCtrl.text.isNotEmpty)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.close,
-                                      size: 16,
-                                      color: c.muted,
-                                    ),
-                                    onPressed: () {
-                                      _clearSearch();
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // status chips
-                      SliverToBoxAdapter(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          child: Row(
-                            children: [
-                              CompactFilterButton(
-                                label: l.filterAll,
-                                icon: Icons.filter_list_rounded,
-                                active: _status == 'all',
-                                onTap: () => _setStatus('all'),
-                              ),
-                              const SizedBox(width: 7),
-                              CompactFilterButton(
-                                label: l.mappingFilterConvert,
-                                icon: Icons.swap_horiz_rounded,
-                                active: _status == 'convert',
-                                onTap: () => _setStatus('convert'),
-                              ),
-                              const SizedBox(width: 7),
-                              CompactFilterButton(
-                                label: l.mappingFilterDelete,
-                                icon: Icons.delete_outline_rounded,
-                                active: _status == 'delete',
-                                onTap: () => _setStatus('delete'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: PageHeader.aboveListGap),
-                      ),
-
                       SliverPadding(
                         padding: EdgeInsets.fromLTRB(
                           22,
