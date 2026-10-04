@@ -567,6 +567,8 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
                     icon: Icons.person_outline_rounded,
                     imageUrl: actor.avatarUrl,
                     uncensored: actor.uncensored,
+                    // 与演员榜一致：优先展示其他名称，无则回退中文名/作品数。
+                    metaText: actor.otherName ?? actor.nameZht,
                     subscriptionKind: 'actor',
                     subscriptionData: {
                       'actor_avatar': actor.avatarUrl ?? '',
