@@ -441,7 +441,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
               child: ListView.builder(
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: MediaListLayout.padding.copyWith(top: 8, bottom: 32),
+                padding: MediaListLayout.contentPadding.copyWith(bottom: 32),
                 itemCount: _items.length + 1,
                 itemBuilder: (context, index) {
                   if (index < _items.length) return _item(_items[index]);

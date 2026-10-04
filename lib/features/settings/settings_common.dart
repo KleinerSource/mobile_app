@@ -375,6 +375,7 @@ class SettingsSubPageHeader extends StatelessWidget {
     this.backTooltip,
     this.onBackPressed,
     this.titleMaxLines,
+    this.bottomPadding = 22,
   });
   final String eyebrow;
   final String title;
@@ -395,6 +396,9 @@ class SettingsSubPageHeader extends StatelessWidget {
 
   /// 主标题最大行数；长文件名等场景传 1 避免头部被撑高。
   final int? titleMaxLines;
+
+  /// 头部底部留白；工具栏紧跟头部时传 PageHeader.toolbarTopGap 收窄间距。
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -426,6 +430,7 @@ class SettingsSubPageHeader extends StatelessWidget {
       subtitle: subtitle == null
           ? null
           : Text(subtitle!, style: AppText.meta(context)),
+      bottomPadding: bottomPadding,
     );
   }
 }

@@ -4,6 +4,8 @@ import 'package:omm/features/db_online/pages/db_online_following_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_following_presets_sheet.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/shared/filter_chip.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 
 import '../support/following_test_support.dart';
 
@@ -57,10 +59,13 @@ void main() {
       backend.to('/subs/tags').last.queryParameters['filter_by'],
       '0:t:m::::',
     );
+    // 工具栏与列表间距遵循统一节奏：toolbarBottomGap + contentTopInset。
     expect(
       tester.getTopLeft(find.byType(DbOnlineMovieCard)).dy -
           tester.getBottomLeft(find.byType(CompactFilterButton).first).dy,
-      greaterThanOrEqualTo(16),
+      greaterThanOrEqualTo(
+        PageHeader.toolbarBottomGap + MediaListLayout.contentTopInset,
+      ),
     );
     final horizontal = find.byWidgetPredicate(
       (widget) =>

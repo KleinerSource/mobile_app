@@ -305,41 +305,38 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
         ],
       ],
       filters: canQuery
-          ? Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DbOnlineSortFilterButtons(
-                    ascending: _filter.orderBy == 'asc',
-                    filterActive:
-                        _filter.type != 'all' || _filter.star.isNotEmpty,
-                    onSort: () => unawaited(_openSortMenu()),
-                    onFilter: () => unawaited(_openFilterMenu()),
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DbOnlineSortFilterButtons(
+                  ascending: _filter.orderBy == 'asc',
+                  filterActive:
+                      _filter.type != 'all' || _filter.star.isNotEmpty,
+                  onSort: () => unawaited(_openSortMenu()),
+                  onFilter: () => unawaited(_openFilterMenu()),
+                ),
+                if (scheduler != null &&
+                    (scheduler.rechecking || scheduler.recheckQueued)) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    !scheduler.connected
+                        ? l.dbOnlineWatchedReconnecting
+                        : scheduler.rechecking
+                        ? l.dbOnlineWatchedProgress(
+                            scheduler.completed,
+                            scheduler.total,
+                          )
+                        : l.dbOnlineWatchedQueued,
+                    style: AppText.meta(context),
                   ),
-                  if (scheduler != null &&
-                      (scheduler.rechecking || scheduler.recheckQueued)) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      !scheduler.connected
-                          ? l.dbOnlineWatchedReconnecting
-                          : scheduler.rechecking
-                          ? l.dbOnlineWatchedProgress(
-                              scheduler.completed,
-                              scheduler.total,
-                            )
-                          : l.dbOnlineWatchedQueued,
-                      style: AppText.meta(context),
-                    ),
-                    const SizedBox(height: 6),
-                    LinearProgressIndicator(
-                      value: scheduler.rechecking && scheduler.connected
-                          ? scheduler.percent / 100
-                          : null,
-                    ),
-                  ],
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: scheduler.rechecking && scheduler.connected
+                        ? scheduler.percent / 100
+                        : null,
+                  ),
                 ],
-              ),
+              ],
             )
           : null,
       body: capability.when(
@@ -359,7 +356,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: MediaListLayout.padding,
+                      padding: MediaListLayout.contentPadding,
                       sliver: viewMode == MediaViewMode.portrait
                           ? PagedSliverGrid<int, DbOnlineMovie>(
                               pagingController: _paging,

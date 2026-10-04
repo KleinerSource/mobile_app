@@ -13,6 +13,7 @@ import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
@@ -254,7 +255,12 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
                 child: ListView(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 140),
+                  padding: const EdgeInsets.fromLTRB(
+                    22,
+                    MediaListLayout.contentTopInset,
+                    22,
+                    140,
+                  ),
                   children: [
                     GlassPanel(
                       child: ListTile(

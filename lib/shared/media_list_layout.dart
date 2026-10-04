@@ -10,6 +10,17 @@ abstract final class MediaListLayout {
   static const mainAxisSpacing = 14.0;
   static const padding = EdgeInsets.symmetric(horizontal: horizontalInset);
 
+  /// 列表首项与上方页头/工具栏的统一呼吸空间。
+  static const double contentTopInset = 4.0;
+
+  /// 所有列表的基准 padding；底部留白由页面按悬浮 Tab 栏等场景 copyWith。
+  static const EdgeInsets contentPadding = EdgeInsets.fromLTRB(
+    horizontalInset,
+    contentTopInset,
+    horizontalInset,
+    0,
+  );
+
   static int columnsForWidth(double width) => width >= 1100
       ? 6
       : width >= 820

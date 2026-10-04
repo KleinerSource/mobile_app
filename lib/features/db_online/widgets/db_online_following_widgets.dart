@@ -65,9 +65,23 @@ class DbOnlineFollowingLayout extends StatelessWidget {
                   trailing: actions.isEmpty
                       ? null
                       : _trailing(constraints.maxWidth),
+                  // 工具栏紧跟头部时收窄底距，节奏与工具栏→列表一致。
+                  bottomPadding: filters == null
+                      ? 22
+                      : PageHeader.toolbarTopGap,
                 ),
               ),
-              if (filters != null) filters!,
+              // 工具栏的水平和底部间距由布局统一施加，页面无需自带 padding。
+              if (filters != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    PageHeader.horizontalPadding,
+                    0,
+                    PageHeader.horizontalPadding,
+                    PageHeader.toolbarBottomGap,
+                  ),
+                  child: filters,
+                ),
             ],
           ),
           body: body,

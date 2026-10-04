@@ -300,87 +300,84 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
         const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
       ],
       filters: database
-          ? Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: presets!.when<List<Widget>>(
-                          skipLoadingOnReload: true,
-                          loading: () => const [
-                            Padding(
-                              padding: EdgeInsets.only(right: 7),
-                              child: SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+          ? Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: presets!.when<List<Widget>>(
+                        skipLoadingOnReload: true,
+                        loading: () => const [
+                          Padding(
+                            padding: EdgeInsets.only(right: 7),
+                            child: SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                        ],
+                        error: (error, _) => [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 7),
+                            child: Tooltip(
+                              message: localizedErrorMessage(l, error),
+                              child: CompactFilterButton(
+                                label: l.dbOnlineRetry,
+                                icon: Icons.refresh_rounded,
+                                active: false,
+                                onTap: () => ref.invalidate(
+                                  dbOnlineFollowingPresetsProvider(
+                                    widget.serverId,
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
-                          error: (error, _) => [
+                          ),
+                        ],
+                        data: (items) => [
+                          for (final preset in items)
                             Padding(
                               padding: const EdgeInsets.only(right: 7),
-                              child: Tooltip(
-                                message: localizedErrorMessage(l, error),
-                                child: CompactFilterButton(
-                                  label: l.dbOnlineRetry,
-                                  icon: Icons.refresh_rounded,
-                                  active: false,
-                                  onTap: () => ref.invalidate(
-                                    dbOnlineFollowingPresetsProvider(
-                                      widget.serverId,
-                                    ),
-                                  ),
+                              child: CompactFilterButton(
+                                label: preset.name,
+                                active: _presetId == preset.id,
+                                onTap: () => _apply(
+                                  preset.filter,
+                                  presetId: preset.id,
                                 ),
                               ),
                             ),
-                          ],
-                          data: (items) => [
-                            for (final preset in items)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 7),
-                                child: CompactFilterButton(
-                                  label: preset.name,
-                                  active: _presetId == preset.id,
-                                  onTap: () => _apply(
-                                    preset.filter,
-                                    presetId: preset.id,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 7),
-                  Tooltip(
-                    message: l.dbOnlineFollowingAddPreset,
-                    child: CompactFilterButton(
-                      label: '',
-                      icon: Icons.add_rounded,
-                      active: false,
-                      onTap: _savePreset,
-                    ),
+                ),
+                const SizedBox(width: 7),
+                Tooltip(
+                  message: l.dbOnlineFollowingAddPreset,
+                  child: CompactFilterButton(
+                    label: '',
+                    icon: Icons.add_rounded,
+                    active: false,
+                    onTap: _savePreset,
                   ),
-                  const SizedBox(width: 7),
-                  Tooltip(
-                    message: l.dbOnlineFollowingManagePresets,
-                    child: CompactFilterButton(
-                      label: '',
-                      icon: Icons.settings_outlined,
-                      active: false,
-                      onTap: _managePresets,
-                    ),
+                ),
+                const SizedBox(width: 7),
+                Tooltip(
+                  message: l.dbOnlineFollowingManagePresets,
+                  child: CompactFilterButton(
+                    label: '',
+                    icon: Icons.settings_outlined,
+                    active: false,
+                    onTap: _managePresets,
                   ),
-                ],
-              ),
+                ),
+              ],
             )
-          : const SizedBox.shrink(),
+          : null,
       body: capability.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => ErrorView(
@@ -398,7 +395,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: MediaListLayout.padding,
+                      padding: MediaListLayout.contentPadding,
                       sliver: viewMode == MediaViewMode.portrait
                           ? PagedSliverGrid<int, DbOnlineMovie>(
                               pagingController: _paging,

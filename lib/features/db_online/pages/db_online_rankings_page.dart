@@ -79,6 +79,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
           children: [
             PageHeader(
               eyebrow: 'DB ONLINE',
+              bottomPadding: PageHeader.toolbarTopGap,
               title: Text(
                 l.dbOnlineRankingsTitle,
                 style: AppText.pageTitle(context),
@@ -495,7 +496,7 @@ class _ChipRow extends StatelessWidget {
   Widget build(BuildContext context) {
     // 横向滚动 + Row 自然撑高，chips 文字随系统字体缩放时行高自适应。
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: PageHeader.toolbarBottomGap),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -626,7 +627,7 @@ class _MovieRankingBoard extends ConsumerWidget {
           primary: true,
           slivers: [
             SliverPadding(
-              padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
+              padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
               sliver: viewMode == MediaViewMode.portrait
                   ? SliverGrid(
                       gridDelegate: const MediaGridDelegate(),
@@ -818,7 +819,7 @@ class _ActorRankingBoard extends ConsumerWidget {
           primary: true,
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+              padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
               sliver: SliverGrid(
                 // 与演员搜索结果一致的三列纵向卡片网格。
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

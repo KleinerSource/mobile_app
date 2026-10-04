@@ -253,6 +253,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
           children: [
             PageHeader(
               eyebrow: l.searchTitle.toUpperCase(),
+              bottomPadding: PageHeader.toolbarTopGap,
               title: Text(l.searchFind, style: AppText.pageTitle(context)),
               trailing: _searchType == DbOnlineSearchType.list
                   ? Row(
@@ -274,7 +275,12 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                   : null,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+              padding: const EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                PageHeader.toolbarBottomGap,
+              ),
               child: CatalogSearchField(
                 controller: _controller,
                 hintText: _searchType.placeholder(l),
@@ -497,7 +503,7 @@ class _DbOnlineSearchResultsState
       primary: true,
       slivers: [
         SliverPadding(
-          padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
+          padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
           sliver: isPortrait
               ? PagedSliverGrid<int, DbOnlineMovie>(
                   pagingController: _pagingController,
@@ -538,7 +544,7 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
           primary: true,
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+              padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
               sliver: SliverGrid(
                 gridDelegate: _actorGridDelegate,
                 delegate: SliverChildBuilderDelegate((context, index) {

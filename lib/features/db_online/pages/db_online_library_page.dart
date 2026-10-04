@@ -349,7 +349,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverPadding(
-                        padding: MediaListLayout.padding,
+                        padding: MediaListLayout.contentPadding,
                         sliver: isPortrait
                             ? PagedSliverGrid<int, DbOnlineMovie>(
                                 pagingController: _controller,

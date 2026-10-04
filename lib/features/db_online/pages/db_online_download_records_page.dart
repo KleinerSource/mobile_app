@@ -24,6 +24,7 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'package:omm/shared/pagination_footer.dart';
 
@@ -280,44 +281,41 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
           ),
         ),
       ],
-      filters: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            CatalogSearchField(
-              controller: _search,
-              hintText: l.dbOnlineDownloadRecordsSearch,
-              onSubmitted: (value) {
-                if (database) _apply(_filter.copyWith(keyword: value.trim()));
-              },
-              onCleared: () {
-                if (database) _apply(_filter.copyWith(keyword: ''));
-              },
-            ),
-            if (database) ...[
-              const SizedBox(height: 8),
-              Text(l.dbOnlineDownloadRecordsStats(_total, _filtered)),
-            ],
-            if (downloaderState.hasError)
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      localizedErrorMessage(l, downloaderState.error!),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: l.commonRetry,
-                    onPressed: () => ref.invalidate(
-                      dbOnlineRecordDownloadersProvider(widget.serverId),
-                    ),
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                ],
-              ),
+      filters: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CatalogSearchField(
+            controller: _search,
+            hintText: l.dbOnlineDownloadRecordsSearch,
+            onSubmitted: (value) {
+              if (database) _apply(_filter.copyWith(keyword: value.trim()));
+            },
+            onCleared: () {
+              if (database) _apply(_filter.copyWith(keyword: ''));
+            },
+          ),
+          if (database) ...[
+            const SizedBox(height: 8),
+            Text(l.dbOnlineDownloadRecordsStats(_total, _filtered)),
           ],
-        ),
+          if (downloaderState.hasError)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    localizedErrorMessage(l, downloaderState.error!),
+                  ),
+                ),
+                IconButton(
+                  tooltip: l.commonRetry,
+                  onPressed: () => ref.invalidate(
+                    dbOnlineRecordDownloadersProvider(widget.serverId),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+        ],
       ),
       body: capabilities.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -344,7 +342,7 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
                   pagingController: _paging,
                   scrollController: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 40),
+                  padding: MediaListLayout.contentPadding.copyWith(bottom: 40),
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   builderDelegate:
                       PagedChildBuilderDelegate<DbOnlineDownloadRecord>(

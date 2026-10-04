@@ -246,7 +246,7 @@ class _DbOnlineSubscriptionsPageState
           if (sections.isNotEmpty && _section != 'online')
             _searchField(l)
           else if (sections.isNotEmpty)
-            const SizedBox(height: 16),
+            const SizedBox(height: PageHeader.toolbarBottomGap),
         ],
       ),
       body: RefreshIndicator(
@@ -281,7 +281,7 @@ class _DbOnlineSubscriptionsPageState
                       _usesMovieCards || _section == 'blacklist'
                           ? MediaListLayout.horizontalInset
                           : 18,
-                      4,
+                      MediaListLayout.contentTopInset,
                       _usesMovieCards || _section == 'blacklist'
                           ? MediaListLayout.horizontalInset
                           : 18,
@@ -595,6 +595,7 @@ class _DbOnlineSubscriptionsPageState
         false;
     return PageHeader(
       eyebrow: l.tabYou.toUpperCase(),
+      bottomPadding: PageHeader.toolbarTopGap,
       title: Text(
         l.dbOnlineSubscriptionsManageTitle,
         style: AppText.pageTitle(context),
@@ -659,7 +660,7 @@ class _DbOnlineSubscriptionsPageState
         l.dbOnlineSubscriptionFeatureRequiresOnlineAccount,
     ];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, PageHeader.toolbarTopGap),
       child: Material(
         color: appColors(context).surface,
         borderRadius: BorderRadius.circular(14),
@@ -734,7 +735,12 @@ class _DbOnlineSubscriptionsPageState
   Widget _searchField(AppL10n l) {
     final colors = appColors(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+      padding: const EdgeInsets.fromLTRB(
+        22,
+        PageHeader.toolbarTopGap,
+        22,
+        PageHeader.toolbarBottomGap,
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: colors.surface,

@@ -296,7 +296,7 @@ class _DbOnlineEntityMoviesPageState
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: MediaListLayout.padding,
+                    padding: MediaListLayout.contentPadding,
                     sliver: isPortrait
                         ? PagedSliverGrid<int, DbOnlineMovie>(
                             pagingController: _controller,
