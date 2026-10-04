@@ -18,6 +18,12 @@ class PageHeader extends StatelessWidget {
 
   static const double horizontalPadding = 22;
   static const double leadingWidth = 48;
+
+  /// leading 触区向左挤进水平边距的量：图标（24px）在 48px 槽内居中，
+  /// 左移 12 后可见图标左缘正好落在 [horizontalPadding]，与无 leading
+  /// 页面的标题左缘对齐，同时保留完整 48x48 点击区域。
+  static const double leadingBleed = (leadingWidth - 24) / 2;
+
   static const double trailingGap = 8;
 
   /// 相邻块（头部→工具栏、工具栏→搜索框等）之间的统一间距。
@@ -43,7 +49,7 @@ class PageHeader extends StatelessWidget {
     final titleInset = leading == null ? 0.0 : leadingWidth;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        horizontalPadding,
+        horizontalPadding - (leading == null ? 0.0 : leadingBleed),
         16,
         horizontalPadding,
         bottomPadding,

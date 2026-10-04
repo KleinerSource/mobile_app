@@ -284,6 +284,23 @@ void main() {
     );
   });
 
+  testWidgets('返回触区向左出血，箭头左缘与无返回页标题对齐', (tester) async {
+    await tester.pumpWidget(
+      _app(const SettingsSubPageHeader(eyebrow: '设置', title: '偏好设置')),
+    );
+    final back = tester.getRect(find.byTooltip('返回'));
+    // 48x48 触区完整保留，整体向左挤进水平边距。
+    expect(back.size, const Size.square(48));
+    expect(back.left, PageHeader.horizontalPadding - PageHeader.leadingBleed);
+    // 可见箭头（24px 居中于触区）左缘落在统一左边距 22 上，
+    // 与不带返回按钮页面的标题左缘对齐。
+    expect(
+      tester.getRect(find.byIcon(Icons.arrow_back)).left,
+      PageHeader.horizontalPadding,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('详情滚动后导航标题和返回固定，返回只弹出一层', (tester) async {
     final arts = ValueNotifier<List<HeroArt>>(const []);
     final position = ValueNotifier(0.0);
