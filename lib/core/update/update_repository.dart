@@ -11,6 +11,7 @@ class UpdateSettingsRepository {
   static const githubRepositoryKey = 'app.update.github_repository';
   static const ignoredUpdateKey = 'app.update.ignored_update';
   static const includeDevelopmentKey = 'app.update.include_development';
+  static const lastChangelogVersionKey = 'app.update.last_changelog_version';
 
   final SharedPreferences _prefs;
 
@@ -66,6 +67,16 @@ class UpdateSettingsRepository {
     AppReleaseVersion version,
   ) {
     return '${repositoryUrl.trim()}|${platform.name}|${version.display}';
+  }
+
+  /// 上次展示过内嵌更新日志的构建版本；为空表示从未记录（全新安装）。
+  String? loadLastChangelogVersion() {
+    final value = _prefs.getString(lastChangelogVersionKey)?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  Future<void> saveLastChangelogVersion(String version) {
+    return _prefs.setString(lastChangelogVersionKey, version.trim());
   }
 }
 

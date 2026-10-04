@@ -22,6 +22,7 @@ import 'features/files/file_manager_shell.dart';
 import 'features/player/common/player_settings.dart';
 import 'features/player/common/player_launch_gate.dart';
 import 'features/player/audio/audio_playback_service.dart';
+import 'features/settings/app_changelog_startup_gate.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_selection_page.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -149,9 +150,17 @@ class OmmApp extends ConsumerWidget {
         onReady: () {
           ref.read(securityGateReadyProvider.notifier).state = true;
         },
-        child: StartupUpdateGate(
+        // 更新日志弹窗先于在线更新检查展示，两者通过 changelogGateReady 串行。
+        child: StartupChangelogGate(
           enabled: ref.watch(securityGateReadyProvider),
-          child: const _AppNavigator(),
+          onFinished: () {
+            ref.read(changelogGateReadyProvider.notifier).state = true;
+          },
+          child: StartupUpdateGate(
+            enabled: ref.watch(securityGateReadyProvider) &&
+                ref.watch(changelogGateReadyProvider),
+            child: const _AppNavigator(),
+          ),
         ),
       ),
     );

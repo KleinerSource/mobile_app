@@ -48,6 +48,22 @@ jobs:
           version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
 
+      # 在构建前把"本次构建包含以下更新"以 Dart 常量编译进产物，
+      # 应用在更新后首次启动时展示；内容由生成器净化，不含任何 GitHub 源信息。
+      - name: 生成内嵌更新日志
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            release_tag="latest-android-dev"
+          else
+            release_tag="latest-android"
+          fi
+          dart tool/generate_build_changelog.dart --version "${version}" --release-tag "${release_tag}"
+
       - name: 接受 Android SDK 许可证
         timeout-minutes: 3
         run: |

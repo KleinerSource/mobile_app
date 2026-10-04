@@ -164,6 +164,14 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
     if (pending != null && !pending.isCompleted) pending.complete();
   }
 
+  /// 任一筛选条件偏离默认值时高亮筛选按钮；排序不参与高亮。
+  bool get _filtersActive =>
+      _filter.category != '0' ||
+      _filter.basic.join(',') != dbOnlineFollowingDefaultBasic.join(',') ||
+      _filter.styles.isNotEmpty ||
+      _filter.year.isNotEmpty ||
+      _filter.month.isNotEmpty;
+
   Future<void> _filters(bool database) => showGlassSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -291,11 +299,19 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
               ),
             ),
           ),
-        HeaderActionButton(
-          icon: Icons.tune_rounded,
-          tooltip: l.dbOnlineFollowingFilters,
-          onPressed: query ? () => _filters(database) : null,
-        ),
+        if (query) ...[
+          const SizedBox(width: 4),
+          // 筛选按钮与影片库、榜单等其他页面的紧凑筛选样式一致。
+          Tooltip(
+            message: l.dbOnlineFollowingFilters,
+            child: CompactFilterButton(
+              label: '',
+              icon: Icons.tune_rounded,
+              active: _filtersActive,
+              onTap: () => unawaited(_filters(database)),
+            ),
+          ),
+        ],
         const SizedBox(width: 4),
         const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
       ],

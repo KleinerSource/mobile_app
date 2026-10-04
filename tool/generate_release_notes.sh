@@ -24,7 +24,8 @@ if [ -n "$last_success_sha" ] && \
     if [ -n "$commit_sha" ]; then
       commit_shas+=("$commit_sha")
     fi
-  done < <(git rev-list --reverse "${last_success_sha}..${current_sha}")
+  # --no-merges 与内嵌更新日志生成器保持一致：合并提交本身不进入说明。
+  done < <(git rev-list --reverse --no-merges "${last_success_sha}..${current_sha}")
 else
   # 没有可用的历史 Release 时只记录当前提交，避免把整个仓库历史写入说明。
   commit_shas=("$current_sha")

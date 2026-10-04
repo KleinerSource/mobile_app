@@ -11,9 +11,11 @@ const _testFiles = [
   'test/shared/paged_request_coordinator_test.dart',
   'test/shared/auto_preview_controller_test.dart',
   'test/features/security_test.dart',
+  'test/features/app_changelog_gate_test.dart',
   'test/features/player/common/player_queue_test.dart',
   'test/tool/version_policy_test.dart',
   'test/tool/prepare_native_test.dart',
+  'test/tool/generate_build_changelog_test.dart',
 ];
 
 Future<void> main() async {

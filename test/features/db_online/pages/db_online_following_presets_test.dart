@@ -4,6 +4,7 @@ import 'package:omm/features/db_online/pages/db_online_following_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_following_presets_sheet.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/shared/filter_chip.dart';
+import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/page_header.dart';
 
@@ -13,6 +14,13 @@ void main() {
   Finder presetText(String name) => find.descendant(
     of: find.byType(DbOnlineFollowingPresetsSheet),
     matching: find.text(name),
+  );
+
+  /// 预设工具栏按钮：排除页头 SettingsSubPageHeader 里的紧凑筛选 chip。
+  final presetBarButtons = find.byElementPredicate(
+    (element) =>
+        element.widget is CompactFilterButton &&
+        element.findAncestorWidgetOfExactType<SettingsSubPageHeader>() == null,
   );
 
   testWidgets('预设单行滚动，右侧添加和管理按钮固定并保留影片间距', (tester) async {
@@ -34,7 +42,7 @@ void main() {
     expect(backend.to('/subs/tags'), hasLength(1));
     expect(find.byType(DbOnlineFollowingPresetsSheet), findsNothing);
     final buttons = tester
-        .widgetList<CompactFilterButton>(find.byType(CompactFilterButton))
+        .widgetList<CompactFilterButton>(presetBarButtons)
         .toList();
     expect(buttons.map((button) => button.label), [
       for (var id = 1; id <= 7; id++) '关注列表$id较长名称',
@@ -62,7 +70,7 @@ void main() {
     // 工具栏与列表间距遵循统一节奏：aboveListGap + contentTopInset。
     expect(
       tester.getTopLeft(find.byType(DbOnlineMovieCard)).dy -
-          tester.getBottomLeft(find.byType(CompactFilterButton).first).dy,
+          tester.getBottomLeft(presetBarButtons.first).dy,
       greaterThanOrEqualTo(
         PageHeader.aboveListGap + MediaListLayout.contentTopInset,
       ),
@@ -89,7 +97,7 @@ void main() {
     expect(backend.to('/subs/tags').last.queryParameters['page'], 1);
     expect(
       tester
-          .widgetList<CompactFilterButton>(find.byType(CompactFilterButton))
+          .widgetList<CompactFilterButton>(presetBarButtons)
           .singleWhere((button) => button.active)
           .label,
       '关注列表7较长名称',
@@ -190,7 +198,7 @@ void main() {
     expect(backend.presets.single['styles'], '');
     expect(
       tester
-          .widgetList<CompactFilterButton>(find.byType(CompactFilterButton))
+          .widgetList<CompactFilterButton>(presetBarButtons)
           .singleWhere((button) => button.active)
           .label,
       '修改关注',
@@ -282,7 +290,7 @@ void main() {
     expect(find.byType(DbOnlineFollowingPresetsSheet), findsNothing);
     expect(
       tester
-          .widgetList<CompactFilterButton>(find.byType(CompactFilterButton))
+          .widgetList<CompactFilterButton>(presetBarButtons)
           .map((button) => button.label),
       ['预设二', '预设一', '预设三', '', ''],
     );

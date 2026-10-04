@@ -10,6 +10,7 @@ import 'package:omm/features/db_online/widgets/db_online_following_widgets.dart'
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/header_action_button.dart';
+import 'package:omm/shared/filter_chip.dart';
 
 import '../support/following_test_support.dart';
 
@@ -54,15 +55,15 @@ void _checkHeader(
 }
 
 void main() {
-  testWidgets('关注页筛选在在线查询不可用时仍复用圆形样式且禁止操作', (tester) async {
+  testWidgets('关注页筛选在在线查询不可用时不显示筛选入口', (tester) async {
     final backend = FollowingTestBackend()..onlineQuery = false;
     await pumpFollowingTest(tester, backend, const DbOnlineFollowingPage());
     _checkHeader(tester, '关注列表', eyebrow: '我的');
-    final action = find.widgetWithIcon(HeaderActionButton, Icons.tune_rounded);
-    final filter = find.descendant(of: action, matching: find.byType(InkWell));
-    expect(filter, findsOneWidget);
-    expect(tester.widget<InkWell>(filter).onTap, isNull);
-    await tester.tap(action);
+    expect(find.byTooltip('筛选'), findsNothing);
+    expect(
+      find.widgetWithIcon(CompactFilterButton, Icons.tune_rounded),
+      findsNothing,
+    );
     await pumpFollowingFrames(tester);
     expect(find.byType(BottomSheet), findsNothing);
     expect(backend.to('/subs/tags'), isEmpty);
