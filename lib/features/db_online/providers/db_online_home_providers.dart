@@ -319,19 +319,25 @@ class DbOnlineMovieDetailRequest {
   const DbOnlineMovieDetailRequest({
     required this.serverId,
     required this.value,
+    this.videoId,
   });
 
   final String serverId;
   final String value;
 
+  /// 番号查询的消歧 video_id；同一归一化番号在数据库中可能对应多条
+  /// 影片，不携带时服务端按番号任取一条，导致详情与列表条目不一致。
+  final String? videoId;
+
   @override
   bool operator ==(Object other) =>
       other is DbOnlineMovieDetailRequest &&
       other.serverId == serverId &&
-      other.value == value;
+      other.value == value &&
+      other.videoId == videoId;
 
   @override
-  int get hashCode => Object.hash(serverId, value);
+  int get hashCode => Object.hash(serverId, value, videoId);
 }
 
 final dbOnlineMovieDetailProvider = StreamProvider.autoDispose
@@ -343,6 +349,7 @@ final dbOnlineMovieDetailProvider = StreamProvider.autoDispose
       final repository = ref.watch(dboMediaRepositoryProvider);
       final movie = await repository.getMovieByCode(
         request.value,
+        videoId: request.videoId,
         refresh: false,
       );
       yield movie;
@@ -351,7 +358,7 @@ final dbOnlineMovieDetailProvider = StreamProvider.autoDispose
       try {
         yield await repository.getMovieByCode(
           movie.code.trim().isNotEmpty ? movie.code : request.value,
-          videoId: movie.videoId,
+          videoId: movie.videoId ?? request.videoId,
           refresh: true,
         );
       } catch (_) {

@@ -2179,9 +2179,14 @@ void _openSubscriptionMovieDetail(
 
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      builder: (_) => videoId.isNotEmpty
-          ? DbOnlineMovieDetailPage.byVideoId(videoId: videoId)
-          : DbOnlineMovieDetailPage(code: code),
+      // code 与 video_id 同传：服务端优先按 video_id 精确查询，失败时
+      // 回退番号，避免同番号多条影片时详情与条目不一致。
+      builder: (_) => code.isNotEmpty
+          ? DbOnlineMovieDetailPage(
+              code: code,
+              videoId: videoId.isNotEmpty && videoId != code ? videoId : null,
+            )
+          : DbOnlineMovieDetailPage.byVideoId(videoId: videoId),
     ),
   );
 }

@@ -31,6 +31,8 @@ import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
+import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart'
+    show copyDbOnlineMovieLink, dbOnlineMovieWebUrl;
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
@@ -63,15 +65,17 @@ String? _personExternalId(DbOnlinePerson person) {
 }
 
 class DbOnlineMovieDetailPage extends ConsumerWidget {
-  const DbOnlineMovieDetailPage({super.key, required this.code})
-    : videoId = null,
-      assert(code != null);
+  const DbOnlineMovieDetailPage({super.key, required this.code, this.videoId})
+    : assert(code != null);
 
   const DbOnlineMovieDetailPage.byVideoId({super.key, required this.videoId})
     : code = null,
       assert(videoId != null);
 
   final String? code;
+
+  /// 番号消歧用的 video_id。同一番号可能对应数据库中的多条影片，
+  /// 携带时服务端优先按 video_id 精确查询，避免详情与入口不一致。
   final String? videoId;
 
   @override
@@ -83,6 +87,7 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
               DbOnlineMovieDetailRequest(
                 serverId: config?.activeServerId ?? '',
                 value: code!.trim(),
+                videoId: videoId?.trim(),
               ),
             ),
           )
@@ -114,6 +119,7 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
                     DbOnlineMovieDetailRequest(
                       serverId: config?.activeServerId ?? '',
                       value: code!.trim(),
+                      videoId: videoId?.trim(),
                     ),
                   ),
                 );
@@ -275,7 +281,7 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             : Wrap(spacing: 6, runSpacing: 6, children: heroBadges),
       ),
       actions: [
-        _DbOnlineDetailMoreButton(movie: movie),
+        _DbOnlineDetailMoreButton(movie: movie, config: config),
         const SizedBox(width: 6),
       ],
       slivers: [
@@ -504,19 +510,37 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
 }
 
 class _DbOnlineDetailMoreButton extends StatelessWidget {
-  const _DbOnlineDetailMoreButton({required this.movie});
+  const _DbOnlineDetailMoreButton({required this.movie, this.config});
 
   final DbOnlineMovieDetail movie;
+  final ServerConfig? config;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    // 网页端路由以番号为路径，video_id 仅作消歧查询；番号缺失时无法
+    // 构造分享地址，隐藏分享入口。
+    final shareUrl = dbOnlineMovieWebUrl(
+      config,
+      code: movie.code,
+      videoId: movie.videoId,
+    );
     return HeaderMenuButton<String>(
       icon: Icons.more_horiz,
       tooltip: l.more,
       menuWidth: 244,
       style: HeaderActionStyle.overlay,
       entries: [
+        if (shareUrl != null)
+          GlassMenuEntry<String>.action(
+            value: 'share',
+            builder: (context, selected, onTap) => GlassMenuRow(
+              icon: Icons.ios_share_rounded,
+              label: l.dbOnlineShareLink,
+              selected: selected,
+              onTap: onTap,
+            ),
+          ),
         GlassMenuEntry<String>.action(
           value: 'resources',
           builder: (context, selected, onTap) => GlassMenuRow(
@@ -538,7 +562,16 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
           ),
       ],
       onSelected: (value) {
-        if (value == 'resources') {
+        if (value == 'share') {
+          unawaited(
+            copyDbOnlineMovieLink(
+              context,
+              config: config,
+              code: movie.code,
+              videoId: movie.videoId,
+            ),
+          );
+        } else if (value == 'resources') {
           unawaited(DbOnlineResourcesSheet.show(context, movie));
         } else if (value == 'subtitles') {
           unawaited(DbOnlineSubtitleSheet.show(context, movie.code));
@@ -634,6 +667,8 @@ class _RelatedMovieSection extends StatelessWidget {
           itemBuilder: (context, index) {
             final movie = movies[index];
             final score = double.tryParse(movie.score ?? '');
+            // 关联影片的 id 是 video_id，与番号同传用于服务端消歧。
+            final relatedVideoId = movie.id?.trim() ?? '';
             return DbOnlineMovieCard(
               width: 112,
               movie: DbOnlineMovie(
@@ -651,14 +686,20 @@ class _RelatedMovieSection extends StatelessWidget {
               codeOnly: true,
               onTap:
                   movie.number.trim().isEmpty &&
-                      movie.id?.trim().isNotEmpty != true
+                      relatedVideoId.isEmpty
                   ? null
                   : () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => movie.number.trim().isNotEmpty
-                            ? DbOnlineMovieDetailPage(code: movie.number)
+                            ? DbOnlineMovieDetailPage(
+                                code: movie.number,
+                                videoId: relatedVideoId.isNotEmpty &&
+                                        relatedVideoId != movie.number.trim()
+                                    ? relatedVideoId
+                                    : null,
+                              )
                             : DbOnlineMovieDetailPage.byVideoId(
-                                videoId: movie.id!,
+                                videoId: relatedVideoId,
                               ),
                       ),
                     ),

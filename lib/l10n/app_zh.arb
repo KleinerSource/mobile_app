@@ -2893,4 +2893,8 @@
   ,"searchHistoryClear": "清空"
   ,"searchHistoryClearConfirm": "确认清空？"
   ,"dbOnlineSortRelevance": "相关度"
+
+  ,"dbOnlineShareLink": "分享链接"
+  ,"dbOnlineLinkCopied": "链接已复制：{url}"
+  ,"@dbOnlineLinkCopied": { "placeholders": { "url": { "type": "String" } } }
 }

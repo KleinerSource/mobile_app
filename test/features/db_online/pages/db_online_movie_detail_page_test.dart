@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/header_action_button.dart';
@@ -114,6 +115,144 @@ void main() {
     await tester.pumpAndSettle();
     return requestPaths;
   }
+
+  /// 记录完整请求地址（含 query），用于校验番号与 video_id 的消歧参数。
+  Future<List<Uri>> pumpDetailUris(
+    WidgetTester tester, {
+    String? videoId,
+    Map<String, dynamic> Function()? detailData,
+  }) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final requestUris = <Uri>[];
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requestUris.add(options.uri);
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'source': 'database',
+                'data': detailData != null
+                    ? detailData()
+                    : {
+                        'code': 'ABC-001',
+                        'title': '消歧测试影片',
+                        'magnets': [],
+                        'ed2ks': [],
+                      },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        key: UniqueKey(),
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(preferences),
+          mediaRuntimeConfigProvider.overrideWithValue(config),
+          dboMediaRepositoryProvider.overrideWithValue(
+            DboMediaRepository(DboMediaSourceAdapter(DbOnlineApi(dio))),
+          ),
+          dbOnlineSubscriptionCapabilitiesProvider.overrideWith(
+            (ref, serverId) async => const DbOnlineSubscriptionCapabilities(
+              database: false,
+              onlineAccount: false,
+              onlineQuery: false,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: DbOnlineMovieDetailPage(code: 'ABC-001', videoId: videoId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return requestUris;
+  }
+
+  testWidgets('详情请求携带 video_id 消歧参数', (tester) async {
+    final uris = await pumpDetailUris(tester, videoId: 'v-42');
+
+    final detailRequests = uris
+        .where((uri) => uri.path == '/api/video/ABC-001')
+        .toList();
+    expect(detailRequests, isNotEmpty);
+    expect(
+      detailRequests.first.queryParameters['video_id'],
+      'v-42',
+      reason: '列表进入详情必须携带条目的 video_id，避免同番号多条影片时'
+          '服务端按番号任取一条导致详情对不上',
+    );
+  });
+
+  testWidgets('详情更多菜单分享链接复制网页端地址', (tester) async {
+    var clipboardText = '';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardText = (call.arguments as Map)['text'] as String;
+        } else if (call.method == 'Clipboard.getData') {
+          return {'text': clipboardText};
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await pumpDetailUris(tester, videoId: 'v-42', detailData: () {
+      return {
+        'code': 'ABC-001',
+        'video_id': 'v-9',
+        'title': '分享测试影片',
+        'magnets': [],
+        'ed2ks': [],
+      };
+    });
+
+    final menu = find.byType(HeaderMenuButton<String>);
+    await tester.tapAt(tester.getRect(menu).topLeft + const Offset(2, 2));
+    await tester.pumpAndSettle();
+    expect(find.text('分享链接'), findsOneWidget);
+    await tester.tap(find.text('分享链接'));
+    await tester.pumpAndSettle();
+
+    final data = await Clipboard.getData('text/plain');
+    expect(data?.text, 'https://example.test/video/ABC-001?video_id=v-9');
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.textContaining('链接已复制'), findsOneWidget);
+  });
+
+  testWidgets('详情更多菜单分享项在番号缺失时隐藏', (tester) async {
+    await pumpDetailUris(tester, detailData: () {
+      return {
+        'code': '',
+        'video_id': 'v-only',
+        'title': '无番号影片',
+        'magnets': [],
+        'ed2ks': [],
+      };
+    });
+
+    final menu = find.byType(HeaderMenuButton<String>);
+    await tester.tapAt(tester.getRect(menu).topLeft + const Offset(2, 2));
+    await tester.pumpAndSettle();
+    expect(find.text('分享链接'), findsNothing);
+  });
 
   testWidgets('详情更多沿用封面悬浮栏风格并保留资源与字幕菜单', (tester) async {
     await pumpDetail(tester, hasCnsub: true);
