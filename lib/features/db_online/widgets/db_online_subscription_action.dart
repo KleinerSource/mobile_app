@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
@@ -262,7 +263,14 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           ? await _loadSubscription(repository.api, query)
           : <String, dynamic>{};
       if (!context.mounted || !_isCurrent(context, ref, query)) return;
+      // 新建时以服务器预设预填下载参数（与网页端创建弹窗一致），
+      // 预设垫底、身份字段覆盖；编辑则完全沿用已有订阅数据。
+      final presetDefaults = editing
+          ? const <String, dynamic>{}
+          : await _loadCreatePreset(repository.api);
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
       final details = <String, dynamic>{
+        ...presetDefaults,
         ...existing,
         ...initial,
         switch (kind) {
@@ -385,6 +393,40 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       }
     }
     return <String, dynamic>{};
+  }
+
+  /// 新建订阅时按服务器预设（`GET /subs/preset`）预填下载参数，字段集合
+  /// 与网页端 `applyLocalPresetToCreateForm` 一致；预设未启用或拉取失败
+  /// 时返回空表沿用默认值。不回填 enabled/active，避免预设停用状态
+  /// 影响新订阅的启用开关；after_date 仅影片订阅回填。
+  Future<Map<String, dynamic>> _loadCreatePreset(
+    DbOnlineSubscriptionApi api,
+  ) async {
+    try {
+      final root = _dataMap(await api.getSubscriptionPreset());
+      final preset = _dataMap(root['preset']);
+      if (preset['enabled'] != true) return const <String, dynamic>{};
+      final overdue = (int.tryParse(
+            preset['overdue_days']?.toString() ?? '',
+          ) ?? 0)
+          .clamp(0, 180)
+          .toInt();
+      final afterDate = preset['after_date']?.toString().trim() ?? '';
+      return <String, dynamic>{
+        'quality': preset['quality']?.toString() ?? '',
+        'require_sub': preset['require_sub'] == true,
+        'require_uncensored': preset['require_uncensored'] == true,
+        'pre_download_mode': preset['pre_download_mode'] == true,
+        'wash_mode': preset['wash_mode'] == true,
+        'min_size_mb': preset['min_size_mb'] ?? 0,
+        'max_size_mb': preset['max_size_mb'] ?? 0,
+        'max_file_count': preset['max_file_count'] ?? 0,
+        'overdue_days': overdue,
+        if (kind == 'video' && afterDate.isNotEmpty) 'after_date': afterDate,
+      };
+    } catch (_) {
+      return const <String, dynamic>{};
+    }
   }
 
   Future<void> _deleteSubscription(
