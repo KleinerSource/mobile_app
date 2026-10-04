@@ -267,15 +267,10 @@ void main() {
     await pumpFollowingFrames(tester);
     await tester.tap(find.byTooltip('添加订阅'));
     await pumpFollowingFrames(tester);
-    final identities = tester
-        .widgetList<TextField>(find.byType(TextField))
-        .where(
-          (field) =>
-              field.controller?.text == '1,2' ||
-              field.controller?.text == '风格一, 风格二',
-        );
-    expect(identities, hasLength(2));
-    expect(identities.every((field) => field.readOnly), isTrue);
+    // 实体预览替代编号/名称只读字段：风格订阅显示 follow 图标与名称，编号不再展示。
+    expect(find.byIcon(Icons.person_search_outlined), findsOneWidget);
+    expect(find.text('风格一, 风格二'), findsOneWidget);
+    expect(find.text('1,2'), findsNothing);
     final beforeCreate = subscriptionReloads;
     await tester.ensureVisible(find.text('保存').last);
     await tester.tap(find.text('保存').last);

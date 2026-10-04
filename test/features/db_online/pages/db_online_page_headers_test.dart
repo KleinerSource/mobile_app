@@ -118,7 +118,12 @@ void main() {
   ];
 
   for (final (page, title, path, data) in pages) {
-    final eyebrow = page is DbOnlineFollowingPage ? '我的' : 'DB ONLINE';
+    // 评论资源页从关注用户进入时眉标显示来源（关注用户），最新模式仍为 DB ONLINE。
+    final eyebrow = switch (page) {
+      DbOnlineFollowingPage() => '我的',
+      DbOnlineReviewResourcesPage(latest: false) => '关注用户',
+      _ => 'DB ONLINE',
+    };
     testWidgets('$title 加载、失败、重试和成功保留双抬头，返回仅退出当前页', (tester) async {
       final pending = Completer<Object?>();
       var retried = false;
