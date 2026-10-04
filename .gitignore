@@ -50,3 +50,4 @@ release.keystore
 /test-results/
 /coverage/
 /test/**/failures/
+.zcodeignore
