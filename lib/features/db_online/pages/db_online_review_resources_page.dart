@@ -417,6 +417,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
       dbOnlineSubscriptionCapabilitiesProvider(widget.serverId),
     );
     return DbOnlineFollowingLayout(
+      eyebrow: widget.latest ? 'DB ONLINE' : l.dbOnlineFollowingUsers,
       title: widget.latest
           ? l.dbOnlineFollowingLatestReviews
           : _resolvedUsername.isEmpty

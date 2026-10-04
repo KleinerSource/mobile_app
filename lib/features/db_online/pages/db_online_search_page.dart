@@ -574,6 +574,7 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
                       kind: 'actor',
                       id: actor.id,
                       title: actor.name,
+                      eyebrow: AppL10n.of(context).searchModeActorSearch,
                     ),
                   );
                 }, childCount: value.actors.length),
@@ -685,6 +686,7 @@ class _DbOnlineEntitySearchResultsState
                     kind: type.apiType,
                     id: item.id,
                     title: item.name,
+                    eyebrow: type.label(AppL10n.of(context)),
                   ),
                 ),
               ),
@@ -800,12 +802,17 @@ void _openEntityMovies(
   required String kind,
   required String id,
   required String title,
+  required String eyebrow,
 }) {
   unawaited(
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            DbOnlineEntityMoviesPage(kind: kind, id: id, title: title),
+        builder: (_) => DbOnlineEntityMoviesPage(
+          kind: kind,
+          id: id,
+          title: title,
+          eyebrow: eyebrow,
+        ),
       ),
     ),
   );

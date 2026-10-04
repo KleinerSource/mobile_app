@@ -33,17 +33,20 @@ import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 ///
 /// 与网页端 `/actor/:id/movies?type=...` 一致，按发布时间倒序分页；
 /// [kind] 使用服务端实体类型（actor/series/maker/director/list）。
+/// 页头小字 [eyebrow] 由入口传入：搜索入口传搜索类型名，其余入口默认 DB ONLINE。
 class DbOnlineEntityMoviesPage extends ConsumerStatefulWidget {
   const DbOnlineEntityMoviesPage({
     super.key,
     required this.kind,
     required this.id,
     required this.title,
+    this.eyebrow = 'DB ONLINE',
   });
 
   final String kind;
   final String id;
   final String title;
+  final String eyebrow;
 
   @override
   ConsumerState<DbOnlineEntityMoviesPage> createState() =>
@@ -273,7 +276,7 @@ class _DbOnlineEntityMoviesPageState
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
-              eyebrow: 'DB ONLINE',
+              eyebrow: widget.eyebrow,
               bottomPadding: PageHeader.aboveListGap,
               title: widget.title,
               trailing: Row(
