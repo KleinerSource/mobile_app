@@ -167,13 +167,20 @@ class _DbOnlineSubscriptionEditorState
                 ),
               ],
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _save,
-                child: Text(l.dbOnlineSubscriptionSave),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l.dbOnlineSubscriptionCancel),
+              SheetActionBar.buttons(
+                padding: EdgeInsets.zero,
+                buttons: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: sheetSecondaryButtonStyle(context),
+                    child: Text(l.dbOnlineSubscriptionCancel),
+                  ),
+                  FilledButton(
+                    onPressed: _save,
+                    style: sheetPrimaryButtonStyle(context),
+                    child: Text(l.dbOnlineSubscriptionSave),
+                  ),
+                ],
               ),
             ],
           ),
