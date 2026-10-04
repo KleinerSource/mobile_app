@@ -65,10 +65,13 @@ Future<void> pickFilters(WidgetTester tester, List<String> labels) async {
   await pumpFollowingFrames(tester);
 }
 
+// 排序并入统一筛选弹层：打开筛选后点排序 chip，已选字段点击切换方向。
 Future<void> pickSort(WidgetTester tester, String label) async {
-  await tester.tap(find.byTooltip('排序'));
+  await tester.tap(find.byTooltip('筛选'));
   await pumpFollowingFrames(tester);
   await tester.tap(find.text(label));
+  await pumpFollowingFrames(tester);
+  Navigator.of(tester.element(find.text('排序'))).pop();
   await pumpFollowingFrames(tester);
 }
 
@@ -152,7 +155,6 @@ void main() {
     expect(first.top, third.top);
     expect(third.left, greaterThan(first.right));
     expect(find.byType(HeaderActionButton), findsOneWidget);
-    expect(find.byTooltip('排序'), findsOneWidget);
     expect(find.byTooltip('筛选'), findsOneWidget);
     expect(sockets.urls.single.toString(), 'wss://a.test/ws/scheduler/status');
     expect(tester.takeException(), isNull);
@@ -163,7 +165,8 @@ void main() {
     await pumpWatchedTest(tester, backend);
     await pickFilters(tester, ['无码', '5 星']);
     expect(find.text('类型'), findsNothing);
-    await pickSort(tester, '降序');
+    // 已选中的排序字段（添加时间）点击后切换方向：desc → asc。
+    await pickSort(tester, '添加时间');
     expect(backend.to('/subs/watched').last.queryParameters, {
       'type': '1',
       'star': '5',

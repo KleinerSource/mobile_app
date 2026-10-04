@@ -313,10 +313,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
 
-    // 一键清空后回到空态提示。
+    // 一键清空需二次确认：第一次进入确认态，第二次真正清空后回到空态提示。
     await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
     await tester.tap(find.text('清空'));
+    await tester.pumpAndSettle();
+    expect(find.text('确认清空？'), findsOneWidget);
+    await tester.tap(find.text('确认清空？'));
     await tester.pumpAndSettle();
     expect(find.text('搜索历史'), findsNothing);
     expect(find.text('关键词A'), findsNothing);

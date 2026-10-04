@@ -156,25 +156,31 @@ void main() {
     Navigator.of(tester.element(find.text('资源类型').first)).pop();
     await tester.pumpAndSettle();
 
+    // 排序并入统一筛选弹层：点击未选字段以升序选中，点击已选字段切换方向。
+    await tester.tap(find.byIcon(Icons.tune_rounded).first);
+    await tester.pumpAndSettle();
     const sorts = [('发布日期', 'date'), ('更新时间', 'updated'), ('入库时间', 'created')];
     for (final (label, value) in sorts) {
-      await tester.tap(find.byIcon(Icons.sort_rounded));
+      await tester.ensureVisible(find.text(label).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(label));
+      await tester.tap(find.text(label).first);
       await tester.pumpAndSettle();
       expect(requests.last['sort'], value);
-      expect(requests.last['order'], 'desc');
+      expect(requests.last['order'], 'asc');
       expect(requests.last['filter'], 'l');
       expect(requests.last['user_score'], '-1');
       expect(requests.last['min_score'], '1');
     }
 
-    await tester.tap(find.byIcon(Icons.sort_rounded));
+    // 再次点击已选中的「入库时间」切换为降序。
+    await tester.ensureVisible(find.text('入库时间').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('降序'));
+    await tester.tap(find.text('入库时间').first);
     await tester.pumpAndSettle();
     expect(requests.last['sort'], 'created');
-    expect(requests.last['order'], 'asc');
+    expect(requests.last['order'], 'desc');
+    Navigator.of(tester.element(find.text('排序').first)).pop();
+    await tester.pumpAndSettle();
     expect(requestPaths, everyElement('/videos'));
 
     for (final icon in [
