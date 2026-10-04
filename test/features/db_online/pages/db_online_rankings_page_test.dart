@@ -86,7 +86,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(requests, contains('/api/top250'));
-    expect(find.text('一键订阅'), findsOneWidget);
+    // 筛选与一键订阅已移至页头右上角的圆形按钮，通过 tooltip 定位。
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byTooltip('一键订阅'), findsOneWidget);
+    expect(find.byTooltip('排行榜自动订阅'), findsOneWidget);
     expect(find.text('榜单影片'), findsOneWidget);
   });
 

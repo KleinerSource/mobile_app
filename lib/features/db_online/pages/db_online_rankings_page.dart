@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/providers.dart';
-import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_ranking.dart';
@@ -19,16 +18,18 @@ import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
+import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/providers/db_online_ranking_providers.dart';
+import 'package:omm/features/db_online/widgets/db_online_entity_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
-import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 
 /// dbonline 排行榜页：Top250、日/周/月榜与演员榜。
 ///
@@ -44,6 +45,9 @@ class DbOnlineRankingsPage extends ConsumerStatefulWidget {
 
 enum _Board { top250, daily, weekly, monthly, actors }
 
+/// 排行榜影片榜单（Top250 与日/周/月榜）共用的视图模式偏好键。
+const _viewModeKey = 'db_online.rankings.view_mode.v1';
+
 class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
   _Board _board = _Board.daily;
   int _contentType = 0;
@@ -53,6 +57,9 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
   int _startRank = 1;
   bool _ignoreWatched = false;
 
+  bool get _top250HasFilter =>
+      _top250Value.isNotEmpty || _startRank != 1 || _ignoreWatched;
+
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
@@ -60,6 +67,9 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
     final board = _board == _Board.top250 && !top250Available
         ? _Board.daily
         : _board;
+    // 演员榜固定纵向卡片网格，不提供视图切换。
+    final showsViewModeToggle = board != _Board.actors;
+    final viewMode = ref.watch(mediaViewModePreferenceProvider(_viewModeKey));
 
     return GlowBackground(
       child: SafeArea(
@@ -73,10 +83,37 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                 l.dbOnlineRankingsTitle,
                 style: AppText.pageTitle(context),
               ),
-              trailing: HeaderActionButton(
-                icon: Icons.autorenew_rounded,
-                tooltip: l.dbOnlineRankingAutoTitle,
-                onPressed: () => unawaited(_openAutoConfig()),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showsViewModeToggle) ...[
+                    const MediaViewModePreferenceToggle(
+                      preferenceKey: _viewModeKey,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (board == _Board.top250) ...[
+                    HeaderActionButton(
+                      icon: Icons.tune_rounded,
+                      tooltip: l.dbOnlineLibraryFilters,
+                      color: _top250HasFilter ? appColors(context).accent : null,
+                      onPressed: () => unawaited(_showTop250FilterSheet()),
+                    ),
+                    const SizedBox(width: 4),
+                    HeaderActionButton(
+                      icon: Icons.favorite_outline_rounded,
+                      tooltip: l.dbOnlineRankingSubscribeAll,
+                      color: appColors(context).accent,
+                      onPressed: () => unawaited(_confirmSubscribeAll()),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  HeaderActionButton(
+                    icon: Icons.notifications_none_rounded,
+                    tooltip: l.dbOnlineRankingAutoTitle,
+                    onPressed: () => unawaited(_openAutoConfig()),
+                  ),
+                ],
               ),
             ),
             _ChipRow(
@@ -114,8 +151,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                   typeValue: _top250Value,
                   startRank: _startRank,
                   ignoreWatched: _ignoreWatched,
-                  onOpenFilter: () => unawaited(_showTop250FilterSheet()),
-                  onSubscribeAll: () => unawaited(_confirmSubscribeAll()),
+                  viewMode: viewMode,
                 ),
                 _Board.actors => _ActorRankingBoard(
                   key: ValueKey('actors:$_contentType'),
@@ -127,6 +163,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                   key: ValueKey('${board.name}:$_contentType'),
                   period: board.name,
                   type: _contentType,
+                  viewMode: viewMode,
                 ),
               },
             ),
@@ -338,7 +375,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SheetHeader(
-                    icon: Icons.autorenew_rounded,
+                    icon: Icons.notifications_none_rounded,
                     title: l.dbOnlineRankingAutoTitle,
                     padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
                   ),
@@ -511,10 +548,17 @@ class _RankBadge extends StatelessWidget {
 
 /// 带名次徽章的影片卡片。
 class _RankedMovieCard extends ConsumerWidget {
-  const _RankedMovieCard({required this.rank, required this.movie});
+  const _RankedMovieCard({
+    required this.rank,
+    required this.movie,
+    this.landscape = false,
+    this.compact = false,
+  });
 
   final int rank;
   final DbOnlineMovie movie;
+  final bool landscape;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -525,12 +569,17 @@ class _RankedMovieCard extends ConsumerWidget {
           movie: movie,
           config: ref.watch(mediaRuntimeConfigProvider),
           width: double.infinity,
+          landscape: landscape,
+          compact: compact,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         ),
         Positioned(left: 6, top: 6, child: _RankBadge(rank: rank)),
       ],
     );
   }
+
+  /// 横版行的统一行距包装；竖版网格与紧凑列表不需要。
+  Widget wrapped() => landscape ? MediaLandscapeListItem(child: this) : this;
 }
 
 /// 日/周/月榜：一次性加载全量。
@@ -539,10 +588,12 @@ class _MovieRankingBoard extends ConsumerWidget {
     super.key,
     required this.period,
     required this.type,
+    required this.viewMode,
   });
 
   final String period;
   final int type;
+  final MediaViewMode viewMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -569,14 +620,26 @@ class _MovieRankingBoard extends ConsumerWidget {
           slivers: [
             SliverPadding(
               padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
-              sliver: SliverGrid(
-                gridDelegate: const MediaGridDelegate(),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) =>
-                      _RankedMovieCard(rank: index + 1, movie: page.movies[index]),
-                  childCount: page.movies.length,
-                ),
-              ),
+              sliver: viewMode == MediaViewMode.portrait
+                  ? SliverGrid(
+                      gridDelegate: const MediaGridDelegate(),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => _RankedMovieCard(
+                          rank: index + 1,
+                          movie: page.movies[index],
+                        ),
+                        childCount: page.movies.length,
+                      ),
+                    )
+                  : SliverList.builder(
+                      itemCount: page.movies.length,
+                      itemBuilder: (context, index) => _RankedMovieCard(
+                        rank: index + 1,
+                        movie: page.movies[index],
+                        landscape: viewMode == MediaViewMode.landscape,
+                        compact: viewMode == MediaViewMode.list,
+                      ).wrapped(),
+                    ),
             ),
           ],
         );
@@ -585,22 +648,20 @@ class _MovieRankingBoard extends ConsumerWidget {
   }
 }
 
-/// Top250 榜：分页加载 + 筛选与一键订阅入口。
+/// Top250 榜：分页加载；筛选与一键订阅入口在页头右上角。
 class _Top250Board extends ConsumerStatefulWidget {
   const _Top250Board({
     super.key,
     required this.typeValue,
     required this.startRank,
     required this.ignoreWatched,
-    required this.onOpenFilter,
-    required this.onSubscribeAll,
+    required this.viewMode,
   });
 
   final String typeValue;
   final int startRank;
   final bool ignoreWatched;
-  final VoidCallback onOpenFilter;
-  final VoidCallback onSubscribeAll;
+  final MediaViewMode viewMode;
 
   @override
   ConsumerState<_Top250Board> createState() => _Top250BoardState();
@@ -678,64 +739,48 @@ class _Top250BoardState extends ConsumerState<_Top250Board> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final hasFilter = widget.typeValue.isNotEmpty ||
-        widget.startRank != 1 ||
-        widget.ignoreWatched;
 
     return CustomScrollView(
       primary: false,
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-            child: Row(
-              children: [
-                CompactFilterButton(
-                  label: l.dbOnlineLibraryFilters,
-                  icon: Icons.tune_rounded,
-                  active: hasFilter,
-                  onTap: widget.onOpenFilter,
-                ),
-                const SizedBox(width: 7),
-                CompactFilterButton(
-                  label: l.dbOnlineRankingSubscribeAll,
-                  icon: Icons.favorite_outline_rounded,
-                  active: false,
-                  onTap: widget.onSubscribeAll,
-                ),
-              ],
-            ),
-          ),
-        ),
         SliverPadding(
-          padding: MediaListLayout.padding.copyWith(top: 0, bottom: 120),
-          sliver: PagedSliverGrid<int, DbOnlineMovie>(
-            pagingController: _pagingController,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: const MediaGridDelegate(),
-            builderDelegate: PagedChildBuilderDelegate<DbOnlineMovie>(
-              itemBuilder: (context, movie, index) => _RankedMovieCard(
-                rank: movie.ranking ?? widget.startRank + index,
-                movie: movie,
-              ),
-              firstPageProgressIndicatorBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-              firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message: _pagingController.error?.toString() ?? l.loadFailed,
-                onRetry: _pagingController.refresh,
-              ),
-              newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                onRetry: _pagingController.retryLastFailedRequest,
-              ),
-              noItemsFoundIndicatorBuilder: (_) =>
-                  EmptyView(message: l.dbOnlineNoData),
-              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-            ),
-          ),
+          padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
+          sliver: widget.viewMode == MediaViewMode.portrait
+              ? PagedSliverGrid<int, DbOnlineMovie>(
+                  pagingController: _pagingController,
+                  showNoMoreItemsIndicatorAsGridChild: false,
+                  gridDelegate: const MediaGridDelegate(),
+                  builderDelegate: _pagedDelegate(l),
+                )
+              : PagedSliverList<int, DbOnlineMovie>(
+                  pagingController: _pagingController,
+                  builderDelegate: _pagedDelegate(l),
+                ),
         ),
       ],
     );
   }
+
+  PagedChildBuilderDelegate<DbOnlineMovie> _pagedDelegate(AppL10n l) =>
+      PagedChildBuilderDelegate<DbOnlineMovie>(
+        itemBuilder: (context, movie, index) => _RankedMovieCard(
+          rank: movie.ranking ?? widget.startRank + index,
+          movie: movie,
+          landscape: widget.viewMode == MediaViewMode.landscape,
+          compact: widget.viewMode == MediaViewMode.list,
+        ).wrapped(),
+        firstPageProgressIndicatorBuilder: (_) =>
+            const Center(child: CircularProgressIndicator()),
+        firstPageErrorIndicatorBuilder: (_) => ErrorView(
+          message: _pagingController.error?.toString() ?? l.loadFailed,
+          onRetry: _pagingController.refresh,
+        ),
+        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+          onRetry: _pagingController.retryLastFailedRequest,
+        ),
+        noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.dbOnlineNoData),
+        noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+      );
 }
 
 /// 演员榜：一次性加载全量。
@@ -766,9 +811,10 @@ class _ActorRankingBoard extends ConsumerWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
               sliver: SliverGrid(
+                // 与演员搜索结果一致的三列纵向卡片网格。
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.9,
+                  crossAxisCount: 3,
+                  childAspectRatio: 0.62,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                 ),
@@ -788,100 +834,35 @@ class _ActorRankingBoard extends ConsumerWidget {
   }
 }
 
-class _ActorRankingCard extends ConsumerWidget {
+class _ActorRankingCard extends StatelessWidget {
   const _ActorRankingCard({required this.actor, required this.rank});
 
   final DbOnlineRankingActor actor;
   final int rank;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = appColors(context);
+  Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final config = ref.watch(mediaRuntimeConfigProvider);
-    final avatarUrl = actor.avatarUrl;
-    return Material(
-      color: colors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.accent.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: avatarUrl == null || config == null
-                        ? Icon(
-                            Icons.person_outline_rounded,
-                            size: 22,
-                            color: colors.accent,
-                          )
-                        : ClipOval(
-                            child: Image.network(
-                              resolveServerUrl(config, avatarUrl),
-                              width: 22,
-                              height: 22,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Icon(
-                                Icons.person_outline_rounded,
-                                size: 22,
-                                color: colors.accent,
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
-                Positioned(left: -6, top: -6, child: _RankBadge(rank: rank)),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    actor.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  if (actor.otherName?.isNotEmpty == true ||
-                      actor.nameZht?.isNotEmpty == true) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      actor.otherName ?? actor.nameZht ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.meta(context),
-                    ),
-                  ],
-                  const SizedBox(height: 3),
-                  Text(
-                    actor.uncensored
-                        ? l.dbOnlineCategoryUncensored
-                        : l.dbOnlineCategoryCensored,
-                    style: AppText.meta(context),
-                  ),
-                ],
-              ),
-            ),
-            DbOnlineSubscriptionAction(
+    return DbOnlineEntityCard(
+      id: actor.id,
+      name: actor.name,
+      label: l.searchModeActorSearch,
+      icon: Icons.person_outline_rounded,
+      imageUrl: actor.avatarUrl,
+      uncensored: actor.uncensored,
+      metaText: actor.otherName ?? actor.nameZht,
+      subscriptionKind: 'actor',
+      subscriptionData: {'actor_avatar': actor.avatarUrl ?? ''},
+      topLeftBadge: _RankBadge(rank: rank),
+      onTap: () => unawaited(
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => DbOnlineEntityMoviesPage(
               kind: 'actor',
               id: actor.id,
               title: actor.name,
-              initial: {'actor_avatar': avatarUrl ?? ''},
             ),
-          ],
+          ),
         ),
       ),
     );

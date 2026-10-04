@@ -208,9 +208,11 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
           label: l.tabRankings,
           icon: Icons.leaderboard_outlined,
         ),
+        // 五格导航的中间主入口：圆形仅图标，避免其余项标题被挤压。
         FloatingTabSpec<Object?>(
           label: l.tabLibrary,
           icon: Icons.video_library_rounded,
+          center: true,
         ),
         FloatingTabSpec<Object?>(
           label: l.tabSearch,

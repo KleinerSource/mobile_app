@@ -17,19 +17,22 @@ double floatingTabBarContentBottomInset(BuildContext context) {
 /// 悬浮胶囊导航项。
 ///
 /// [quickMenuEntries] 仅供需要在某个 Tab 上挂载快捷菜单的场景使用；普通
-/// 导航项只需要提供标题和图标即可。
+/// 导航项只需要提供标题和图标即可。[center] 用于五格导航的中间主入口：
+/// 渲染为强调色圆形按钮且只显示图标，避免其余项文字被挤压溢出。
 class FloatingTabSpec<T> {
   const FloatingTabSpec({
     required this.label,
     required this.icon,
     this.quickMenuEntries,
     this.onQuickMenuSelected,
+    this.center = false,
   });
 
   final String label;
   final IconData icon;
   final List<GlassMenuEntry<T>>? quickMenuEntries;
   final ValueChanged<T>? onQuickMenuSelected;
+  final bool center;
 }
 
 /// 统一的悬浮毛玻璃底部导航。
@@ -125,37 +128,9 @@ class _FloatingTabItem<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final tabContent = Center(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: active ? c.tabActiveBg : Colors.transparent,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              spec.icon,
-              size: 20,
-              color: active ? c.tabActiveText : c.muted,
-            ),
-            if (active) ...[
-              const SizedBox(width: 6),
-              Text(
-                spec.label,
-                style: TextStyle(
-                  color: c.tabActiveText,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
-                  letterSpacing: -0.12,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+      child: spec.center
+          ? _centerCircle(context, c)
+          : _pill(context, c),
     );
 
     final entries = spec.quickMenuEntries;
@@ -176,6 +151,73 @@ class _FloatingTabItem<T> extends StatelessWidget {
       offset: const Offset(0, 10),
       onAnchorTap: onTap,
       child: tabContent,
+    );
+  }
+
+  /// 常规导航项：激活时展开为胶囊并带出标题。
+  Widget _pill(BuildContext context, AppColors c) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: active ? c.tabActiveBg : Colors.transparent,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            spec.icon,
+            size: 20,
+            color: active ? c.tabActiveText : c.muted,
+          ),
+          if (active) ...[
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                spec.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.tabActiveText,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                  letterSpacing: -0.12,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 中间主入口：强调色圆形底、仅图标；激活时光晕增强。
+  Widget _centerCircle(BuildContext context, AppColors c) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: c.accent,
+        boxShadow: [
+          BoxShadow(
+            color: c.accent.withValues(alpha: active ? 0.45 : 0.22),
+            blurRadius: active ? 16 : 9,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Icon(
+          spec.icon,
+          size: 23,
+          color: isDark ? const Color(0xFF1A1A22) : Colors.white,
+        ),
+      ),
     );
   }
 }
