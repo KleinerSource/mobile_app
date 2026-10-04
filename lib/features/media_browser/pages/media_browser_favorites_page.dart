@@ -493,6 +493,7 @@ class _MediaBrowserFavoritesPageState
                           ),
                         ],
                       ),
+                      alignTrailingToPadding: true,
                     ),
                     Expanded(
                       child: StatusBarScrollToTop(

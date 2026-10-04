@@ -431,6 +431,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
           onPressed: _refresh,
         ),
       ],
+      alignTrailingToPadding: true,
       body: capabilities.asData?.value.onlineQuery == false
           ? EmptyView(message: l.dbOnlineFollowingRequiresOnlineQuery)
           : _items.isEmpty && _error != null

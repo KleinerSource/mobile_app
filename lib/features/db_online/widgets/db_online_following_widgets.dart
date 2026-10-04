@@ -17,6 +17,7 @@ class DbOnlineFollowingLayout extends StatelessWidget {
     required this.body,
     this.eyebrow = 'DB ONLINE',
     this.actions = const [],
+    this.alignTrailingToPadding = false,
     this.filters,
     this.scrollController,
   });
@@ -25,6 +26,11 @@ class DbOnlineFollowingLayout extends StatelessWidget {
   final String eyebrow;
   final Widget body;
   final List<Widget> actions;
+
+  /// actions 末尾是圆形操作按钮时传 true，可见圆右缘对齐水平边距
+  /// （透传给 [PageHeader.alignTrailingToPadding]）。
+  final bool alignTrailingToPadding;
+
   final Widget? filters;
   final ScrollController? scrollController;
 
@@ -65,6 +71,7 @@ class DbOnlineFollowingLayout extends StatelessWidget {
                   trailing: actions.isEmpty
                       ? null
                       : _trailing(constraints.maxWidth),
+                  alignTrailingToPadding: alignTrailingToPadding,
                   // 下一块是工具栏用块间距，列表直接跟随时用列表间距，
                   // 组件增减不改变主列表与上一块的间距。
                   bottomPadding: filters == null

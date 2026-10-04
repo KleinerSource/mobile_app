@@ -303,6 +303,8 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
           const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
         ],
       ],
+      // canQuery 时末尾是视图切换胶囊，只有圆形按钮收尾才对齐到边距。
+      alignTrailingToPadding: !canQuery,
       filters: canQuery
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,

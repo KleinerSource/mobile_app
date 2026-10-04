@@ -558,12 +558,12 @@ class _DbOnlineSubscriptionsPageState
       (
         'pending',
         l.dbOnlineSubscriptionPending,
-        Icons.hourglass_bottom_rounded,
+        Icons.notifications_none_rounded,
       ),
       (
         'completed',
         l.dbOnlineSubscriptionCompleted,
-        Icons.inventory_2_outlined,
+        Icons.check_circle_outline_rounded,
       ),
     ],
     if (capabilities.onlineAccount)
@@ -664,6 +664,7 @@ class _DbOnlineSubscriptionsPageState
           ),
         ],
       ),
+      alignTrailingToPadding: true,
     );
   }
 

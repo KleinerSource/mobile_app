@@ -244,6 +244,7 @@ class _FollowedUsersState extends ConsumerState<DbOnlineFollowedUsersPage> {
                 : null,
           ),
         ],
+        alignTrailingToPadding: true,
         body: Stack(
           children: [
             RefreshIndicator(

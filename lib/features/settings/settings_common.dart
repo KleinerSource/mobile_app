@@ -368,6 +368,7 @@ class SettingsSubPageHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.alignTrailingToPadding = false,
     this.count,
     this.countSuffix,
     this.showBackButton = true,
@@ -385,6 +386,10 @@ class SettingsSubPageHeader extends StatelessWidget {
   final String? countSuffix;
   final String? subtitle;
   final Widget? trailing;
+
+  /// trailing 末尾是圆形操作按钮时传 true，可见圆右缘对齐水平边距
+  /// （透传给 [PageHeader.alignTrailingToPadding]）。
+  final bool alignTrailingToPadding;
   final bool showBackButton;
 
   /// 返回按钮图标；批量选择等模式可换成关闭图标。
@@ -428,6 +433,7 @@ class SettingsSubPageHeader extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: trailing,
+      alignTrailingToPadding: alignTrailingToPadding,
       subtitle: subtitle == null
           ? null
           : Text(subtitle!, style: AppText.meta(context)),

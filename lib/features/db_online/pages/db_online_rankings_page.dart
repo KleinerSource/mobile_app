@@ -120,6 +120,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                   ),
                 ],
               ),
+              alignTrailingToPadding: true,
             ),
             _ChipRow(
               // 还有内容类型行时用块间距，单独成行时由列表间距承接。

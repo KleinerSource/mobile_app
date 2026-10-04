@@ -588,6 +588,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           ),
                         ],
                       ),
+                      alignTrailingToPadding: true,
                     ),
                     Expanded(
                       child: StatusBarScrollToTop(

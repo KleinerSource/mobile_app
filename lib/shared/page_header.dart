@@ -12,6 +12,7 @@ class PageHeader extends StatelessWidget {
     required this.title,
     this.leading,
     this.trailing,
+    this.alignTrailingToPadding = false,
     this.subtitle,
     this.bottomPadding = 22,
   });
@@ -23,6 +24,12 @@ class PageHeader extends StatelessWidget {
   /// 左移 12 后可见图标左缘正好落在 [horizontalPadding]，与无 leading
   /// 页面的标题左缘对齐，同时保留完整 48x48 点击区域。
   static const double leadingBleed = (leadingWidth - 24) / 2;
+
+  /// trailing 触区向右挤进水平边距的量：圆形操作按钮的可见圆（36px）在
+  /// 48px 触区内居中，两侧各留 6px 空隙；出血后可见圆右缘正好落在
+  /// [horizontalPadding]，与标题/返回图标的左缘对称，同时保留完整
+  /// 48x48 点击区域。
+  static const double trailingBleed = (48 - 36) / 2;
 
   static const double trailingGap = 8;
 
@@ -38,6 +45,12 @@ class PageHeader extends StatelessWidget {
   final Widget title;
   final Widget? leading;
   final Widget? trailing;
+
+  /// trailing 末尾是圆形操作按钮（[trailingBleed] 所述结构）时传 true：
+  /// 触区向右出血，可见圆右缘对齐 [horizontalPadding]；胶囊形等可见
+  /// 边界即自然尺寸的控件保持 false。
+  final bool alignTrailingToPadding;
+
   final Widget? subtitle;
 
   /// 头部底部留白；下一块是工具栏时传 [toolbarTopGap]，
@@ -51,7 +64,8 @@ class PageHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(
         horizontalPadding - (leading == null ? 0.0 : leadingBleed),
         16,
-        horizontalPadding,
+        horizontalPadding -
+            (trailing != null && alignTrailingToPadding ? trailingBleed : 0.0),
         bottomPadding,
       ),
       child: Column(
