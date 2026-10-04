@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -87,18 +89,13 @@ class Poster extends StatelessWidget {
                       ? (logicalWidth * MediaQuery.devicePixelRatioOf(context))
                             .round()
                       : null;
-                  return CachedNetworkImage(
-                    cacheManager: AppImageCacheManager.instance,
+                  return _RetryNetworkPoster(
                     imageUrl: url!,
+                    title: title,
+                    year: year,
                     httpHeaders: httpHeaders,
-                    fit: BoxFit.cover,
                     alignment: imageAlignment,
                     memCacheWidth: physicalWidth,
-                    maxWidthDiskCache: 1080,
-                    fadeInDuration: const Duration(milliseconds: 200),
-                    placeholder: (_, __) => const SizedBox.shrink(),
-                    errorWidget: (_, __, ___) =>
-                        _PlaceholderLabel(title: title, year: year),
                   );
                 },
               )
@@ -121,18 +118,96 @@ class Poster extends StatelessWidget {
         final physicalWidth = logicalWidth.isFinite && logicalWidth > 0
             ? (logicalWidth * MediaQuery.devicePixelRatioOf(context)).round()
             : null;
-        return CachedNetworkImage(
-          cacheManager: AppImageCacheManager.instance,
+        return _RetryNetworkPoster(
           imageUrl: imageUrl,
+          title: title,
+          year: year,
           httpHeaders: httpHeaders,
-          fit: BoxFit.cover,
           memCacheWidth: physicalWidth,
-          maxWidthDiskCache: 1080,
-          fadeInDuration: const Duration(milliseconds: 200),
-          placeholder: (_, __) => const SizedBox.shrink(),
-          errorWidget: (_, __, ___) =>
-              _PlaceholderLabel(title: title, year: year),
         );
+      },
+    );
+  }
+}
+
+/// 带自动重试的封面图 · 瞬时失败（网络抖动、扫描期间图片文件暂时缺失
+/// 返回 404 等）时按次数换 key 重新加载；重试耗尽才落到最终占位符。
+///
+/// 没有这层重试时 CachedNetworkImage 的 errorWidget 是终态，一次抖动
+/// 就让封面一直空到卡片滚出屏幕重建为止。
+class _RetryNetworkPoster extends StatefulWidget {
+  const _RetryNetworkPoster({
+    required this.imageUrl,
+    required this.title,
+    required this.year,
+    this.httpHeaders,
+    this.alignment = Alignment.center,
+    this.memCacheWidth,
+  });
+
+  final String imageUrl;
+  final String title;
+  final int? year;
+  final Map<String, String>? httpHeaders;
+  final Alignment alignment;
+  final int? memCacheWidth;
+
+  @override
+  State<_RetryNetworkPoster> createState() => _RetryNetworkPosterState();
+}
+
+class _RetryNetworkPosterState extends State<_RetryNetworkPoster> {
+  static const maxRetries = 2;
+  static const retryDelay = Duration(milliseconds: 500);
+
+  int _attempt = 0;
+  Timer? _retryTimer;
+
+  @override
+  void didUpdateWidget(covariant _RetryNetworkPoster oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 换图（如缓存版本号变化）时重置重试进度。
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _attempt = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      cacheManager: AppImageCacheManager.instance,
+      key: ValueKey('$_attempt:${widget.imageUrl}'),
+      imageUrl: widget.imageUrl,
+      httpHeaders: widget.httpHeaders,
+      fit: BoxFit.cover,
+      alignment: widget.alignment,
+      memCacheWidth: widget.memCacheWidth,
+      maxWidthDiskCache: 1080,
+      fadeInDuration: const Duration(milliseconds: 200),
+      placeholder: (_, __) => const SizedBox.shrink(),
+      errorWidget: (_, __, ___) {
+        final timer = _retryTimer;
+        if (_attempt < maxRetries && timer == null) {
+          _retryTimer = Timer(retryDelay, () {
+            if (!mounted) return;
+            setState(() {
+              _attempt++;
+              _retryTimer = null;
+            });
+          });
+          // 重试等待期间保持灰底，不闪占位符文案。
+          return const SizedBox.shrink();
+        }
+        if (timer != null) return const SizedBox.shrink();
+        return _PlaceholderLabel(title: widget.title, year: widget.year);
       },
     );
   }

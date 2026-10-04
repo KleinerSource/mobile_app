@@ -7,6 +7,7 @@ import '../core/sources/media/media_metadata_normalizer.dart';
 import '../features/i18n/badge_position_provider.dart';
 import '../features/privacy/privacy_mask.dart';
 import '../features/privacy/privacy_providers.dart';
+import '../features/visited/visited_movies_provider.dart';
 import '../l10n/generated/app_localizations.dart';
 import 'media_metadata_widgets.dart';
 import 'media_list_row.dart';
@@ -290,8 +291,11 @@ class MovieCard extends ConsumerWidget {
       meta: restricted ? '' : _meta(l, movie),
       privacyId: movie.id,
       showMeta: !restricted && (movie.year != null || movie.runtime != null),
+      // 进入过详情页的影片标题置灰（受限内容本就置灰），便于一眼区分。
       titleStyle: AppText.movieCardTitle(context).copyWith(
-        color: restricted ? c.muted : c.text,
+        color: restricted || watchMovieVisited(ref, movie.id)
+            ? c.muted
+            : c.text,
         fontStyle: restricted ? FontStyle.italic : FontStyle.normal,
       ),
     );
@@ -575,6 +579,8 @@ class CatalogMovieCard extends ConsumerWidget {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final positions = ref.watch(badgePositionsProvider);
+    // 进入过详情页的影片标题置灰，便于一眼区分（与 OMM 卡片一致）。
+    final visited = watchMovieVisited(ref, privacyId);
     final displayTitle = title.trim().isEmpty
         ? l.movieCardUntitledTitle
         : title.trim();
@@ -701,7 +707,11 @@ class CatalogMovieCard extends ConsumerWidget {
                 showMeta: showMeta,
                 titleStyle: AppText.cardTitle(
                   context,
-                ).copyWith(color: colors.text, fontSize: 15, height: 1.2),
+                ).copyWith(
+                  color: visited ? colors.muted : colors.text,
+                  fontSize: 15,
+                  height: 1.2,
+                ),
               ),
             ),
           )
@@ -716,6 +726,9 @@ class CatalogMovieCard extends ConsumerWidget {
               privacyId: privacyId,
               showTitle: showTitle,
               showMeta: showMeta,
+              titleStyle: AppText.movieCardTitle(
+                context,
+              ).copyWith(color: visited ? colors.muted : null),
             ),
           );
 
@@ -768,6 +781,8 @@ class CatalogListMovieCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
+    // 进入过详情页的影片标题置灰，便于一眼区分。
+    final visited = watchMovieVisited(ref, privacyId);
     final displayTitle = title.trim().isEmpty
         ? l.movieCardUntitledTitle
         : title.trim();
@@ -802,7 +817,7 @@ class CatalogListMovieCard extends ConsumerWidget {
       value: displayText,
       maxLines: titleMaxLines,
       style: TextStyle(
-        color: colors.text,
+        color: visited ? colors.muted : colors.text,
         fontFamily: 'Inter',
         fontWeight: FontWeight.w700,
         fontSize: 14,

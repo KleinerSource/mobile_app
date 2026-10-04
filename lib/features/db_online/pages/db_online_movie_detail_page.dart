@@ -39,6 +39,7 @@ import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 import 'package:omm/features/db_online/widgets/db_online_resource_sheets.dart';
+import 'package:omm/features/visited/visited_movies_provider.dart';
 
 /// 打开实体（演员/系列/片商/发行商/导演/清单/类别）影片落地页，
 /// 与搜索/排行榜页的跳转入口一致。
@@ -141,11 +142,20 @@ class _DbOnlineDetailBody extends ConsumerStatefulWidget {
 
 class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
-  final _heroPosition = ValueNotifier(0.0);
+  final _heroPosition = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // 已浏览置灰：同时记录 video_id 与番号两种键——列表卡片的隐私键
+      // 在 video_id 缺失时会退化为番号，两种形态都要能命中。
+      final videoId = widget.movie.videoId?.trim() ?? '';
+      final code = widget.movie.code.trim();
+      if (videoId.isNotEmpty) markMovieVisited(ref, videoId);
+      if (code.isNotEmpty) markMovieVisited(ref, code);
+    });
     _syncHeroArt();
   }
 

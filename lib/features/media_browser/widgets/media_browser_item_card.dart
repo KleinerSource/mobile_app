@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/features/visited/visited_movies_provider.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_list_row.dart';
@@ -138,7 +140,7 @@ class MediaBrowserLandscapeCard extends StatelessWidget {
 }
 
 /// MediaBrowser 紧凑列表行；库页和搜索页使用，收藏页保留自己的左滑行。
-class MediaBrowserListRow extends StatelessWidget {
+class MediaBrowserListRow extends ConsumerWidget {
   const MediaBrowserListRow({
     super.key,
     required this.item,
@@ -155,8 +157,10 @@ class MediaBrowserListRow extends StatelessWidget {
   final bool selecting;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = appColors(context);
+    // 进入过详情页的影片标题置灰，便于一眼区分。
+    final visited = watchMovieVisited(ref, item.id);
     return MediaListRow(
       thumbnail: PrivacyMask(
         movieId: item.id,
@@ -195,7 +199,7 @@ class MediaBrowserListRow extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: colors.text,
+          color: visited ? colors.muted : colors.text,
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           fontSize: 14,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/features/visited/visited_movies_provider.dart';
 import 'package:omm/shared/poster.dart';
 
 /// 榜单列表模式的预览条目：左侧竖版封面，右侧预览图横向滑动切换，
@@ -9,7 +11,7 @@ import 'package:omm/shared/poster.dart';
 ///
 /// 图片地址与角标由 [DbOnlineMovieCard] 解析后传入，这里只负责布局与
 /// 翻页交互；无预览图时右侧回退为大封面。
-class DbOnlineRankingPreviewCard extends StatefulWidget {
+class DbOnlineRankingPreviewCard extends ConsumerStatefulWidget {
   const DbOnlineRankingPreviewCard({
     super.key,
     required this.title,
@@ -47,11 +49,12 @@ class DbOnlineRankingPreviewCard extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<DbOnlineRankingPreviewCard> createState() =>
+  ConsumerState<DbOnlineRankingPreviewCard> createState() =>
       _DbOnlineRankingPreviewCardState();
 }
 
-class _DbOnlineRankingPreviewCardState extends State<DbOnlineRankingPreviewCard> {
+class _DbOnlineRankingPreviewCardState
+    extends ConsumerState<DbOnlineRankingPreviewCard> {
   /// 封面固定宽度，2:3 比例推算高度；右侧预览区与封面等高。
   static const _coverWidth = 92.0;
   static const _coverHeight = _coverWidth * 1.5;
@@ -206,10 +209,12 @@ class _DbOnlineRankingPreviewCardState extends State<DbOnlineRankingPreviewCard>
     final text = code?.isNotEmpty == true
         ? '[${code!}] $displayTitle'
         : displayTitle;
+    // 进入过详情页的影片标题置灰，便于一眼区分（与共享卡片一致）。
+    final visited = watchMovieVisited(ref, widget.privacyId);
     final titleText = _privacyText(
       value: text,
       style: TextStyle(
-        color: colors.text,
+        color: visited ? colors.muted : colors.text,
         fontFamily: 'Inter',
         fontWeight: FontWeight.w700,
         fontSize: 14,

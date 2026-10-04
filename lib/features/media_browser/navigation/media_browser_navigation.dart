@@ -9,6 +9,7 @@ import 'package:omm/features/media_browser/pages/media_browser_collection_detail
 import 'package:omm/features/media_browser/pages/media_browser_movie_detail_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_series_detail_page.dart';
 import 'package:omm/features/media_browser/playback/media_browser_audio_playback.dart';
+import 'package:omm/features/visited/visited_movies_provider.dart';
 import 'package:omm/shared/single_flight_gate.dart';
 
 // 导航锁按当前路由隔离：媒体库打开合集后，合集页仍处于一次未完成的
@@ -39,6 +40,9 @@ Future<void> openMediaBrowserItem(
     await openMediaBrowserAudioItem(context, ref, item: item);
     return;
   }
+  // 已浏览置灰：音频单曲不进详情页，其余条目（影片/剧集/合集/专辑）
+  // 只要进入详情就记录。
+  markMovieVisited(ref, id);
   await _mediaBrowserItemOpenGateFor(context).run(() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(

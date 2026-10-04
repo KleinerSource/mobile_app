@@ -43,6 +43,8 @@ import 'thunder_subtitle_sheet.dart';
 import 'audio_extraction_sheet.dart';
 import 'package:omm/features/home/home_movie_view_state.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/visited/visited_movies_provider.dart'
+    show markMovieVisited;
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 
@@ -70,6 +72,7 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
       unawaited(
         ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
       );
+      markMovieVisited(ref, widget.movieId);
       if (widget.acknowledgeNewResources) {
         unawaited(_acknowledgeResources());
       }

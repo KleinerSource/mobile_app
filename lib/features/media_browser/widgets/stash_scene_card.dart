@@ -10,6 +10,7 @@ import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
+import 'package:omm/features/visited/visited_movies_provider.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/portrait_media_card.dart';
@@ -382,7 +383,7 @@ class StashScenePortraitCard extends StatelessWidget {
 ///
 /// 横版为「番号 + 名称一行 / 标签 / 演员 / 年份 · 时长」，
 /// 竖版为「番号 + 名称两行 / 年份 · 时长」。
-class StashSceneInfo extends StatelessWidget {
+class StashSceneInfo extends ConsumerWidget {
   const StashSceneInfo({
     super.key,
     required this.item,
@@ -395,8 +396,10 @@ class StashSceneInfo extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = appColors(context);
+    // 进入过详情页的影片标题置灰，便于一眼区分（与共享卡片一致）。
+    final visited = watchMovieVisited(ref, item.id);
     final code = item.code?.trim();
     final tags = (item.tags.isNotEmpty ? item.tags : item.genres)
         .map((tag) => tag.trim())
@@ -422,7 +425,7 @@ class StashSceneInfo extends StatelessWidget {
             maxLines: landscape ? 1 : 2,
             overflow: TextOverflow.ellipsis,
             style: AppText.cardTitle(context).copyWith(
-              color: colors.text,
+              color: visited ? colors.muted : colors.text,
               fontSize: landscape ? 15 : 14,
               height: 1.2,
             ),

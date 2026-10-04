@@ -18,7 +18,8 @@ String dbOnlineDetailKey(String? videoId, String? code) {
 ///
 /// 推荐、最新列表和详情中的关联影片都经过同一入口，避免各页面对番号
 /// 与 video_id 的回退规则产生差异。详情以 video_id 为主导，无 video_id
-/// 的影片退化为番号，由服务端双主键解析。
+/// 的影片退化为番号，由服务端双主键解析。已浏览置灰由详情页自身按
+/// detailKey（与卡片隐私键取值一致）记录。
 Future<void> openDbOnlineMovie(
   BuildContext context,
   DbOnlineMovie movie,
