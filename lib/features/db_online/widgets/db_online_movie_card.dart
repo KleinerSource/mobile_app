@@ -13,6 +13,7 @@ import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
+import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
 
 /// dbonline 字段适配器。
 ///
@@ -28,6 +29,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     this.codeOnly = false,
     this.landscape = false,
     this.compact = false,
+    this.previewList = false,
     this.listTitleMaxLines = 1,
     this.showRating = true,
   });
@@ -39,6 +41,9 @@ class DbOnlineMovieCard extends ConsumerWidget {
   final bool codeOnly;
   final bool landscape;
   final bool compact;
+
+  /// 榜单列表模式的预览条目：左封面 + 右预览图翻页，优先级高于 [compact]。
+  final bool previewList;
   final int listTitleMaxLines;
   final bool showRating;
 
@@ -95,6 +100,28 @@ class DbOnlineMovieCard extends ConsumerWidget {
         return;
       }
       onTap?.call();
+    }
+
+    if (previewList) {
+      final rating = showRating ? normalizeMediaRating(movie.score) : null;
+      return DbOnlineRankingPreviewCard(
+        title: movie.title.trim().isEmpty
+            ? l.movieCardUntitledTitle
+            : movie.title,
+        code: movie.number,
+        coverUrl: imageUrl,
+        previewUrls: _previewUrls(movie, config),
+        fallbackPreviewUrl: _fallbackPreviewUrl(movie, config),
+        meta: _metaText(context, movie),
+        badges: [
+          if (subscriptionBadge != null) subscriptionBadge,
+          if (magnetBadge != null) magnetBadge,
+          if (playBadge != null) playBadge,
+          if (rating != null) RatingBadge(rating: rating),
+        ],
+        privacyId: privacyId,
+        onTap: handleTap,
+      );
     }
 
     if (compact) {
@@ -269,4 +296,22 @@ String _metaText(BuildContext context, DbOnlineMovie movie) {
     duration: dboDurationToMinutes(movie.duration),
     emptyText: l.dbOnlineNoMeta,
   );
+}
+
+/// 榜单预览条目右侧的大图地址，大图优先、小图兜底。
+List<String> _previewUrls(DbOnlineMovie movie, ServerConfig? config) {
+  if (config == null) return const <String>[];
+  final urls = <String>[];
+  for (final preview in movie.previewImages) {
+    final url = preview.largeUrl ?? preview.thumbUrl;
+    if (url != null) urls.add(resolveServerUrl(config, url));
+  }
+  return urls;
+}
+
+/// 无预览图时右侧展示的大封面。
+String? _fallbackPreviewUrl(DbOnlineMovie movie, ServerConfig? config) {
+  final url = movie.coverUrl ?? movie.thumbUrl;
+  if (url == null || config == null) return null;
+  return resolveServerUrl(config, url);
 }

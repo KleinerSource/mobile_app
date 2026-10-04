@@ -17,6 +17,7 @@ class DbOnlineMovie {
     this.score,
     this.canPlay = false,
     this.ranking,
+    this.previewImages = const <DbOnlinePreviewImage>[],
   });
 
   final String id;
@@ -35,6 +36,9 @@ class DbOnlineMovie {
 
   /// 排行榜名次（Top250 等榜单返回），非榜单数据为 null。
   final int? ranking;
+
+  /// 榜单条目携带的预览图（`preview_images`），非榜单数据为空列表。
+  final List<DbOnlinePreviewImage> previewImages;
 
   factory DbOnlineMovie.fromJson(Map<String, dynamic> json) {
     final scoreValue = json['score'];
@@ -62,6 +66,25 @@ class DbOnlineMovie {
           : double.tryParse('$scoreValue'),
       canPlay: _boolValue(json['can_play']),
       ranking: _intValue(json['ranking']),
+      previewImages: _previewImageList(json['preview_images']),
+    );
+  }
+}
+
+/// 榜单条目的预览图；`large_url` 为大图（横版 samples），`thumb_url` 为小图。
+@immutable
+class DbOnlinePreviewImage {
+  const DbOnlinePreviewImage({this.largeUrl, this.thumbUrl});
+
+  final String? largeUrl;
+  final String? thumbUrl;
+
+  factory DbOnlinePreviewImage.fromJson(Object? raw) {
+    if (raw is! Map) return const DbOnlinePreviewImage();
+    final json = Map<String, dynamic>.from(raw);
+    return DbOnlinePreviewImage(
+      largeUrl: _stringOrNull(json['large_url']),
+      thumbUrl: _stringOrNull(json['thumb_url']),
     );
   }
 }
@@ -559,6 +582,14 @@ List<String> _stringList(Object? value) {
   return value
       .map((item) => item?.toString().trim() ?? '')
       .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<DbOnlinePreviewImage> _previewImageList(Object? value) {
+  if (value is! List) return const <DbOnlinePreviewImage>[];
+  return value
+      .map(DbOnlinePreviewImage.fromJson)
+      .where((item) => item.largeUrl != null || item.thumbUrl != null)
       .toList(growable: false);
 }
 

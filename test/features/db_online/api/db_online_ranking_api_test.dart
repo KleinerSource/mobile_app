@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/sources/media/dbo/db_online_api.dart';
+import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 
 void main() {
   test('rankingsPage 使用期间与类型参数并解析名次', () async {
@@ -16,6 +17,20 @@ void main() {
     expect(page.movies.single.number, 'ABC-001');
     expect(page.movies.single.ranking, 3);
     expect(page.movies.single.canPlay, isTrue);
+    expect(page.movies.single.previewImages, hasLength(2));
+    expect(
+      page.movies.single.previewImages.first.largeUrl,
+      'https://example.test/l1.jpg',
+    );
+    expect(
+      page.movies.single.previewImages.first.thumbUrl,
+      'https://example.test/s1.jpg',
+    );
+    // 空对象与缺失地址的条目被过滤。
+    expect(
+      DbOnlineMovie.fromJson(const <String, dynamic>{}).previewImages,
+      isEmpty,
+    );
     expect(adapter.requests.single, '/api/rankings?period=weekly&type=2');
   });
 
@@ -203,6 +218,14 @@ class _RankingAdapter implements HttpClientAdapter {
             'title': '榜单影片',
             'ranking': 3,
             'can_play': true,
+            'preview_images': [
+              {
+                'large_url': 'https://example.test/l1.jpg',
+                'thumb_url': 'https://example.test/s1.jpg',
+              },
+              {'large_url': 'https://example.test/l2.jpg'},
+              {'thumb_url': ''},
+            ],
           },
         ],
         'total': 250,

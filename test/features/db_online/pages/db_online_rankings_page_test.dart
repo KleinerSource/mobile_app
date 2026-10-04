@@ -6,7 +6,9 @@ import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/features/db_online/pages/db_online_rankings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -21,6 +23,9 @@ void main() {
           requiredApiClientProvider.overrideWithValue(client),
           sharedPrefsProvider.overrideWithValue(
             await SharedPreferences.getInstance(),
+          ),
+          mediaRuntimeConfigProvider.overrideWithValue(
+            const ServerConfig(baseUrl: 'https://example.test'),
           ),
         ],
         child: const MaterialApp(
@@ -107,6 +112,26 @@ void main() {
     expect(requests, contains('/api/actors'));
     expect(find.text('榜单演员'), findsOneWidget);
   });
+
+  testWidgets('列表模式渲染预览条目：封面 + 预览图翻页 + 标题与角标', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'db_online.rankings.view_mode.v1': 'list',
+    });
+    final requests = <String>[];
+    await pumpPage(
+      tester,
+      dio: rankingDio(top250Authorized: false, requests: requests),
+    );
+
+    expect(find.byType(PageView), findsOneWidget);
+    expect(find.text('[ABC-001] 榜单影片'), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget); // 名次徽章
+    // 磁链角标：榜单夹具 magnets_count = 3。
+    expect(find.text('3'), findsOneWidget);
+  });
 }
 
 Map<String, dynamic> _responseFor(String path, {required bool top250Authorized}) {
@@ -123,6 +148,14 @@ Map<String, dynamic> _responseFor(String path, {required bool top250Authorized})
           'number': 'ABC-001',
           'title': '榜单影片',
           'can_play': true,
+          'magnets_count': 3,
+          'preview_images': [
+            {
+              'large_url': 'https://example.test/l1.jpg',
+              'thumb_url': 'https://example.test/s1.jpg',
+            },
+            {'large_url': 'https://example.test/l2.jpg'},
+          ],
         },
       ],
     },
