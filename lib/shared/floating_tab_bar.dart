@@ -18,7 +18,7 @@ double floatingTabBarContentBottomInset(BuildContext context) {
 ///
 /// [quickMenuEntries] 仅供需要在某个 Tab 上挂载快捷菜单的场景使用；普通
 /// 导航项只需要提供标题和图标即可。五格及以上的奇数格导航无需额外配置：
-/// [FloatingTabBar] 会自动把正中间一项渲染为圆形仅图标主按钮。
+/// [FloatingTabBar] 会自动把正中间一项渲染为圆形仅图标按钮。
 class FloatingTabSpec<T> {
   const FloatingTabSpec({
     required this.label,
@@ -36,8 +36,12 @@ class FloatingTabSpec<T> {
 /// 统一的悬浮毛玻璃底部导航。
 ///
 /// 媒体管理器和文件管理器共用同一套材质、激活态和布局，业务层只负责
-/// 提供 Tab 数据以及点击回调。出现第 5 个图标（奇数格 ≥5）时，正中间
-/// 一项自动渲染为强调色圆形仅图标按钮，其余项保持图标与激活标题。
+/// 提供 Tab 数据以及点击回调。
+///
+/// 四格以内使用常规胶囊：激活时横向展开并带出标题。出现第 5 个图标
+/// （奇数格 ≥5）时自动切换为紧凑布局：正中间一项渲染为强调色圆形仅
+/// 图标按钮（仅激活时高亮），其余项改为图标在上、标题在下，保证每格
+/// 都能完整显示三至四字标题而不被截断。
 class FloatingTabBar<T> extends StatelessWidget {
   const FloatingTabBar({
     super.key,
@@ -99,14 +103,13 @@ class FloatingTabBar<T> extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // 出现第 5 个图标起，奇数格导航自动把正中间一项升级为
-                // 强调色圆形仅图标按钮，避免其余项标题被挤压溢出。
                 for (var i = 0; i < tabs.length; i++)
                   Expanded(
                     child: _FloatingTabItem<T>(
                       spec: tabs[i],
                       active: i == active,
                       center: i == _centerIndex,
+                      compact: tabs.length >= 5,
                       onTap: () => onTap(i),
                     ),
                   ),
@@ -124,20 +127,31 @@ class _FloatingTabItem<T> extends StatelessWidget {
     required this.spec,
     required this.active,
     required this.center,
+    required this.compact,
     required this.onTap,
   });
 
   final FloatingTabSpec<T> spec;
   final bool active;
+
+  /// 正中间的圆形仅图标主入口，由 [FloatingTabBar] 按格数自动判定。
   final bool center;
+
+  /// 五格及以上布局：其余项改为竖排紧凑胶囊，标题恒定显示。
+  final bool compact;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final tabContent = Center(
-      child: center ? _centerCircle(context, c) : _pill(context, c),
-    );
+    final Widget tabContent;
+    if (center) {
+      tabContent = Center(child: _centerCircle(context, c));
+    } else if (compact) {
+      tabContent = Center(child: _compactPill(context, c));
+    } else {
+      tabContent = Center(child: _pill(context, c));
+    }
 
     final entries = spec.quickMenuEntries;
     final onQuickMenuSelected = spec.onQuickMenuSelected;
@@ -164,7 +178,7 @@ class _FloatingTabItem<T> extends StatelessWidget {
   Widget _pill(BuildContext context, AppColors c) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: active ? c.tabActiveBg : Colors.transparent,
         borderRadius: BorderRadius.circular(100),
@@ -178,7 +192,7 @@ class _FloatingTabItem<T> extends StatelessWidget {
             color: active ? c.tabActiveText : c.muted,
           ),
           if (active) ...[
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
                 spec.label,
@@ -199,7 +213,45 @@ class _FloatingTabItem<T> extends StatelessWidget {
     );
   }
 
-  /// 中间主入口：强调色圆形底、仅图标；激活时光晕增强。
+  /// 紧凑导航项：图标在上、标题在下，标题不随激活状态收起，保证
+  /// 「影片库」「收藏夹」等三至四字标题在五格布局中完整可见。
+  Widget _compactPill(BuildContext context, AppColors c) {
+    final contentColor = active ? c.tabActiveText : c.muted;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: active ? c.tabActiveBg : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(spec.icon, size: 20, color: contentColor),
+          const SizedBox(height: 2),
+          Text(
+            spec.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            strutStyle: const StrutStyle(
+              fontSize: 10.5,
+              height: 1.15,
+              forceStrutHeight: true,
+            ),
+            style: TextStyle(
+              color: contentColor,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+              fontSize: 10.5,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 中间主入口：仅激活时使用强调色圆底与光晕，未激活保持中性外观。
   Widget _centerCircle(BuildContext context, AppColors c) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
@@ -208,20 +260,25 @@ class _FloatingTabItem<T> extends StatelessWidget {
       height: 46,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: c.accent,
-        boxShadow: [
-          BoxShadow(
-            color: c.accent.withValues(alpha: active ? 0.45 : 0.22),
-            blurRadius: active ? 16 : 9,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: active ? c.accent : c.chipBg,
+        border: active ? null : Border.all(color: c.cardBorder),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: c.accent.withValues(alpha: 0.45),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: Center(
         child: Icon(
           spec.icon,
           size: 23,
-          color: isDark ? const Color(0xFF1A1A22) : Colors.white,
+          color: active
+              ? (isDark ? const Color(0xFF1A1A22) : Colors.white)
+              : c.text,
         ),
       ),
     );
