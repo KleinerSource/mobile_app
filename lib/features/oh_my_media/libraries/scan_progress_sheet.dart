@@ -324,13 +324,13 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
                         foregroundColor: c.danger,
                         side: BorderSide(
                           color: c.danger.withValues(alpha: 0.4),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
@@ -348,14 +348,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                           fontSize: 13,
                         ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: c.text,
-                        side: BorderSide(color: c.cardBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                      style: sheetSecondaryButtonStyle(context),
                     ),
                   ),
                   if (t!.status == 'running' || t.isPaused) ...[
@@ -399,14 +392,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                             fontSize: 13,
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: c.text,
-                          foregroundColor: c.bg,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
+                        style: sheetPrimaryButtonStyle(context),
                       ),
                     ),
                   ],
@@ -414,12 +400,12 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isFailed ? c.danger : c.accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                      style: sheetPrimaryButtonStyle(context).copyWith(
+                        backgroundColor: WidgetStatePropertyAll(
+                          isFailed ? c.danger : c.accent,
+                        ),
+                        foregroundColor: const WidgetStatePropertyAll(
+                          Colors.white,
                         ),
                       ),
                       child: Text(

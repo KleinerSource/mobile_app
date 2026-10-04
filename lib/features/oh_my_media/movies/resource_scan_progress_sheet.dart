@@ -153,13 +153,11 @@ class _ResourceScanProgressSheetState
                       ? l.resourceScanBackground
                       : (failed ? l.resourceScanClose : l.resourceScanDone),
                 ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: failed ? c.danger : c.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                style: sheetPrimaryButtonStyle(context).copyWith(
+                  backgroundColor: WidgetStatePropertyAll(
+                    failed ? c.danger : c.accent,
                   ),
+                  foregroundColor: const WidgetStatePropertyAll(Colors.white),
                 ),
               ),
             ),

@@ -1791,6 +1791,7 @@ class _DbOnlineSubscriptionsPageState
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => Navigator.pop(context, controller.text.trim()),
+                style: sheetPrimaryButtonStyle(context),
                 child: Text(l.dbOnlineSubscriptionImport),
               ),
             ],
@@ -1872,6 +1873,7 @@ class _DbOnlineSubscriptionsPageState
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => Navigator.pop(context, controller.text),
+                style: sheetPrimaryButtonStyle(context),
                 child: Text(l.dbOnlineSubscriptionSave),
               ),
             ],
@@ -1972,6 +1974,7 @@ class _DbOnlineSubscriptionsPageState
                     'rules': rulesController.text,
                     'reason': reasonController.text,
                   }),
+                  style: sheetPrimaryButtonStyle(context),
                   child: Text(l.dbOnlineSubscriptionSave),
                 ),
               ],
@@ -2068,6 +2071,7 @@ class _DbOnlineSubscriptionsPageState
                     'codes': codesController.text,
                     'category_rule': categoryRuleController.text,
                   }),
+                  style: sheetPrimaryButtonStyle(context),
                   child: Text(l.dbOnlineSubscriptionCheck),
                 ),
               ],

@@ -1292,6 +1292,7 @@ class _MediaBrowserAdvancedFilterSheetState
                     buttons: [
                       FilledButton.icon(
                         onPressed: _submit,
+                        style: sheetPrimaryButtonStyle(context),
                         icon: const Icon(Icons.check_rounded, size: 18),
                         label: Text(l.confirm),
                       ),

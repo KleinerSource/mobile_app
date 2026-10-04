@@ -433,16 +433,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                 const Spacer(),
                 FilledButton(
                   onPressed: (_anySelected && !_saving) ? _apply : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: c.accent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 22,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                  ),
+                  style: sheetPrimaryButtonStyle(context),
                   child: _saving
                       ? const SizedBox(
                           width: 18,

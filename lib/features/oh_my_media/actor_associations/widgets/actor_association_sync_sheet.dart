@@ -383,10 +383,12 @@ class _ActorAssociationSyncSheetState
               onPressed: _applying
                   ? null
                   : () => Navigator.of(context).pop(false),
+              style: sheetSecondaryButtonStyle(context),
               child: Text(l.cancel),
             ),
             FilledButton.icon(
               onPressed: canApply ? _apply : null,
+              style: sheetPrimaryButtonStyle(context),
               icon: _applying
                   ? const SizedBox(
                       width: 14,

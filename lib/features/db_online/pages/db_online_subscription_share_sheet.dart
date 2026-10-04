@@ -182,6 +182,7 @@ class _ShareExportSheetState
                 onPressed: _canExport
                     ? () => Navigator.pop(context, _result)
                     : null,
+                style: sheetPrimaryButtonStyle(context),
                 child: Text(l.dbOnlineSubscriptionShareGenerate),
               ),
             ],
@@ -333,6 +334,7 @@ class _ShareResultSheetState extends State<DbOnlineSubscriptionShareResultSheet>
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: widget.shareText.isEmpty ? null : _copy,
+              style: sheetPrimaryButtonStyle(context),
               icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 18),
               label: Text(
                 _copied
