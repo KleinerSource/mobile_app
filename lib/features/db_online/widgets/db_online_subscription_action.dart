@@ -11,6 +11,10 @@ import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
 
+/// 订阅入口按钮。
+///
+/// [showLabel] 为 true 时渲染详情页操作区的整宽描边按钮（与播放按钮同高、
+/// 已订阅时高亮强调色）；否则渲染卡片与搜索行尾部的图标按钮。
 class DbOnlineSubscriptionAction extends ConsumerWidget {
   const DbOnlineSubscriptionAction({
     super.key,
@@ -75,12 +79,6 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     final iconData = subscribed
         ? Icons.check_circle_rounded
         : Icons.add_circle_outline;
-    final icon = statusLoading
-        ? const SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : Icon(iconData, color: subscribed ? colors.accent : colors.muted);
     void onPressed() => _openActions(
       context,
       ref,
@@ -90,19 +88,52 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       subscription: subscription,
     );
 
+    // 带标签形态用于详情页操作区，与媒体库模块的操作按钮共用同一套
+    // 描边样式（12px 圆角 + Inter 字体），已订阅时高亮强调色。
     return showLabel
-        ? OutlinedButton.icon(
-            onPressed: statusLoading ? null : onPressed,
-            icon: icon,
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(actionLabel),
-                if (subscribed) ...[
-                  const SizedBox(width: 2),
-                  const Icon(Icons.arrow_drop_down_rounded, size: 18),
+        ? SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: statusLoading ? null : onPressed,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: subscribed ? colors.accent : colors.text,
+                disabledForegroundColor: colors.muted,
+                side: BorderSide(
+                  color: subscribed
+                      ? colors.accent.withValues(alpha: 0.55)
+                      : colors.cardBorder,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: statusLoading
+                  ? SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.muted,
+                      ),
+                    )
+                  : Icon(iconData, size: 18),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    actionLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (subscribed) ...[
+                    const SizedBox(width: 2),
+                    const Icon(Icons.arrow_drop_down_rounded, size: 18),
+                  ],
                 ],
-              ],
+              ),
             ),
           )
         : HeaderActionButton(

@@ -294,39 +294,33 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             ),
           ),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                DbOnlineSubscriptionAction(
-                  kind: 'video',
-                  id: movie.code,
-                  title: displayTitle,
-                  showLabel: true,
-                  initial: {
-                    'video_id': movie.videoId ?? '',
-                    'cover_url': movie.coverUrl ?? '',
-                    'thumb_url': movie.thumbUrl ?? '',
-                    'release_date': movie.date ?? '',
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
         if (movie.canPlay)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
               child: _PlayButton(
                 movie: movie,
                 loadPlaybackMovie: widget.loadPlaybackMovie,
               ),
             ),
           ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+            child: DbOnlineSubscriptionAction(
+              kind: 'video',
+              id: movie.code,
+              title: displayTitle,
+              showLabel: true,
+              initial: {
+                'video_id': movie.videoId ?? '',
+                'cover_url': movie.coverUrl ?? '',
+                'thumb_url': movie.thumbUrl ?? '',
+                'release_date': movie.date ?? '',
+              },
+            ),
+          ),
+        ),
         if (movie.overview?.isNotEmpty == true)
           SliverToBoxAdapter(
             child: Padding(
