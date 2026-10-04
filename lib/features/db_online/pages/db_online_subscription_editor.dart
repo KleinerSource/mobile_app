@@ -234,21 +234,7 @@ class _DbOnlineSubscriptionEditorState
   /// 综合订阅的实体预览：按订阅类型显示图标 + 名称 + 类型标签。
   Widget _seriesPreview(AppL10n l) {
     final subType = widget.initial['sub_type']?.toString() ?? 'series';
-    final (icon, typeLabel) = switch (subType) {
-      'maker' => (Icons.domain_outlined, l.dbOnlineSeriesTypeMaker),
-      'publisher' => (
-        Icons.business_center_outlined,
-        l.dbOnlineSeriesTypePublisher,
-      ),
-      'director' => (Icons.videocam_outlined, l.dbOnlineSeriesTypeDirector),
-      'list' => (
-        Icons.featured_play_list_outlined,
-        l.dbOnlineSeriesTypeList,
-      ),
-      'prefix' => (Icons.tag_outlined, l.dbOnlineSeriesTypePrefix),
-      'follow' => (Icons.person_search_outlined, l.dbOnlineSeriesTypeFollow),
-      _ => (Icons.workspaces_outlined, l.dbOnlineSeriesTypeSeries),
-    };
+    final (typeLabel, icon) = _seriesTypeMeta(l, subType);
     final colors = appColors(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),

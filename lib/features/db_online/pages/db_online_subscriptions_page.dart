@@ -14,6 +14,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/dbo/db_online_following.dart';
@@ -49,6 +50,7 @@ import 'package:omm/shared/sheet_controls.dart';
 part 'db_online_subscription_videos_sheet.dart';
 part 'db_online_subscription_editor.dart';
 part 'db_online_auto_sync_editor.dart';
+part 'db_online_subscription_share_sheet.dart';
 
 /// 订阅管理统一的影片视图模式：订阅中、已完成、在线订阅以及演员/综合订阅
 /// 的影片列表共用，不按板块单独保存。
@@ -1719,18 +1721,41 @@ class _DbOnlineSubscriptionsPageState
   }
 
   Future<void> _exportShare() async {
-    await _perform(() async {
+    final selection = await showGlassSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      minHeight: sheetMinHeight(context),
+      builder: (_) => DbOnlineSubscriptionShareExportSheet(
+        l: AppL10n.of(context),
+      ),
+    );
+    if (!mounted || selection == null) return;
+    final seriesTypes = List<String>.from(
+      selection['types'] as List? ?? const <String>[],
+    );
+    try {
       final response = _payloadMap(
         await _api.exportSubscriptionShare({
-          'include_video': true,
-          'include_actor': true,
-          'include_series_sub_types': ['series', 'prefix'],
+          'include_video': selection['video'] == true,
+          'include_actor': selection['actor'] == true,
+          'include_series_sub_types': seriesTypes,
         }),
       );
-      final share = response['share_text'] ?? response['share_code'];
-      final text = share?.toString() ?? jsonEncode(response);
-      await Clipboard.setData(ClipboardData(text: text));
-    });
+      if (!mounted) return;
+      await showGlassSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => DbOnlineSubscriptionShareResultSheet(
+          shareText: response['share_text']?.toString() ?? '',
+          summary: _mapValue(response['summary']),
+          video: selection['video'] == true,
+          actor: selection['actor'] == true,
+          seriesTypes: seriesTypes.toSet(),
+        ),
+      );
+    } catch (error) {
+      if (mounted) _notify(localizedErrorMessage(AppL10n.of(context), error));
+    }
   }
 
   Future<void> _importShare() async {
@@ -1807,13 +1832,10 @@ class _DbOnlineSubscriptionsPageState
       ),
     );
     if (!mounted || confirmed != true) return;
+    // 不传类型选择时后端会导入分享码中的全部订阅，避免旧实现硬编码
+    // series/prefix 静默丢弃其余综合订阅类型。
     await _perform(
-      () => _api.importSubscriptionShare({
-        'share_text': shareText,
-        'include_video': true,
-        'include_actor': true,
-        'include_series_sub_types': ['series', 'prefix'],
-      }),
+      () => _api.importSubscriptionShare({'share_text': shareText}),
     );
   }
 
