@@ -15,6 +15,7 @@ import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/mapping_rule.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/actor_avatar.dart';
@@ -322,7 +323,12 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                   ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                    padding: const EdgeInsets.fromLTRB(
+                      22,
+                      0,
+                      22,
+                      PageHeader.aboveListGap,
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
@@ -343,7 +349,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                   ),
                 ),
                 SliverPadding(
-                  padding: MediaListLayout.padding.copyWith(top: 0, bottom: 80),
+                  padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
                   sliver: PagedSliverGrid<int, MovieListItem>(
                     pagingController: _controller,
                     showNoMoreItemsIndicatorAsGridChild: false,

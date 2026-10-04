@@ -26,6 +26,8 @@ import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'package:omm/features/oh_my_media/tasks/task_name_labels.dart';
 import 'package:omm/features/translation/modal_transcription_providers.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'audio_models.dart';
@@ -825,6 +827,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                   scrollController: _scrollController,
                   header: SettingsSubPageHeader(
                     eyebrow: l.audioEyebrow,
+                    bottomPadding: PageHeader.toolbarTopGap,
                     title: l.settingsAudioManagement,
                     count: _controller.itemList == null ? null : _totalCount,
                     countSuffix: l.audioAssetCountSuffix,
@@ -849,7 +852,15 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                         slivers: [
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                              // 提取任务区出现/消失时切换块间距与列表间距。
+                              padding: EdgeInsets.fromLTRB(
+                                22,
+                                0,
+                                22,
+                                extractionTasks.isNotEmpty
+                                    ? PageHeader.toolbarTopGap
+                                    : PageHeader.aboveListGap,
+                              ),
                               child: _SearchField(
                                 controller: _searchController,
                                 onChanged: _onSearchChanged,
@@ -861,7 +872,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(
-                                  24,
+                                  22,
                                   0,
                                   22,
                                   8,
@@ -879,7 +890,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                   22,
                                   0,
                                   22,
-                                  14,
+                                  PageHeader.aboveListGap,
                                 ),
                                 child: Container(
                                   decoration: settingsCardDecoration(context),
@@ -936,7 +947,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
                               22,
-                              0,
+                              MediaListLayout.contentTopInset,
                               22,
                               _selectionMode ? 136 : 80,
                             ),

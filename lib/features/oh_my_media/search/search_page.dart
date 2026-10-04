@@ -253,6 +253,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           children: [
             PageHeader(
               eyebrow: AppL10n.of(context).searchTitle.toUpperCase(),
+              bottomPadding: PageHeader.toolbarTopGap,
               title: Text(
                 AppL10n.of(context).searchFind,
                 style: AppText.pageTitle(context),
@@ -263,7 +264,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+              padding: const EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                PageHeader.aboveListGap,
+              ),
               child: Container(
                 decoration: BoxDecoration(
                   color: c.surface,
@@ -443,7 +449,7 @@ class _ActorSuggestions extends StatelessWidget {
 
     final c = appColors(context);
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+      padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
       itemCount: actors.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -669,7 +675,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
         primary: false,
         slivers: [
           SliverPadding(
-            padding: MediaListLayout.padding.copyWith(top: 4, bottom: 120),
+            padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
             sliver: isPortrait
                 ? PagedSliverGrid<int, MovieListItem>(
                     pagingController: _controller,

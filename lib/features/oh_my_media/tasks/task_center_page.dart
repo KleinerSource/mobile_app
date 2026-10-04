@@ -9,6 +9,8 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'task_center_provider.dart';
 import 'task_model.dart';
@@ -44,6 +46,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.taskCenterEyebrow,
+              bottomPadding: PageHeader.aboveListGap,
               title: l.taskCenterTitle,
               count: meta.loading && tasks.isEmpty ? null : totalCount,
               countSuffix: l.taskCountSuffix,
@@ -58,12 +61,17 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                 child: ListView(
                   primary: true,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+                  padding: const EdgeInsets.fromLTRB(
+                    22,
+                    MediaListLayout.contentTopInset,
+                    22,
+                    32,
+                  ),
                   children: [
                     _buildSummary(colors, tasks, activeCount, meta),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: PageHeader.toolbarTopGap),
                     _buildFilterBar(colors),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: PageHeader.toolbarTopGap),
                     if (visible.isEmpty)
                       _buildEmpty(colors)
                     else

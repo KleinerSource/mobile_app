@@ -12,6 +12,7 @@ import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'list_labels.dart';
 import 'list_model.dart';
@@ -93,7 +94,7 @@ class ListDetailPage extends ConsumerWidget {
               )
             else
               SliverPadding(
-                padding: MediaListLayout.padding.copyWith(top: 18, bottom: 80),
+                padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
                 sliver: SliverGrid(
                   gridDelegate: const MediaGridDelegate(),
                   delegate: SliverChildBuilderDelegate((ctx, i) {
@@ -394,7 +395,12 @@ class _Hero extends StatelessWidget {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 56, 22, 18),
+              padding: const EdgeInsets.fromLTRB(
+                22,
+                56,
+                22,
+                PageHeader.aboveListGap,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,

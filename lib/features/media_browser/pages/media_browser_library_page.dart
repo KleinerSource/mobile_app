@@ -225,8 +225,7 @@ class _MediaBrowserLibraryPageState
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
-          serverId:
-              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+          serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           query: media_models.MediaQuery(
             offset: startIndex,
             limit: _pageSize,
@@ -647,6 +646,14 @@ class _MediaBrowserLibraryPageState
     views.maybeWhen(data: _syncCollectionType, orElse: () {});
     final isPortrait = _viewMode == MediaViewMode.portrait;
     final isLandscape = _viewMode == MediaViewMode.landscape;
+    // 库切换行可能整体隐藏（演员/标签/聚合服务等场景），头部底距随
+    // 其下方是工具栏还是列表切换，保证组件增减不改变列表与上一块的间距。
+    final hasViewsToolbar =
+        !_isPersonMode &&
+        !_isTagMode &&
+        !isStash &&
+        !isFeiniu &&
+        (views.asData?.value.isNotEmpty ?? false);
 
     // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
@@ -666,6 +673,9 @@ class _MediaBrowserLibraryPageState
                         eyebrow:
                             ref.watch(mediaBrowserConfigProvider)?.brandLabel ??
                             '',
+                        bottomPadding: hasViewsToolbar
+                            ? PageHeader.toolbarTopGap
+                            : PageHeader.aboveListGap,
                         title: Text(
                           _isGenreMode
                               ? (widget.genreName?.trim().isNotEmpty == true
@@ -730,7 +740,9 @@ class _MediaBrowserLibraryPageState
                                 list.isEmpty
                             ? const SizedBox.shrink()
                             : Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.only(
+                                  bottom: PageHeader.aboveListGap,
+                                ),
                                 child: SizedBox(
                                   height: 38,
                                   child: ListView.separated(
@@ -794,7 +806,7 @@ class _MediaBrowserLibraryPageState
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 slivers: [
                                   SliverPadding(
-                                    padding: MediaListLayout.padding,
+                                    padding: MediaListLayout.contentPadding,
                                     sliver: urls.maybeWhen(
                                       data: (value) {
                                         final delegate = PagedChildBuilderDelegate<MediaBrowserItem>(

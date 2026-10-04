@@ -8,6 +8,8 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'libraries_providers.dart';
@@ -51,6 +53,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupLibrary,
+              bottomPadding: PageHeader.aboveListGap,
               title: l.libraryManageTitle,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -132,7 +135,12 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                         }
                         // 媒体库数量少且有界：合并为设置页式分组卡，行间细分隔线。
                         return SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                          padding: const EdgeInsets.fromLTRB(
+                            22,
+                            MediaListLayout.contentTopInset,
+                            22,
+                            80,
+                          ),
                           sliver: SliverToBoxAdapter(
                             child: Container(
                               decoration: settingsCardDecoration(context),

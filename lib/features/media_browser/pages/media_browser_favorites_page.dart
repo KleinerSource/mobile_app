@@ -164,8 +164,7 @@ class _MediaBrowserFavoritesPageState
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
-          serverId:
-              ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
+          serverId: ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
           query: media_models.MediaQuery(
             offset: startIndex,
             limit: _pageSize,
@@ -459,6 +458,7 @@ class _MediaBrowserFavoritesPageState
                     // ===== 固定 header：收藏夹 + 条目数量 + 排序/视图/设置 =====
                     PageHeader(
                       eyebrow: l.favoritesTitle,
+                      bottomPadding: PageHeader.toolbarTopGap,
                       title: Text(
                         l.mediaBrowserItemCount(_totalCount),
                         style: AppText.pageTitle(context),
@@ -513,7 +513,9 @@ class _MediaBrowserFavoritesPageState
                                 // ===== 筛选行：类型 chips =====
                                 SliverToBoxAdapter(
                                   child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
+                                    padding: const EdgeInsets.only(
+                                      bottom: PageHeader.aboveListGap,
+                                    ),
                                     child: SizedBox(
                                       height: 32,
                                       child: ListView(
@@ -547,7 +549,7 @@ class _MediaBrowserFavoritesPageState
                                 // ===== 收藏网格 / 列表 =====
                                 if (_viewMode == MediaViewMode.landscape)
                                   SliverPadding(
-                                    padding: MediaListLayout.padding,
+                                    padding: MediaListLayout.contentPadding,
                                     sliver: urls.maybeWhen(
                                       data: (value) => PagedSliverList<int, MediaBrowserItem>(
                                         pagingController: _controller,
@@ -620,7 +622,7 @@ class _MediaBrowserFavoritesPageState
                                     ),
                                   ),
                                 SliverPadding(
-                                  padding: MediaListLayout.padding,
+                                  padding: MediaListLayout.contentPadding,
                                   sliver: urls.maybeWhen(
                                     data: (value) =>
                                         _viewMode == MediaViewMode.landscape

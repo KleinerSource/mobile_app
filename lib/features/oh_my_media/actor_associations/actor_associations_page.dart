@@ -18,6 +18,8 @@ import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'actor_associations_providers.dart';
 import 'widgets/actor_association_editor_sheet.dart';
@@ -219,6 +221,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupLibrary,
+              bottomPadding: PageHeader.toolbarTopGap,
               title: l.settingsActorAssociations,
               count: _controller.itemList == null ? null : _totalCount,
               countSuffix: l.actorAssociationCountSuffix,
@@ -227,7 +230,12 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
             body: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    22,
+                    0,
+                    22,
+                    PageHeader.aboveListGap,
+                  ),
                   child: _SearchBar(
                     controller: _searchCtl,
                     onChanged: _onSearchChanged,
@@ -237,7 +245,12 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
                   child: PagedListView<int, MappingRule>.separated(
                     scrollController: _scrollController,
                     pagingController: _controller,
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 96),
+                    padding: const EdgeInsets.fromLTRB(
+                      22,
+                      MediaListLayout.contentTopInset,
+                      22,
+                      96,
+                    ),
                     separatorBuilder: (_, itemIndex) {
                       // 隐藏末项与状态页脚之间的尾随分隔线（末行底部圆角）。
                       final count = _controller.itemList?.length ?? 0;

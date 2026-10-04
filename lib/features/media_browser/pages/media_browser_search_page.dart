@@ -147,6 +147,7 @@ class _MediaBrowserSearchPageState
             children: [
               PageHeader(
                 eyebrow: l.searchTitle.toUpperCase(),
+                bottomPadding: PageHeader.toolbarTopGap,
                 title: Text(l.searchFind, style: AppText.pageTitle(context)),
                 trailing: isStash
                     ? null
@@ -156,7 +157,12 @@ class _MediaBrowserSearchPageState
                       ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+                padding: const EdgeInsets.fromLTRB(
+                  22,
+                  0,
+                  22,
+                  PageHeader.aboveListGap,
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surface,
@@ -493,10 +499,7 @@ class _MediaBrowserSearchResultsState
               primary: false,
               slivers: [
                 SliverPadding(
-                  padding: MediaListLayout.padding.copyWith(
-                    top: 4,
-                    bottom: 120,
-                  ),
+                  padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
                   sliver: urls.maybeWhen(
                     data: (value) {
                       final delegate =

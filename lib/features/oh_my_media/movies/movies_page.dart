@@ -366,6 +366,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                   children: [
                     PageHeader(
                       eyebrow: AppL10n.of(context).libraryTitle.toUpperCase(),
+                      bottomPadding: PageHeader.toolbarTopGap,
                       title: Text.rich(
                         TextSpan(
                           children: [
@@ -423,7 +424,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     ),
                     // 底部边距放在固定区内,滚动内容始终与按钮行保持间距。
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.only(
+                        bottom: PageHeader.aboveListGap,
+                      ),
                       child: SizedBox(
                         height: 36,
                         child: ListView(
@@ -504,7 +507,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                               physics: const AlwaysScrollableScrollPhysics(),
                               slivers: [
                                 SliverPadding(
-                                  padding: MediaListLayout.padding,
+                                  padding: MediaListLayout.contentPadding,
                                   sliver: _viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,

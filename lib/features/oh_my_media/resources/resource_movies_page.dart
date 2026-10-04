@@ -22,6 +22,7 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'resources_repository.dart';
 
@@ -183,7 +184,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
                 ),
               ),
               SliverPadding(
-                padding: MediaListLayout.padding.copyWith(top: 18, bottom: 80),
+                padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
                 sliver: PagedSliverGrid<int, MovieListItem>(
                   pagingController: _controller,
                   showNoMoreItemsIndicatorAsGridChild: false,
@@ -251,7 +252,12 @@ class _Hero extends StatelessWidget {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 56, 22, 18),
+              padding: const EdgeInsets.fromLTRB(
+                22,
+                56,
+                22,
+                PageHeader.aboveListGap,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,

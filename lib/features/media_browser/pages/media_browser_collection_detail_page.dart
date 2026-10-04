@@ -14,6 +14,7 @@ import 'package:omm/features/media_browser/navigation/media_browser_navigation.d
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/localized_error_message.dart';
@@ -279,7 +280,12 @@ class _MediaBrowserCollectionDetailPageState
                 ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    22,
+                    4,
+                    22,
+                    PageHeader.aboveListGap,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -364,7 +370,7 @@ class _MediaBrowserCollectionDetailPageState
         );
         if (_viewMode == MediaViewMode.portrait) {
           return SliverPadding(
-            padding: MediaListLayout.padding,
+            padding: MediaListLayout.contentPadding,
             sliver: PagedSliverGrid<int, MediaBrowserItem>(
               pagingController: _controller,
               showNoMoreItemsIndicatorAsGridChild: false,
@@ -374,7 +380,7 @@ class _MediaBrowserCollectionDetailPageState
           );
         }
         return SliverPadding(
-          padding: MediaListLayout.padding,
+          padding: MediaListLayout.contentPadding,
           sliver: PagedSliverList<int, MediaBrowserItem>(
             pagingController: _controller,
             builderDelegate: delegate,

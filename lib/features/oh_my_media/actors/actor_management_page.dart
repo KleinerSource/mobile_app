@@ -13,6 +13,8 @@ import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
@@ -359,6 +361,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               scrollController: _scrollController,
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupLibrary,
+                bottomPadding: PageHeader.toolbarTopGap,
                 title: l.settingsActors,
                 count: _hasLoaded ? _totalCount : null,
                 countSuffix: l.actorCountSuffix,
@@ -379,7 +382,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     slivers: [
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                          padding: const EdgeInsets.fromLTRB(
+                            22,
+                            0,
+                            22,
+                            PageHeader.toolbarTopGap,
+                          ),
                           child: Container(
                             decoration: BoxDecoration(
                               color: c.surface,
@@ -459,11 +467,13 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                           ),
                         ),
                       ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: PageHeader.aboveListGap),
+                      ),
                       SliverPadding(
                         padding: EdgeInsets.fromLTRB(
                           22,
-                          0,
+                          MediaListLayout.contentTopInset,
                           22,
                           _selectionMode ? 136 : 80,
                         ),

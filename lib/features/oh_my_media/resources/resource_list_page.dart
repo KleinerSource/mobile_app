@@ -23,6 +23,8 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/translation/translation_providers.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'entity_merge_sheet.dart';
 import 'resource_movies_page.dart';
@@ -321,6 +323,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                   scrollController: _scrollController,
                   header: SettingsSubPageHeader(
                     eyebrow: l.libraryTitle,
+                    bottomPadding: PageHeader.toolbarTopGap,
                     title: widget.kind.plural(l),
                     count: _totalCount,
                     countSuffix: switch (widget.kind) {
@@ -346,7 +349,12 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                           // 搜索栏
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                              padding: const EdgeInsets.fromLTRB(
+                                22,
+                                0,
+                                22,
+                                PageHeader.toolbarTopGap,
+                              ),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: c.surface,
@@ -435,12 +443,14 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                               ),
                             ),
                           ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                          const SliverToBoxAdapter(
+                            child: SizedBox(height: PageHeader.aboveListGap),
+                          ),
                           // 列表
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
                               22,
-                              0,
+                              MediaListLayout.contentTopInset,
                               22,
                               _selectionMode ? 136 : 80,
                             ),

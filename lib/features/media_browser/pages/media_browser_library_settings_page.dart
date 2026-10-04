@@ -10,6 +10,8 @@ import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_library_refresh_indicator.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/localized_error_message.dart';
@@ -64,6 +66,7 @@ class _MediaBrowserLibrarySettingsPageState
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: config.brandLabel,
+              bottomPadding: PageHeader.aboveListGap,
               title: l.mediaBrowserLibraryManageTitle,
               trailing: user.value?.isAdmin == true ? _headerActions() : null,
             ),
@@ -123,14 +126,19 @@ class _MediaBrowserLibrarySettingsPageState
               _scrollableMessage(context, const CircularProgressIndicator()),
           error: (error, _) => _errorState(
             context,
-                message: _errorMessage(context, error),
+            message: _errorMessage(context, error),
             onRetry: () => ref.invalidate(mediaBrowserVirtualFoldersProvider),
           ),
           data: (libraries) {
             if (libraries.isEmpty) return const _EmptyLibraryState();
             return ListView(
               primary: true,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+              padding: const EdgeInsets.fromLTRB(
+                22,
+                MediaListLayout.contentTopInset,
+                22,
+                80,
+              ),
               children: [
                 Container(
                   decoration: settingsCardDecoration(context),
@@ -459,8 +467,8 @@ class _MediaBrowserLibrarySettingsPageState
 
 String _errorMessage(BuildContext context, Object error) =>
     error is SourceException
-        ? localizedErrorMessage(AppL10n.of(context), error)
-        : localizedErrorMessage(AppL10n.of(context), error);
+    ? localizedErrorMessage(AppL10n.of(context), error)
+    : localizedErrorMessage(AppL10n.of(context), error);
 
 class _AdminRequiredState extends StatelessWidget {
   const _AdminRequiredState();
@@ -506,7 +514,12 @@ class _EmptyLibraryState extends StatelessWidget {
     return ListView(
       primary: true,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+      padding: const EdgeInsets.fromLTRB(
+        22,
+        MediaListLayout.contentTopInset,
+        22,
+        80,
+      ),
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.48,

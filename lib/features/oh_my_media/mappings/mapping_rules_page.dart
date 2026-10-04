@@ -22,6 +22,8 @@ import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/shared/media_list_layout.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
@@ -268,6 +270,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               scrollController: _scrollController,
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupMappings,
+                bottomPadding: PageHeader.toolbarTopGap,
                 title: switch (widget.type) {
                   MappingType.tag => l.settingsMappingTags,
                   MappingType.genre => l.settingsMappingGenres,
@@ -294,7 +297,12 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                       // 搜索栏
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                          padding: const EdgeInsets.fromLTRB(
+                            22,
+                            0,
+                            22,
+                            PageHeader.toolbarTopGap,
+                          ),
                           child: Container(
                             decoration: BoxDecoration(
                               color: c.surface,
@@ -377,12 +385,14 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           ),
                         ),
                       ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: PageHeader.aboveListGap),
+                      ),
 
                       SliverPadding(
                         padding: EdgeInsets.fromLTRB(
                           22,
-                          0,
+                          MediaListLayout.contentTopInset,
                           22,
                           _selectionMode ? 136 : 80,
                         ),

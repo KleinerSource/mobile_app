@@ -560,6 +560,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   children: [
                     PageHeader(
                       eyebrow: AppL10n.of(context).tabYou.toUpperCase(),
+                      bottomPadding: PageHeader.toolbarTopGap,
                       title: Text(
                         AppL10n.of(context).favoritesTitle,
                         style: AppText.pageTitle(context),
@@ -615,7 +616,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                       22,
                                       0,
                                       22,
-                                      22,
+                                      PageHeader.toolbarTopGap,
                                     ),
                                     child: _StatsCard(
                                       totalCount: _totalCount,
@@ -641,7 +642,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                 ),
                                 SliverToBoxAdapter(
                                   child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 28),
+                                    padding: const EdgeInsets.only(
+                                      bottom: PageHeader.toolbarTopGap,
+                                    ),
                                     child: _ListsGrid(),
                                   ),
                                 ),
@@ -676,7 +679,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                 ),
                                 SliverToBoxAdapter(
                                   child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
+                                    padding: const EdgeInsets.only(
+                                      bottom: PageHeader.aboveListGap,
+                                    ),
                                     child: SizedBox(
                                       height: 32,
                                       child: ListView(
@@ -711,7 +716,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
                                 // ===== 收藏网格 / 列表 =====
                                 SliverPadding(
-                                  padding: MediaListLayout.padding,
+                                  padding: MediaListLayout.contentPadding,
                                   sliver: _viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,

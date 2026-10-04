@@ -257,30 +257,40 @@ void main() {
       testWidgets('工具栏与搜索框按需显示，在 $size/$scale 下间距统一并固定', (tester) async {
         await tester.binding.setSurfaceSize(size);
         addTearDown(() => tester.binding.setSurfaceSize(null));
-        // 第 4 位是工具栏底部到列表顶部的期望间距：OMM/MediaBrowser 沿用
-        // 16；db_online 用 aboveListGap，加上列表自带的 contentTopInset
-        // 后与块间间距（toolbarTopGap）同为 12 的节奏。
+        // 第 4 位是工具栏底部到列表顶部的期望间距：所有媒体源统一用
+        // aboveListGap，加上列表自带的 contentTopInset 后与块间间距
+        // （toolbarTopGap）同为 12 的节奏。
         for (final entry in <(Widget, String, bool, double)>[
           (
             const MoviesPage(showBackButton: false, maxItems: 0),
             'oh-my-media',
             true,
-            16,
+            PageHeader.aboveListGap,
           ),
-          (const SearchPage(), 'oh-my-media', true, 16),
+          (
+            const SearchPage(),
+            'oh-my-media',
+            true,
+            PageHeader.aboveListGap,
+          ),
           (
             const DbOnlineSearchPage(),
             'db_online',
             true,
             PageHeader.aboveListGap,
           ),
-          (const MediaBrowserSearchPage(), 'emby', true, 16),
+          (
+            const MediaBrowserSearchPage(),
+            'emby',
+            true,
+            PageHeader.aboveListGap,
+          ),
           (const DbOnlineLibraryPage(), 'db_online', false, 0),
           (
             const MediaBrowserLibraryPage(showBackButton: false),
             'emby',
             true,
-            16,
+            PageHeader.aboveListGap,
           ),
           (
             const MediaBrowserLibraryPage(showBackButton: false),
