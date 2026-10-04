@@ -2175,18 +2175,14 @@ void _openSubscriptionMovieDetail(
   final code = [item.data['number'], item.data['video_code'], item.data['code']]
       .map((value) => value?.toString().trim() ?? '')
       .firstWhere((value) => value.isNotEmpty, orElse: () => '');
-  if (videoId.isEmpty && code.isEmpty) return;
+  final key = videoId.isNotEmpty ? videoId : code;
+  if (key.isEmpty) return;
 
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      // code 与 video_id 同传：服务端优先按 video_id 精确查询，失败时
-      // 回退番号，避免同番号多条影片时详情与条目不一致。
-      builder: (_) => code.isNotEmpty
-          ? DbOnlineMovieDetailPage(
-              code: code,
-              videoId: videoId.isNotEmpty && videoId != code ? videoId : null,
-            )
-          : DbOnlineMovieDetailPage.byVideoId(videoId: videoId),
+      // 详情以 video_id 为主导，无 video_id 时退化为番号，由服务端
+      // 双主键解析，避免同番号多条影片时详情与条目不一致。
+      builder: (_) => DbOnlineMovieDetailPage(detailKey: key),
     ),
   );
 }

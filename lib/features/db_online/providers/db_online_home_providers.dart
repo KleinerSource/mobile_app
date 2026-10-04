@@ -319,25 +319,21 @@ class DbOnlineMovieDetailRequest {
   const DbOnlineMovieDetailRequest({
     required this.serverId,
     required this.value,
-    this.videoId,
   });
 
   final String serverId;
-  final String value;
 
-  /// 番号查询的消歧 video_id；同一归一化番号在数据库中可能对应多条
-  /// 影片，不携带时服务端按番号任取一条，导致详情与列表条目不一致。
-  final String? videoId;
+  /// 详情双主键 key：video_id 优先，无 video_id 的影片为番号兜底。
+  final String value;
 
   @override
   bool operator ==(Object other) =>
       other is DbOnlineMovieDetailRequest &&
       other.serverId == serverId &&
-      other.value == value &&
-      other.videoId == videoId;
+      other.value == value;
 
   @override
-  int get hashCode => Object.hash(serverId, value, videoId);
+  int get hashCode => Object.hash(serverId, value);
 }
 
 final dbOnlineMovieDetailProvider = StreamProvider.autoDispose
@@ -347,41 +343,16 @@ final dbOnlineMovieDetailProvider = StreamProvider.autoDispose
     ) async* {
       _checkServerScope(ref, request.serverId);
       final repository = ref.watch(dboMediaRepositoryProvider);
-      final movie = await repository.getMovieByCode(
-        request.value,
-        videoId: request.videoId,
-        refresh: false,
-      );
+      final movie = await repository.getMovieDetail(request.value, refresh: false);
       yield movie;
       if (movie.source != 'database') return;
 
       try {
-        yield await repository.getMovieByCode(
-          movie.code.trim().isNotEmpty ? movie.code : request.value,
-          videoId: movie.videoId ?? request.videoId,
-          refresh: true,
-        );
-      } catch (_) {
-        // 后台在线刷新失败时继续保留数据库详情。
-      }
-    });
-
-final dbOnlineMovieDetailByVideoIdProvider = StreamProvider.autoDispose
-    .family<DbOnlineMovieDetail, DbOnlineMovieDetailRequest>((
-      ref,
-      request,
-    ) async* {
-      _checkServerScope(ref, request.serverId);
-      final repository = ref.watch(dboMediaRepositoryProvider);
-      final movie = await repository.getMovieByVideoId(
-        request.value,
-        refresh: false,
-      );
-      yield movie;
-      if (movie.source != 'database') return;
-
-      try {
-        yield await repository.getMovieByVideoId(request.value, refresh: true);
+        // 在线刷新优先使用详情返回的 video_id 精确采集
+        final refreshKey = movie.videoId?.trim().isNotEmpty == true
+            ? movie.videoId!.trim()
+            : request.value;
+        yield await repository.getMovieDetail(refreshKey, refresh: true);
       } catch (_) {
         // 后台在线刷新失败时继续保留数据库详情。
       }

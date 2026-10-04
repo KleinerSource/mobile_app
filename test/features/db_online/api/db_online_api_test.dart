@@ -17,7 +17,7 @@ void main() {
     final page = await api.latestPage(page: 2, limit: 24, sort: 'release');
     final library = await api.taggedMoviesPage();
     final detail = await api.detail('ABC-001');
-    final detailByVideoId = await api.detailByVideoId('vid-1');
+    final detailById = await api.detail('vid-1');
     final episodes = await api.onlinePlayEpisodes(
       'ABC-001',
       sourceId: 2,
@@ -33,7 +33,7 @@ void main() {
     expect(page.hasMore, isTrue);
     expect(library.movies, isNotEmpty);
     expect(detail.code, 'ABC-001');
-    expect(detailByVideoId.code, 'ABC-001');
+    expect(detailById.code, 'ABC-001');
     expect(detail.canPlay, isTrue);
     expect(detail.playSources.single.id, 2);
     expect(detail.magnets.single.magnet, startsWith('magnet:'));
@@ -46,7 +46,7 @@ void main() {
       '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release',
       '/api/subs/tags?filter_by=0%3At%3A%3A%3A%3A%3A&page=1&limit=24&sort_by=update&order_by=desc',
       '/api/video/ABC-001?refresh=true',
-      '/api/video/id/vid-1?refresh=true',
+      '/api/video/vid-1?refresh=true',
       '/api/video/ABC-001/online-play/episodes?source_id=2&video_id=vid-1',
     ]);
   });
@@ -385,7 +385,7 @@ class _DbOnlineAdapter implements HttpClientAdapter {
         },
       };
     }
-    if (path.contains('/video/ABC-001') || path.contains('/video/id/vid-1')) {
+    if (path.contains('/video/ABC-001') || path.contains('/video/vid-1')) {
       return {
         'success': true,
         'data': {

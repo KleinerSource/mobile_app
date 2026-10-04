@@ -562,40 +562,16 @@ class DbOnlineApi {
   static const _top250Types = {'all', 'video_type', 'year'};
   static const _top250StartRanks = {1, 51, 101, 151, 201};
 
-  /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
-  /// 转换为 Oh My Media 的整数影片 ID。refresh 控制是否强制访问在线 API。
-  Future<DbOnlineMovieDetail> detail(
-    String code, {
-    bool refresh = true,
-    String? videoId,
-  }) async {
-    final normalized = code.trim();
+  /// 按双主键获取影片详情：key 优先为 dbonline/JavDB 的 video_id，
+  /// 无 video_id 的影片传番号，由服务端按 video_id 优先、番号兜底解析。
+  /// refresh 控制是否强制访问在线 API。
+  Future<DbOnlineMovieDetail> detail(String key, {bool refresh = true}) async {
+    final normalized = key.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(code, 'code', AppErrorCode.validationFailed);
+      throw ArgumentError.value(key, 'key', AppErrorCode.validationFailed);
     }
-    final query = <String, dynamic>{
-      'refresh': refresh,
-      if (videoId?.trim().isNotEmpty == true) 'video_id': videoId!.trim(),
-    };
     final response = await _dio.get<dynamic>(
       '/video/${Uri.encodeComponent(normalized)}',
-      queryParameters: query.isEmpty ? null : query,
-    );
-    return _movieDetailFromResponse(response.data);
-  }
-
-  /// 通过 dbonline/JavDB 的 video_id 获取详情，适用于番号尚未写入本地
-  /// 数据库的推荐结果。refresh 控制是否强制访问在线 API。
-  Future<DbOnlineMovieDetail> detailByVideoId(
-    String videoId, {
-    bool refresh = true,
-  }) async {
-    final normalized = videoId.trim();
-    if (normalized.isEmpty) {
-      throw ArgumentError.value(videoId, 'videoId', AppErrorCode.validationFailed);
-    }
-    final response = await _dio.get<dynamic>(
-      '/video/id/${Uri.encodeComponent(normalized)}',
       queryParameters: {'refresh': refresh},
     );
     return _movieDetailFromResponse(response.data);

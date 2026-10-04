@@ -9,6 +9,8 @@ import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_resource_merge.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subtitle.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart'
+    show dbOnlineDetailKey;
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/shared/movie_detail_formatters.dart' show formatFileSize;
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -106,7 +108,7 @@ class _DbOnlineResourcesSheetState
     try {
       final movie = await ref
           .read(dboMediaRepositoryProvider)
-          .getMovieByCode(widget.movie.code, videoId: widget.movie.videoId);
+          .getMovieDetail(dbOnlineDetailKey(widget.movie.videoId, widget.movie.code));
       if (!mounted) return;
       setState(() {
         _javdbMagnets = movie.magnets;

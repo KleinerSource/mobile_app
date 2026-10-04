@@ -148,16 +148,11 @@ class DboMediaRepository {
     extension: extension,
   );
 
-  Future<DbOnlineMovieDetail> getMovieByCode(
-    String code, {
-    String? videoId,
+  /// 按双主键获取影片详情：key 优先为 video_id，无 video_id 时为番号。
+  Future<DbOnlineMovieDetail> getMovieDetail(
+    String key, {
     bool refresh = true,
-  }) => _source.getMovieByCode(code, videoId: videoId, refresh: refresh);
-
-  Future<DbOnlineMovieDetail> getMovieByVideoId(
-    String videoId, {
-    bool refresh = true,
-  }) => _source.getMovieByVideoId(videoId, refresh: refresh);
+  }) => _source.getMovieDetail(key, refresh: refresh);
 
   Future<DbOnlineExternalResources> getCustomResources(String code) =>
       _source.getCustomResources(code);

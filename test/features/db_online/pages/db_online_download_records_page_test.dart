@@ -590,8 +590,8 @@ void main() {
     expect(
       tester
           .widget<DbOnlineMovieDetailPage>(find.byType(DbOnlineMovieDetailPage))
-          .code,
-      'DBO-1',
+          .detailKey,
+      'video-1',
     );
     expect(tester.takeException(), isNull);
   });

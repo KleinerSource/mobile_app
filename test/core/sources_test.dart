@@ -134,7 +134,8 @@ void _main_0() {
               },
             };
           }
-          if (path == '/api/video/DBO-001') {
+          // 详情以 video_id（ref.value）为路径主键请求
+          if (path == '/api/video/video-1') {
             return {
               'success': true,
               'data': {

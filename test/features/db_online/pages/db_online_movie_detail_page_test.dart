@@ -108,7 +108,7 @@ void main() {
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           locale: Locale('zh'),
-          home: DbOnlineMovieDetailPage(code: 'ABC-001'),
+          home: DbOnlineMovieDetailPage(detailKey: 'ABC-001'),
         ),
       ),
     );
@@ -116,7 +116,7 @@ void main() {
     return requestPaths;
   }
 
-  /// 记录完整请求地址（含 query），用于校验番号与 video_id 的消歧参数。
+  /// 记录完整请求地址（含 query），用于校验双主键 key 的请求路径。
   Future<List<Uri>> pumpDetailUris(
     WidgetTester tester, {
     String? videoId,
@@ -172,7 +172,7 @@ void main() {
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           locale: const Locale('zh'),
-          home: DbOnlineMovieDetailPage(code: 'ABC-001', videoId: videoId),
+          home: DbOnlineMovieDetailPage(detailKey: videoId ?? 'ABC-001'),
         ),
       ),
     );
@@ -180,18 +180,18 @@ void main() {
     return requestUris;
   }
 
-  testWidgets('详情请求携带 video_id 消歧参数', (tester) async {
+  testWidgets('详情以 video_id 为主键发起请求', (tester) async {
     final uris = await pumpDetailUris(tester, videoId: 'v-42');
 
     final detailRequests = uris
-        .where((uri) => uri.path == '/api/video/ABC-001')
+        .where((uri) => uri.path == '/api/video/v-42')
         .toList();
     expect(detailRequests, isNotEmpty);
     expect(
-      detailRequests.first.queryParameters['video_id'],
-      'v-42',
-      reason: '列表进入详情必须携带条目的 video_id，避免同番号多条影片时'
-          '服务端按番号任取一条导致详情对不上',
+      uris.any((uri) => uri.path == '/api/video/ABC-001'),
+      isFalse,
+      reason: '携带 video_id 的入口必须以 video_id 为路径主键，由服务端'
+          '优先按 video_id 解析，避免同番号多条影片时详情对不上',
     );
   });
 
@@ -244,11 +244,12 @@ void main() {
     await tester.tap(find.text('分享'));
     await tester.pumpAndSettle();
 
-    expect(shareTexts, ['https://example.test/video/ABC-001?video_id=v-9']);
+    expect(shareTexts, ['https://example.test/video/v-9?code=ABC-001']);
     expect(find.byType(SnackBar), findsNothing);
   });
 
-  testWidgets('详情更多菜单分享项在番号缺失时隐藏', (tester) async {
+  testWidgets('详情更多菜单在番号缺失时仍可按 video_id 分享', (tester) async {
+    final shareTexts = mockShare(tester);
     await pumpDetailUris(tester, detailData: () {
       return {
         'code': '',
@@ -262,7 +263,10 @@ void main() {
     final menu = find.byType(HeaderMenuButton<String>);
     await tester.tapAt(tester.getRect(menu).topLeft + const Offset(2, 2));
     await tester.pumpAndSettle();
-    expect(find.text('分享链接'), findsNothing);
+    expect(find.text('分享'), findsOneWidget);
+    await tester.tap(find.text('分享'));
+    await tester.pumpAndSettle();
+    expect(shareTexts, ['https://example.test/video/v-only']);
   });
 
   testWidgets('详情更多沿用封面悬浮栏风格并保留资源与字幕菜单', (tester) async {
@@ -385,7 +389,7 @@ void main() {
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           locale: Locale('zh'),
-          home: DbOnlineMovieDetailPage(code: 'ABC-001'),
+          home: DbOnlineMovieDetailPage(detailKey: 'ABC-001'),
         ),
       ),
     );

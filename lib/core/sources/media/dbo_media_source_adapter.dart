@@ -103,10 +103,8 @@ class DboMediaSourceAdapter implements DboMediaSource {
   @override
   Future<MediaDetails> getMovie(MediaRef ref) => _call(() async {
     _checkRef(ref);
-    final code = ref.alternateValue?.trim();
-    final detail = code != null && code.isNotEmpty
-        ? await api.detail(code, refresh: true, videoId: ref.value)
-        : await api.detailByVideoId(ref.value, refresh: true);
+    // ref.value 即双主键 key：video_id 优先，无 video_id 的条目为番号兜底
+    final detail = await api.detail(ref.value, refresh: true);
     final summaryRef = MediaRef(
       sourceId: _sourceId,
       value: detail.videoId ?? detail.code,
@@ -151,17 +149,10 @@ class DboMediaSourceAdapter implements DboMediaSource {
   });
 
   @override
-  Future<DbOnlineMovieDetail> getMovieByCode(
-    String code, {
-    String? videoId,
+  Future<DbOnlineMovieDetail> getMovieDetail(
+    String key, {
     bool refresh = true,
-  }) => _call(() => api.detail(code, refresh: refresh, videoId: videoId));
-
-  @override
-  Future<DbOnlineMovieDetail> getMovieByVideoId(
-    String videoId, {
-    bool refresh = true,
-  }) => _call(() => api.detailByVideoId(videoId, refresh: refresh));
+  }) => _call(() => api.detail(key, refresh: refresh));
 
   @override
   Future<DbOnlineExternalResources> getCustomResources(String code) =>

@@ -32,7 +32,7 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart'
-    show dbOnlineMovieWebUrl, shareDbOnlineMovieLink;
+    show dbOnlineDetailKey, dbOnlineMovieWebUrl, shareDbOnlineMovieLink;
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
@@ -65,40 +65,23 @@ String? _personExternalId(DbOnlinePerson person) {
 }
 
 class DbOnlineMovieDetailPage extends ConsumerWidget {
-  const DbOnlineMovieDetailPage({super.key, required this.code, this.videoId})
-    : assert(code != null);
+  const DbOnlineMovieDetailPage({super.key, required this.detailKey});
 
-  const DbOnlineMovieDetailPage.byVideoId({super.key, required this.videoId})
-    : code = null,
-      assert(videoId != null);
-
-  final String? code;
-
-  /// 番号消歧用的 video_id。同一番号可能对应数据库中的多条影片，
-  /// 携带时服务端优先按 video_id 精确查询，避免详情与入口不一致。
-  final String? videoId;
+  /// 详情双主键 key：video_id 优先，无 video_id 的影片为番号兜底，
+  /// 由服务端解析。
+  final String detailKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(mediaRuntimeConfigProvider);
-    final value = code?.trim().isNotEmpty == true
-        ? ref.watch(
-            dbOnlineMovieDetailProvider(
-              DbOnlineMovieDetailRequest(
-                serverId: config?.activeServerId ?? '',
-                value: code!.trim(),
-                videoId: videoId?.trim(),
-              ),
-            ),
-          )
-        : ref.watch(
-            dbOnlineMovieDetailByVideoIdProvider(
-              DbOnlineMovieDetailRequest(
-                serverId: config?.activeServerId ?? '',
-                value: videoId!.trim(),
-              ),
-            ),
-          );
+    final value = ref.watch(
+      dbOnlineMovieDetailProvider(
+        DbOnlineMovieDetailRequest(
+          serverId: config?.activeServerId ?? '',
+          value: detailKey,
+        ),
+      ),
+    );
     final colors = appColors(context);
     return Scaffold(
       backgroundColor: colors.bg,
@@ -113,26 +96,14 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
             retryLabel: AppL10n.of(context).dbOnlineRetry,
             message: localizedErrorMessage(AppL10n.of(context), error),
             onRetry: () {
-              if (code?.trim().isNotEmpty == true) {
-                ref.invalidate(
-                  dbOnlineMovieDetailProvider(
-                    DbOnlineMovieDetailRequest(
-                      serverId: config?.activeServerId ?? '',
-                      value: code!.trim(),
-                      videoId: videoId?.trim(),
-                    ),
+              ref.invalidate(
+                dbOnlineMovieDetailProvider(
+                  DbOnlineMovieDetailRequest(
+                    serverId: config?.activeServerId ?? '',
+                    value: detailKey,
                   ),
-                );
-              } else {
-                ref.invalidate(
-                  dbOnlineMovieDetailByVideoIdProvider(
-                    DbOnlineMovieDetailRequest(
-                      serverId: config?.activeServerId ?? '',
-                      value: videoId!.trim(),
-                    ),
-                  ),
-                );
-              }
+                ),
+              );
             },
           ),
         ),
@@ -140,18 +111,11 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
           movie: movie,
           config: config,
           loadPlaybackMovie: () {
-            if (movie.code.trim().isNotEmpty) {
-              return ref
-                  .read(dboMediaRepositoryProvider)
-                  .getMovieByCode(movie.code, videoId: movie.videoId);
-            }
-            final videoId = movie.videoId?.trim() ?? '';
-            if (videoId.isEmpty) {
+            final key = dbOnlineDetailKey(movie.videoId, movie.code);
+            if (key.isEmpty) {
               throw StateError(AppErrorCode.responseDataMissing);
             }
-            return ref
-                .read(dboMediaRepositoryProvider)
-                .getMovieByVideoId(videoId);
+            return ref.read(dboMediaRepositoryProvider).getMovieDetail(key);
           },
         ),
       ),
@@ -518,8 +482,8 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    // 网页端路由以番号为路径，video_id 仅作消歧查询；番号缺失时无法
-    // 构造分享地址，隐藏分享入口。
+    // 网页端路由以 video_id 为主导路径，番号作辅助查询参数；番号与
+    // video_id 均缺失时无法构造分享地址，隐藏分享入口。
     final shareUrl = dbOnlineMovieWebUrl(
       config,
       code: movie.code,
@@ -687,22 +651,16 @@ class _RelatedMovieSection extends StatelessWidget {
               config: config,
               codeOnly: true,
               onTap:
-                  movie.number.trim().isEmpty &&
-                      relatedVideoId.isEmpty
+                  movie.number.trim().isEmpty && relatedVideoId.isEmpty
                   ? null
                   : () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => movie.number.trim().isNotEmpty
-                            ? DbOnlineMovieDetailPage(
-                                code: movie.number,
-                                videoId: relatedVideoId.isNotEmpty &&
-                                        relatedVideoId != movie.number.trim()
-                                    ? relatedVideoId
-                                    : null,
-                              )
-                            : DbOnlineMovieDetailPage.byVideoId(
-                                videoId: relatedVideoId,
-                              ),
+                        builder: (_) => DbOnlineMovieDetailPage(
+                          detailKey: dbOnlineDetailKey(
+                            relatedVideoId,
+                            movie.number,
+                          ),
+                        ),
                       ),
                     ),
             );

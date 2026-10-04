@@ -185,7 +185,7 @@ void main() {
 
   for (final page in [
     const MovieDetailPage(movieId: 1, acknowledgeNewResources: false),
-    const DbOnlineMovieDetailPage(code: 'HEADER-001'),
+    const DbOnlineMovieDetailPage(detailKey: 'HEADER-001'),
     const MediaBrowserMovieDetailPage(itemId: '1'),
     const MediaBrowserAlbumDetailPage(albumId: '1'),
     const MediaBrowserSeriesDetailPage(seriesId: '1'),
@@ -244,7 +244,7 @@ void main() {
 
   for (final page in [
     const MovieDetailPage(movieId: 1, acknowledgeNewResources: false),
-    const DbOnlineMovieDetailPage(code: 'HEADER-001'),
+    const DbOnlineMovieDetailPage(detailKey: 'HEADER-001'),
     const MediaBrowserMovieDetailPage(itemId: '1'),
     const MediaBrowserAlbumDetailPage(albumId: '1'),
     const MediaBrowserSeriesDetailPage(seriesId: '1'),

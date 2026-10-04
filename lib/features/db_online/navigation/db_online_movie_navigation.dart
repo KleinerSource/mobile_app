@@ -7,27 +7,27 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 
+/// 详情双主键 key：video_id 优先，缺失时退化为番号。
+String dbOnlineDetailKey(String? videoId, String? code) {
+  final id = videoId?.trim() ?? '';
+  if (id.isNotEmpty) return id;
+  return code?.trim() ?? '';
+}
+
 /// 打开 dbonline 影片详情。
 ///
 /// 推荐、最新列表和详情中的关联影片都经过同一入口，避免各页面对番号
-/// 与 video_id 的回退规则产生差异。番号与 video_id 同时携带：同一番号
-/// 在数据库中可能对应多条影片，video_id 用于服务端消歧，缺失时才会
-/// 退化为纯番号匹配。
+/// 与 video_id 的回退规则产生差异。详情以 video_id 为主导，无 video_id
+/// 的影片退化为番号，由服务端双主键解析。
 Future<void> openDbOnlineMovie(
   BuildContext context,
   DbOnlineMovie movie,
 ) async {
-  final code = movie.number.trim();
-  final videoId = movie.id.trim();
-  if (code.isEmpty && videoId.isEmpty) return;
+  final key = dbOnlineDetailKey(movie.id, movie.number);
+  if (key.isEmpty) return;
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      builder: (_) => code.isNotEmpty
-          ? DbOnlineMovieDetailPage(
-              code: code,
-              videoId: videoId.isNotEmpty && videoId != code ? videoId : null,
-            )
-          : DbOnlineMovieDetailPage.byVideoId(videoId: videoId),
+      builder: (_) => DbOnlineMovieDetailPage(detailKey: key),
     ),
   );
 }
@@ -37,32 +37,36 @@ void openDbOnlineMovieUnawaited(BuildContext context, DbOnlineMovie movie) {
   unawaited(openDbOnlineMovie(context, movie));
 }
 
-/// dbonline 网页端影片详情地址，与网页端路由 `/video/:code` 一致：
-/// `{base}/video/{code}?video_id={videoId}`。番号缺失或地址非法时返回
-/// null，调用方应隐藏分享入口。
+/// dbonline 网页端影片详情地址，与网页端路由 `/video/:videoId` 一致：
+/// `{base}/video/{video_id}?code={code}`（video_id 主导，番号作辅助参数；
+/// 无 video_id 时退化为 `{base}/video/{code}`）。番号与 video_id 均缺失
+/// 或地址非法时返回 null，调用方应隐藏分享入口。
 String? dbOnlineMovieWebUrl(
   ServerConfig? config, {
   required String code,
   String? videoId,
 }) {
   final normalizedCode = code.trim();
-  if (config == null || normalizedCode.isEmpty) return null;
+  final normalizedVideoId = videoId?.trim() ?? '';
+  if (config == null || (normalizedCode.isEmpty && normalizedVideoId.isEmpty)) {
+    return null;
+  }
   final base = Uri.tryParse(ServerConfig.normalize(config.baseUrl));
   if (base == null || !base.hasScheme || base.host.isEmpty) return null;
   final basePath = base.path == '/' ? '' : base.path;
-  final normalizedVideoId = videoId?.trim() ?? '';
+  final key = normalizedVideoId.isNotEmpty ? normalizedVideoId : normalizedCode;
   return base
       .replace(
-        path: '$basePath/video/${Uri.encodeComponent(normalizedCode)}',
-        queryParameters: normalizedVideoId.isEmpty
+        path: '$basePath/video/${Uri.encodeComponent(key)}',
+        queryParameters: normalizedVideoId.isEmpty || normalizedCode.isEmpty
             ? null
-            : {'video_id': normalizedVideoId},
+            : {'code': normalizedCode},
       )
       .toString();
 }
 
-/// 拉起系统分享面板，分享影片的网页端地址。地址不可构造（无配置或无
-/// 番号）时返回 false，调用方应隐藏分享入口。
+/// 拉起系统分享面板，分享影片的网页端地址。地址不可构造（无配置或
+/// 番号与 video_id 均缺失）时返回 false，调用方应隐藏分享入口。
 Future<bool> shareDbOnlineMovieLink(
   BuildContext context, {
   ServerConfig? config,

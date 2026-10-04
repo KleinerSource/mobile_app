@@ -147,10 +147,11 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
     _recordHistory(query);
     if (_searchType == DbOnlineSearchType.video) {
       FocusScope.of(context).unfocus();
+      // 搜索框输入为番号形态，落入详情路由的 code 兜底解析
       unawaited(
         Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
-            builder: (_) => DbOnlineMovieDetailPage(code: query),
+            builder: (_) => DbOnlineMovieDetailPage(detailKey: query),
           ),
         ),
       );
