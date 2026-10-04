@@ -251,32 +251,25 @@ class _MediaLibrariesSheetState extends State<_MediaLibrariesSheet> {
                     },
                   ),
           ),
-          SheetActionBar(
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: sheetSecondaryButtonStyle(context),
-                    child: Text(l.cancel),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _loading || _error != null
-                        ? null
-                        : () {
-                            if (widget.isCurrent()) {
-                              Navigator.of(context).pop(_selected.toList());
-                            }
-                          },
-                    style: sheetPrimaryButtonStyle(context),
-                    child: Text(l.save),
-                  ),
-                ),
-              ],
-            ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(l.cancel),
+              ),
+              FilledButton(
+                onPressed: _loading || _error != null
+                    ? null
+                    : () {
+                        if (widget.isCurrent()) {
+                          Navigator.of(context).pop(_selected.toList());
+                        }
+                      },
+                style: sheetPrimaryButtonStyle(context),
+                child: Text(l.save),
+              ),
+            ],
           ),
         ],
       ),

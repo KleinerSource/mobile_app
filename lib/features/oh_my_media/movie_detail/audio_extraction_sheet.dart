@@ -202,40 +202,33 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
               ),
             ],
             const SizedBox(height: 20),
-            SheetActionBar(
+            SheetActionBar.buttons(
               padding: EdgeInsets.zero,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.pop(context),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: Text(l.cancel),
-                    ),
+              buttons: [
+                OutlinedButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.pop(context),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: Text(l.cancel),
+                ),
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _submit,
+                  style: sheetPrimaryButtonStyle(context),
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.playlist_add, size: 18),
+                  label: Text(
+                    _submitting
+                        ? l.audioExtractSubmitting
+                        : l.audioExtractSubmit,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _submitting ? null : _submit,
-                      style: sheetPrimaryButtonStyle(context),
-                      icon: _submitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.playlist_add, size: 18),
-                      label: Text(
-                        _submitting
-                            ? l.audioExtractSubmitting
-                            : l.audioExtractSubmit,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),

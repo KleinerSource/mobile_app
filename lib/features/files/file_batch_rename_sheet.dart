@@ -180,28 +180,21 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                 },
               ),
             ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: Text(AppL10n.of(context).cancel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: canSubmit
-                          ? () => Navigator.of(context).pop(draft)
-                          : null,
-                      style: sheetPrimaryButtonStyle(context),
-                      child: Text(AppL10n.of(context).fileApply),
-                    ),
-                  ),
-                ],
-              ),
+            SheetActionBar.buttons(
+              buttons: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: Text(AppL10n.of(context).cancel),
+                ),
+                FilledButton(
+                  onPressed: canSubmit
+                      ? () => Navigator.of(context).pop(draft)
+                      : null,
+                  style: sheetPrimaryButtonStyle(context),
+                  child: Text(AppL10n.of(context).fileApply),
+                ),
+              ],
             ),
           ],
         ),

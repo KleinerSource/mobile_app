@@ -1287,13 +1287,15 @@ class _MediaBrowserAdvancedFilterSheetState
                     },
                   ),
                   const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _submit,
-                      icon: const Icon(Icons.check_rounded, size: 18),
-                      label: Text(l.confirm),
-                    ),
+                  SheetActionBar.buttons(
+                    padding: EdgeInsets.zero,
+                    buttons: [
+                      FilledButton.icon(
+                        onPressed: _submit,
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: Text(l.confirm),
+                      ),
+                    ],
                   ),
                 ],
               ),

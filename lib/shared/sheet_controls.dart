@@ -99,16 +99,54 @@ class SheetHeader extends StatelessWidget {
 
 /// 底部操作区只负责留白与布局，不再绘制不透明背景或标题式分割线。
 class SheetActionBar extends StatelessWidget {
-  const SheetActionBar({super.key, required this.child, this.padding});
+  const SheetActionBar({
+    super.key,
+    required this.child,
+    this.padding,
+  }) : buttons = null,
+       spacing = 10;
 
-  final Widget child;
+  /// 按钮组构造：统一底部按钮排布规则——单个按钮占满整行；多个按钮
+  /// 左右排布，末位视为确认类主操作并加宽（flex 2），
+  /// 与高级筛选弹层的取消/应用比例一致。
+  const SheetActionBar.buttons({
+    super.key,
+    this.padding,
+    required this.buttons,
+    this.spacing = 10,
+  }) : child = null;
+
+  final Widget? child;
+
+  /// 使用 [SheetActionBar.buttons] 时传入的按钮列表，末位为主操作。
+  final List<Widget>? buttons;
+
+  /// 多按钮时的水平间距。
+  final double spacing;
+
   final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
+    final list = buttons;
+    final Widget content;
+    if (list == null) {
+      content = child!;
+    } else if (list.length == 1) {
+      content = SizedBox(width: double.infinity, child: list.first);
+    } else {
+      content = Row(
+        children: [
+          for (var i = 0; i < list.length; i++) ...[
+            if (i > 0) SizedBox(width: spacing),
+            Expanded(flex: i == list.length - 1 ? 2 : 1, child: list[i]),
+          ],
+        ],
+      );
+    }
     return Padding(
       padding: padding ?? const EdgeInsets.fromLTRB(22, 10, 22, 10),
-      child: child,
+      child: content,
     );
   }
 }

@@ -192,26 +192,19 @@ class _FilterState extends State<DbOnlineDownloadRecordFilterSheet> {
                 ),
               ),
             ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: sheetSecondaryButtonStyle(context),
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(l.cancel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      style: sheetPrimaryButtonStyle(context),
-                      onPressed: _apply,
-                      child: Text(l.confirm),
-                    ),
-                  ),
-                ],
-              ),
+            SheetActionBar.buttons(
+              buttons: [
+                OutlinedButton(
+                  style: sheetSecondaryButtonStyle(context),
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l.cancel),
+                ),
+                FilledButton(
+                  style: sheetPrimaryButtonStyle(context),
+                  onPressed: _apply,
+                  child: Text(l.confirm),
+                ),
+              ],
             ),
           ],
         ),

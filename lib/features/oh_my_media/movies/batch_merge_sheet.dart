@@ -209,44 +209,36 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                   ],
                 ),
         ),
-        SheetActionBar(
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _merging
-                      ? null
-                      : () => Navigator.of(context).pop(false),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: Text(l.cancel),
-                ),
+        SheetActionBar.buttons(
+          buttons: [
+            OutlinedButton(
+              onPressed: _merging
+                  ? null
+                  : () => Navigator.of(context).pop(false),
+              style: sheetSecondaryButtonStyle(context),
+              child: Text(l.cancel),
+            ),
+            FilledButton.icon(
+              onPressed:
+                  (_merging ||
+                      _targetId == null ||
+                      _allInSameFolder ||
+                      _loading)
+                  ? null
+                  : _confirm,
+              icon: _merging
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.merge_rounded, size: 18),
+              style: sheetPrimaryButtonStyle(context),
+              label: Text(
+                _merging ? l.moviesMerging : l.moviesConfirmMerge,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed:
-                      (_merging ||
-                          _targetId == null ||
-                          _allInSameFolder ||
-                          _loading)
-                      ? null
-                      : _confirm,
-                  icon: _merging
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.merge_rounded, size: 18),
-                  style: sheetPrimaryButtonStyle(context),
-                  label: Text(
-                    _merging ? l.moviesMerging : l.moviesConfirmMerge,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );

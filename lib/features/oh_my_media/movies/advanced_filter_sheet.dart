@@ -411,28 +411,20 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
           ),
         ),
         // 底部按钮
-        SheetActionBar(
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: Text(l.cancel),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: _yearError ? null : _onApply,
-                  icon: const Icon(Icons.filter_alt, size: 16),
-                  label: Text(l.advancedFilterApply),
-                  style: sheetPrimaryButtonStyle(context),
-                ),
-              ),
-            ],
-          ),
+        SheetActionBar.buttons(
+          buttons: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: sheetSecondaryButtonStyle(context),
+              child: Text(l.cancel),
+            ),
+            FilledButton.icon(
+              onPressed: _yearError ? null : _onApply,
+              icon: const Icon(Icons.filter_alt, size: 16),
+              label: Text(l.advancedFilterApply),
+              style: sheetPrimaryButtonStyle(context),
+            ),
+          ],
         ),
       ],
     );

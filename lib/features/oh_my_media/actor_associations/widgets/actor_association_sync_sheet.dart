@@ -377,38 +377,30 @@ class _ActorAssociationSyncSheetState
                   ],
                 ),
         ),
-        SheetActionBar(
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _applying
-                      ? null
-                      : () => Navigator.of(context).pop(false),
-                  child: Text(l.cancel),
-                ),
+        SheetActionBar.buttons(
+          buttons: [
+            OutlinedButton(
+              onPressed: _applying
+                  ? null
+                  : () => Navigator.of(context).pop(false),
+              child: Text(l.cancel),
+            ),
+            FilledButton.icon(
+              onPressed: canApply ? _apply : null,
+              icon: _applying
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_download_outlined, size: 18),
+              label: Text(
+                _applying
+                    ? l.actorAssocSyncApplying
+                    : l.actorAssocSyncApply,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: canApply ? _apply : null,
-                  icon: _applying
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.cloud_download_outlined, size: 18),
-                  label: Text(
-                    _applying
-                        ? l.actorAssocSyncApplying
-                        : l.actorAssocSyncApply,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );

@@ -443,30 +443,22 @@ class _DirectorySheetState extends State<_DirectorySheet> {
                 style: AppText.meta(context),
               ),
             ),
-          SheetActionBar(
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: sheetSecondaryButtonStyle(context),
-                    child: Text(l.cancel),
-                  ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(l.cancel),
+              ),
+              if (_pan)
+                FilledButton(
+                  onPressed: !_loading && _loaded && _error == null
+                      ? _selectCurrent
+                      : null,
+                  style: sheetPrimaryButtonStyle(context),
+                  child: Text(l.dbOnlineSelectCurrentDirectory),
                 ),
-                if (_pan) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: !_loading && _loaded && _error == null
-                          ? _selectCurrent
-                          : null,
-                      style: sheetPrimaryButtonStyle(context),
-                      child: Text(l.dbOnlineSelectCurrentDirectory),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            ],
           ),
         ],
       ),
@@ -700,26 +692,19 @@ class _ToolPathsSheetState extends State<_ToolPathsSheet> {
                     ],
                   ),
           ),
-          SheetActionBar(
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: sheetSecondaryButtonStyle(context),
-                    child: Text(l.cancel),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _loading || _error != null ? null : _save,
-                    style: sheetPrimaryButtonStyle(context),
-                    child: Text(l.save),
-                  ),
-                ),
-              ],
-            ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(l.cancel),
+              ),
+              FilledButton(
+                onPressed: _loading || _error != null ? null : _save,
+                style: sheetPrimaryButtonStyle(context),
+                child: Text(l.save),
+              ),
+            ],
           ),
         ],
       ),

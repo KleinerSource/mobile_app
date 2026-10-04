@@ -245,38 +245,30 @@ class _BatchDuplicateNfoCompareSheetState
                   ],
                 ),
         ),
-        SheetActionBar(
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _saving
-                      ? null
-                      : () => Navigator.of(context).pop(false),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: Text(l.cancel),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: (_saving || _loading || _error != null)
-                      ? null
-                      : _apply,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check, size: 18),
-                  style: sheetPrimaryButtonStyle(context),
-                  label: Text(_saving ? l.moviesApplying : l.moviesApplySync),
-                ),
-              ),
-            ],
-          ),
+        SheetActionBar.buttons(
+          buttons: [
+            OutlinedButton(
+              onPressed: _saving
+                  ? null
+                  : () => Navigator.of(context).pop(false),
+              style: sheetSecondaryButtonStyle(context),
+              child: Text(l.cancel),
+            ),
+            FilledButton.icon(
+              onPressed: (_saving || _loading || _error != null)
+                  ? null
+                  : _apply,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check, size: 18),
+              style: sheetPrimaryButtonStyle(context),
+              label: Text(_saving ? l.moviesApplying : l.moviesApplySync),
+            ),
+          ],
         ),
       ],
     );
