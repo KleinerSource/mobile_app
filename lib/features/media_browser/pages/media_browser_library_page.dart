@@ -681,7 +681,7 @@ class _MediaBrowserLibraryPageState
                                     : AppL10n.of(
                                         context,
                                       ).mediaBrowserActorWorks)
-                              : AppL10n.of(context).mediaBrowserLibrariesTitle,
+                              : AppL10n.of(context).libraryTitle,
                           style: AppText.pageTitle(context),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
