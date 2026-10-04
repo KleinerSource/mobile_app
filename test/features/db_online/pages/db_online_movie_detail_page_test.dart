@@ -195,25 +195,28 @@ void main() {
     );
   });
 
-  testWidgets('详情更多菜单分享链接复制网页端地址', (tester) async {
-    var clipboardText = '';
+  /// 为系统分享注册平台消息 mock，返回收到的分享文本列表。
+  List<String?> mockShare(WidgetTester tester) {
+    final shareTexts = <String?>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
+      const MethodChannel('dev.fluttercommunity.plus/share'),
       (call) async {
-        if (call.method == 'Clipboard.setData') {
-          clipboardText = (call.arguments as Map)['text'] as String;
-        } else if (call.method == 'Clipboard.getData') {
-          return {'text': clipboardText};
+        if (call.method == 'share') {
+          shareTexts.add((call.arguments as Map)['text']?.toString());
         }
-        return null;
+        return 'dev.fluttercommunity.plus/share/success';
       },
     );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('dev.fluttercommunity.plus/share'),
         null,
-      ),
-    );
+      );
+    });
+    return shareTexts;
+  }
+
+  Future<void> pumpShareDetail(WidgetTester tester) async {
     await pumpDetailUris(tester, videoId: 'v-42', detailData: () {
       return {
         'code': 'ABC-001',
@@ -223,18 +226,26 @@ void main() {
         'ed2ks': [],
       };
     });
+  }
+
+  testWidgets('详情更多菜单分享项位于列表最后并拉起系统分享', (tester) async {
+    final shareTexts = mockShare(tester);
+    await pumpShareDetail(tester);
 
     final menu = find.byType(HeaderMenuButton<String>);
     await tester.tapAt(tester.getRect(menu).topLeft + const Offset(2, 2));
     await tester.pumpAndSettle();
-    expect(find.text('分享链接'), findsOneWidget);
-    await tester.tap(find.text('分享链接'));
+    expect(find.text('分享'), findsOneWidget);
+    // 分享是出口操作，排在资源/字幕功能项之后。
+    expect(
+      tester.getTopLeft(find.text('分享')).dy,
+      greaterThan(tester.getTopLeft(find.text('获取字幕')).dy),
+    );
+    await tester.tap(find.text('分享'));
     await tester.pumpAndSettle();
 
-    final data = await Clipboard.getData('text/plain');
-    expect(data?.text, 'https://example.test/video/ABC-001?video_id=v-9');
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.textContaining('链接已复制'), findsOneWidget);
+    expect(shareTexts, ['https://example.test/video/ABC-001?video_id=v-9']);
+    expect(find.byType(SnackBar), findsNothing);
   });
 
   testWidgets('详情更多菜单分享项在番号缺失时隐藏', (tester) async {

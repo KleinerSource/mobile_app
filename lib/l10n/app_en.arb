@@ -2894,7 +2894,5 @@
   ,"searchHistoryClearConfirm": "Tap to confirm"
   ,"dbOnlineSortRelevance": "Relevance"
 
-  ,"dbOnlineShareLink": "Share link"
-  ,"dbOnlineLinkCopied": "Link copied: {url}"
-  ,"@dbOnlineLinkCopied": { "placeholders": { "url": { "type": "String" } } }
+  ,"dbOnlineShareLink": "Share"
 }

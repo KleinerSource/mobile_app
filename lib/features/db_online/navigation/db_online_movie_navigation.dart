@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
@@ -62,9 +61,9 @@ String? dbOnlineMovieWebUrl(
       .toString();
 }
 
-/// 复制影片的网页端地址并提示。地址不可构造（无配置或无番号）时返回
-/// false，调用方可以据此忽略本次操作。
-Future<bool> copyDbOnlineMovieLink(
+/// 拉起系统分享面板，分享影片的网页端地址。地址不可构造（无配置或无
+/// 番号）时返回 false，调用方应隐藏分享入口。
+Future<bool> shareDbOnlineMovieLink(
   BuildContext context, {
   ServerConfig? config,
   required String code,
@@ -72,13 +71,13 @@ Future<bool> copyDbOnlineMovieLink(
 }) async {
   final url = dbOnlineMovieWebUrl(config, code: code, videoId: videoId);
   if (url == null) return false;
-  await Clipboard.setData(ClipboardData(text: url));
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppL10n.of(context).dbOnlineLinkCopied(url)),
-      ),
-    );
-  }
+  // iPad 的分享弹层要求锚点矩形，以触发入口的 RenderBox 为弹出原点。
+  final renderObject = context.findRenderObject();
+  final origin = renderObject is RenderBox
+      ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+      : null;
+  await SharePlus.instance.share(
+    ShareParams(text: url, sharePositionOrigin: origin),
+  );
   return true;
 }

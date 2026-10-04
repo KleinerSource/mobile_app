@@ -32,7 +32,7 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart'
-    show copyDbOnlineMovieLink, dbOnlineMovieWebUrl;
+    show dbOnlineMovieWebUrl, shareDbOnlineMovieLink;
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
@@ -531,16 +531,6 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
       menuWidth: 244,
       style: HeaderActionStyle.overlay,
       entries: [
-        if (shareUrl != null)
-          GlassMenuEntry<String>.action(
-            value: 'share',
-            builder: (context, selected, onTap) => GlassMenuRow(
-              icon: Icons.ios_share_rounded,
-              label: l.dbOnlineShareLink,
-              selected: selected,
-              onTap: onTap,
-            ),
-          ),
         GlassMenuEntry<String>.action(
           value: 'resources',
           builder: (context, selected, onTap) => GlassMenuRow(
@@ -560,21 +550,33 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
               onTap: onTap,
             ),
           ),
+        // 分享是出口操作，与“更多”菜单里的资源/字幕等功能项区分，
+        // 固定放在列表最后。
+        if (shareUrl != null)
+          GlassMenuEntry<String>.action(
+            value: 'share',
+            builder: (context, selected, onTap) => GlassMenuRow(
+              icon: Icons.ios_share_rounded,
+              label: l.dbOnlineShareLink,
+              selected: selected,
+              onTap: onTap,
+            ),
+          ),
       ],
       onSelected: (value) {
-        if (value == 'share') {
+        if (value == 'resources') {
+          unawaited(DbOnlineResourcesSheet.show(context, movie));
+        } else if (value == 'subtitles') {
+          unawaited(DbOnlineSubtitleSheet.show(context, movie.code));
+        } else if (value == 'share') {
           unawaited(
-            copyDbOnlineMovieLink(
+            shareDbOnlineMovieLink(
               context,
               config: config,
               code: movie.code,
               videoId: movie.videoId,
             ),
           );
-        } else if (value == 'resources') {
-          unawaited(DbOnlineResourcesSheet.show(context, movie));
-        } else if (value == 'subtitles') {
-          unawaited(DbOnlineSubtitleSheet.show(context, movie.code));
         }
       },
     );
