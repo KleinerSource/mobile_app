@@ -16,11 +16,13 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/core/sources/media/dbo/db_online_following.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription_api.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/features/db_online/widgets/db_online_actor_categories_sheet.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
@@ -30,6 +32,7 @@ import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/media_view_mode.dart';
+import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/drag_selection.dart';
@@ -2337,10 +2340,6 @@ Map<String, dynamic> _payloadMap(Object? raw) {
 
 Map<String, dynamic> _mapValue(Object? raw) =>
     raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
-
-String _stringList(Object? raw) => raw is List
-    ? raw.map((item) => item.toString()).join(', ')
-    : raw?.toString() ?? '';
 
 String? _resolveSubscriptionImage(
   ServerConfig? config,

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../api/envelope.dart';
+import 'db_online_following.dart';
 
 /// DBO subscription endpoints hosted by the selected DB Online server.
 class DbOnlineSubscriptionApi {
@@ -192,6 +193,18 @@ class DbOnlineSubscriptionApi {
   Future<dynamic> runActorSubscription(String actorId) => _send(
     () => _dio.post<dynamic>('/actor-subs/run/${Uri.encodeComponent(actorId)}'),
   );
+
+  /// 演员订阅类别过滤的可选类别（该演员的标签），沿用网页端
+  /// `GET /options/categories/{actorId}` 的 `{name, external_id}` 结构。
+  Future<List<DbOnlineFollowingStyle>> actorCategories(String actorId) async {
+    final data = await _send(
+      () => _dio.get<dynamic>(
+        '/options/categories/${Uri.encodeComponent(actorId)}',
+      ),
+    );
+    final items = data is List ? data : const <Object?>[];
+    return items.map(DbOnlineFollowingStyle.fromJson).toList(growable: false);
+  }
 
   Future<dynamic> seriesSubscriptions({
     Map<String, dynamic> query = const {},

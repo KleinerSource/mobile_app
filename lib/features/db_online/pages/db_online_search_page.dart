@@ -568,7 +568,10 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
                     imageUrl: actor.avatarUrl,
                     uncensored: actor.uncensored,
                     subscriptionKind: 'actor',
-                    subscriptionData: {'actor_avatar': actor.avatarUrl ?? ''},
+                    subscriptionData: {
+                      'actor_avatar': actor.avatarUrl ?? '',
+                      'other_name': actor.otherName ?? '',
+                    },
                     onTap: () => _openEntityMovies(
                       context,
                       kind: 'actor',

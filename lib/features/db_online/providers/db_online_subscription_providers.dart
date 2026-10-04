@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/sources/media/dbo/db_online_following.dart';
 import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 
@@ -14,6 +15,16 @@ final dboSubscriptionRepositoryProvider =
         activeServerId: client.config?.activeServerId ?? '',
       );
     });
+
+/// 演员订阅类别过滤的可选类别，以演员 ID 为键；服务器切换时随
+/// [dboSubscriptionRepositoryProvider] 一并失效。
+final dbOnlineActorCategoriesProvider = FutureProvider.autoDispose
+    .family<List<DbOnlineFollowingStyle>, String>(
+      (ref, actorId) =>
+          ref.watch(dboSubscriptionRepositoryProvider).api.actorCategories(
+            actorId,
+          ),
+    );
 
 final dbOnlineSubscriptionCapabilitiesProvider = FutureProvider.autoDispose
     .family<DbOnlineSubscriptionCapabilities, String>((ref, serverId) {

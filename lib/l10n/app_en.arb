@@ -2629,8 +2629,31 @@
   ,"dbOnlineSubscriptionMaximumSize": "Maximum size (MB)"
   ,"dbOnlineSubscriptionMaxFiles": "Maximum file count"
   ,"dbOnlineSubscriptionOverdueDays": "Overdue days"
-  ,"dbOnlineSubscriptionIncludeCategories": "Include categories (comma separated)"
-  ,"dbOnlineSubscriptionExcludeCategories": "Exclude categories (comma separated)"
+  ,"dbOnlineSubscriptionIncludeCategories": "Include categories"
+  ,"dbOnlineSubscriptionIncludeCategoriesHint": "Videos must belong to one of these"
+  ,"dbOnlineSubscriptionExcludeCategories": "Exclude categories"
+  ,"dbOnlineSubscriptionExcludeCategoriesHint": "Videos in these categories won't be subscribed"
+  ,"dbOnlineSubscriptionCategoryCount": "{count}/{max} selected"
+  ,"@dbOnlineSubscriptionCategoryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  }
+  ,"dbOnlineSubscriptionSelectCategories": "Select categories"
+  ,"dbOnlineSubscriptionSearchCategories": "Search categories"
+  ,"dbOnlineSubscriptionClearSelection": "Clear"
+  ,"dbOnlineSeriesTypeSeries": "Series"
+  ,"dbOnlineSeriesTypeMaker": "Maker"
+  ,"dbOnlineSeriesTypePublisher": "Publisher"
+  ,"dbOnlineSeriesTypeDirector": "Director"
+  ,"dbOnlineSeriesTypeList": "List"
+  ,"dbOnlineSeriesTypePrefix": "Prefix"
+  ,"dbOnlineSeriesTypeFollow": "Follow"
   ,"dbOnlineSubscriptionDownloader": "Downloader"
   ,"dbOnlineSubscriptionSavePath": "Save path"
   ,"dbOnlineSubscriptionDevice": "Target device"

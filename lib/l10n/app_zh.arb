@@ -2629,8 +2629,31 @@
   ,"dbOnlineSubscriptionMaximumSize": "最大体积（MB）"
   ,"dbOnlineSubscriptionMaxFiles": "最大文件数"
   ,"dbOnlineSubscriptionOverdueDays": "超期天数"
-  ,"dbOnlineSubscriptionIncludeCategories": "包含类别（逗号分隔）"
-  ,"dbOnlineSubscriptionExcludeCategories": "排除类别（逗号分隔）"
+  ,"dbOnlineSubscriptionIncludeCategories": "包含类别"
+  ,"dbOnlineSubscriptionIncludeCategoriesHint": "影片必须属于其中之一"
+  ,"dbOnlineSubscriptionExcludeCategories": "排除类别"
+  ,"dbOnlineSubscriptionExcludeCategoriesHint": "影片属于这些类别时不订阅"
+  ,"dbOnlineSubscriptionCategoryCount": "已选 {count}/{max} 个"
+  ,"@dbOnlineSubscriptionCategoryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  }
+  ,"dbOnlineSubscriptionSelectCategories": "选择类别"
+  ,"dbOnlineSubscriptionSearchCategories": "搜索类别"
+  ,"dbOnlineSubscriptionClearSelection": "清空"
+  ,"dbOnlineSeriesTypeSeries": "系列"
+  ,"dbOnlineSeriesTypeMaker": "片商"
+  ,"dbOnlineSeriesTypePublisher": "发行商"
+  ,"dbOnlineSeriesTypeDirector": "导演"
+  ,"dbOnlineSeriesTypeList": "清单"
+  ,"dbOnlineSeriesTypePrefix": "前缀"
+  ,"dbOnlineSeriesTypeFollow": "关注"
   ,"dbOnlineSubscriptionDownloader": "下载器"
   ,"dbOnlineSubscriptionSavePath": "保存路径"
   ,"dbOnlineSubscriptionDevice": "目标设备"

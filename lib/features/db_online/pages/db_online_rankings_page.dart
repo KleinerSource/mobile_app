@@ -893,7 +893,10 @@ class _ActorRankingCard extends StatelessWidget {
       uncensored: actor.uncensored,
       metaText: actor.otherName ?? actor.nameZht,
       subscriptionKind: 'actor',
-      subscriptionData: {'actor_avatar': actor.avatarUrl ?? ''},
+      subscriptionData: {
+        'actor_avatar': actor.avatarUrl ?? '',
+        'other_name': actor.otherName ?? '',
+      },
       topLeftBadge: _RankBadge(rank: rank),
       onTap: () => unawaited(
         Navigator.of(context).push<void>(
