@@ -39,9 +39,10 @@ class FileOperation {
 }
 
 class FileDeleteOptions {
-  const FileDeleteOptions({this.recursive = false});
+  const FileDeleteOptions({this.recursive = false, this.cancellation});
 
   final bool recursive;
+  final FileCancellationToken? cancellation;
 }
 
 class FileUploadRequest {

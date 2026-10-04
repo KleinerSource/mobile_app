@@ -1066,6 +1066,276 @@ class _WebDavFixture {
   Future<void> close() => server.close(force: true);
 }
 
+// ==================== WebDAV 删除路径 ====================
+void _main_3() {
+  Future<WebDavFileSource> connectSource(
+    _WebDavTreeFixture fixture,
+    String id,
+  ) =>
+      WebDavFileSource.connect(
+        id: id,
+        name: '测试 WebDAV',
+        options: WebDavConnectionOptions(
+          uri: fixture.baseUri.toString(),
+          port: fixture.server.port,
+        ),
+      );
+
+  test('WebDAV 删除目录优先服务端整树删除，两条请求完成', () async {
+    final fixture = await _WebDavTreeFixture.start();
+    final sourceId = SourceId.of('webdav-tree-delete');
+    final source = await connectSource(fixture, sourceId.value);
+    try {
+      await source.delete(
+        FilePath(sourceId: sourceId, value: '/dir'),
+        options: const FileDeleteOptions(recursive: true),
+      );
+      expect(fixture.requests, ['PROPFIND /dir', 'DELETE /dir']);
+      expect(fixture.dirs, isEmpty);
+      expect(fixture.files, isEmpty);
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
+  test('WebDAV 整树删除被拒时回退递归，子项不再逐个 stat', () async {
+    final fixture = await _WebDavTreeFixture.start(treeDeleteSupported: false);
+    final sourceId = SourceId.of('webdav-fallback-delete');
+    final source = await connectSource(fixture, sourceId.value);
+    try {
+      await source.delete(
+        FilePath(sourceId: sourceId, value: '/dir'),
+        options: const FileDeleteOptions(recursive: true),
+      );
+      expect(fixture.requests, [
+        'PROPFIND /dir',
+        'DELETE /dir',
+        'PROPFIND /dir',
+        'DELETE /dir/a.mp4',
+        'DELETE /dir/b.mp4',
+        'PROPFIND /dir/sub',
+        'DELETE /dir/sub/c.mp4',
+        'DELETE /dir/sub',
+        'DELETE /dir',
+      ]);
+      expect(fixture.dirs, isEmpty);
+      expect(fixture.files, isEmpty);
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
+  test('WebDAV 回退列目录时目录已被清空则视为删除成功', () async {
+    final fixture = await _WebDavTreeFixture.start(
+      treeDeleteSupported: false,
+      vanishOnTreeReject: true,
+    );
+    final sourceId = SourceId.of('webdav-vanished-delete');
+    final source = await connectSource(fixture, sourceId.value);
+    try {
+      await source.delete(
+        FilePath(sourceId: sourceId, value: '/dir'),
+        options: const FileDeleteOptions(recursive: true),
+      );
+      expect(fixture.requests, [
+        'PROPFIND /dir',
+        'DELETE /dir',
+        'PROPFIND /dir',
+        'DELETE /dir',
+      ]);
+      expect(fixture.dirs, isEmpty);
+      expect(fixture.files, isEmpty);
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
+  test('WebDAV 删除目录可取消', () async {
+    final fixture = await _WebDavTreeFixture.start(treeDeleteSupported: false);
+    final sourceId = SourceId.of('webdav-cancel-delete');
+    final source = await connectSource(fixture, sourceId.value);
+    try {
+      final cancellation = FileCancellationToken();
+      final future = source.delete(
+        FilePath(sourceId: sourceId, value: '/dir'),
+        options: FileDeleteOptions(recursive: true, cancellation: cancellation),
+      );
+      cancellation.cancel();
+      await expectLater(
+        future,
+        throwsA(
+          isA<FileSourceException>().having(
+            (error) => error.code,
+            'code',
+            AppErrorCode.fileTransferCanceled,
+          ),
+        ),
+      );
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+}
+
+/// 模拟一棵固定目录树（/dir/{a.mp4,b.mp4,sub/c.mp4}）的 WebDAV 服务端，
+/// 记录请求序列用于断言删除路径的请求数量与顺序。
+class _WebDavTreeFixture {
+  _WebDavTreeFixture(
+    this.server, {
+    required this.treeDeleteSupported,
+    required this.vanishOnTreeReject,
+  });
+
+  final HttpServer server;
+
+  /// true：对目录的 DELETE 递归删除整树并返回 204（RFC 4918 行为）。
+  /// false：非空目录 DELETE 返回 403，空目录返回 204（要求先清空的老式服务端）。
+  final bool treeDeleteSupported;
+
+  /// 整树 DELETE 被拒的同时清空整棵树，模拟服务端后台已删完的竞态。
+  final bool vanishOnTreeReject;
+
+  final dirs = <String>{'/dir', '/dir/sub'};
+  final files = <String>{'/dir/a.mp4', '/dir/b.mp4', '/dir/sub/c.mp4'};
+  final requests = <String>[];
+
+  Uri get baseUri => Uri(
+    scheme: 'http',
+    host: InternetAddress.loopbackIPv4.host,
+    port: server.port,
+    path: '/',
+  );
+
+  static Future<_WebDavTreeFixture> start({
+    bool treeDeleteSupported = true,
+    bool vanishOnTreeReject = false,
+  }) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final fixture = _WebDavTreeFixture(
+      server,
+      treeDeleteSupported: treeDeleteSupported,
+      vanishOnTreeReject: vanishOnTreeReject,
+    );
+    server.listen(fixture._handle);
+    return fixture;
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    final response = request.response;
+    final path = _normalize(request.uri.path);
+    // OPTIONS 是 connect() 的连通性探测，不计入业务请求序列。
+    if (request.method != 'OPTIONS') requests.add('${request.method} $path');
+    await request.drain<void>();
+    if (request.method == 'OPTIONS') {
+      response.statusCode = HttpStatus.ok;
+      await response.close();
+      return;
+    }
+    if (request.method == 'PROPFIND') {
+      if (!_exists(path)) {
+        response.statusCode = HttpStatus.notFound;
+        await response.close();
+        return;
+      }
+      response.statusCode = 207;
+      response.headers.contentType = ContentType('application', 'xml');
+      response.write(_propfindXml(path));
+      await response.close();
+      return;
+    }
+    if (request.method == 'DELETE') {
+      if (files.contains(path)) {
+        files.remove(path);
+        response.statusCode = HttpStatus.noContent;
+        await response.close();
+        return;
+      }
+      if (dirs.contains(path)) {
+        if (treeDeleteSupported || _isEmptyDir(path)) {
+          _removeTree(path);
+          response.statusCode = HttpStatus.noContent;
+          await response.close();
+          return;
+        }
+        if (vanishOnTreeReject) _removeTree(path);
+        response.statusCode = HttpStatus.forbidden;
+        await response.close();
+        return;
+      }
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+    response.statusCode = HttpStatus.methodNotAllowed;
+    await response.close();
+  }
+
+  bool _exists(String path) => dirs.contains(path) || files.contains(path);
+
+  bool _isEmptyDir(String path) =>
+      !dirs.any((dir) => dir.startsWith('$path/')) &&
+      !files.any((file) => file.startsWith('$path/'));
+
+  void _removeTree(String path) {
+    dirs
+      ..remove(path)
+      ..removeWhere((dir) => dir.startsWith('$path/'));
+    files.removeWhere((file) => file.startsWith('$path/'));
+  }
+
+  List<String> _children(String path) => [
+    ...dirs.where((child) => _isDirectChild(path, child)),
+    ...files.where((child) => _isDirectChild(path, child)),
+  ]..sort();
+
+  bool _isDirectChild(String parent, String candidate) {
+    if (!candidate.startsWith('$parent/')) return false;
+    return !candidate.substring(parent.length + 1).contains('/');
+  }
+
+  String _propfindXml(String path) {
+    final buffer = StringBuffer(
+      '<?xml version="1.0" encoding="utf-8"?>\n<d:multistatus xmlns:d="DAV:">',
+    );
+    buffer.write(_responseXml(path, isDir: dirs.contains(path)));
+    if (dirs.contains(path)) {
+      for (final child in _children(path)) {
+        buffer.write(_responseXml(child, isDir: dirs.contains(child)));
+      }
+    }
+    buffer.write('</d:multistatus>');
+    return buffer.toString();
+  }
+
+  String _responseXml(String path, {required bool isDir}) => '''
+  <d:response>
+    <d:href>${isDir ? '$path/' : path}</d:href>
+    <d:propstat>
+      <d:prop>
+        ${isDir ? '<d:resourcetype><d:collection/></d:resourcetype>' : '<d:resourcetype/>'}
+        ${isDir ? '' : '<d:getcontentlength>1</d:getcontentlength>'}
+        ${isDir ? '' : '<d:getcontenttype>video/mp4</d:getcontenttype>'}
+        <d:getetag>"fixture"</d:getetag>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>''';
+
+  String _normalize(String value) {
+    var path = value;
+    while (path.length > 1 && path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+    return path;
+  }
+
+  Future<void> close() => server.close(force: true);
+}
+
 // ==================== 原 test/core/sources/file_playback_progress_test.dart ====================
 void _main_2() {
   setUp(() {
@@ -1152,5 +1422,6 @@ void _main_2() {
 void main() {
   group('sources', _main_0);
   group('webdav_file_source_range', _main_1);
+  group('webdav_file_source_delete', _main_3);
   group('file_playback_progress', _main_2);
 }

@@ -369,10 +369,30 @@ extension _FileBrowserOperations on _FileBrowserPageState {
       ),
     );
     if (confirmed != true) return;
+    // 目录删除可能涉及整棵子树，走 tracked 操作展示进度并允许取消；
+    // 单文件保持轻量快路径。
+    if (entry.isDirectory) {
+      await _runTracked(
+        FileOperationKind.delete,
+        l.fileDeleteFailed,
+        action: (operationId) async {
+          await (await _repository()).delete(
+            entry.path,
+            options: FileDeleteOptions(
+              recursive: true,
+              cancellation: _tracker.cancellation(operationId),
+            ),
+          );
+          if (_selectionMode) _exitSelection();
+          await _refresh();
+        },
+      );
+      return;
+    }
     await _run(l.fileDeleteFailed, () async {
       await (await _repository()).delete(
         entry.path,
-        options: FileDeleteOptions(recursive: entry.isDirectory),
+        options: const FileDeleteOptions(),
       );
       if (_selectionMode) _exitSelection();
       await _refresh();
@@ -416,12 +436,16 @@ extension _FileBrowserOperations on _FileBrowserPageState {
       totalItems: selected.length,
       action: (operationId) async {
         final repo = await _repository();
+        final cancellation = _tracker.cancellation(operationId);
         try {
           for (var index = 0; index < selected.length; index++) {
             final entry = selected[index];
             await repo.delete(
               entry.path,
-              options: FileDeleteOptions(recursive: entry.isDirectory),
+              options: FileDeleteOptions(
+                recursive: entry.isDirectory,
+                cancellation: cancellation,
+              ),
             );
             _tracker.itemsProgress(
               operationId,
@@ -459,7 +483,8 @@ extension _FileBrowserOperations on _FileBrowserPageState {
           return _FileOperationOverlay(
             operation: current,
             onCancel:
-                current.kind == FileOperationKind.upload &&
+                (current.kind == FileOperationKind.upload ||
+                    current.kind == FileOperationKind.delete) &&
                     current.status == FileOperationStatus.running
                 ? _cancelOperation
                 : null,

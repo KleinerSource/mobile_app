@@ -386,17 +386,117 @@ class WebDavFileSource
     FileDeleteOptions options = const FileDeleteOptions(),
   }) async {
     final value = _checkPath(path);
+    final cancellation = options.cancellation;
+    if (cancellation?.isCancelled == true) {
+      throw const FileSourceException(
+        AppErrorCode.fileTransferCanceled,
+        code: AppErrorCode.fileTransferCanceled,
+      );
+    }
+    final cancelToken = CancelToken();
+    if (cancellation != null) {
+      unawaited(
+        cancellation.whenCancelled.then((reason) {
+          if (!cancelToken.isCancelled) cancelToken.cancel(reason);
+        }),
+      );
+    }
     try {
       final entry = await stat(path);
-      if (entry.isDirectory && options.recursive) {
-        final listing = await listDirectory(path);
-        for (final child in listing.entries) {
-          await delete(child.path, options: options);
-        }
+      if (!entry.isDirectory || !options.recursive) {
+        await client.remove(entry.isDirectory ? '$value/' : value, cancelToken);
+        return;
       }
-      await client.remove(entry.isDirectory ? '$value/' : value);
+      // RFC 4918：对集合的 DELETE 即无穷深度删除，优先交给服务端一条请求
+      // 完成整棵树，避免客户端逐文件串行往返导致大目录删除极慢。
+      if (await _tryServerSideTreeDelete(value, cancelToken)) return;
+      // 回退：服务器不支持整树删除（或整树请求超时）。listing 已带每个子项的
+      // isDirectory，无需再逐个 stat；删除是幂等的（404 视为成功）。
+      await _deleteChildren(value, cancellation, cancelToken);
+      await client.remove('$value/', cancelToken);
     } catch (error) {
+      if (cancelToken.isCancelled) {
+        throw const FileSourceException(
+          AppErrorCode.fileTransferCanceled,
+          code: AppErrorCode.fileTransferCanceled,
+        );
+      }
       throw _error(error);
+    }
+  }
+
+  /// 服务端整树删除是单条长请求（如 Alist 需要逐个删除上游网盘文件），
+  /// 单独放宽接收超时；超时后由调用方回退为幂等的客户端递归清理。
+  static const Duration _treeDeleteReceiveTimeout = Duration(minutes: 2);
+
+  Future<bool> _tryServerSideTreeDelete(
+    String value,
+    CancelToken cancelToken,
+  ) async {
+    Response<dynamic> response;
+    try {
+      response = await client.c.req<dynamic>(
+        client,
+        'DELETE',
+        '$value/',
+        optionsHandler: (request) =>
+            request.receiveTimeout = _treeDeleteReceiveTimeout,
+        cancelToken: cancelToken,
+      );
+    } on DioException catch (error) {
+      final timedOut =
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.connectionError;
+      // 结果未知：服务器可能仍在后台删除，回退递归幂等清理。
+      if (timedOut) return false;
+      rethrow;
+    }
+    final status = response.statusCode;
+    if (status == 200 || status == 204 || status == 404) return true;
+    if (status == 403 || status == 405 || status == 501) return false;
+    throw FileSourceException(
+      AppErrorCode.httpError,
+      code: AppErrorCode.httpError,
+      statusCode: status,
+    );
+  }
+
+  Future<void> _deleteChildren(
+    String value,
+    FileCancellationToken? cancellation,
+    CancelToken cancelToken,
+  ) async {
+    final listing = await _listDirectoryForDelete(value);
+    for (final child in listing) {
+      if (cancelToken.isCancelled || cancellation?.isCancelled == true) {
+        throw const FileSourceException(
+          AppErrorCode.fileTransferCanceled,
+          code: AppErrorCode.fileTransferCanceled,
+        );
+      }
+      final childValue = child.path.value;
+      if (child.isDirectory) {
+        await _deleteChildren(childValue, cancellation, cancelToken);
+        await client.remove('$childValue/', cancelToken);
+      } else {
+        await client.remove(childValue, cancelToken);
+      }
+    }
+  }
+
+  /// 删除语境下的列目录：目标已消失（404）视为清理完成。
+  Future<List<FileEntry>> _listDirectoryForDelete(String value) async {
+    try {
+      final listing = await listDirectory(
+        FilePath(sourceId: _sourceId, value: value),
+      );
+      return listing.entries;
+    } catch (error) {
+      if (error is FileSourceException && error.statusCode == 404) {
+        return const <FileEntry>[];
+      }
+      rethrow;
     }
   }
 
