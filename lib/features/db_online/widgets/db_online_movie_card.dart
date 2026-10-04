@@ -131,6 +131,8 @@ class DbOnlineMovieCard extends ConsumerWidget {
     }
 
     if (compact) {
+      // 已完成的绿点放在标题前，其余订阅状态角标仍留在标题下方。
+      final subscriptionCompleted = _isSubscriptionCompleted(subscriptionStatus);
       return CatalogListMovieCard(
         titleMaxLines: listTitleMaxLines,
         title: movie.title.trim().isEmpty
@@ -143,10 +145,13 @@ class DbOnlineMovieCard extends ConsumerWidget {
         width: width,
         privacyId: privacyId,
         additional: _compactBadges(
-          subscription: subscriptionBadge,
+          subscription: subscriptionCompleted ? null : subscriptionBadge,
           magnet: magnetBadge,
           play: playBadge,
         ),
+        titleLeading: subscriptionCompleted
+            ? _subscriptionCompletedDot(l)
+            : null,
         onTap: handleTap,
       );
     }

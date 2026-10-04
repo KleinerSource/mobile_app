@@ -747,6 +747,7 @@ class CatalogListMovieCard extends ConsumerWidget {
     this.imageHeaders,
     this.additional,
     this.titleMaxLines = 1,
+    this.titleLeading,
   });
 
   final String title;
@@ -759,6 +760,9 @@ class CatalogListMovieCard extends ConsumerWidget {
   final Map<String, String>? imageHeaders;
   final Widget? additional;
   final int titleMaxLines;
+
+  /// 标题前的小指示器（如订阅已完成绿点），与标题首行光学居中对齐。
+  final Widget? titleLeading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -794,6 +798,17 @@ class CatalogListMovieCard extends ConsumerWidget {
       );
     }
 
+    final titleText = text(
+      value: displayText,
+      maxLines: titleMaxLines,
+      style: TextStyle(
+        color: colors.text,
+        fontFamily: 'Inter',
+        fontWeight: FontWeight.w700,
+        fontSize: 14,
+        height: 1.2,
+      ),
+    );
     return MediaListRow(
       width: width,
       thumbnail: privacyId == null
@@ -813,17 +828,19 @@ class CatalogListMovieCard extends ConsumerWidget {
                 httpHeaders: imageHeaders,
               ),
             ),
-      title: text(
-        value: displayText,
-        maxLines: titleMaxLines,
-        style: TextStyle(
-          color: colors.text,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-          height: 1.2,
-        ),
-      ),
+      title: titleLeading == null
+          ? titleText
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 与 14/1.2 行高的标题首行光学居中对齐。
+                Padding(
+                  padding: const EdgeInsets.only(top: 2.5, right: 5),
+                  child: titleLeading!,
+                ),
+                Expanded(child: titleText),
+              ],
+            ),
       meta: text(value: meta, style: AppText.meta(context)),
       additional: additional,
       onTap: onTap,

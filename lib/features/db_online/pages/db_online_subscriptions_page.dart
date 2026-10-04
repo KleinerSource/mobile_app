@@ -2287,7 +2287,13 @@ Widget _subscriptionMovieTile(
   final privacyId = _subscriptionMoviePrivacyId(item);
   final overlays = _subscriptionMovieBadges(item, l);
   if (viewMode == MediaViewMode.list) {
-    final badges = [?overlays.status, ?overlays.filters];
+    // 已完成的绿点放在标题前，其余订阅状态角标仍留在标题下方。
+    final completed =
+        item.status == 'completed' && item.data['overdue'] != true;
+    final badges = [
+      if (!completed) ?overlays.status,
+      ?overlays.filters,
+    ];
     return CatalogListMovieCard(
       title: item.title,
       code: code,
@@ -2296,6 +2302,7 @@ Widget _subscriptionMovieTile(
       width: width,
       privacyId: privacyId,
       onTap: onTap,
+      titleLeading: completed ? overlays.status : null,
       additional: badges.isEmpty
           ? null
           : Wrap(
