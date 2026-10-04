@@ -226,7 +226,7 @@ class _FloatingTabItem<T> extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 5),
           decoration: BoxDecoration(
             color: active ? c.tabActiveBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(100),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
