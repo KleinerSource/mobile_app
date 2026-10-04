@@ -93,11 +93,15 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                     const SizedBox(width: 4),
                   ],
                   if (board == _Board.top250) ...[
-                    HeaderActionButton(
-                      icon: Icons.tune_rounded,
-                      tooltip: l.dbOnlineLibraryFilters,
-                      color: _top250HasFilter ? appColors(context).accent : null,
-                      onPressed: () => unawaited(_showTop250FilterSheet()),
+                    // 筛选按钮与影片库等其他页面的紧凑筛选样式一致。
+                    Tooltip(
+                      message: l.dbOnlineLibraryFilters,
+                      child: CompactFilterButton(
+                        label: '',
+                        icon: Icons.tune_rounded,
+                        active: _top250HasFilter,
+                        onTap: () => unawaited(_showTop250FilterSheet()),
+                      ),
                     ),
                     const SizedBox(width: 4),
                     HeaderActionButton(
