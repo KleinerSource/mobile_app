@@ -1302,34 +1302,33 @@ class _AssetCard extends StatelessWidget {
     final status = _statusInfo(context, c);
     final extracting = asset.isTranscriptionActive;
 
-    final inner = AnimatedOpacity(
-      opacity: busy ? 0.55 : 1,
-      duration: const Duration(milliseconds: 180),
-      child: Container(
-        // 分组连排行：无独立边框，选中以整行背景提示。
-        color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(c, status),
-            const SizedBox(height: 6),
-            Text(
-              asset.fileName.isEmpty ? '-' : asset.fileName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.mono(context, size: 10.5, color: c.muted),
-            ),
-            const SizedBox(height: 8),
-            _buildSpecs(context, c),
-            if (extracting ||
-                transcription.isFailed ||
-                transcription.isCanceled) ...[
-              const SizedBox(height: 10),
-              _buildTranscriptionSection(context, c, transcription),
-            ],
+    final inner = Container(
+      // 分组连排行：无独立边框，选中以整行背景提示。
+      color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+      foregroundDecoration: busy
+          ? BoxDecoration(color: c.bg.withValues(alpha: 0.45))
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(c, status),
+          const SizedBox(height: 6),
+          Text(
+            asset.fileName.isEmpty ? '-' : asset.fileName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.mono(context, size: 10.5, color: c.muted),
+          ),
+          const SizedBox(height: 8),
+          _buildSpecs(context, c),
+          if (extracting ||
+              transcription.isFailed ||
+              transcription.isCanceled) ...[
+            const SizedBox(height: 10),
+            _buildTranscriptionSection(context, c, transcription),
           ],
-        ),
+        ],
       ),
     );
 
