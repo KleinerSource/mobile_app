@@ -271,6 +271,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
           width: double.infinity,
           landscape: viewMode == MediaViewMode.landscape,
           compact: viewMode == MediaViewMode.list,
+          previewList: viewMode == MediaViewMode.list,
           showRating: false,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );

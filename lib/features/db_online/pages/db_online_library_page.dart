@@ -268,6 +268,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           width: double.infinity,
           landscape: _viewMode == MediaViewMode.landscape,
           compact: _viewMode == MediaViewMode.list,
+          previewList: _viewMode == MediaViewMode.list,
           showRating: false,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );

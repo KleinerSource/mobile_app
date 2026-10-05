@@ -24,6 +24,7 @@ import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/features/db_online/widgets/db_online_actor_categories_sheet.dart';
+import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
@@ -2323,6 +2324,22 @@ Widget _subscriptionMovieTile(
     final completed =
         item.status == 'completed' && item.data['overdue'] != true;
     final badges = [if (!completed) ?overlays.status, ?overlays.filters];
+    // 与其他 dbo 列表一致：快照数据携带 preview_images 时升级为预览条目，
+    // 否则降级为紧凑条目。
+    final previewUrls = _subscriptionPreviewUrls(serverConfig, item.data);
+    if (previewUrls.isNotEmpty) {
+      return DbOnlineRankingPreviewCard(
+        title: item.title,
+        coverUrl: imageUrl,
+        previewUrls: previewUrls,
+        code: code,
+        meta: meta,
+        badges: badges,
+        titleLeading: completed ? overlays.status : null,
+        privacyId: privacyId,
+        onTap: onTap,
+      );
+    }
     return CatalogListMovieCard(
       title: item.title,
       code: code,
@@ -2354,6 +2371,24 @@ Widget _subscriptionMovieTile(
     coverTopLeftOverlay: overlays.status,
     coverBottomLeftOverlay: overlays.filters,
   );
+}
+
+/// 订阅快照数据携带的预览图（preview_images），无该字段或无可用地
+/// 址时返回空列表，调用方据此降级为紧凑条目。
+List<String> _subscriptionPreviewUrls(
+  ServerConfig? config,
+  Map<String, dynamic> data,
+) {
+  if (config == null) return const <String>[];
+  final rawList = data['preview_images'];
+  if (rawList is! List) return const <String>[];
+  final urls = <String>[];
+  for (final raw in rawList) {
+    if (raw is! Map) continue;
+    final url = (raw['large_url'] ?? raw['thumb_url'])?.toString().trim();
+    if (url != null && url.isNotEmpty) urls.add(resolveServerUrl(config, url));
+  }
+  return urls;
 }
 
 Widget _subscriptionBadge(String label, Color color, {bool matched = true}) =>

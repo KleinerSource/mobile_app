@@ -42,7 +42,8 @@ class DbOnlineMovieCard extends ConsumerWidget {
   final bool landscape;
   final bool compact;
 
-  /// 榜单列表模式的预览条目：左封面 + 右预览图翻页，优先级高于 [compact]。
+  /// 榜单列表模式的预览条目：左封面 + 右预览图翻页，优先级高于 [compact]；
+  /// 数据未携带 preview_images 时自动降级为 [compact] 紧凑条目。
   final bool previewList;
   final int listTitleMaxLines;
   final bool showRating;
@@ -102,7 +103,13 @@ class DbOnlineMovieCard extends ConsumerWidget {
       onTap?.call();
     }
 
-    if (previewList) {
+    // 无 preview_images 时右侧只会重复一张大封面，降级为调用方传入的
+    // [compact] 紧凑条目，避免预览区占位浪费空间。
+    final previewUrls = previewList
+        ? _previewUrls(movie, config)
+        : const <String>[];
+
+    if (previewUrls.isNotEmpty) {
       final rating = showRating ? normalizeMediaRating(movie.score) : null;
       // 已完成的绿点放在名称前，其余订阅状态角标留在预览图左下角。
       final subscriptionCompleted = _isSubscriptionCompleted(subscriptionStatus);
@@ -112,7 +119,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
             : movie.title,
         code: movie.number,
         coverUrl: imageUrl,
-        previewUrls: _previewUrls(movie, config),
+        previewUrls: previewUrls,
         fallbackPreviewUrl: _fallbackPreviewUrl(movie, config),
         meta: _metaText(context, movie),
         badges: [

@@ -488,6 +488,7 @@ class _DbOnlineSearchResultsState
           width: double.infinity,
           landscape: widget.viewMode == MediaViewMode.landscape,
           compact: widget.viewMode == MediaViewMode.list,
+          previewList: widget.viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
         return widget.viewMode == MediaViewMode.landscape
