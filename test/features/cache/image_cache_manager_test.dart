@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -37,6 +39,16 @@ class _FakeFileServiceResponse implements FileServiceResponse {
   DateTime get validTill => DateTime.now().add(const Duration(days: 1));
 }
 
+Future<FileInfo> _fileInfo(String name) async {
+  final file = await MemoryCacheSystem().createFile(name);
+  return FileInfo(
+    file,
+    FileSource.Online,
+    DateTime.now().add(const Duration(days: 1)),
+    'https://example.test/$name',
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -63,6 +75,79 @@ void main() {
     expect(delegate.requestHeaders, {
       'Authorization': 'Bearer token',
       'User-Agent': 'omm/0.92.10',
+    });
+  });
+
+  test('resized 缓存键与上游规则一致', () {
+    expect(
+      resizedImageCacheKey('https://a/b.jpg', maxWidth: 1080),
+      'resized_w1080_https://a/b.jpg',
+    );
+    expect(
+      resizedImageCacheKey('k', maxWidth: 10, maxHeight: 20),
+      'resized_w10_h20_k',
+    );
+  });
+
+  group('SharedFileResponseLoads', () {
+    test('源流已产出文件但尚未结束时加入的订阅者也能拿到文件', () async {
+      final loads = SharedFileResponseLoads();
+      final source = StreamController<FileResponse>();
+      var starts = 0;
+      Stream<FileResponse> start() {
+        starts++;
+        return source.stream;
+      }
+
+      final first = loads.share('k', start).toList();
+      final info = await _fileInfo('a.jpg');
+      source.add(info);
+      await Future<void>.delayed(Duration.zero);
+
+      final second = loads.share('k', start).toList();
+      await source.close();
+
+      expect(starts, 1);
+      expect(await first, [info]);
+      expect(await second, [info]);
+      expect(loads.isLoading('k'), isFalse);
+    });
+
+    test('加载结束后再次请求会重新发起', () async {
+      final loads = SharedFileResponseLoads();
+      final info = await _fileInfo('a.jpg');
+      var starts = 0;
+      Stream<FileResponse> start() {
+        starts++;
+        return Stream<FileResponse>.value(info);
+      }
+
+      expect(await loads.share('k', start).toList(), [info]);
+      expect(await loads.share('k', start).toList(), [info]);
+      expect(starts, 2);
+    });
+
+    test('源流没有产出文件就结束时报错而不是静默完成', () async {
+      final loads = SharedFileResponseLoads();
+      await expectLater(
+        loads.share('k', () => const Stream<FileResponse>.empty()),
+        emitsError(isA<StateError>()),
+      );
+      expect(loads.isLoading('k'), isFalse);
+    });
+
+    test('源流错误转发给所有订阅者', () async {
+      final loads = SharedFileResponseLoads();
+      final source = StreamController<FileResponse>();
+      final first = loads.share('k', () => source.stream);
+      final second = loads.share('k', () => source.stream);
+      const error = HttpExceptionWithStatus(404, 'missing');
+      source.addError(error);
+
+      await expectLater(first, emitsError(error));
+      await expectLater(second, emitsError(error));
+      expect(loads.isLoading('k'), isFalse);
+      await source.close();
     });
   });
 }

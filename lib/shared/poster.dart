@@ -130,6 +130,8 @@ class Poster extends StatelessWidget {
   }
 }
 
+const _posterDiskCacheWidth = 1080;
+
 /// 带自动重试的封面图 · 瞬时失败（网络抖动、扫描期间图片文件暂时缺失
 /// 返回 404 等）时按次数换 key 重新加载；重试耗尽才落到最终占位符。
 ///
@@ -180,6 +182,17 @@ class _RetryNetworkPosterState extends State<_RetryNetworkPoster> {
     super.dispose();
   }
 
+  /// 与 [CachedNetworkImage] 内部构造的 provider 键一致，用于重试前驱逐。
+  ImageProvider<Object> get _imageProvider => ResizeImage.resizeIfNeeded(
+    widget.memCacheWidth,
+    null,
+    CachedNetworkImageProvider(
+      widget.imageUrl,
+      cacheManager: AppImageCacheManager.instance,
+      maxWidth: _posterDiskCacheWidth,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return CachedNetworkImage(
@@ -190,7 +203,7 @@ class _RetryNetworkPosterState extends State<_RetryNetworkPoster> {
       fit: BoxFit.cover,
       alignment: widget.alignment,
       memCacheWidth: widget.memCacheWidth,
-      maxWidthDiskCache: 1080,
+      maxWidthDiskCache: _posterDiskCacheWidth,
       fadeInDuration: const Duration(milliseconds: 200),
       placeholder: (_, __) => const SizedBox.shrink(),
       errorWidget: (_, __, ___) {
@@ -198,6 +211,10 @@ class _RetryNetworkPosterState extends State<_RetryNetworkPoster> {
         if (_attempt < maxRetries && timer == null) {
           _retryTimer = Timer(retryDelay, () {
             if (!mounted) return;
+            // 带 memCacheWidth 时 ImageCache 的键是 ResizeImageKey，
+            // CachedNetworkImage 出错只驱逐内层 provider；不在这里驱逐，
+            // 重试会直接拿到同一个已失败的 completer。
+            unawaited(_imageProvider.evict());
             setState(() {
               _attempt++;
               _retryTimer = null;
