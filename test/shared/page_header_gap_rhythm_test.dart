@@ -9,7 +9,8 @@ import 'package:omm/shared/page_header.dart';
 
 /// 验证「标题 → 工具栏 → 列表」的视觉间距节奏：标题文字垂直居中在
 /// 48px 标题行内产生的下方空隙由 PageHeader 光学补偿，保证标题到
-/// 工具栏的视觉间距与工具栏到列表首项的视觉间距一致（同为 12），
+/// 工具栏的视觉间距与工具栏到列表首项的视觉间距一致
+/// （同为 toolbarTopGap 的节奏），
 /// 且在放大字体下依然成立。
 void main() {
   for (final scale in [1.0, 2.0]) {

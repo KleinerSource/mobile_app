@@ -259,7 +259,7 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
         // 第 4 位是工具栏底部到列表顶部的期望间距：所有媒体源统一用
         // aboveListGap，加上列表自带的 contentTopInset 后与块间间距
-        // （toolbarTopGap）同为 12 的节奏。
+        // （toolbarTopGap）保持一致的节奏。
         for (final entry in <(Widget, String, bool, double)>[
           (
             const MoviesPage(showBackButton: false, maxItems: 0),

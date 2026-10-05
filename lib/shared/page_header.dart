@@ -36,12 +36,13 @@ class PageHeader extends StatelessWidget {
   static const double trailingGap = 8;
 
   /// 相邻块（头部→工具栏、工具栏→搜索框等）之间的统一间距。
-  static const double toolbarTopGap = 12;
+  static const double toolbarTopGap = 16;
 
   /// 紧邻主列表的块（头部/工具栏/搜索框）的统一底部留白；配合列表顶部的
-  /// 呼吸空间（MediaListLayout.contentTopInset）与块间间距同为 12，
-  /// 任意组件缺失或增减时，列表与上一块的间距保持不变。
-  static const double aboveListGap = 8;
+  /// 呼吸空间（MediaListLayout.contentTopInset）后与块间间距
+  /// （toolbarTopGap）保持一致，任意组件缺失或增减时，
+  /// 列表与上一块的间距不变。
+  static const double aboveListGap = 12;
 
   /// 标题行高由 48px 操作按钮撑起，与 [AppText.pageTitle] 的字号/行高
   /// 保持同步；用于在 [build] 中计算文字居中产生的下方空隙。

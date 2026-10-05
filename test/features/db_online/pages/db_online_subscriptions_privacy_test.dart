@@ -190,7 +190,10 @@ void main() {
                     widget is Container && widget.decoration is BoxDecoration,
               ),
             );
-            expect(tester.getRect(searchBox).top - tabRect.bottom, 12);
+            expect(
+              tester.getRect(searchBox).top - tabRect.bottom,
+              closeTo(PageHeader.toolbarTopGap, 0.01),
+            );
           }
           final box = tester.widget<Container>(
             find.descendant(
