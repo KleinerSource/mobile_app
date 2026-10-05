@@ -1153,6 +1153,39 @@ void _main_3() {
     }
   });
 
+  test('WebDAV 列表缺少目录标记导致误判时，删除自动纠正为目录', () async {
+    final fixture = await _WebDavTreeFixture.start(
+      treeDeleteSupported: false,
+      stripChildResourcetype: true,
+    );
+    final sourceId = SourceId.of('webdav-stripped-delete');
+    final source = await connectSource(fixture, sourceId.value);
+    try {
+      await source.delete(
+        FilePath(sourceId: sourceId, value: '/dir'),
+        options: const FileDeleteOptions(recursive: true),
+      );
+      expect(fixture.requests, [
+        'PROPFIND /dir',
+        'DELETE /dir',
+        'PROPFIND /dir',
+        'DELETE /dir/a.mp4',
+        'DELETE /dir/b.mp4',
+        'DELETE /dir/sub',
+        'PROPFIND /dir/sub',
+        'PROPFIND /dir/sub',
+        'DELETE /dir/sub/c.mp4',
+        'DELETE /dir/sub',
+        'DELETE /dir',
+      ]);
+      expect(fixture.dirs, isEmpty);
+      expect(fixture.files, isEmpty);
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
   test('WebDAV 删除目录可取消', () async {
     final fixture = await _WebDavTreeFixture.start(treeDeleteSupported: false);
     final sourceId = SourceId.of('webdav-cancel-delete');
@@ -1188,6 +1221,7 @@ class _WebDavTreeFixture {
     this.server, {
     required this.treeDeleteSupported,
     required this.vanishOnTreeReject,
+    required this.stripChildResourcetype,
   });
 
   final HttpServer server;
@@ -1198,6 +1232,10 @@ class _WebDavTreeFixture {
 
   /// 整树 DELETE 被拒的同时清空整棵树，模拟服务端后台已删完的竞态。
   final bool vanishOnTreeReject;
+
+  /// 目录列表的子项响应省略 resourcetype 的 collection 标记（自身响应仍
+  /// 规范），模拟会把子目录误判成文件的服务端。
+  final bool stripChildResourcetype;
 
   final dirs = <String>{'/dir', '/dir/sub'};
   final files = <String>{'/dir/a.mp4', '/dir/b.mp4', '/dir/sub/c.mp4'};
@@ -1213,12 +1251,14 @@ class _WebDavTreeFixture {
   static Future<_WebDavTreeFixture> start({
     bool treeDeleteSupported = true,
     bool vanishOnTreeReject = false,
+    bool stripChildResourcetype = false,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final fixture = _WebDavTreeFixture(
       server,
       treeDeleteSupported: treeDeleteSupported,
       vanishOnTreeReject: vanishOnTreeReject,
+      stripChildResourcetype: stripChildResourcetype,
     );
     server.listen(fixture._handle);
     return fixture;
@@ -1255,6 +1295,12 @@ class _WebDavTreeFixture {
         return;
       }
       if (dirs.contains(path)) {
+        // 该服务端要求目录 DELETE 必须带尾斜杠，否则按方法不允许拒绝。
+        if (!request.uri.path.endsWith('/')) {
+          response.statusCode = HttpStatus.methodNotAllowed;
+          await response.close();
+          return;
+        }
         if (treeDeleteSupported || _isEmptyDir(path)) {
           _removeTree(path);
           response.statusCode = HttpStatus.noContent;
@@ -1301,7 +1347,9 @@ class _WebDavTreeFixture {
     final buffer = StringBuffer(
       '<?xml version="1.0" encoding="utf-8"?>\n<d:multistatus xmlns:d="DAV:">',
     );
-    buffer.write(_responseXml(path, isDir: dirs.contains(path)));
+    buffer.write(
+      _responseXml(path, isDir: dirs.contains(path), self: true),
+    );
     if (dirs.contains(path)) {
       for (final child in _children(path)) {
         buffer.write(_responseXml(child, isDir: dirs.contains(child)));
@@ -1311,12 +1359,14 @@ class _WebDavTreeFixture {
     return buffer.toString();
   }
 
-  String _responseXml(String path, {required bool isDir}) => '''
+  String _responseXml(String path, {required bool isDir, bool self = false}) {
+    final markAsDir = isDir && (!stripChildResourcetype || self);
+    return '''
   <d:response>
     <d:href>${isDir ? '$path/' : path}</d:href>
     <d:propstat>
       <d:prop>
-        ${isDir ? '<d:resourcetype><d:collection/></d:resourcetype>' : '<d:resourcetype/>'}
+        ${markAsDir ? '<d:resourcetype><d:collection/></d:resourcetype>' : '<d:resourcetype/>'}
         ${isDir ? '' : '<d:getcontentlength>1</d:getcontentlength>'}
         ${isDir ? '' : '<d:getcontenttype>video/mp4</d:getcontenttype>'}
         <d:getetag>"fixture"</d:getetag>
@@ -1324,6 +1374,7 @@ class _WebDavTreeFixture {
       <d:status>HTTP/1.1 200 OK</d:status>
     </d:propstat>
   </d:response>''';
+  }
 
   String _normalize(String value) {
     var path = value;

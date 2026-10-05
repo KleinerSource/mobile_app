@@ -410,8 +410,9 @@ class WebDavFileSource
       // RFC 4918：对集合的 DELETE 即无穷深度删除，优先交给服务端一条请求
       // 完成整棵树，避免客户端逐文件串行往返导致大目录删除极慢。
       if (await _tryServerSideTreeDelete(value, cancelToken)) return;
-      // 回退：服务器不支持整树删除（或整树请求超时）。listing 已带每个子项的
-      // isDirectory，无需再逐个 stat；删除是幂等的（404 视为成功）。
+      // 回退：服务器不支持整树删除（或整树请求超时）。子项类型优先用列表
+      // 结果，文件形态删除被拒时再 stat 纠正（部分服务端的列表缺
+      // resourcetype）；删除是幂等的（404 视为成功）。
       await _deleteChildren(value, cancellation, cancelToken);
       await client.remove('$value/', cancelToken);
     } catch (error) {
@@ -454,7 +455,9 @@ class WebDavFileSource
     }
     final status = response.statusCode;
     if (status == 200 || status == 204 || status == 404) return true;
-    if (status == 403 || status == 405 || status == 501) return false;
+    if (status == 403 || status == 405 || status == 409 || status == 501) {
+      return false;
+    }
     throw FileSourceException(
       AppErrorCode.httpError,
       code: AppErrorCode.httpError,
@@ -480,8 +483,28 @@ class WebDavFileSource
         await _deleteChildren(childValue, cancellation, cancelToken);
         await client.remove('$childValue/', cancelToken);
       } else {
-        await client.remove(childValue, cancelToken);
+        await _deleteChildListedAsFile(childValue, cancellation, cancelToken);
       }
+    }
+  }
+
+  /// 少数 WebDAV 服务在目录列表的子项上省略 resourcetype，子目录会被
+  /// 列表误判成文件；按文件删除被拒（405/409）时重新 stat 确认类型，
+  /// 是目录则递归删除，否则维持原始失败。
+  Future<void> _deleteChildListedAsFile(
+    String value,
+    FileCancellationToken? cancellation,
+    CancelToken cancelToken,
+  ) async {
+    try {
+      await client.remove(value, cancelToken);
+    } on Object catch (error) {
+      final status = error is DioException ? error.response?.statusCode : null;
+      if (status != 405 && status != 409) rethrow;
+      final entry = await stat(FilePath(sourceId: _sourceId, value: value));
+      if (!entry.isDirectory) rethrow;
+      await _deleteChildren(value, cancellation, cancelToken);
+      await client.remove('$value/', cancelToken);
     }
   }
 
