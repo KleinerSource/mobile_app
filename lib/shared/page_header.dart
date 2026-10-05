@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
@@ -41,6 +43,12 @@ class PageHeader extends StatelessWidget {
   /// 任意组件缺失或增减时，列表与上一块的间距保持不变。
   static const double aboveListGap = 8;
 
+  /// 标题行高由 48px 操作按钮撑起，与 [AppText.pageTitle] 的字号/行高
+  /// 保持同步；用于在 [build] 中计算文字居中产生的下方空隙。
+  static const double _titleFontSize = 28;
+  static const double _titleLineHeightFactor = 1.05;
+  static const double _titleRowHeight = 48;
+
   final String eyebrow;
   final Widget title;
   final Widget? leading;
@@ -53,20 +61,32 @@ class PageHeader extends StatelessWidget {
 
   final Widget? subtitle;
 
-  /// 头部底部留白；下一块是工具栏时传 [toolbarTopGap]，
-  /// 主列表直接跟随时传 [aboveListGap]，保持块间节奏一致。
+  /// 标题文字到下一块的视觉间距；下一块是工具栏时传 [toolbarTopGap]，
+  /// 主列表直接跟随时传 [aboveListGap]。标题文字垂直居中在 48px 标题行
+  /// 内，文字下方约 9px 的空隙会让视觉间距大于实际留白，因此 [build]
+  /// 会按当前字体缩放扣除该空隙（光学补偿），保证任何字号下标题文字
+  /// 到下一块的视觉间距恒等于此值。
   final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     final titleInset = leading == null ? 0.0 : leadingWidth;
+    // 标题行高由 48px 操作按钮撑起，文字居中会在文字下方产生空隙；
+    // 放大字体后标题行随文字增高、空隙归零。subtitle 紧贴标题行底部，
+    // 不经过该空隙，无需补偿。
+    final scaledTitleLineHeight =
+        MediaQuery.textScalerOf(context).scale(_titleFontSize) *
+        _titleLineHeightFactor;
+    final titleSlack = subtitle == null
+        ? math.max(0, (_titleRowHeight - scaledTitleLineHeight) / 2)
+        : 0.0;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         horizontalPadding - (leading == null ? 0.0 : leadingBleed),
         16,
         horizontalPadding -
             (trailing != null && alignTrailingToPadding ? trailingBleed : 0.0),
-        bottomPadding,
+        math.max(0, bottomPadding - titleSlack),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -323,13 +323,20 @@ void main() {
             final toolbar = column.children[1] as Padding;
             final toolbarContent = find.byWidget(toolbar.child!);
             final toolbarRect = tester.getRect(toolbarContent);
-            expect(toolbarRect.top, headerRect.bottom);
-            expect(tester.getRect(body).top - toolbarRect.bottom, entry.$4);
+            // PageHeader 的光学补偿引入浮点运算，几何断言带容差比较。
+            expect(toolbarRect.top, closeTo(headerRect.bottom, 0.01));
+            expect(
+              tester.getRect(body).top - toolbarRect.bottom,
+              closeTo(entry.$4, 0.01),
+            );
             await tester.drag(body, const Offset(0, -250));
             await tester.pumpAndSettle();
             expect(tester.getRect(toolbarContent), toolbarRect);
           } else {
-            expect(tester.getRect(body).top, headerRect.bottom);
+            expect(
+              tester.getRect(body).top,
+              closeTo(headerRect.bottom, 0.01),
+            );
           }
           expect(tester.getRect(header), headerRect);
           expect(tester.takeException(), isNull);
@@ -474,8 +481,13 @@ void main() {
             }
             // 双行抬头的内容高度跨源统一；底部留白随页面配置变化
             // （下方是工具栏用 toolbarTopGap，列表直接跟随用 aboveListGap），
-            // 因此只比较去掉 bottomPadding 后的内容高度。
-            final contentHeight = headerRect.height - pageHeader.bottomPadding;
+            // 且光学补偿可能将其钳制为 0，因此从标题行实测实际留白再扣除。
+            final titleRow = find
+                .descendant(of: header, matching: find.byType(ConstrainedBox))
+                .first;
+            final actualBottomPadding =
+                headerRect.bottom - tester.getRect(titleRow).bottom;
+            final contentHeight = headerRect.height - actualBottomPadding;
             referenceHeader ??= headerRect;
             referenceContentHeight ??= contentHeight;
             referenceSmall ??= smallRect;
