@@ -156,6 +156,15 @@ void main() {
     expect(third.left, greaterThan(first.right));
     expect(find.byType(HeaderActionButton), findsOneWidget);
     expect(find.byTooltip('筛选'), findsOneWidget);
+    // 页头按钮顺序：复查 → 筛选 → 模式切换。
+    expect(
+      tester.getTopLeft(find.byTooltip('复查')).dx,
+      lessThan(tester.getTopLeft(find.byTooltip('筛选')).dx),
+    );
+    expect(
+      tester.getTopLeft(find.byTooltip('筛选')).dx,
+      lessThan(tester.getTopLeft(find.byType(MediaViewModeToggle)).dx),
+    );
     expect(sockets.urls.single.toString(), 'wss://a.test/ws/scheduler/status');
     expect(tester.takeException(), isNull);
   });

@@ -299,46 +299,45 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
             onPressed: _recheck,
           ),
         if (canQuery) ...[
+          if (canRecheck) const SizedBox(width: 4),
+          Tooltip(
+            message: l.dbOnlineLibraryFilters,
+            child: CompactFilterButton(
+              label: '',
+              icon: Icons.tune_rounded,
+              active: _filter.type != 'all' || _filter.star.isNotEmpty,
+              onTap: () => unawaited(_openFilterMenu()),
+            ),
+          ),
           const SizedBox(width: 4),
           const MediaServerViewModeToggle(),
         ],
       ],
       // canQuery 时末尾是视图切换胶囊，只有圆形按钮收尾才对齐到边距。
       alignTrailingToPadding: !canQuery,
-      filters: canQuery
+      // 筛选已移入页头，这里只在复查运行时显示进度。
+      filters: scheduler != null &&
+              (scheduler.rechecking || scheduler.recheckQueued)
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Tooltip(
-                  message: l.dbOnlineLibraryFilters,
-                  child: CompactFilterButton(
-                    label: '',
-                    icon: Icons.tune_rounded,
-                    active: _filter.type != 'all' || _filter.star.isNotEmpty,
-                    onTap: () => unawaited(_openFilterMenu()),
-                  ),
+                Text(
+                  !scheduler.connected
+                      ? l.dbOnlineWatchedReconnecting
+                      : scheduler.rechecking
+                      ? l.dbOnlineWatchedProgress(
+                          scheduler.completed,
+                          scheduler.total,
+                        )
+                      : l.dbOnlineWatchedQueued,
+                  style: AppText.meta(context),
                 ),
-                if (scheduler != null &&
-                    (scheduler.rechecking || scheduler.recheckQueued)) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    !scheduler.connected
-                        ? l.dbOnlineWatchedReconnecting
-                        : scheduler.rechecking
-                        ? l.dbOnlineWatchedProgress(
-                            scheduler.completed,
-                            scheduler.total,
-                          )
-                        : l.dbOnlineWatchedQueued,
-                    style: AppText.meta(context),
-                  ),
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: scheduler.rechecking && scheduler.connected
-                        ? scheduler.percent / 100
-                        : null,
-                  ),
-                ],
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: scheduler.rechecking && scheduler.connected
+                      ? scheduler.percent / 100
+                      : null,
+                ),
               ],
             )
           : null,

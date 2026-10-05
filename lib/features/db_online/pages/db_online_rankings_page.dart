@@ -84,11 +84,20 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (showsViewModeToggle) ...[
-                    const MediaServerViewModeToggle(),
-                    const SizedBox(width: 4),
-                  ],
+                  HeaderActionButton(
+                    icon: Icons.notifications_none_rounded,
+                    tooltip: l.dbOnlineRankingAutoTitle,
+                    onPressed: () => unawaited(_openAutoConfig()),
+                  ),
                   if (board == _Board.top250) ...[
+                    const SizedBox(width: 4),
+                    HeaderActionButton(
+                      icon: Icons.favorite_outline_rounded,
+                      tooltip: l.dbOnlineRankingSubscribeAll,
+                      color: appColors(context).accent,
+                      onPressed: () => unawaited(_confirmSubscribeAll()),
+                    ),
+                    const SizedBox(width: 4),
                     // 筛选按钮与影片库等其他页面的紧凑筛选样式一致。
                     Tooltip(
                       message: l.dbOnlineLibraryFilters,
@@ -99,23 +108,15 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                         onTap: () => unawaited(_showTop250FilterSheet()),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    HeaderActionButton(
-                      icon: Icons.favorite_outline_rounded,
-                      tooltip: l.dbOnlineRankingSubscribeAll,
-                      color: appColors(context).accent,
-                      onPressed: () => unawaited(_confirmSubscribeAll()),
-                    ),
-                    const SizedBox(width: 4),
                   ],
-                  HeaderActionButton(
-                    icon: Icons.notifications_none_rounded,
-                    tooltip: l.dbOnlineRankingAutoTitle,
-                    onPressed: () => unawaited(_openAutoConfig()),
-                  ),
+                  if (showsViewModeToggle) ...[
+                    const SizedBox(width: 4),
+                    const MediaServerViewModeToggle(),
+                  ],
                 ],
               ),
-              alignTrailingToPadding: true,
+              // 仅演员榜以圆形按钮收尾，其余榜单末尾是视图切换胶囊。
+              alignTrailingToPadding: !showsViewModeToggle,
             ),
             _ChipRow(
               // 还有内容类型行时用块间距，单独成行时由列表间距承接。

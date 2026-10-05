@@ -98,6 +98,13 @@ void main() {
     expect(requests, containsAll(['/api/config', '/api/rankings']));
     expect(find.text('榜单影片'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
+    // 日榜页头只有排行榜自动订阅与模式切换，按此顺序排列。
+    expect(find.byTooltip('一键订阅'), findsNothing);
+    expect(find.byTooltip('筛选'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byTooltip('排行榜自动订阅')).dx,
+      lessThan(tester.getTopLeft(find.byType(MediaViewModeToggle)).dx),
+    );
   });
 
   testWidgets('配置 Authorization 后显示 Top250 榜单入口与筛选操作', (tester) async {
@@ -117,6 +124,19 @@ void main() {
     expect(find.byTooltip('筛选'), findsOneWidget);
     expect(find.byTooltip('一键订阅'), findsOneWidget);
     expect(find.byTooltip('排行榜自动订阅'), findsOneWidget);
+    // 页头按钮顺序：排行榜自动订阅 → 一键订阅 → 筛选 → 模式切换。
+    expect(
+      tester.getTopLeft(find.byTooltip('排行榜自动订阅')).dx,
+      lessThan(tester.getTopLeft(find.byTooltip('一键订阅')).dx),
+    );
+    expect(
+      tester.getTopLeft(find.byTooltip('一键订阅')).dx,
+      lessThan(tester.getTopLeft(find.byTooltip('筛选')).dx),
+    );
+    expect(
+      tester.getTopLeft(find.byTooltip('筛选')).dx,
+      lessThan(tester.getTopLeft(find.byType(MediaViewModeToggle)).dx),
+    );
     expect(find.text('榜单影片'), findsOneWidget);
   });
 
