@@ -2320,43 +2320,22 @@ Widget _subscriptionMovieTile(
   final privacyId = _subscriptionMoviePrivacyId(item);
   final overlays = _subscriptionMovieBadges(item, l);
   if (viewMode == MediaViewMode.list) {
-    // 已完成的绿点放在标题前，其余订阅状态角标仍留在标题下方。
+    // 已完成的绿点放在标题前，其余订阅状态角标叠加在预览图左下角。
     final completed =
         item.status == 'completed' && item.data['overdue'] != true;
     final badges = [if (!completed) ?overlays.status, ?overlays.filters];
-    // 与其他 dbo 列表一致：快照数据携带 preview_images 时升级为预览条目，
-    // 否则降级为紧凑条目。
-    final previewUrls = _subscriptionPreviewUrls(serverConfig, item.data);
-    if (previewUrls.isNotEmpty) {
-      return DbOnlineRankingPreviewCard(
-        title: item.title,
-        coverUrl: imageUrl,
-        previewUrls: previewUrls,
-        code: code,
-        meta: meta,
-        badges: badges,
-        titleLeading: completed ? overlays.status : null,
-        privacyId: privacyId,
-        onTap: onTap,
-      );
-    }
-    return CatalogListMovieCard(
+    // 与其他 dbo 列表一致：列表模式统一使用预览条目，快照未携带
+    // preview_images 时右侧回退为大封面，保持同一列表样式统一。
+    return DbOnlineRankingPreviewCard(
       title: item.title,
+      coverUrl: imageUrl,
+      previewUrls: _subscriptionPreviewUrls(serverConfig, item.data),
       code: code,
-      imageUrl: imageUrl,
       meta: meta,
-      width: width,
+      badges: badges,
+      titleLeading: completed ? overlays.status : null,
       privacyId: privacyId,
       onTap: onTap,
-      titleLeading: completed ? overlays.status : null,
-      additional: badges.isEmpty
-          ? null
-          : Wrap(
-              spacing: 5,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: badges,
-            ),
     );
   }
   return CatalogMovieCard(
@@ -2374,7 +2353,7 @@ Widget _subscriptionMovieTile(
 }
 
 /// 订阅快照数据携带的预览图（preview_images），无该字段或无可用地
-/// 址时返回空列表，调用方据此降级为紧凑条目。
+/// 址时返回空列表，预览条目右侧回退为大封面。
 List<String> _subscriptionPreviewUrls(
   ServerConfig? config,
   Map<String, dynamic> data,

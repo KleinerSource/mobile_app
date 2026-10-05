@@ -399,7 +399,7 @@ void main() {
     expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
   });
 
-  testWidgets('列表搜索的列表模式有预览图用预览条目，缺失预览图降级紧凑行', (tester) async {
+  testWidgets('列表搜索的列表模式统一使用预览条目，缺失预览图回退大封面', (tester) async {
     SharedPreferences.setMockInitialValues({
       'db_online.search.view_mode.v1': 'list',
     });
@@ -476,12 +476,13 @@ void main() {
     expect(find.byType(CatalogListMovieCard), findsNothing);
     expect(find.byType(PageView), findsOneWidget);
 
-    // 数据未携带 preview_images 时降级为紧凑行，不渲染预览翻页。
+    // 数据未携带 preview_images 时仍统一渲染预览条目（右侧回退大封面），
+    // 同一列表内不混排紧凑行。
     withPreviewImages = false;
     await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
-    expect(find.byType(DbOnlineRankingPreviewCard), findsNothing);
-    expect(find.byType(CatalogListMovieCard), findsOneWidget);
+    expect(find.byType(DbOnlineRankingPreviewCard), findsOneWidget);
+    expect(find.byType(CatalogListMovieCard), findsNothing);
     expect(find.byType(PageView), findsNothing);
   });
 }
