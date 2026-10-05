@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -48,8 +47,6 @@ import 'package:omm/features/oh_my_media/movies/resource_scan_progress_sheet.dar
 import 'package:omm/features/settings/settings_page.dart';
 import 'favorites_providers.dart';
 import 'media_favorites_repository.dart';
-
-const _favoritesViewModeKey = 'favorites.view_mode.v1';
 
 enum FavoritesSort {
   recent(sortBy: 'created_at', order: 'desc'),
@@ -90,7 +87,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
   late final SelectionController<int> _selection;
@@ -117,30 +113,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     super.initState();
     _selection = SelectionController<int>();
     _selection.activeListenable.addListener(_onSelectionModeChanged);
-    _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scheduleAutoPreviewUpdate();
     });
-  }
-
-  MediaViewMode _loadViewMode() {
-    return mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_favoritesViewModeKey),
-    );
-  }
-
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    _scheduleAutoPreviewUpdate();
-    await ref
-        .read(sharedPrefsProvider)
-        .setString(
-          _favoritesViewModeKey,
-          mode == MediaViewMode.portrait ? 'grid' : mode.name,
-        );
   }
 
   @override
@@ -170,7 +147,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   int? _nextAutoPreviewId() {
-    if (_viewMode != MediaViewMode.landscape || _selecting) return null;
+    if (ref.read(mediaServerViewModeProvider) != MediaViewMode.landscape ||
+        _selecting) {
+      return null;
+    }
     final items = _controller.itemList ?? const <MovieListItem>[];
     if (items.isEmpty) return null;
     final width = MediaListLayout.contentWidth(
@@ -541,6 +521,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -598,7 +579,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           onRefresh: _refresh,
                           child: DragSelectionScope<int>(
                             scrollController: _scrollController,
-                            selectionLayout: _viewMode == MediaViewMode.portrait
+                            selectionLayout: viewMode == MediaViewMode.portrait
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
                             isSelected: _selection.contains,
@@ -705,9 +686,16 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                           ),
                                           const SizedBox(width: 6),
                                           MediaViewModeToggle(
-                                            mode: _viewMode,
-                                            onChanged: (m) =>
-                                                unawaited(_setViewMode(m)),
+                                            mode: viewMode,
+                                            onChanged: (m) {
+                                              ref
+                                                  .read(
+                                                    mediaServerViewModeProvider
+                                                        .notifier,
+                                                  )
+                                                  .set(m);
+                                              _scheduleAutoPreviewUpdate();
+                                            },
                                           ),
                                         ],
                                       ),
@@ -718,7 +706,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                 // ===== 收藏网格 / 列表 =====
                                 SliverPadding(
                                   padding: MediaListLayout.contentPadding,
-                                  sliver: _viewMode == MediaViewMode.portrait
+                                  sliver: viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,
                                           showNoMoreItemsIndicatorAsGridChild:
@@ -729,7 +717,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                             urlBuilder,
                                           ),
                                         )
-                                      : _viewMode == MediaViewMode.landscape
+                                      : viewMode == MediaViewMode.landscape
                                       ? PagedSliverList<int, MovieListItem>(
                                           pagingController: _controller,
                                           builderDelegate: _buildGridDelegate(

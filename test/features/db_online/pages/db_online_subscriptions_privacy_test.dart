@@ -513,7 +513,7 @@ void main() {
     expect(
       container
           .read(sharedPrefsProvider)
-          .getString('db_online.subscriptions.view_mode.v1'),
+          .getString(mediaServerViewModeStorageKey(null)),
       'landscape',
     );
 

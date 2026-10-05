@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
@@ -152,7 +153,7 @@ void main() {
 
   testWidgets('列表模式渲染预览条目：封面 + 预览图翻页 + 标题', (tester) async {
     SharedPreferences.setMockInitialValues({
-      'db_online.entity_movies.view_mode.v1': 'list',
+      mediaServerViewModeStorageKey(null): 'list',
     });
     final preferences = await SharedPreferences.getInstance();
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));

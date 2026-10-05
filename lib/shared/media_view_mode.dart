@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/server_config_provider.dart';
+import '../core/config/server_runtime.dart';
 import '../core/platform/app_theme.dart';
 import '../l10n/generated/app_localizations.dart';
 
@@ -17,27 +19,79 @@ MediaViewMode mediaViewModeFromPreference(String? value) => switch (value) {
   _ => MediaViewMode.portrait,
 };
 
-/// 按偏好键持久化的视图模式；使用同一键的页面与弹层共享同一状态。
-class MediaViewModePreference extends Notifier<MediaViewMode> {
-  MediaViewModePreference(this.key);
-
-  final String key;
+/// 媒体视图模式的全局偏好：按服务器隔离保存（模式同 home.layout），
+/// 任意媒体库页面（OMM/DBO/Emby/Jellyfin/Feiniu/Stash）切换后所有页面同步生效。
+class MediaServerViewModePreference extends Notifier<MediaViewMode> {
+  /// 旧版本按页面独立保存的全局键；首次读取时迁移到当前服务器的全局键。
+  static const _legacyKeys = <String>[
+    'movies.view_mode.v1',
+    'media_browser.library.view_mode.v1',
+    'db_online.library.view_mode.v1',
+    'favorites.view_mode.v1',
+    'media_browser.favorites.view_mode.v1',
+    'db_online.subscriptions.view_mode.v1',
+    'db_online.rankings.view_mode.v1',
+    'db_online.following.view_mode.v1',
+    'db_online.watched.view_mode.v1',
+    'db_online.latest.view_mode.v1',
+    'db_online.entity_movies.view_mode.v1',
+    'omm.search.view_mode.v1',
+    'db_online.search.view_mode.v1',
+    'media_browser.search.view_mode.v1',
+  ];
 
   @override
-  MediaViewMode build() => mediaViewModeFromPreference(
-    ref.watch(sharedPrefsProvider).getString(key),
-  );
+  MediaViewMode build() {
+    final serverId = ref.watch(
+      serverRuntimeProvider.select((runtime) => runtime.media.serverId),
+    );
+    final prefs = ref.watch(sharedPrefsProvider);
+    final key = mediaServerViewModeStorageKey(serverId);
+
+    final stored = prefs.getString(key);
+    if (stored != null) return mediaViewModeFromPreference(stored);
+
+    // 迁移旧版页面级键：采用第一个已保存的值并立即固化到当前服务器。
+    for (final legacyKey in _legacyKeys) {
+      final legacy = prefs.getString(legacyKey);
+      if (legacy == null) continue;
+      final mode = mediaViewModeFromPreference(legacy);
+      unawaited(prefs.setString(key, mode.name));
+      return mode;
+    }
+    return MediaViewMode.portrait;
+  }
 
   void set(MediaViewMode mode) {
     if (state == mode) return;
     state = mode;
-    unawaited(ref.read(sharedPrefsProvider).setString(key, mode.name));
+    final prefs = ref.read(sharedPrefsProvider);
+    unawaited(
+      prefs.setString(
+        mediaServerViewModeStorageKey(_currentServerId()),
+        mode.name,
+      ),
+    );
   }
+
+  String? _currentServerId() => ref.read(
+    serverRuntimeProvider.select((runtime) => runtime.media.serverId),
+  );
 }
 
-final mediaViewModePreferenceProvider =
-    NotifierProvider.family<MediaViewModePreference, MediaViewMode, String>(
-      MediaViewModePreference.new,
+/// 按服务器编码的视图模式存储键；无激活服务器时落到共享的 default
+/// 槽位，保证偏好始终持久化。
+String mediaServerViewModeStorageKey(String? serverId) {
+  final normalized = (serverId ?? '').trim();
+  final encoded = base64Url
+      .encode(utf8.encode(normalized.isEmpty ? 'default' : normalized))
+      .replaceAll('=', '');
+  return 'media.view_mode.v1.$encoded';
+}
+
+final mediaServerViewModeProvider =
+    NotifierProvider<MediaServerViewModePreference, MediaViewMode>(
+      MediaServerViewModePreference.new,
     );
 
 /// 与 OMM 现有风格一致的紧凑分段视图切换。
@@ -115,17 +169,13 @@ class MediaViewModeToggle extends StatelessWidget {
   }
 }
 
-/// 绑定 [mediaViewModePreferenceProvider] 的视图切换。
-class MediaViewModePreferenceToggle extends ConsumerWidget {
-  const MediaViewModePreferenceToggle({super.key, required this.preferenceKey});
-
-  final String preferenceKey;
+/// 绑定 [mediaServerViewModeProvider] 的全局视图切换；所有媒体库页面共用。
+class MediaServerViewModeToggle extends ConsumerWidget {
+  const MediaServerViewModeToggle({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => MediaViewModeToggle(
-    mode: ref.watch(mediaViewModePreferenceProvider(preferenceKey)),
-    onChanged: ref
-        .read(mediaViewModePreferenceProvider(preferenceKey).notifier)
-        .set,
+    mode: ref.watch(mediaServerViewModeProvider),
+    onChanged: ref.read(mediaServerViewModeProvider.notifier).set,
   );
 }

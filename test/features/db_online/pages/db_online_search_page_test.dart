@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/sources/media/dbo_media_source_adapter.dart';
@@ -401,7 +402,7 @@ void main() {
 
   testWidgets('列表搜索的列表模式统一使用预览条目，缺失预览图回退大封面', (tester) async {
     SharedPreferences.setMockInitialValues({
-      'db_online.search.view_mode.v1': 'list',
+      mediaServerViewModeStorageKey(null): 'list',
     });
     final preferences = await SharedPreferences.getInstance();
     var withPreviewImages = true;

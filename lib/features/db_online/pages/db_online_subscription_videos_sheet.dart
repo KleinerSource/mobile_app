@@ -172,9 +172,7 @@ class _DbOnlineSubscriptionVideosSheetState
     final serverId = serverConfig?.activeServerId ?? '';
     _syncPagingQuery(serverId);
     final l = AppL10n.of(context);
-    final viewMode = ref.watch(
-      mediaViewModePreferenceProvider(_subscriptionViewModeKey),
-    );
+    final viewMode = ref.watch(mediaServerViewModeProvider);
     final privacyId =
         widget.privacyId ??
         'dbo:subscription:${widget.kind}:${widget.sourceId}';

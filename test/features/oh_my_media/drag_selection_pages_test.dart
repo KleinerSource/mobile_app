@@ -23,43 +23,43 @@ import 'package:omm/features/oh_my_media/movies/movies_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('影片库和收藏夹分别保存视图模式', (tester) async {
+  testWidgets('影片库和收藏夹共享按服务器保存的全局视图模式', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,
     });
     final prefs = await SharedPreferences.getInstance();
+    final viewModeKey = mediaServerViewModeStorageKey(null);
 
     await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
     expect(find.byType(SwipeActionCell), findsNothing);
     await tester.tap(find.byIcon(Icons.view_list_rounded));
     await tester.pumpAndSettle();
-    expect(prefs.getString('movies.view_mode.v1'), 'list');
+    expect(prefs.getString(viewModeKey), 'list');
 
     await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
     expect(find.byType(SwipeActionCell), findsWidgets);
     await tester.tap(find.byIcon(Icons.grid_view_rounded));
     await tester.pumpAndSettle();
-    expect(prefs.getString('movies.view_mode.v1'), 'grid');
+    expect(prefs.getString(viewModeKey), 'portrait');
 
     await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
     expect(find.byType(SwipeActionCell), findsNothing);
 
-    await _pumpPage(tester, const FavoritesPage(), preferences: prefs);
-    expect(find.byType(SwipeActionCell), findsNothing);
+    // 全局模式跨页面生效：影片库切回列表后收藏夹进入页面即为列表。
+    await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
     await tester.tap(find.byIcon(Icons.view_list_rounded));
     await tester.pumpAndSettle();
-    expect(prefs.getString('favorites.view_mode.v1'), 'list');
-
     await _pumpPage(tester, const FavoritesPage(), preferences: prefs);
     expect(find.byType(SwipeActionCell), findsWidgets);
     await tester.tap(find.byIcon(Icons.grid_view_rounded));
     await tester.pumpAndSettle();
-    expect(prefs.getString('favorites.view_mode.v1'), 'grid');
+    expect(prefs.getString(viewModeKey), 'portrait');
 
     await _pumpPage(tester, const FavoritesPage(), preferences: prefs);
     expect(find.byType(SwipeActionCell), findsNothing);

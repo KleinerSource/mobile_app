@@ -45,9 +45,6 @@ class DbOnlineRankingsPage extends ConsumerStatefulWidget {
 
 enum _Board { top250, daily, weekly, monthly, actors }
 
-/// 排行榜影片榜单（Top250 与日/周/月榜）共用的视图模式偏好键。
-const _viewModeKey = 'db_online.rankings.view_mode.v1';
-
 class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
   _Board _board = _Board.daily;
   int _contentType = 0;
@@ -69,7 +66,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
         : _board;
     // 演员榜固定纵向卡片网格，不提供视图切换。
     final showsViewModeToggle = board != _Board.actors;
-    final viewMode = ref.watch(mediaViewModePreferenceProvider(_viewModeKey));
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     return GlowBackground(
       child: SafeArea(
@@ -88,9 +85,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (showsViewModeToggle) ...[
-                    const MediaViewModePreferenceToggle(
-                      preferenceKey: _viewModeKey,
-                    ),
+                    const MediaServerViewModeToggle(),
                     const SizedBox(width: 4),
                   ],
                   if (board == _Board.top250) ...[

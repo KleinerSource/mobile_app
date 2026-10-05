@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -41,20 +40,17 @@ class DbOnlineLatestMoviesPage extends ConsumerStatefulWidget {
 class _DbOnlineLatestMoviesPageState
     extends ConsumerState<DbOnlineLatestMoviesPage> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'db_online.latest.view_mode.v1';
 
   final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
+
+  MediaViewMode get _viewMode => ref.read(mediaServerViewModeProvider);
 
   @override
   void initState() {
     super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
     _controller.addPageRequestListener(_fetchPage);
   }
 
@@ -131,16 +127,12 @@ class _DbOnlineLatestMoviesPageState
     if (completer != null && !completer.isCompleted) completer.complete();
   }
 
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final config = ref.watch(mediaRuntimeConfigProvider);
+    // 订阅全局视图模式，切换时重建列表；_viewMode 供 delegate 读取。
+    ref.watch(mediaServerViewModeProvider);
     final l = AppL10n.of(context);
     final title = widget.sortBy == 'release'
         ? l.dbOnlineLatestReleased
@@ -194,7 +186,8 @@ class _DbOnlineLatestMoviesPageState
               title: title,
               trailing: MediaViewModeToggle(
                 mode: _viewMode,
-                onChanged: (mode) => unawaited(_setViewMode(mode)),
+                onChanged:
+                    ref.read(mediaServerViewModeProvider.notifier).set,
               ),
             ),
             body: RefreshIndicator(

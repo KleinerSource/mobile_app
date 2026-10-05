@@ -12,7 +12,6 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -82,7 +81,6 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
 class _MediaBrowserLibraryPageState
     extends ConsumerState<MediaBrowserLibraryPage> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'media_browser.library.view_mode.v1';
   static const _kDefaultSortBy = 'DateCreated';
   static const _kDefaultSortOrder = 'Descending';
   static final _videoTypeOptions =
@@ -126,7 +124,6 @@ class _MediaBrowserLibraryPageState
   List<String> _yearFilter = const [];
   String _sortBy = _kDefaultSortBy;
   String _sortOrder = _kDefaultSortOrder;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   int _requestSerial = 0;
   bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
@@ -184,9 +181,6 @@ class _MediaBrowserLibraryPageState
     _parentId = widget.initialViewId;
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
     _controller.addPageRequestListener(_fetchPage);
     _scrollController.addListener(_scheduleAutoPreviewUpdate);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -208,12 +202,6 @@ class _MediaBrowserLibraryPageState
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
-  }
-
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   Future<void> _fetchPage(int startIndex) async {
@@ -657,8 +645,10 @@ class _MediaBrowserLibraryPageState
     final views = ref.watch(mediaBrowserViewsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     views.maybeWhen(data: _syncCollectionType, orElse: () {});
-    final isPortrait = _viewMode == MediaViewMode.portrait;
-    final isLandscape = _viewMode == MediaViewMode.landscape;
+    // 订阅全局视图模式，切换时重建列表。
+    final viewMode = ref.watch(mediaServerViewModeProvider);
+    final isPortrait = viewMode == MediaViewMode.portrait;
+    final isLandscape = viewMode == MediaViewMode.landscape;
     // 库切换行可能整体隐藏（演员/标签/聚合服务等场景），头部底距随
     // 其下方是工具栏还是列表切换，保证组件增减不改变列表与上一块的间距。
     final hasViewsToolbar =
@@ -738,9 +728,13 @@ class _MediaBrowserLibraryPageState
                             if (!isStash) ...[
                               const SizedBox(width: 8),
                               MediaViewModeToggle(
-                                mode: _viewMode,
-                                onChanged: (mode) =>
-                                    unawaited(_setViewMode(mode)),
+                                mode: viewMode,
+                                onChanged:
+                                    ref
+                                        .read(
+                                          mediaServerViewModeProvider.notifier,
+                                        )
+                                        .set,
                               ),
                             ],
                           ],

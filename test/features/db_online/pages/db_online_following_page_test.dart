@@ -381,7 +381,7 @@ void main() {
     expect(
       container
           .read(sharedPrefsProvider)
-          .getString('db_online.following.view_mode.v1'),
+          .getString(mediaServerViewModeStorageKey('a')),
       'landscape',
     );
     expect(backend.to('/subs/tags'), hasLength(1));

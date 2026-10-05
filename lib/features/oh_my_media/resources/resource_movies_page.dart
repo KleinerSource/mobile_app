@@ -2,7 +2,6 @@ import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -11,17 +10,14 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/media_list_layout.dart';
-import 'package:omm/shared/empty_view.dart';
-import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/localized_error_message.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
-import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/movies/omm_movie_paged_sliver.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'resources_repository.dart';
@@ -185,28 +181,11 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
               ),
               SliverPadding(
                 padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
-                sliver: PagedSliverGrid<int, MovieListItem>(
-                  pagingController: _controller,
-                  showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: const MediaGridDelegate(),
-                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                    itemBuilder: (ctx, m, idx) => MovieCard(
-                      movie: m,
-                      posterUrlBuilder: urlBuilder,
-                      onTap: () => unawaited(_openMovie(m.id)),
-                    ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const Center(child: CupertinoActivityIndicator()),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _controller.error == null
-                          ? l.loadFailed
-                          : localizedErrorMessage(l, _controller.error!),
-                      onRetry: () => _controller.refresh(),
-                    ),
-                    noItemsFoundIndicatorBuilder: (_) =>
-                        EmptyView(message: l.resourceMoviesEmpty),
-                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-                  ),
+                sliver: OmmMoviePagedSliver(
+                  controller: _controller,
+                  urlBuilder: urlBuilder,
+                  onOpenMovie: (m) => unawaited(_openMovie(m.id)),
+                  emptyMessage: l.resourceMoviesEmpty,
                 ),
               ),
             ],

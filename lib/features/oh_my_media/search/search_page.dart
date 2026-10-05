@@ -9,7 +9,6 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/api/error_codes.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/core/models/movie.dart';
@@ -48,25 +47,15 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
-  static const _viewModeKey = 'omm.search.view_mode.v1';
   final _controller = TextEditingController();
   final _debounce = Debouncer();
   String _query = '';
   MovieSearchType _searchType = MovieSearchType.title;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   List<ActorItem> _actorSuggestions = const [];
   String? _actorSearchError;
   bool _actorSearchLoading = false;
   int _actorRequestId = 0;
   int? _selectedActorId;
-
-  @override
-  void initState() {
-    super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
-  }
 
   @override
   void dispose() {
@@ -230,20 +219,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref
-        .read(sharedPrefsProvider)
-        .setString(
-          _viewModeKey,
-          mode == MediaViewMode.portrait ? 'grid' : mode.name,
-        );
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     return GlowBackground(
       child: SafeArea(
@@ -259,8 +238,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 style: AppText.pageTitle(context),
               ),
               trailing: MediaViewModeToggle(
-                mode: _viewMode,
-                onChanged: (mode) => unawaited(_setViewMode(mode)),
+                mode: viewMode,
+                onChanged:
+                    ref.read(mediaServerViewModeProvider.notifier).set,
               ),
             ),
             Padding(
@@ -367,7 +347,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       query: _query,
                       searchType: _searchType,
                       actorId: _selectedActorId,
-                      viewMode: _viewMode,
+                      viewMode: viewMode,
                     ),
             ),
           ],

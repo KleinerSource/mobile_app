@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/sources/media/media_browser/media_browser_models.dart';
@@ -45,23 +44,20 @@ class MediaBrowserCollectionDetailPage extends ConsumerStatefulWidget {
 class _MediaBrowserCollectionDetailPageState
     extends ConsumerState<MediaBrowserCollectionDetailPage> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'media_browser.library.view_mode.v1';
 
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPosition = ValueNotifier(0.0);
   final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   Completer<void>? _refreshCompleter;
+
+  MediaViewMode get _viewMode => ref.read(mediaServerViewModeProvider);
 
   String get _collectionId => widget.collectionId;
 
   @override
   void initState() {
     super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
     _controller.addPageRequestListener(_fetchPage);
   }
 
@@ -96,12 +92,6 @@ class _MediaBrowserCollectionDetailPageState
       return;
     }
     _heroArts.value = [art];
-  }
-
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   Future<void> _fetchPage(int startIndex) async {
@@ -198,6 +188,8 @@ class _MediaBrowserCollectionDetailPageState
     );
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final colors = appColors(context);
+    // 订阅全局视图模式，切换时重建列表；_viewMode 供条目构建读取。
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     return Scaffold(
       backgroundColor: colors.bg,
@@ -295,8 +287,9 @@ class _MediaBrowserCollectionDetailPageState
                         ),
                       ),
                       MediaViewModeToggle(
-                        mode: _viewMode,
-                        onChanged: (mode) => unawaited(_setViewMode(mode)),
+                        mode: viewMode,
+                        onChanged:
+                            ref.read(mediaServerViewModeProvider.notifier).set,
                       ),
                     ],
                   ),

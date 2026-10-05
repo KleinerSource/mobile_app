@@ -2,7 +2,6 @@ import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -20,12 +19,8 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/actor_avatar.dart';
 import 'package:omm/shared/actor_detail_header.dart';
-import 'package:omm/shared/empty_view.dart';
-import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/localized_error_message.dart';
-import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/movie_detail_scaffold.dart';
-import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
@@ -36,6 +31,7 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/movies/omm_movie_paged_sliver.dart';
 
 /// 演员 / 导演详情页 · 封面轮播 + 简介 + 作品集 (用 actor_ids filter 反查)。
 /// 影片详情演员列表与演员管理共用本页。
@@ -350,31 +346,11 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                 ),
                 SliverPadding(
                   padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
-                  sliver: PagedSliverGrid<int, MovieListItem>(
-                    pagingController: _controller,
-                    showNoMoreItemsIndicatorAsGridChild: false,
-                    gridDelegate: const MediaGridDelegate(),
-                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                      itemBuilder: (ctx, movie, _) => MovieCard(
-                        movie: movie,
-                        posterUrlBuilder: urlBuilder,
-                        onTap: () => unawaited(_openMovie(movie.id)),
-                      ),
-                      firstPageProgressIndicatorBuilder: (_) =>
-                          const Center(child: CupertinoActivityIndicator()),
-                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message: _controller.error == null
-                            ? l.loadFailed
-                            : localizedErrorMessage(l, _controller.error!),
-                        onRetry: () => _controller.refresh,
-                      ),
-                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                        onRetry: () => _controller.retryLastFailedRequest,
-                      ),
-                      noItemsFoundIndicatorBuilder: (_) =>
-                          EmptyView(message: l.personNoMovies),
-                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-                    ),
+                  sliver: OmmMoviePagedSliver(
+                    controller: _controller,
+                    urlBuilder: urlBuilder,
+                    onOpenMovie: (movie) => unawaited(_openMovie(movie.id)),
+                    emptyMessage: l.personNoMovies,
                   ),
                 ),
               ],

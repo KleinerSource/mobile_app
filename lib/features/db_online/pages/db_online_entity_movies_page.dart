@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_resource_filter.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -58,13 +57,13 @@ class DbOnlineEntityMoviesPage extends ConsumerStatefulWidget {
 class _DbOnlineEntityMoviesPageState
     extends ConsumerState<DbOnlineEntityMoviesPage> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'db_online.entity_movies.view_mode.v1';
 
   final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
+
+  MediaViewMode get _viewMode => ref.read(mediaServerViewModeProvider);
 
   // 落地页过滤器，与网页端一致：资源条件多选（m/c/s/p，p 需服务端
   // can_play 开启）、排序单选、演员专属年份；复用共享选项与固定顺序。
@@ -86,9 +85,6 @@ class _DbOnlineEntityMoviesPageState
   @override
   void initState() {
     super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
     _controller.addPageRequestListener(_fetchPage);
   }
 
@@ -174,12 +170,6 @@ class _DbOnlineEntityMoviesPageState
     if (completer != null && !completer.isCompleted) completer.complete();
   }
 
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
-  }
-
   /// 过滤器变化后重置分页重新加载。
   void _applyFilter(VoidCallback mutate) {
     setState(mutate);
@@ -245,6 +235,8 @@ class _DbOnlineEntityMoviesPageState
     final colors = appColors(context);
     final config = ref.watch(mediaRuntimeConfigProvider);
     _onlinePlayAvailable = ref.watch(dbOnlineOnlinePlayAvailableProvider);
+    // 订阅全局视图模式，切换时重建列表；_viewMode 供 delegate 读取。
+    ref.watch(mediaServerViewModeProvider);
     final isPortrait = _viewMode == MediaViewMode.portrait;
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
       itemBuilder: (context, movie, _) {
@@ -309,7 +301,8 @@ class _DbOnlineEntityMoviesPageState
                   const SizedBox(width: 8),
                   MediaViewModeToggle(
                     mode: _viewMode,
-                    onChanged: (mode) => unawaited(_setViewMode(mode)),
+                    onChanged:
+                        ref.read(mediaServerViewModeProvider.notifier).set,
                   ),
                 ],
               ),

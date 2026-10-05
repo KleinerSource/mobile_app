@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_resource_filter.dart';
 import 'package:omm/core/sources/media/dbo/db_online_search.dart';
@@ -97,13 +96,10 @@ extension on DbOnlineSearchType {
 }
 
 class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
-  static const _viewModeKey = 'db_online.search.view_mode.v1';
-
   final _controller = TextEditingController();
   String _submittedQuery = '';
   DbOnlineSearchType _searchType = DbOnlineSearchType.list;
   int _searchSerial = 0;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
 
   // 影片列表搜索的过滤器，与网页端一致：类型单选、资源条件多选、
   // 排序单选；资源条件复用共享选项（请求时映射全词，搜索端点不含
@@ -114,14 +110,6 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
 
   String get _movieFilterParam =>
       dbOnlineMovieFilterByLetters(_resourceFilters);
-
-  @override
-  void initState() {
-    super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
-  }
 
   @override
   void dispose() {
@@ -246,15 +234,10 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
     );
   }
 
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     return GlowBackground(
       child: SafeArea(
@@ -278,8 +261,9 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                         ),
                         const SizedBox(width: 8),
                         MediaViewModeToggle(
-                          mode: _viewMode,
-                          onChanged: (mode) => unawaited(_setViewMode(mode)),
+                          mode: viewMode,
+                          onChanged:
+                              ref.read(mediaServerViewModeProvider.notifier).set,
                         ),
                       ],
                     )
@@ -324,7 +308,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                       DbOnlineSearchType.list => _DbOnlineSearchResults(
                         key: ValueKey('list:$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,
-                        viewMode: _viewMode,
+                        viewMode: viewMode,
                         movieType: _movieType,
                         movieSortBy: _movieSortBy,
                         movieFilterBy: _movieFilterParam,

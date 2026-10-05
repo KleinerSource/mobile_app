@@ -9,7 +9,6 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -49,20 +48,9 @@ class MediaBrowserSearchPage extends ConsumerStatefulWidget {
 
 class _MediaBrowserSearchPageState
     extends ConsumerState<MediaBrowserSearchPage> {
-  static const _viewModeKey = 'media_browser.search.view_mode.v1';
-
   final _controller = TextEditingController();
   String _submittedQuery = '';
   int _searchSerial = 0;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
-
-  @override
-  void initState() {
-    super.initState();
-    _viewMode = mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
-  }
 
   @override
   void dispose() {
@@ -122,18 +110,13 @@ class _MediaBrowserSearchPageState
     );
   }
 
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final isStash =
         ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.stash;
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
@@ -152,8 +135,9 @@ class _MediaBrowserSearchPageState
                 trailing: isStash
                     ? null
                     : MediaViewModeToggle(
-                        mode: _viewMode,
-                        onChanged: (mode) => unawaited(_setViewMode(mode)),
+                        mode: viewMode,
+                        onChanged:
+                            ref.read(mediaServerViewModeProvider.notifier).set,
                       ),
               ),
               Padding(
@@ -231,7 +215,7 @@ class _MediaBrowserSearchPageState
                     : _MediaBrowserSearchResults(
                         key: ValueKey('$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,
-                        viewMode: _viewMode,
+                        viewMode: viewMode,
                       ),
               ),
             ],

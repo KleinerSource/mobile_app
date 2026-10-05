@@ -66,7 +66,6 @@ class _FollowingPage extends ConsumerStatefulWidget {
 
 class _FollowingPageState extends ConsumerState<_FollowingPage> {
   static const _pageSize = 24;
-  static const _viewModeKey = 'db_online.following.view_mode.v1';
   final _paging = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _requests = PagedRequestCoordinator();
   final _scroll = ScrollController();
@@ -248,7 +247,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
               styles?.where((item) => item.id == id).firstOrNull?.name ?? id,
         )
         .join(', ');
-    final viewMode = ref.watch(mediaViewModePreferenceProvider(_viewModeKey));
+    final viewMode = ref.watch(mediaServerViewModeProvider);
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
       itemBuilder: (context, movie, _) {
         final card = DbOnlineMovieCard(
@@ -313,7 +312,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
           ),
         ],
         const SizedBox(width: 4),
-        const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
+        const MediaServerViewModeToggle(),
       ],
       filters: database
           ? Row(

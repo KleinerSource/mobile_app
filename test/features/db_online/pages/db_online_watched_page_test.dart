@@ -670,7 +670,7 @@ void main() {
     expect(
       container
           .read(sharedPrefsProvider)
-          .getString('db_online.watched.view_mode.v1'),
+          .getString(mediaServerViewModeStorageKey('a')),
       'landscape',
     );
     expect(backend.to('/subs/watched'), hasLength(1));

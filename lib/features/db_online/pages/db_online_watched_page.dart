@@ -62,7 +62,6 @@ class _WatchedPage extends ConsumerStatefulWidget {
 }
 
 class _WatchedPageState extends ConsumerState<_WatchedPage> {
-  static const _viewModeKey = 'db_online.watched.view_mode.v1';
   final _paging = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _requests = PagedRequestCoordinator();
   final _scroll = ScrollController();
@@ -262,7 +261,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
         _connectionRevision = value.connectionRevision;
       });
     }
-    final viewMode = ref.watch(mediaViewModePreferenceProvider(_viewModeKey));
+    final viewMode = ref.watch(mediaServerViewModeProvider);
     final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
       itemBuilder: (context, movie, _) {
         final card = DbOnlineMovieCard(
@@ -301,7 +300,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
           ),
         if (canQuery) ...[
           const SizedBox(width: 4),
-          const MediaViewModePreferenceToggle(preferenceKey: _viewModeKey),
+          const MediaServerViewModeToggle(),
         ],
       ],
       // canQuery 时末尾是视图切换胶囊，只有圆形按钮收尾才对齐到边距。

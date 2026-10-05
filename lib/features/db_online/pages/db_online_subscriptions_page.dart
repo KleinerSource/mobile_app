@@ -53,10 +53,6 @@ part 'db_online_subscription_editor.dart';
 part 'db_online_auto_sync_editor.dart';
 part 'db_online_subscription_share_sheet.dart';
 
-/// 订阅管理统一的影片视图模式：订阅中、已完成、在线订阅以及演员/综合订阅
-/// 的影片列表共用，不按板块单独保存。
-const _subscriptionViewModeKey = 'db_online.subscriptions.view_mode.v1';
-
 class DbOnlineSubscriptionsPage extends ConsumerStatefulWidget {
   const DbOnlineSubscriptionsPage({super.key});
 
@@ -222,9 +218,7 @@ class _DbOnlineSubscriptionsPageState
     ServerConfig? serverConfig,
   ) {
     final l = AppL10n.of(context);
-    final viewMode = ref.watch(
-      mediaViewModePreferenceProvider(_subscriptionViewModeKey),
-    );
+    final viewMode = ref.watch(mediaServerViewModeProvider);
     final sections = _sections(l, capabilities);
     if (sections.isNotEmpty &&
         !sections.any((section) => section.$1 == _section)) {
@@ -624,9 +618,7 @@ class _DbOnlineSubscriptionsPageState
         mainAxisSize: MainAxisSize.min,
         children: [
           if (capabilities != null && _showsViewModeToggle) ...[
-            const MediaViewModePreferenceToggle(
-              preferenceKey: _subscriptionViewModeKey,
-            ),
+            const MediaServerViewModeToggle(),
             const SizedBox(width: 4),
           ],
           if (actions.isNotEmpty)

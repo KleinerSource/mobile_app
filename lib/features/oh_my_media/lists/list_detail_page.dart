@@ -8,10 +8,12 @@ import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/movies/omm_movie_paged_sliver.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'list_labels.dart';
@@ -45,6 +47,8 @@ class ListDetailPage extends ConsumerWidget {
       );
     }
     final displayName = favoriteListDisplayName(l10n, list);
+    // 影片区跟随全局（按服务器）视图模式：竖屏网格 / 横向卡片 / 紧凑列表。
+    final viewMode = ref.watch(mediaServerViewModeProvider);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -95,13 +99,29 @@ class ListDetailPage extends ConsumerWidget {
             else
               SliverPadding(
                 padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
-                sliver: SliverGrid(
-                  gridDelegate: const MediaGridDelegate(),
-                  delegate: SliverChildBuilderDelegate((ctx, i) {
-                    final id = list.movieIds[i];
-                    return _ListMovieCell(movieId: id, listId: list.id);
-                  }, childCount: list.movieIds.length),
-                ),
+                sliver: viewMode == MediaViewMode.portrait
+                    ? SliverGrid(
+                        gridDelegate: const MediaGridDelegate(),
+                        delegate: SliverChildBuilderDelegate((ctx, i) {
+                          final id = list.movieIds[i];
+                          return _ListMovieCell(
+                            movieId: id,
+                            listId: list.id,
+                            viewMode: viewMode,
+                          );
+                        }, childCount: list.movieIds.length),
+                      )
+                    : SliverList.builder(
+                        itemCount: list.movieIds.length,
+                        itemBuilder: (ctx, i) {
+                          final id = list.movieIds[i];
+                          return _ListMovieCell(
+                            movieId: id,
+                            listId: list.id,
+                            viewMode: viewMode,
+                          );
+                        },
+                      ),
               ),
           ],
         ),
@@ -260,9 +280,14 @@ class _EmptyListView extends StatelessWidget {
 }
 
 class _ListMovieCell extends ConsumerWidget {
-  const _ListMovieCell({required this.movieId, required this.listId});
+  const _ListMovieCell({
+    required this.movieId,
+    required this.listId,
+    this.viewMode = MediaViewMode.portrait,
+  });
   final int movieId;
   final String listId;
+  final MediaViewMode viewMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -271,12 +296,14 @@ class _ListMovieCell extends ConsumerWidget {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
 
     return asyncMovie.when(
-      loading: () => Container(
-        decoration: BoxDecoration(
-          color: c.surfaceAlt,
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
+      loading: () => viewMode == MediaViewMode.portrait
+          ? Container(
+              decoration: BoxDecoration(
+                color: c.surfaceAlt,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            )
+          : const SizedBox(height: 88),
       error: (_, __) => InkWell(
         borderRadius: BorderRadius.circular(10),
         onLongPress: () => _confirmRemove(context, ref, movieId: movieId),
@@ -287,22 +314,20 @@ class _ListMovieCell extends ConsumerWidget {
             border: Border.all(color: c.danger.withValues(alpha: 0.3)),
           ),
           alignment: Alignment.center,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              AppL10n.of(context).loadFailed,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: c.muted,
-                fontFamily: 'Inter',
-                fontSize: 10,
-              ),
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            AppL10n.of(context).loadFailed,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: c.muted,
+              fontFamily: 'Inter',
+              fontSize: 10,
             ),
           ),
         ),
       ),
-      data: (movie) => MovieCard(
-        movie: MovieListItem(
+      data: (movie) {
+        final item = MovieListItem(
           id: movie.id,
           title: movie.title,
           year: movie.year,
@@ -314,18 +339,34 @@ class _ListMovieCell extends ConsumerWidget {
           hasAiSubtitle: movie.hasAiSubtitle,
           hasInternalSubtitle: movie.hasInternalSubtitle,
           watchRecord: movie.watchRecord,
-        ),
-        posterUrlBuilder: urlBuilder,
-        onTap: () => Navigator.of(context).push(
+        );
+        void openMovie() => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
-        ),
-        onLongPress: () => _confirmRemove(
+        );
+        void removeMovie() => _confirmRemove(
           context,
           ref,
           movieId: movie.id,
           movieTitle: movie.title,
-        ),
-      ),
+        );
+        if (viewMode == MediaViewMode.list) {
+          return OmmMovieListRow(
+            movie: item,
+            urlBuilder: urlBuilder,
+            onTap: openMovie,
+          );
+        }
+        final card = MovieCard(
+          movie: item,
+          posterUrlBuilder: urlBuilder,
+          landscape: viewMode == MediaViewMode.landscape,
+          onTap: openMovie,
+          onLongPress: removeMovie,
+        );
+        return viewMode == MediaViewMode.landscape
+            ? MediaLandscapeListItem(child: card)
+            : card;
+      },
     );
   }
 

@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -47,8 +46,6 @@ import 'movies_providers.dart';
 import 'resource_scan_progress_sheet.dart';
 import 'omm_movie_preview_card.dart';
 
-const _moviesViewModeKey = 'movies.view_mode.v1';
-
 class MoviesPage extends ConsumerStatefulWidget {
   const MoviesPage({
     super.key,
@@ -74,7 +71,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _controller,
   );
   late MovieFilter _currentFilter;
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   int _totalCount = 0;
   late final _autoPreview = AutoPreviewController<int>(
     candidate: _nextAutoPreviewId,
@@ -99,30 +95,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _selection = SelectionController<int>();
     _selection.activeListenable.addListener(_onSelectionModeChanged);
     _currentFilter = widget.initialFilter;
-    _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scheduleAutoPreviewUpdate();
     });
-  }
-
-  MediaViewMode _loadViewMode() {
-    return mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_moviesViewModeKey),
-    );
-  }
-
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    _scheduleAutoPreviewUpdate();
-    await ref
-        .read(sharedPrefsProvider)
-        .setString(
-          _moviesViewModeKey,
-          mode == MediaViewMode.portrait ? 'grid' : mode.name,
-        );
   }
 
   @override
@@ -155,7 +132,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   void _scheduleAutoPreviewUpdate() => _autoPreview.schedule();
 
   int? _nextAutoPreviewId() {
-    if (_viewMode != MediaViewMode.landscape || _selectionMode) return null;
+    if (ref.read(mediaServerViewModeProvider) != MediaViewMode.landscape ||
+        _selectionMode) {
+      return null;
+    }
     final items = _controller.itemList ?? const <MovieListItem>[];
     if (items.isEmpty) return null;
     final width = MediaListLayout.contentWidth(
@@ -344,6 +324,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   @override
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
+    final viewMode = ref.watch(mediaServerViewModeProvider);
     final c = appColors(context);
     final l = AppL10n.of(context);
 
@@ -404,8 +385,13 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                           ),
                           const SizedBox(width: 8),
                           MediaViewModeToggle(
-                            mode: _viewMode,
-                            onChanged: (m) => unawaited(_setViewMode(m)),
+                            mode: viewMode,
+                            onChanged: (m) {
+                              ref
+                                  .read(mediaServerViewModeProvider.notifier)
+                                  .set(m);
+                              _scheduleAutoPreviewUpdate();
+                            },
                           ),
                         ],
                       ),
@@ -481,7 +467,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                           onRefresh: _refreshMovies,
                           child: DragSelectionScope<int>(
                             scrollController: _scrollController,
-                            selectionLayout: _viewMode == MediaViewMode.portrait
+                            selectionLayout: viewMode == MediaViewMode.portrait
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
                             isSelected: _selection.contains,
@@ -496,7 +482,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                               slivers: [
                                 SliverPadding(
                                   padding: MediaListLayout.contentPadding,
-                                  sliver: _viewMode == MediaViewMode.portrait
+                                  sliver: viewMode == MediaViewMode.portrait
                                       ? PagedSliverGrid<int, MovieListItem>(
                                           pagingController: _controller,
                                           showNoMoreItemsIndicatorAsGridChild:
@@ -507,7 +493,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                             urlBuilder,
                                           ),
                                         )
-                                      : _viewMode == MediaViewMode.landscape
+                                      : viewMode == MediaViewMode.landscape
                                       ? PagedSliverList<int, MovieListItem>(
                                           pagingController: _controller,
                                           builderDelegate: _buildDelegate(

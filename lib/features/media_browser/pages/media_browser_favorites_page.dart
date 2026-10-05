@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/media/media_models.dart' as media_models;
 import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
@@ -38,8 +37,6 @@ import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
-
-const _viewModeKey = 'media_browser.favorites.view_mode.v1';
 
 /// MediaBrowser 收藏夹 · You Tab（与 OMM FavoritesPage 同构）。
 ///
@@ -97,7 +94,6 @@ class _MediaBrowserFavoritesPageState
   final _requests = PagedRequestCoordinator();
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
-  MediaViewMode _viewMode = MediaViewMode.portrait;
   String _includeItemTypes = _typeOptions.first.value;
   int _sortIndex = 0;
   int _totalCount = 0;
@@ -109,6 +105,8 @@ class _MediaBrowserFavoritesPageState
   bool get _selecting => _selection.isActive;
   Set<Object> get _selected => _selection.selectedIds;
 
+  MediaViewMode get _viewMode => ref.read(mediaServerViewModeProvider);
+
   ({String value, String Function(AppL10n l) label, String order}) get _sort =>
       _sortOptions[_sortIndex];
 
@@ -119,21 +117,8 @@ class _MediaBrowserFavoritesPageState
     super.initState();
     _selection = createMediaBrowserItemSelection();
     _selection.addModeListener(_onSelectionModeChanged);
-    _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetchPage);
     _scrollController.addListener(_closeSwipeOnScroll);
-  }
-
-  MediaViewMode _loadViewMode() {
-    return mediaViewModeFromPreference(
-      ref.read(sharedPrefsProvider).getString(_viewModeKey),
-    );
-  }
-
-  Future<void> _setViewMode(MediaViewMode mode) async {
-    if (_viewMode == mode) return;
-    setState(() => _viewMode = mode);
-    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   @override
@@ -442,6 +427,8 @@ class _MediaBrowserFavoritesPageState
     final colors = appColors(context);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final l = AppL10n.of(context);
+    // 订阅全局视图模式，切换时重建列表；_viewMode 供条目构建读取。
+    ref.watch(mediaServerViewModeProvider);
 
     return Scaffold(
       // 独立路由进入时页面自身就是 Material 根；底色由 GlowBackground 自绘。
@@ -478,7 +465,8 @@ class _MediaBrowserFavoritesPageState
                           const SizedBox(width: 8),
                           MediaViewModeToggle(
                             mode: _viewMode,
-                            onChanged: (mode) => unawaited(_setViewMode(mode)),
+                            onChanged:
+                                ref.read(mediaServerViewModeProvider.notifier).set,
                           ),
                           const SizedBox(width: 4),
                           HeaderActionButton(
