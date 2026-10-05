@@ -9,9 +9,12 @@ import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
+import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -396,11 +399,12 @@ void main() {
     expect(find.text('搜索到的 DBO 影片'), findsOneWidget);
   });
 
-  testWidgets('列表搜索的列表模式保持紧凑行，不启用预览条目', (tester) async {
+  testWidgets('列表搜索的列表模式有预览图用预览条目，缺失预览图降级紧凑行', (tester) async {
     SharedPreferences.setMockInitialValues({
       'db_online.search.view_mode.v1': 'list',
     });
     final preferences = await SharedPreferences.getInstance();
+    var withPreviewImages = true;
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -417,13 +421,14 @@ void main() {
                       'number': 'ABC-001',
                       'title': '搜索到的 DBO 影片',
                       'can_play': true,
-                      'preview_images': [
-                        {
-                          'large_url': 'https://example.test/l1.jpg',
-                          'thumb_url': 'https://example.test/s1.jpg',
-                        },
-                        {'large_url': 'https://example.test/l2.jpg'},
-                      ],
+                      if (withPreviewImages)
+                        'preview_images': [
+                          {
+                            'large_url': 'https://example.test/l1.jpg',
+                            'thumb_url': 'https://example.test/s1.jpg',
+                          },
+                          {'large_url': 'https://example.test/l2.jpg'},
+                        ],
                     },
                   ],
                 },
@@ -443,6 +448,10 @@ void main() {
             DboMediaRepository(DboMediaSourceAdapter(client.dbOnline)),
           ),
           sharedPrefsProvider.overrideWithValue(preferences),
+          // 预览图 URL 解析依赖运行时服务器配置。
+          mediaRuntimeConfigProvider.overrideWithValue(
+            const ServerConfig(baseUrl: 'https://example.test'),
+          ),
         ],
         child: const MaterialApp(
           localizationsDelegates: AppL10n.localizationsDelegates,
@@ -457,10 +466,21 @@ void main() {
     await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
 
-    // 即使接口返回 preview_images，列表搜索仍用紧凑行。
-    final card = tester.widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard));
+    // 接口返回 preview_images 时列表模式启用预览条目（左封面 + 右翻页）。
+    final card = tester.widget<DbOnlineMovieCard>(
+      find.byType(DbOnlineMovieCard),
+    );
     expect(card.compact, isTrue);
-    expect(card.previewList, isFalse);
+    expect(card.previewList, isTrue);
+    expect(find.byType(DbOnlineRankingPreviewCard), findsOneWidget);
+    expect(find.byType(CatalogListMovieCard), findsNothing);
+    expect(find.byType(PageView), findsOneWidget);
+
+    // 数据未携带 preview_images 时降级为紧凑行，不渲染预览翻页。
+    withPreviewImages = false;
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    expect(find.byType(DbOnlineRankingPreviewCard), findsNothing);
     expect(find.byType(CatalogListMovieCard), findsOneWidget);
     expect(find.byType(PageView), findsNothing);
   });
