@@ -15,6 +15,7 @@ import 'features/i18n/locale_providers.dart';
 import 'features/i18n/theme_provider.dart';
 import 'features/home/server_switch_transition.dart';
 import 'features/main/media_manager_shell.dart';
+import 'features/oh_my_media/movies/movies_providers.dart';
 import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
@@ -65,6 +66,16 @@ class _AppBootstrapState extends State<_AppBootstrap> {
     );
     if (mounted) setState(() {});
     AppHaptics.configureFromPreferences(preferences);
+    // 上次运行中途退出时可能还留着旧版本图片或超出体积上限，延后到首屏
+    // 图片加载之后再清理。
+    unawaited(
+      Future<void>.delayed(
+        const Duration(seconds: 15),
+        () => purgeStaleImageCache(
+          preferences.getInt(imageCacheRevisionPreferenceKey) ?? 0,
+        ),
+      ),
+    );
 
     final locale = AppLocale.fromValue(
       preferences.getString('app.locale'),
@@ -111,6 +122,11 @@ class OmmApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<int>(imageCacheRevisionProvider, (previous, next) {
+      if (previous != null && next > previous) {
+        unawaited(purgeStaleImageCache(next));
+      }
+    });
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
     final activeProject = ref.watch(

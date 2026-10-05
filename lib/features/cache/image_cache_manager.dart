@@ -44,11 +44,16 @@ class AppImageFileService extends FileService {
 /// 空白。原图宽度小于上限时 resized 条目永远不会写入，所以每次加载都会
 /// 经过这条共享路径。这里改为可重放的共享加载，保证同一 key 同一时刻
 /// 只有一个上游调用。
+///
+/// 上游的自动清洗只按条数与 [Config.stalePeriod] 删除，且一天内访问过的
+/// 条目不计入条数上限，没有任何字节上限；[removeEntriesWhere] 与
+/// [trimToMaxBytes] 补上按 key 精确清理和按体积兜底清理。
 class AppImageCacheManager extends CacheManager with ImageCacheManager {
   AppImageCacheManager._()
     : super(
         Config(
           DefaultCacheManager.key,
+          stalePeriod: appImageCacheStalePeriod,
           maxNrOfCacheObjects: 3000,
           fileService: AppImageFileService(),
         ),
@@ -57,6 +62,68 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
   static final AppImageCacheManager instance = AppImageCacheManager._();
 
   final SharedFileResponseLoads _resizedLoads = SharedFileResponseLoads();
+  Future<void> _maintenanceQueue = Future<void>.value();
+
+  /// 删除 key 满足 [test] 的全部条目（含磁盘文件），返回删除条数。
+  Future<int> removeEntriesWhere(bool Function(String key) test) {
+    return _enqueueMaintenance(() async {
+      final objects = await _allObjects();
+      var removed = 0;
+      for (final object in objects) {
+        if (!test(object.key)) continue;
+        await store.removeCachedFile(object);
+        removed++;
+      }
+      return removed;
+    });
+  }
+
+  /// 总体积超过 [maxBytes] 时按最久未访问优先删除，返回删除条数。
+  Future<int> trimToMaxBytes([int maxBytes = appImageCacheMaxBytes]) {
+    return _enqueueMaintenance(() async {
+      final objects = await _allObjects();
+      final sizes = <int, int>{};
+      for (final object in objects) {
+        sizes[object.id!] = object.length ?? await _fileLength(object);
+      }
+      final victims = selectImageCacheEntriesOverBudget(
+        objects,
+        maxBytes: maxBytes,
+        sizeOf: (object) => sizes[object.id!] ?? 0,
+        now: DateTime.now(),
+      );
+      for (final object in victims) {
+        await store.removeCachedFile(object);
+      }
+      return victims.length;
+    });
+  }
+
+  Future<List<CacheObject>> _allObjects() async {
+    final repo = config.repo;
+    // 索引打开失败时 open() 的后续调用会一直挂起，超时避免堵死维护队列。
+    await repo.open().timeout(const Duration(seconds: 10));
+    final objects = await repo.getAllObjects();
+    return objects.where((object) => object.id != null).toList();
+  }
+
+  Future<int> _fileLength(CacheObject object) async {
+    try {
+      final file = await config.fileSystem.createFile(object.relativePath);
+      return await file.exists() ? await file.length() : 0;
+    } on Object {
+      return 0;
+    }
+  }
+
+  Future<T> _enqueueMaintenance<T>(Future<T> Function() action) {
+    final result = _maintenanceQueue.then((_) => action());
+    _maintenanceQueue = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return result;
+  }
 
   @override
   Stream<FileResponse> getImageFile(
@@ -91,6 +158,59 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
       ),
     );
   }
+}
+
+/// 图片缓存超过这个时间未被访问即由上游清洗删除。
+const appImageCacheStalePeriod = Duration(days: 14);
+
+/// 图片缓存的磁盘体积上限，超出后按最久未访问优先删除。
+const appImageCacheMaxBytes = 512 << 20;
+
+/// 体积清理不碰这段时间内访问过的条目，避免删掉正在加载或展示的文件。
+const _recentlyTouchedGrace = Duration(minutes: 10);
+
+/// 按最久未访问优先，选出使总体积回落到 [maxBytes] 以内需要删除的条目。
+@visibleForTesting
+List<CacheObject> selectImageCacheEntriesOverBudget(
+  List<CacheObject> objects, {
+  required int maxBytes,
+  required int Function(CacheObject object) sizeOf,
+  required DateTime now,
+}) {
+  var total = 0;
+  for (final object in objects) {
+    total += sizeOf(object);
+  }
+  if (total <= maxBytes) return const [];
+
+  final protectedSince = now.subtract(_recentlyTouchedGrace);
+  final candidates =
+      objects
+          .where((object) => !_touchedAt(object).isAfter(protectedSince))
+          .toList()
+        ..sort((a, b) => _touchedAt(a).compareTo(_touchedAt(b)));
+  final victims = <CacheObject>[];
+  for (final object in candidates) {
+    if (total <= maxBytes) break;
+    victims.add(object);
+    total -= sizeOf(object);
+  }
+  return victims;
+}
+
+DateTime _touchedAt(CacheObject object) =>
+    object.touched ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+/// 去掉 URL 中的鉴权 token，作为缓存键使用。
+///
+/// token 拼在 query 里的图片地址每次换 token 都会变化，直接用 URL 作缓存
+/// 键会让同一张图在磁盘上按 token 存出多份。
+String stableImageCacheKey(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.queryParameters.containsKey('token')) return url;
+  final query = Map.of(uri.queryParametersAll)..remove('token');
+  if (query.isNotEmpty) return uri.replace(queryParameters: query).toString();
+  return uri.replace(query: '').toString().replaceFirst(RegExp(r'\?$'), '');
 }
 
 /// 与 flutter_cache_manager 的 [ImageCacheManager] 相同的 resized 缓存键规则。

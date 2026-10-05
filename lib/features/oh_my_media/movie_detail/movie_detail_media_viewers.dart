@@ -119,7 +119,11 @@ class _MovieExtraFanartSectionState
     final urls = ref.read(provider).asData?.value ?? const <String>[];
     try {
       await Future.wait(
-        urls.map((url) => CachedNetworkImage.evictFromCache(url)),
+        urls.map((url) async {
+          final cacheKey = stableImageCacheKey(url);
+          await AppImageCacheManager.instance.removeFile(cacheKey);
+          await CachedNetworkImageProvider(url, cacheKey: cacheKey).evict();
+        }),
       );
     } catch (_) {
       // 缓存清理失败不影响重新读取服务端预览图列表。
@@ -336,6 +340,7 @@ class _MovieExtraFanartSectionState
                       child: CachedNetworkImage(
                         cacheManager: AppImageCacheManager.instance,
                         imageUrl: url,
+                        cacheKey: stableImageCacheKey(url),
                         fit: BoxFit.cover,
                         placeholder: (_, __) => const Center(
                           child: SizedBox(
@@ -1004,6 +1009,9 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer>
                                             cacheManager:
                                                 AppImageCacheManager.instance,
                                             imageUrl: widget.urls[imageIndex],
+                                            cacheKey: stableImageCacheKey(
+                                              widget.urls[imageIndex],
+                                            ),
                                             fit: BoxFit.contain,
                                             placeholder: (_, __) => const Center(
                                               child:

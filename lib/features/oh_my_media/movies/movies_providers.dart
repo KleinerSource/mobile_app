@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -15,6 +16,7 @@ import 'package:omm/core/models/preview.dart';
 import 'package:omm/core/models/watch_record.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
+import 'package:omm/features/cache/image_cache_manager.dart';
 import 'movie_filter.dart';
 import 'media_repository.dart';
 
@@ -26,7 +28,38 @@ final movieFilterProvider = StateProvider<MovieFilter>(
 /// 后，CachedNetworkImage 仍会命中旧文件。下拉刷新时递增此版本，让图片
 /// URL 产生新的缓存键，同时保留服务器原有的图片路径；版本号持久化后，
 /// 应用重启也会继续使用新的缓存键。
+///
+/// 旧版本号对应的缓存条目（原图与 resized）不会再被访问，应用根部监听
+/// 版本号变化后用 [purgeStaleImageCache] 从磁盘删除，避免同一张图按版本号
+/// 在本地堆出多份。
 const imageCacheRevisionPreferenceKey = 'app.image_cache_revision.v1';
+const _imageCacheRevisionParam = '_mdc_image_revision';
+final _imageCacheRevisionPattern = RegExp(
+  '[?&]$_imageCacheRevisionParam=(\\d+)(?:[&#]|\$)',
+);
+
+/// 缓存键是否属于比 [currentRevision] 更旧的图片版本。
+bool isStaleImageRevisionKey(String key, int currentRevision) {
+  final match = _imageCacheRevisionPattern.firstMatch(key);
+  if (match == null) return false;
+  final revision = int.tryParse(match.group(1)!);
+  return revision != null && revision < currentRevision;
+}
+
+/// 删除旧图片版本的缓存，并把图片缓存体积压回上限以内。
+Future<void> purgeStaleImageCache(int currentRevision) async {
+  try {
+    final cache = AppImageCacheManager.instance;
+    if (currentRevision > 0) {
+      await cache.removeEntriesWhere(
+        (key) => isStaleImageRevisionKey(key, currentRevision),
+      );
+    }
+    await cache.trimToMaxBytes();
+  } on Object catch (error) {
+    debugPrint('Image cache maintenance failed: $error');
+  }
+}
 
 class ImageCacheRevisionNotifier extends Notifier<int> {
   @override
@@ -63,7 +96,7 @@ String imageUrlWithCacheRevision(String url, int revision) {
       .replace(
         queryParameters: {
           ...uri.queryParameters,
-          '_mdc_image_revision': '$revision',
+          _imageCacheRevisionParam: '$revision',
         },
       )
       .toString();

@@ -39,6 +39,29 @@ void _main_0() {
     expect(refreshed.queryParameters['_mdc_image_revision'], '3');
   });
 
+  test('只有比当前版本旧的图片缓存键才视为过期', () {
+    const url = 'https://example.com/api/images/poster-1';
+
+    expect(
+      isStaleImageRevisionKey(imageUrlWithCacheRevision(url, 2), 3),
+      isTrue,
+    );
+    expect(
+      isStaleImageRevisionKey(
+        'resized_w1080_${imageUrlWithCacheRevision(url, 2)}',
+        3,
+      ),
+      isTrue,
+    );
+    expect(
+      isStaleImageRevisionKey(imageUrlWithCacheRevision(url, 3), 3),
+      isFalse,
+    );
+    expect(isStaleImageRevisionKey('$url?_mdc_image_revision=12', 3), isFalse);
+    expect(isStaleImageRevisionKey('$url?x_mdc_image_revision=1', 3), isFalse);
+    expect(isStaleImageRevisionKey(url, 3), isFalse);
+  });
+
   test('刷新后的封面缓存版本在应用重启后仍能恢复', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

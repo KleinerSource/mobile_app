@@ -150,4 +150,82 @@ void main() {
       await source.close();
     });
   });
+
+  group('stableImageCacheKey', () {
+    test('去掉 token 并保留其它查询参数', () {
+      expect(
+        stableImageCacheKey(
+          'https://h/api/fanart/1.jpg?token=abc&_mdc_image_revision=2',
+        ),
+        'https://h/api/fanart/1.jpg?_mdc_image_revision=2',
+      );
+      expect(
+        stableImageCacheKey('https://h/api/fanart/1.jpg?token=abc'),
+        'https://h/api/fanart/1.jpg',
+      );
+    });
+
+    test('没有 token 时原样返回', () {
+      const url = 'https://h/api/images/1?x=1';
+      expect(stableImageCacheKey(url), url);
+    });
+  });
+
+  group('selectImageCacheEntriesOverBudget', () {
+    final now = DateTime(2026, 10, 4, 12);
+    CacheObject entry(int id, {required Duration age, int length = 100}) {
+      return CacheObject(
+        'https://h/$id',
+        key: 'k$id',
+        relativePath: '$id.jpg',
+        validTill: now,
+        id: id,
+        length: length,
+        touched: now.subtract(age),
+      );
+    }
+
+    test('未超出上限时不删除', () {
+      final objects = [entry(1, age: const Duration(days: 3))];
+      expect(
+        selectImageCacheEntriesOverBudget(
+          objects,
+          maxBytes: 100,
+          sizeOf: (o) => o.length!,
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('按最久未访问优先删到上限以内', () {
+      final objects = [
+        entry(1, age: const Duration(days: 1)),
+        entry(2, age: const Duration(days: 5)),
+        entry(3, age: const Duration(days: 3)),
+      ];
+      final victims = selectImageCacheEntriesOverBudget(
+        objects,
+        maxBytes: 150,
+        sizeOf: (o) => o.length!,
+        now: now,
+      );
+      expect(victims.map((o) => o.id), [2, 3]);
+    });
+
+    test('最近访问的条目即使超限也保留', () {
+      final objects = [
+        entry(1, age: const Duration(minutes: 1)),
+        entry(2, age: const Duration(minutes: 2)),
+        entry(3, age: const Duration(days: 2)),
+      ];
+      final victims = selectImageCacheEntriesOverBudget(
+        objects,
+        maxBytes: 100,
+        sizeOf: (o) => o.length!,
+        now: now,
+      );
+      expect(victims.map((o) => o.id), [3]);
+    });
+  });
 }
