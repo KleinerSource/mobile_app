@@ -32,6 +32,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     this.previewList = false,
     this.listTitleMaxLines = 1,
     this.showRating = true,
+    this.fullReleaseDate = false,
   });
 
   final DbOnlineMovie movie;
@@ -47,6 +48,11 @@ class DbOnlineMovieCard extends ConsumerWidget {
   final bool previewList;
   final int listTitleMaxLines;
   final bool showRating;
+
+  /// 元信息中的发行日期展示年月日（月日不补零，如 2024-3-1）而非仅
+  /// 年份；数据只有年月时展示年月，只有年份时回退为年份。关注列表等
+  /// 需要精确日期的场景开启。
+  final bool fullReleaseDate;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -115,7 +121,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         coverUrl: imageUrl,
         previewUrls: _previewUrls(movie, config),
         fallbackPreviewUrl: _fallbackPreviewUrl(movie, config),
-        meta: _metaText(context, movie),
+        meta: _metaText(context, movie, fullDate: fullReleaseDate),
         badges: [
           if (!subscriptionCompleted && subscriptionBadge != null)
             subscriptionBadge,
@@ -142,7 +148,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         code: movie.number,
         imageUrl: imageUrl,
         imageHeaders: null,
-        meta: _metaText(context, movie),
+        meta: _metaText(context, movie, fullDate: fullReleaseDate),
         width: width,
         privacyId: privacyId,
         additional: _compactBadges(
@@ -169,7 +175,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
             : movie.title,
         code: movie.number,
         imageUrl: imageUrl,
-        meta: _metaText(context, movie),
+        meta: _metaText(context, movie, fullDate: fullReleaseDate),
         width: width,
         rating: showRating ? normalizeMediaRating(movie.score) : null,
         canPlay: movie.canPlay,
@@ -285,11 +291,16 @@ Widget? _compactBadges({
   return Wrap(spacing: 5, runSpacing: 4, children: badges);
 }
 
-String _metaText(BuildContext context, DbOnlineMovie movie) {
+String _metaText(
+  BuildContext context,
+  DbOnlineMovie movie, {
+  bool fullDate = false,
+}) {
   final l = AppL10n.of(context);
   return formatMediaCardMeta(
     l,
     year: normalizeMediaYear(movie.releaseDate),
+    date: fullDate ? normalizeMediaDateText(movie.releaseDate) : null,
     duration: dboDurationToMinutes(movie.duration),
     emptyText: l.dbOnlineNoMeta,
   );

@@ -21,6 +21,32 @@ int? normalizeMediaYear(Object? value) {
   return date == null ? null : _validYear(date.year);
 }
 
+/// 从日期文本中提取日期展示文本，月日不补零（如 2024-3-1 / 2024-3）。
+///
+/// 数据携带完整日期（含带时间的 ISO 变体）时展示年月日，只有年月时
+/// 展示年月；其余可解析格式按年月日展示。无法识别时回退为年份文本，
+/// 仍不可用则返回 null。
+String? normalizeMediaDateText(Object? value) {
+  final text = normalizeMediaText(value);
+  if (text == null) return null;
+  final match = RegExp(
+    r'^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?',
+  ).firstMatch(text);
+  if (match != null) {
+    final month = int.parse(match.group(2)!);
+    final day = match.group(3) == null ? null : int.parse(match.group(3)!);
+    if (month < 1 || month > 12 || (day != null && (day < 1 || day > 31))) {
+      return normalizeMediaYear(text)?.toString();
+    }
+    return day == null
+        ? '${match.group(1)}-$month'
+        : '${match.group(1)}-$month-$day';
+  }
+  final date = DateTime.tryParse(text);
+  if (date != null) return '${date.year}-${date.month}-${date.day}';
+  return normalizeMediaYear(text)?.toString();
+}
+
 /// 将数值或常见协议时长文本统一为分钟。
 ///
 /// 没有有效正数时返回 null。带秒的小数时长向上取整，避免短视频被

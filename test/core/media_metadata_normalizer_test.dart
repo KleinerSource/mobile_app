@@ -10,6 +10,16 @@ void main() {
     expect(normalizeMediaYear(0), isNull);
   });
 
+  test('日期文本统一为不补零的日期展示文本', () {
+    expect(normalizeMediaDateText('2024-03-01'), '2024-3-1');
+    expect(normalizeMediaDateText('2024-3-1'), '2024-3-1');
+    expect(normalizeMediaDateText('2024-03-01T10:30:00Z'), '2024-3-1');
+    expect(normalizeMediaDateText('2024-03'), '2024-3');
+    expect(normalizeMediaDateText(2024), '2024');
+    expect(normalizeMediaDateText('not-a-date'), isNull);
+    expect(normalizeMediaDateText('  '), isNull);
+  });
+
   test('DBO 时长字符串统一为分钟', () {
     expect(dboDurationToMinutes('01:30:00'), 90);
     expect(dboDurationToMinutes('90 分钟'), 90);

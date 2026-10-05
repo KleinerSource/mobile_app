@@ -29,11 +29,13 @@ String formatMediaCardMeta(
   AppL10n l, {
   int? year,
   int? duration,
+  String? date,
   String? emptyText,
 }) {
   final parts = <String>[];
-  final yearText = formatMediaYear(year);
-  if (yearText != null) parts.add(yearText);
+  // date 为调用方已归一化的完整日期文本（年月日），优先于年份展示。
+  final dateText = date?.trim().isNotEmpty == true ? date : formatMediaYear(year);
+  if (dateText != null) parts.add(dateText);
   final durationText = formatMediaDuration(l, duration);
   if (durationText != null) parts.add(durationText);
   return parts.isEmpty ? (emptyText ?? '') : parts.join(' · ');
