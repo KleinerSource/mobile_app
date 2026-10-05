@@ -10,6 +10,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
+import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -494,11 +495,11 @@ void main() {
     );
     await tester.tap(find.byIcon(Icons.view_list_rounded));
     await tester.pumpAndSettle();
-    expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
+    expect(find.byType(DbOnlineRankingPreviewCard), findsNWidgets(2));
     expect(find.byType(CatalogMovieCard), findsNothing);
     for (final section in ['已完成', '在线订阅']) {
       await _selectSection(tester, section);
-      expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
+      expect(find.byType(DbOnlineRankingPreviewCard), findsNWidgets(2));
     }
 
     await tester.tap(find.byIcon(Icons.crop_landscape_rounded));
@@ -550,12 +551,15 @@ void main() {
     await tester.tap(find.text('私人演员'));
     await tester.pumpAndSettle();
     expect(
-      find.descendant(of: sheet, matching: find.byType(CatalogListMovieCard)),
+      find.descendant(
+        of: sheet,
+        matching: find.byType(DbOnlineRankingPreviewCard),
+      ),
       findsNWidgets(2),
     );
     Navigator.of(tester.element(sheet)).pop();
     await tester.pumpAndSettle();
     await _selectSection(tester, '订阅中');
-    expect(find.byType(CatalogListMovieCard), findsNWidgets(2));
+    expect(find.byType(DbOnlineRankingPreviewCard), findsNWidgets(2));
   });
 }

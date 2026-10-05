@@ -8,10 +8,10 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/pages/db_online_library_page.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/poster.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
@@ -194,9 +194,17 @@ void main() {
       expect(card.left - page.left, 22);
       expect(page.right - card.right, 22);
       if (icon == Icons.view_list_rounded) {
-        expect(find.byType(MediaListRow), findsOneWidget);
-        final thumbnail = tester.getSize(find.byType(Poster));
-        expect(thumbnail, const Size(52, 78));
+        // 列表模式渲染预览条目：左侧 92px 竖版封面 + 右侧预览/回退大图。
+        expect(find.byType(DbOnlineRankingPreviewCard), findsOneWidget);
+        final cover = tester.getSize(
+          find
+              .descendant(
+                of: find.byType(DbOnlineRankingPreviewCard),
+                matching: find.byType(Poster),
+              )
+              .first,
+        );
+        expect(cover, const Size(92, 138));
       }
       expect(tester.takeException(), isNull);
     }

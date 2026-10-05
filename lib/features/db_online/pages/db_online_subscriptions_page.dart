@@ -2330,6 +2330,12 @@ Widget _subscriptionMovieTile(
       title: item.title,
       coverUrl: imageUrl,
       previewUrls: _subscriptionPreviewUrls(serverConfig, item.data),
+      // 横版 cover 优先，与 DbOnlineMovieCard 的回退取图顺序一致。
+      fallbackPreviewUrl: _resolveSubscriptionImage(serverConfig, [
+        item.data['cover_url'],
+        item.data['thumb_url'],
+        item.data['image_url'],
+      ]),
       code: code,
       meta: meta,
       badges: badges,
