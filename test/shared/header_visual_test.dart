@@ -12,11 +12,10 @@ import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/page_header.dart';
 
 // 所有平台均验证布局；像素基线只在固定 Windows 环境中显式启用。
-// CI: header-visual-tests.yml，Windows 2025 / Flutter 3.44.0。
+// CI: header-visual-tests.yml，Windows 2025 / Flutter 3.47.0。
 // 本地截图验证：flutter test --no-pub --dart-define=HEADER_GOLDENS=true test/shared/header_visual_test.dart
 // Windows 更新基线：在上述命令中增加 --update-goldens，并人工检查差异。
 const _compareGoldens = bool.fromEnvironment('HEADER_GOLDENS');
-String _libraryGoldenSuffix = '';
 
 Future<void> _loadFonts() async {
   final config = File('.dart_tool/package_config.json').absolute;
@@ -28,17 +27,6 @@ Future<void> _loadFonts() async {
   final flutterPackage = Directory.fromUri(
     config.uri.resolve(flutter['rootUri'] as String),
   ).uri;
-  final sdkVersion =
-      jsonDecode(
-            await File.fromUri(
-              flutterPackage.resolve('../../bin/cache/flutter.version.json'),
-            ).readAsString(),
-          )
-          as Map;
-  _libraryGoldenSuffix =
-      (sdkVersion['frameworkVersion'] as String).startsWith('3.44.')
-      ? '_flutter_3_44'
-      : '';
   final fonts = flutterPackage.resolve(
     '../../bin/cache/artifacts/material_fonts/',
   );
@@ -270,8 +258,7 @@ void main() {
             await expectLater(
               find.byKey(captureKey),
               matchesGoldenFile(
-                'goldens/header_${variant}_${viewport.$1}_${brightness.name}'
-                '${variant == 'library' ? _libraryGoldenSuffix : ''}.png',
+                'goldens/header_${variant}_${viewport.$1}_${brightness.name}.png',
               ),
             );
           }
