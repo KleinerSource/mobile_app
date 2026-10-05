@@ -343,6 +343,14 @@ ThemeData buildAppTheme(Brightness brightness, {ServerProject? project}) {
       elevation: 16,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
+    // date/time picker 的 Dialog 背景不读 dialogTheme，而是默认回落到
+    // colorScheme.surfaceContainerHigh —— 暗色下 surface token 是半透白，
+    // 打开在毛玻璃 sheet 之上时底层内容会整片透出，必须同样钉死不透明色。
+    datePickerTheme: DatePickerThemeData(
+      backgroundColor: overlayBg,
+      surfaceTintColor: Colors.transparent,
+    ),
+    timePickerTheme: TimePickerThemeData(backgroundColor: overlayBg),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: c.sheetBackground,
       surfaceTintColor: Colors.transparent,
