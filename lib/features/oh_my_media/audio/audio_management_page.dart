@@ -959,6 +959,8 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                             ),
                             sliver: PagedSliverList<int, AudioAsset>.separated(
                               pagingController: _controller,
+                              // 转译状态会改变行高，避免 iOS 保留逐行重绘图层。
+                              addRepaintBoundaries: false,
                               separatorBuilder: (_, itemIndex) {
                                 // 分页组件在末项与状态页脚之间也会排一条
                                 // 分隔线，末行底部圆角下会多出一条线，隐藏之。
@@ -994,6 +996,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                             : Radius.zero,
                                       );
                                       return SwipeActionCell(
+                                        key: ValueKey(asset.id),
                                         actionBorderRadius: rowRadius,
                                         group: _openSwipe,
                                         cellKey: asset.id,
@@ -1030,7 +1033,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                                         selecting:
                                                             _selectionMode,
                                                         locked: locked,
-                                                        busy: busy,
                                                         onToggleSelect: () =>
                                                             _toggleSelect(
                                                               asset.id,
@@ -1282,7 +1284,6 @@ class _AssetCard extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.locked,
-    required this.busy,
     required this.onToggleSelect,
     required this.onOpenMovie,
   });
@@ -1291,7 +1292,6 @@ class _AssetCard extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final bool locked;
-  final bool busy;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpenMovie;
 
@@ -1306,9 +1306,6 @@ class _AssetCard extends StatelessWidget {
       // 分组连排行：无独立边框，选中以整行背景提示。
       color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-      foregroundDecoration: busy
-          ? BoxDecoration(color: c.bg.withValues(alpha: 0.45))
-          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
