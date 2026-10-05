@@ -14,6 +14,7 @@ import 'package:omm/core/sources/files/file_operation.dart';
 import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_repository.dart';
 import 'package:omm/features/files/file_playback_engine.dart';
+import 'package:omm/features/files/file_entry_icons.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
 import 'package:omm/features/cache/music_cache.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
@@ -122,6 +123,66 @@ void _main_1() {
       await proxy.close();
       client.close(force: true);
     }
+  });
+
+  test('播放代理为 wmv/asf/f4v/mts/3g2 返回正确 MIME', () async {
+    const cases = <String, String>{
+      'wmv': 'video/x-ms-wmv',
+      'asf': 'video/x-ms-wmv',
+      'f4v': 'video/mp4',
+      'mts': 'video/mp2t',
+      '3g2': 'video/3gpp',
+    };
+    final client = HttpClient();
+    try {
+      for (final entry in cases.entries) {
+        final sourceId = SourceId.of('mime-${entry.key}');
+        final bytes = List<int>.generate(4, (index) => index + 1);
+        final proxy = await FilePlaybackProxy.start(
+          repository: FileSourceRepository(
+            _DownloadOnlyFileSource(sourceId, bytes),
+          ),
+          path: FilePath(sourceId: sourceId, value: '影片.${entry.key}'),
+          size: bytes.length,
+          pathExtension: entry.key,
+        );
+        try {
+          final request = await client.getUrl(proxy.uri);
+          final response = await request.close();
+          await _read(response);
+          expect(
+            response.headers.contentType?.mimeType,
+            entry.value,
+            reason: '${entry.key} 应映射为 ${entry.value}',
+          );
+        } finally {
+          await proxy.close();
+        }
+      }
+    } finally {
+      client.close(force: true);
+    }
+  });
+
+  test('无 MIME 的常见视频扩展名归类为视频，裸 ts 维持原归类', () {
+    FileEntry entryOf(String name) => FileEntry(
+      path: FilePath(sourceId: SourceId.of('icon-source'), value: name),
+      name: name,
+      type: FileEntryType.file,
+    );
+    for (final name in ['影片.wmv', '影片.asf', '影片.flv', '影片.mpg',
+      '影片.vob', '影片.rmvb', '影片.3gp', '影片.mts', '影片.ogv']) {
+      expect(
+        fileTypeIconFor(entryOf(name)),
+        FileTypeIcon.video,
+        reason: '$name 无 MIME 时应按扩展名识别为视频',
+      );
+    }
+    expect(
+      fileTypeIconFor(entryOf('脚本.ts')),
+      isNot(FileTypeIcon.video),
+      reason: '裸 ts 不纳入视频白名单，保持既有归类',
+    );
   });
 
   test('音频播放代理支持 MIME、HEAD、完整读取和 Range 读取', () async {

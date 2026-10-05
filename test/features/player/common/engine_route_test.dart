@@ -130,6 +130,64 @@ void _main_0() {
     );
   });
 
+  test('文件管理器常见视频容器直连时选择 KSMEPlayer', () {
+    for (final url in [
+      'https://example.com/movie.wmv',
+      'https://example.com/movie.asf',
+      'https://example.com/movie.avi',
+      'https://example.com/movie.flv',
+      'https://example.com/movie.mpg',
+      'https://example.com/movie.vob',
+      'https://example.com/movie.rmvb',
+      'https://example.com/movie.ogv',
+    ]) {
+      expect(
+        PlaybackMediaInfo.inferInternalPlayer(url, null),
+        'KSMEPlayer',
+        reason: '$url 应交给 KSMEPlayer 解码',
+      );
+    }
+    // URL 无扩展名时由 formatHint（文件队列传扩展名）兜底。
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/open/12345',
+        'wmv',
+      ),
+      'KSMEPlayer',
+    );
+    // MIME 提示分词后也能解析出容器。
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/open/12345',
+        'video/x-ms-wmv',
+      ),
+      'KSMEPlayer',
+    );
+    // 3gp 属 MOV 家族，AVFoundation 可播，保持 AVPlayer。
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/movie.3gp',
+        null,
+      ),
+      'AVPlayer',
+    );
+    // 回归：mp4/mkv 既有路由不变。
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/movie.mp4',
+        null,
+      ),
+      'AVPlayer',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/movie.mkv',
+        null,
+      ),
+      'KSMEPlayer',
+    );
+  });
+
   test('服务器回退优先复用 HLS，否则要求强制视频转码重决策', () {
     final reuse = serverFallbackPlanFor(
       quality: 'auto',

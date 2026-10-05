@@ -174,7 +174,20 @@ class PlaybackMediaInfo {
     final container = inferPlaybackContainer(url, formatHint);
     if (container == null) return null;
     return switch (container) {
-      'mkv' || 'matroska' || 'webm' => 'KSMEPlayer',
+      'mkv' ||
+      'matroska' ||
+      'webm' ||
+      'wmv' ||
+      'asf' ||
+      'avi' ||
+      'flv' ||
+      'mpeg' ||
+      'mpg' ||
+      'vob' ||
+      'rm' ||
+      'rmvb' ||
+      'ogv' ||
+      'ogg' => 'KSMEPlayer',
       _ => 'AVPlayer',
     };
   }
@@ -259,6 +272,17 @@ String? inferPlaybackContainer(String url, String? formatHint) {
     'ts',
     'm3u8',
     'hls',
+    'wmv',
+    'asf',
+    'avi',
+    'flv',
+    'mpeg',
+    'mpg',
+    'vob',
+    'rm',
+    'rmvb',
+    '3gp',
+    'ogv',
   };
   for (final token in hintTokens) {
     if (knownContainers.contains(token)) return token;

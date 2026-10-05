@@ -404,7 +404,14 @@ const _videoCodecNames = {
   'vp8': 'VP8',
   'mpeg4': 'MPEG-4',
   'mpeg2video': 'MPEG-2',
+  'mpeg1video': 'MPEG-1',
+  'wmv1': 'WMV 7',
+  'wmv2': 'WMV 8',
   'wmv3': 'WMV',
+  'vc1': 'VC-1',
+  'flv1': 'FLV',
+  'rv40': 'RealVideo',
+  'rv30': 'RealVideo',
 };
 
 const _audioCodecNames = {
@@ -417,6 +424,10 @@ const _audioCodecNames = {
   'mp3': 'MP3',
   'opus': 'Opus',
   'vorbis': 'Vorbis',
+  'mp2': 'MP2',
+  'wmav2': 'WMA',
+  'wmapro': 'WMA Pro',
+  'cook': 'RealAudio',
   'pcm_s16le': 'PCM 16-bit',
   'pcm_s24le': 'PCM 24-bit',
 };

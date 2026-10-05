@@ -26,7 +26,20 @@ const _videoFileExtensions = <String>{
   'avi',
   'm4v',
   'm2ts',
+  'mts',
   'm3u8',
+  'wmv',
+  'asf',
+  'flv',
+  'f4v',
+  'mpg',
+  'mpeg',
+  'vob',
+  'rm',
+  'rmvb',
+  '3gp',
+  '3g2',
+  'ogv',
 };
 
 const _imageFileExtensions = <String>{
