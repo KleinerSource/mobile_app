@@ -232,9 +232,9 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
           posterBadgeVisibility.isEnabled(PosterBadgeKind.subtitle))
         CoverBadgePill(
           icon: Icons.closed_caption_rounded,
-          label: l.dbOnlineBadgeSubtitle,
+          label: l.badgeSubtitle,
           color: const Color(0xFFFFD60A),
-          tooltip: l.dbOnlineBadgeSubtitle,
+          tooltip: l.badgeSubtitle,
         ),
       if (movie.canPlay)
         CoverBadgePill(
