@@ -121,6 +121,14 @@ class DbOnlineMovieCard extends ConsumerWidget {
       kind: 'video',
       id: movie.number.trim(),
       title: movie.title.trim(),
+      initial: {
+        'video_id': movie.id.trim() == movie.number.trim()
+            ? ''
+            : movie.id.trim(),
+        'cover_url': movie.coverUrl ?? '',
+        'thumb_url': movie.thumbUrl ?? '',
+        'release_date': movie.releaseDate ?? '',
+      },
     );
     DbOnlineSubscriptionLongPressMenu? preparedMenu;
     Widget wrapSubscriptionMenu(Widget child) {
