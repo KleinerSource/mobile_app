@@ -114,69 +114,84 @@ class _DbOnlineWatchedRecheckSheetState
     final l = AppL10n.of(context);
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          22,
-          8,
-          22,
-          18 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SheetHeader(
-              icon: Icons.manage_search_rounded,
-              title: l.dbOnlineWatchedRecheck,
-            ),
-            Text(l.dbOnlineWatchedRecheckHint),
-            const SizedBox(height: 12),
-            if (_loading) ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 8),
-              Text(l.dbOnlineWatchedPresetLoading),
-            ],
-            if (_presetError != null) ...[
-              Text(_presetError!),
-              Wrap(
-                spacing: 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextButton(
-                    onPressed: _loadPreset,
-                    child: Text(l.dbOnlineRetry),
+                  SheetHeader(
+                    icon: Icons.manage_search_rounded,
+                    title: l.dbOnlineWatchedRecheck,
                   ),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _requirements.load(const DbOnlineRecheckRequirements());
-                      _presetError = null;
-                    }),
-                    child: Text(l.dbOnlineWatchedUseDefaults),
+                  Text(l.dbOnlineWatchedRecheckHint),
+                  const SizedBox(height: 12),
+                  if (_loading) ...[
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 8),
+                    Text(l.dbOnlineWatchedPresetLoading),
+                  ],
+                  if (_presetError != null) ...[
+                    Text(_presetError!),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: _loadPreset,
+                          child: Text(l.dbOnlineRetry),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _requirements.load(
+                              const DbOnlineRecheckRequirements(),
+                            );
+                            _presetError = null;
+                          }),
+                          child: Text(l.dbOnlineWatchedUseDefaults),
+                        ),
+                      ],
+                    ),
+                  ],
+                  DbOnlineDownloadRequirementsFields(
+                    controller: _requirements,
+                    enabled: !_loading && !_submitting,
                   ),
                 ],
               ),
+            ),
+          ),
+          SheetActionBar.buttons(
+            buttons: [
+              OutlinedButton(
+                onPressed: _submitting
+                    ? null
+                    : () => Navigator.of(context).pop(),
+                style: sheetSecondaryButtonStyle(context),
+                child: Text(l.dbOnlineSubscriptionCancel),
+              ),
+              FilledButton(
+                onPressed: _loading || _submitting || _presetError != null
+                    ? null
+                    : _submit,
+                style: sheetPrimaryButtonStyle(context),
+                child: _submitting
+                    ? SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      )
+                    : Text(l.dbOnlineWatchedStart),
+              ),
             ],
-            DbOnlineDownloadRequirementsFields(
-              controller: _requirements,
-              enabled: !_loading && !_submitting,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _loading || _submitting || _presetError != null
-                  ? null
-                  : _submit,
-              child: _submitting
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(l.dbOnlineWatchedStart),
-            ),
-            TextButton(
-              onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-              child: Text(l.dbOnlineSubscriptionCancel),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
