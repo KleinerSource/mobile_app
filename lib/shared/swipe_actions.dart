@@ -409,7 +409,11 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                 final panelWidth = offset > _actionExtent
                     ? offset
                     : _actionExtent;
-                final rawActionLayer = _buildActionLayer(offset, panelWidth);
+                final showActions = _canSwipe && offset > 0.001;
+                // 任务更新可能暂时没有可用操作，不能对空列表构建操作层。
+                final rawActionLayer = showActions
+                    ? _buildActionLayer(offset, panelWidth)
+                    : const SizedBox.shrink();
                 final actionLayer =
                     widget.actionBorderRadius == BorderRadius.zero
                     ? rawActionLayer
@@ -429,7 +433,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                   child: Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
-                      if (_canSwipe && offset > 0.001)
+                      if (showActions)
                         Positioned(
                           top: 0,
                           bottom: 0,

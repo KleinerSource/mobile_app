@@ -19,6 +19,84 @@ SwipeActionData _action(VoidCallback onPressed) => SwipeActionData(
 );
 
 void main() {
+  for (final enabled in [true, false]) {
+    testWidgets('无可用操作时保留行内容和点击：enabled=$enabled', (tester) async {
+      var tapped = false;
+      final group = SwipeActionGroup(null);
+      addTearDown(group.dispose);
+      await tester.pumpWidget(
+        _wrap(
+          SwipeActionCell(
+            group: group,
+            cellKey: 1,
+            enabled: enabled,
+            actions: const [],
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => tapped = true,
+              child: const SizedBox(height: 60, child: Text('行内容')),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(tester.getSize(find.byType(SwipeActionCell)).height, 60);
+      await tester.fling(find.text('行内容'), const Offset(-300, 0), 2000);
+      await tester.pumpAndSettle();
+      expect(group.value, isNull);
+      await tester.tap(find.text('行内容'));
+      expect(tapped, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('展开行的操作暂时清空后保留内容，恢复后仍可执行', (tester) async {
+    var fired = 0;
+    final group = SwipeActionGroup(null);
+    addTearDown(group.dispose);
+    Widget buildCell(List<SwipeActionData> actions) => _wrap(
+      SwipeActionCell(
+        group: group,
+        cellKey: 1,
+        enabled: true,
+        actions: actions,
+        child: const SizedBox(height: 60, child: Text('行内容')),
+      ),
+    );
+    final actions = [_action(() => fired++)];
+    await tester.pumpWidget(buildCell(actions));
+    await tester.timedDrag(
+      find.text('行内容'),
+      const Offset(-100, 0),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+    expect(group.value, 1);
+
+    await tester.pumpWidget(buildCell(const []));
+    expect(tester.takeException(), isNull);
+    expect(find.byType(ErrorWidget), findsNothing);
+    expect(find.text('行内容').hitTestable(), findsOneWidget);
+    expect(tester.getSize(find.byType(SwipeActionCell)).height, 60);
+    expect(group.value, isNull);
+    expect(find.text('删除'), findsNothing);
+
+    await tester.pumpWidget(buildCell(actions));
+    await tester.timedDrag(
+      find.text('行内容'),
+      const Offset(-100, 0),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除').hitTestable());
+    await tester.pumpAndSettle();
+    expect(fired, 1);
+    expect(group.value, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('按钮贴卡片尾缘滑入，中途无空隙', (tester) async {
     final group = SwipeActionGroup(null);
     addTearDown(group.dispose);
