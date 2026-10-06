@@ -548,34 +548,44 @@ class _DbOnlineActorSearchResults extends ConsumerWidget {
           slivers: [
             SliverPadding(
               padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
-              sliver: SliverGrid(
-                gridDelegate: _actorGridDelegate,
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final actor = value.actors[index];
-                  return DbOnlineEntityCard(
-                    id: actor.id,
-                    name: actor.name,
-                    label: AppL10n.of(context).searchModeActorSearch,
-                    count: actor.videosCount,
-                    icon: Icons.person_outline_rounded,
-                    imageUrl: actor.avatarUrl,
-                    uncensored: actor.uncensored,
-                    // 与演员榜一致：优先展示其他名称，无则回退中文名/作品数。
-                    metaText: actor.otherName ?? actor.nameZht,
-                    subscriptionKind: 'actor',
-                    subscriptionData: {
-                      'actor_avatar': actor.avatarUrl ?? '',
-                      'other_name': actor.otherName ?? '',
-                    },
-                    onTap: () => _openEntityMovies(
-                      context,
-                      kind: 'actor',
-                      id: actor.id,
-                      title: actor.name,
-                      eyebrow: AppL10n.of(context).searchModeActorSearch,
+              sliver: SliverLayoutBuilder(
+                builder: (context, constraints) => SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: MediaListLayout.columnsForWidth(
+                      constraints.crossAxisExtent +
+                          MediaListLayout.padding.horizontal,
                     ),
-                  );
-                }, childCount: value.actors.length),
+                    childAspectRatio: 0.62,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final actor = value.actors[index];
+                    return DbOnlineEntityCard(
+                      id: actor.id,
+                      name: actor.name,
+                      label: AppL10n.of(context).searchModeActorSearch,
+                      count: actor.videosCount,
+                      icon: Icons.person_outline_rounded,
+                      imageUrl: actor.avatarUrl,
+                      uncensored: actor.uncensored,
+                      // 与演员榜一致：优先展示其他名称，无则回退中文名/作品数。
+                      metaText: actor.otherName ?? actor.nameZht,
+                      subscriptionKind: 'actor',
+                      subscriptionData: {
+                        'actor_avatar': actor.avatarUrl ?? '',
+                        'other_name': actor.otherName ?? '',
+                      },
+                      onTap: () => _openEntityMovies(
+                        context,
+                        kind: 'actor',
+                        id: actor.id,
+                        title: actor.name,
+                        eyebrow: AppL10n.of(context).searchModeActorSearch,
+                      ),
+                    );
+                  }, childCount: value.actors.length),
+                ),
               ),
             ),
           ],
@@ -667,42 +677,63 @@ class _DbOnlineEntitySearchResultsState
       slivers: [
         SliverPadding(
           padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
-          sliver: PagedSliverList<int, DbOnlineSearchEntity>(
-            pagingController: _pagingController,
-            builderDelegate: PagedChildBuilderDelegate<DbOnlineSearchEntity>(
-              itemBuilder: (context, item, _) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _DbOnlineSearchEntityRow(
-                  id: item.id,
-                  name: item.name,
-                  count: item.moviesCount,
-                  icon: type.icon,
-                  subscriptionKind: 'series',
-                  subscriptionData: {'sub_type': type.apiType},
-                  onTap: () => _openEntityMovies(
-                    context,
-                    kind: type.apiType,
+          sliver: SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final useGrid = constraints.crossAxisExtent >= 600;
+              final delegate = PagedChildBuilderDelegate<DbOnlineSearchEntity>(
+                itemBuilder: (context, item, _) => Padding(
+                  padding: EdgeInsets.only(bottom: useGrid ? 0 : 10),
+                  child: _DbOnlineSearchEntityRow(
                     id: item.id,
-                    title: item.name,
-                    eyebrow: type.label(AppL10n.of(context)),
+                    name: item.name,
+                    count: item.moviesCount,
+                    icon: type.icon,
+                    subscriptionKind: 'series',
+                    subscriptionData: {'sub_type': type.apiType},
+                    onTap: () => _openEntityMovies(
+                      context,
+                      kind: type.apiType,
+                      id: item.id,
+                      title: item.name,
+                      eyebrow: type.label(AppL10n.of(context)),
+                    ),
                   ),
                 ),
-              ),
-              firstPageProgressIndicatorBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-              firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message:
-                    _pagingController.error?.toString() ??
-                    AppL10n.of(context).loadFailed,
-                onRetry: _pagingController.refresh,
-              ),
-              newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                onRetry: _pagingController.retryLastFailedRequest,
-              ),
-              noItemsFoundIndicatorBuilder: (_) =>
-                  EmptyView(message: AppL10n.of(context).searchNoResult),
-              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-            ),
+                firstPageProgressIndicatorBuilder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
+                firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                  message:
+                      _pagingController.error?.toString() ??
+                      AppL10n.of(context).loadFailed,
+                  onRetry: _pagingController.refresh,
+                ),
+                newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                  onRetry: _pagingController.retryLastFailedRequest,
+                ),
+                noItemsFoundIndicatorBuilder: (_) =>
+                    EmptyView(message: AppL10n.of(context).searchNoResult),
+                noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+              );
+              if (!useGrid) {
+                return PagedSliverList<int, DbOnlineSearchEntity>(
+                  pagingController: _pagingController,
+                  builderDelegate: delegate,
+                );
+              }
+              return PagedSliverGrid<int, DbOnlineSearchEntity>(
+                pagingController: _pagingController,
+                builderDelegate: delegate,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 300,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  mainAxisExtent: 92,
+                ),
+                showNewPageProgressIndicatorAsGridChild: false,
+                showNewPageErrorIndicatorAsGridChild: false,
+                showNoMoreItemsIndicatorAsGridChild: false,
+              );
+            },
           ),
         ),
       ],
@@ -710,8 +741,8 @@ class _DbOnlineEntitySearchResultsState
   }
 }
 
-/// 系列、片商、导演、清单的列表行：这类实体没有头像，一行一条，
-/// 左侧类型图标 + 名称与作品数 + 右侧订阅按钮，点击进入影片列表。
+/// 系列、片商、导演、清单的实体卡片：左侧类型图标、名称与作品数，
+/// 右侧订阅按钮；宽屏中按网格收紧卡片宽度。
 class _DbOnlineSearchEntityRow extends StatelessWidget {
   const _DbOnlineSearchEntityRow({
     required this.id,
@@ -815,17 +846,6 @@ void _openEntityMovies(
     ),
   );
 }
-
-/// 演员搜索结果网格：纵向卡片三列布局，头像在上。
-///
-/// 宽高比 0.62 = 固定的底部信息块（两行名称 + 一行元信息）加上接近
-/// 正方形的头像区域。
-const _actorGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
-  crossAxisCount: 3,
-  childAspectRatio: 0.62,
-  crossAxisSpacing: 10,
-  mainAxisSpacing: 10,
-);
 
 String _entityKey(DbOnlineSearchEntity item) {
   final id = item.id.trim();
