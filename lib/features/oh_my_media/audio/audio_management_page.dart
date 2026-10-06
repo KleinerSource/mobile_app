@@ -18,6 +18,7 @@ import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/shared/debouncer.dart';
+import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
@@ -57,8 +58,8 @@ String _transcriptionStageLabel(AppL10n l, AudioTranscription t) {
 /// 音频管理 · 集中查看已提取的音频资产与字幕转译进度
 ///
 /// - 汇总卡 + 搜索栏 (320ms debounce)
-/// - 提取中任务：来自任务中心 WebSocket，含实时进度，可直接取消
-/// - 资产卡片：影片 / 文件 / 规格 / 转译状态，单项操作通过菜单访问
+/// - 提取中任务：来自任务中心 WebSocket，含实时进度，左滑取消
+/// - 资产卡片：影片 / 文件 / 规格 / 转译状态，单项操作左滑展开
 /// - 长按多选（滑动连选）：批量加入转译、批量删除
 /// - 音频提取请从影片详情页发起
 class AudioManagementPage extends ConsumerStatefulWidget {
@@ -91,6 +92,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   late final PagedSelectionController<int> _selection;
   final Set<int> _busyAssetIds = <int>{};
   final Set<String> _busyTaskIds = <String>{};
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
 
   bool _refreshing = false;
 
@@ -108,6 +110,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   @override
   void dispose() {
     _scrollController.removeListener(_handleScroll);
+    _openSwipe.dispose();
     _taskReloadDebounce?.cancel();
     _debounce.cancel();
     _requests.dispose();
@@ -126,6 +129,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   void _handleScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
     _requestNextPageIfNeeded();
   }
 
@@ -350,18 +354,18 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     return asset.movieId > 0 && activeMovies.contains(asset.movieId);
   }
 
-  /// 单个资产可用的菜单操作。
-  List<_AudioAssetAction> _assetActions(
+  /// 单个资产可用的左滑操作。
+  List<SwipeActionData> _assetSwipeActions(
     AppColors c,
     AudioAsset asset,
     bool transcriptionEnabled,
     bool locked,
   ) {
     final t = asset.transcriptionView;
-    final actions = <_AudioAssetAction>[];
+    final actions = <SwipeActionData>[];
     if (asset.isTranscriptionActive && t.taskId.isNotEmpty) {
       actions.add(
-        _AudioAssetAction(
+        SwipeActionData(
           icon: Icons.stop_rounded,
           label: AppL10n.of(context).audioActionCancelTranscription,
           color: c.danger,
@@ -370,7 +374,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       );
     } else if ((t.isFailed || t.isCanceled) && t.taskId.isNotEmpty) {
       actions.add(
-        _AudioAssetAction(
+        SwipeActionData(
           icon: Icons.refresh_rounded,
           label: AppL10n.of(context).audioActionRetryTranscription,
           color: c.warning,
@@ -379,7 +383,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       );
     } else if (transcriptionEnabled && asset.fileExists && !locked) {
       actions.add(
-        _AudioAssetAction(
+        SwipeActionData(
           icon: Icons.cloud_upload_outlined,
           label: AppL10n.of(context).audioActionEnqueueTranscription,
           color: c.accent,
@@ -389,7 +393,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     }
     if (!asset.isTranscriptionActive && !locked) {
       actions.add(
-        _AudioAssetAction(
+        SwipeActionData(
           icon: Icons.delete_outline_rounded,
           label: AppL10n.of(context).delete,
           color: c.danger,
@@ -954,13 +958,35 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                       ) ...[
                                         if (i > 0)
                                           Divider(height: 1, color: c.divider),
-                                        _ExtractionTaskCard(
-                                          task: extractionTasks[i],
-                                          busy: _busyTaskIds.contains(
-                                            extractionTasks[i].id,
+                                        SwipeActionCell(
+                                          key: ValueKey(
+                                            'audio-task-${extractionTasks[i].id}',
                                           ),
-                                          onCancel: () => _cancelExtraction(
-                                            extractionTasks[i],
+                                          group: _openSwipe,
+                                          cellKey:
+                                              'task:${extractionTasks[i].id}',
+                                          enabled:
+                                              !_selectionMode &&
+                                              !_busyTaskIds.contains(
+                                                extractionTasks[i].id,
+                                              ),
+                                          actions: [
+                                            SwipeActionData(
+                                              icon: Icons.stop_rounded,
+                                              label:
+                                                  l.audioActionCancelExtraction,
+                                              color: c.danger,
+                                              onPressed: () =>
+                                                  _cancelExtraction(
+                                                    extractionTasks[i],
+                                                  ),
+                                            ),
+                                          ],
+                                          child: _ExtractionTaskCard(
+                                            task: extractionTasks[i],
+                                            busy: _busyTaskIds.contains(
+                                              extractionTasks[i].id,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -1068,49 +1094,57 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                       key: ValueKey(asset.id),
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        DragSelectionTarget<int>(
-                                          id: asset.id,
-                                          selectionIndex: index,
-                                          selectionHandleAlignment:
-                                              Alignment.centerLeft,
-                                          child:
-                                              ValueListenableBuilder<
-                                                Set<Object>
-                                              >(
-                                                valueListenable: _selection
-                                                    .selectedListenable,
-                                                builder:
-                                                    (
-                                                      context,
-                                                      selected,
-                                                      _,
-                                                    ) => _AssetCard(
-                                                      asset: asset,
-                                                      selected: selected
-                                                          .contains(asset.id),
-                                                      selecting: _selectionMode,
-                                                      locked: locked,
-                                                      busy: _busyAssetIds
-                                                          .contains(asset.id),
-                                                      actions: _assetActions(
-                                                        c,
-                                                        asset,
-                                                        transcriptionEnabled,
-                                                        locked,
+                                        SwipeActionCell(
+                                          key: ValueKey(
+                                            'audio-asset-${asset.id}',
+                                          ),
+                                          actionBorderRadius: rowRadius,
+                                          group: _openSwipe,
+                                          cellKey: asset.id,
+                                          enabled:
+                                              !_selectionMode &&
+                                              !_busyAssetIds.contains(asset.id),
+                                          actions: _assetSwipeActions(
+                                            c,
+                                            asset,
+                                            transcriptionEnabled,
+                                            locked,
+                                          ),
+                                          child: DragSelectionTarget<int>(
+                                            id: asset.id,
+                                            selectionIndex: index,
+                                            selectionHandleAlignment:
+                                                Alignment.centerLeft,
+                                            child:
+                                                ValueListenableBuilder<
+                                                  Set<Object>
+                                                >(
+                                                  valueListenable: _selection
+                                                      .selectedListenable,
+                                                  builder:
+                                                      (
+                                                        context,
+                                                        selected,
+                                                        _,
+                                                      ) => _AssetCard(
+                                                        asset: asset,
+                                                        selected: selected
+                                                            .contains(asset.id),
+                                                        selecting:
+                                                            _selectionMode,
+                                                        locked: locked,
+                                                        borderRadius: rowRadius,
+                                                        onToggleSelect: () =>
+                                                            _toggleSelect(
+                                                              asset.id,
+                                                            ),
+                                                        onOpenMovie: () =>
+                                                            _openMovieDetail(
+                                                              asset,
+                                                            ),
                                                       ),
-                                                      borderRadius: rowRadius,
-                                                      onAction: (action) =>
-                                                          action.onPressed(),
-                                                      onToggleSelect: () =>
-                                                          _toggleSelect(
-                                                            asset.id,
-                                                          ),
-                                                      onOpenMovie: () =>
-                                                          _openMovieDetail(
-                                                            asset,
-                                                          ),
-                                                    ),
-                                              ),
+                                                ),
+                                          ),
                                         ),
                                         if (index < items.length - 1)
                                           Divider(height: 1, color: c.divider),
@@ -1226,14 +1260,9 @@ class _SearchField extends StatelessWidget {
 
 // ============ 提取中任务卡 ============
 class _ExtractionTaskCard extends StatelessWidget {
-  const _ExtractionTaskCard({
-    required this.task,
-    required this.onCancel,
-    this.busy = false,
-  });
+  const _ExtractionTaskCard({required this.task, this.busy = false});
 
   final TaskItem task;
-  final VoidCallback onCancel;
   final bool busy;
 
   @override
@@ -1250,7 +1279,7 @@ class _ExtractionTaskCard extends StatelessWidget {
         : task.fileName;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1319,14 +1348,6 @@ class _ExtractionTaskCard extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            tooltip: AppL10n.of(context).audioActionCancelExtraction,
-            onPressed: busy ? null : onCancel,
-            icon: const Icon(Icons.stop_rounded),
-            color: c.danger,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-          ),
         ],
       ),
     );
@@ -1340,10 +1361,7 @@ class _AssetCard extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.locked,
-    required this.busy,
-    required this.actions,
     required this.borderRadius,
-    required this.onAction,
     required this.onToggleSelect,
     required this.onOpenMovie,
   });
@@ -1352,10 +1370,7 @@ class _AssetCard extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final bool locked;
-  final bool busy;
-  final List<_AudioAssetAction> actions;
   final BorderRadius borderRadius;
-  final ValueChanged<_AudioAssetAction> onAction;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpenMovie;
 
@@ -1376,7 +1391,7 @@ class _AssetCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context, c, status),
+          _buildHeader(c, status),
           const SizedBox(height: 6),
           Text(
             asset.fileName.isEmpty ? '-' : asset.fileName,
@@ -1406,7 +1421,7 @@ class _AssetCard extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, AppColors c, _StatusInfo status) {
+  Widget _buildHeader(AppColors c, _StatusInfo status) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -1427,27 +1442,6 @@ class _AssetCard extends StatelessWidget {
             showDot: true,
             pulsing: status.pulsing,
           ),
-          if (actions.isNotEmpty)
-            PopupMenuButton<_AudioAssetAction>(
-              enabled: !busy,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-              icon: Icon(Icons.more_horiz_rounded, color: c.muted),
-              onSelected: onAction,
-              itemBuilder: (context) => [
-                for (final action in actions)
-                  PopupMenuItem<_AudioAssetAction>(
-                    value: action,
-                    child: Row(
-                      children: [
-                        Icon(action.icon, size: 18, color: action.color),
-                        const SizedBox(width: 10),
-                        Text(action.label),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
         ],
       ],
     );
@@ -1680,20 +1674,6 @@ class _StatusInfo {
   final String label;
   final Color color;
   final bool pulsing;
-}
-
-class _AudioAssetAction {
-  const _AudioAssetAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onPressed;
 }
 
 // ============ 空态 ============
