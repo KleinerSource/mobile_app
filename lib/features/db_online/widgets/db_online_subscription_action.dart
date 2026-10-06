@@ -11,7 +11,20 @@ import 'package:omm/features/db_online/widgets/db_online_subscription_status_bad
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/glass.dart';
+import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/localized_error_message.dart';
+
+class DbOnlineSubscriptionLongPressMenu {
+  const DbOnlineSubscriptionLongPressMenu({
+    required this.query,
+    required this.status,
+    required this.entries,
+  });
+
+  final DbOnlineSubscriptionStatusQuery query;
+  final DbOnlineSubscriptionStatus status;
+  final List<GlassMenuEntry<String>> entries;
+}
 
 /// 订阅入口按钮。
 ///
@@ -35,12 +48,14 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
   final Map<String, dynamic> initial;
   final bool showLabel;
 
-  /// 从影片卡片长按打开订阅操作。状态先通过单影片查询确认，避免把
-  /// 状态批量查询失败误判成未订阅。
-  Future<void> openForLongPress(BuildContext context, WidgetRef ref) async {
+  /// 长按菜单根据单影片状态查询生成，避免把状态未知误判成未订阅。
+  Future<DbOnlineSubscriptionLongPressMenu?> prepareLongPressMenu(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final serverId =
         ref.read(mediaRuntimeConfigProvider)?.activeServerId?.trim() ?? '';
-    if (!context.mounted || serverId.isEmpty || id.trim().isEmpty) return;
+    if (!context.mounted || serverId.isEmpty || id.trim().isEmpty) return null;
     final query = DbOnlineSubscriptionStatusQuery(
       serverId: serverId,
       kind: kind,
@@ -51,27 +66,61 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       final capabilities = await ref.read(
         dbOnlineSubscriptionCapabilitiesProvider(serverId).future,
       );
-      if (!context.mounted || !_isCurrent(context, ref, query)) return;
-      if (!capabilities.database) return;
+      if (!context.mounted || !_isCurrent(context, ref, query)) return null;
+      if (!capabilities.database) return null;
       final subscription = await ref.read(
         dbOnlineSubscriptionStatusProvider(query).future,
       );
-      if (!context.mounted || !_isCurrent(context, ref, query)) return;
-      await _openActions(
-        context,
-        ref,
-        query,
-        AppL10n.of(context),
+      if (!context.mounted || !_isCurrent(context, ref, query)) return null;
+      final l = AppL10n.of(context);
+      final actions = _actionOptions(
+        l,
         subscribed: subscription.subscribed,
         subscription: subscription,
         showAddAction: true,
+      );
+      return DbOnlineSubscriptionLongPressMenu(
+        query: query,
+        status: subscription,
+        entries: [
+          for (final action in actions)
+            GlassMenuEntry<String>.action(
+              value: action.$1,
+              builder: (context, selected, onTap) => GlassMenuRow(
+                label: action.$2,
+                icon: action.$3,
+                selected: selected,
+                foregroundColor: action.$1 == 'cancel'
+                    ? appColors(context).danger
+                    : null,
+                onTap: onTap,
+              ),
+            ),
+        ],
       );
     } catch (error) {
       if (context.mounted && _isCurrent(context, ref, query)) {
         _notify(context, localizedErrorMessage(AppL10n.of(context), error));
       }
+      return null;
     }
   }
+
+  Future<void> selectLongPressMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    DbOnlineSubscriptionLongPressMenu menu,
+    String action,
+  ) => _openActions(
+    context,
+    ref,
+    menu.query,
+    AppL10n.of(context),
+    subscribed: menu.status.subscribed,
+    subscription: menu.status,
+    showAddAction: true,
+    selectedAction: action,
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -149,7 +198,9 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
                 backgroundColor: stateColor,
                 disabledForegroundColor: colors.muted,
                 side: BorderSide(
-                  color: stateColor == null ? colors.cardBorder : Colors.transparent,
+                  color: stateColor == null
+                      ? colors.cardBorder
+                      : Colors.transparent,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -205,82 +256,43 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     required bool subscribed,
     required DbOnlineSubscriptionStatus? subscription,
     bool showAddAction = false,
+    String? selectedAction,
   }) async {
     if (!context.mounted || !_isCurrent(context, ref, query)) return;
     var editing = false;
     if (subscribed || showAddAction) {
-      final actions = <(String, String, IconData)>[];
-      if (!subscribed) {
-        actions.add((
-          'add',
-          l.dbOnlineSubscriptionAdd,
-          Icons.add_circle_outline_rounded,
-        ));
-      } else {
-        final state = subscription;
-        if (state == null) return;
-        final currentStatus = state.status.isEmpty ? 'pending' : state.status;
-        if (kind == 'video') {
-          if (state.overdue ||
-              currentStatus == 'skipped' ||
-              currentStatus == 'completed') {
-            actions.add((
-              'restore',
-              l.dbOnlineSubscriptionRestoreAction,
-              Icons.restart_alt_rounded,
-            ));
-          }
-          if (currentStatus == 'pending' &&
-              state.sourceType != 'video' &&
-              !state.overdue) {
-            actions.add((
-              'skip',
-              l.dbOnlineSubscriptionSkipAction,
-              Icons.skip_next_rounded,
-            ));
-          }
-          if (currentStatus == 'pending') {
-            actions.add((
-              'complete',
-              l.dbOnlineSubscriptionCompleteAction,
-              Icons.done_all_rounded,
-            ));
-          }
-        }
-        if (!showAddAction) {
-          actions.add(
-            ('edit', l.dbOnlineSubscriptionEdit, Icons.edit_outlined),
-          );
-        }
-        actions.add((
-          'cancel',
-          l.dbOnlineSubscriptionCancelAction,
-          Icons.remove_circle_outline_rounded,
-        ));
-      }
-      final action = await showGlassSheet<String>(
-        context: context,
-        builder: (context) => SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: actions
-                .map(
-                  (action) => ListTile(
-                    leading: Icon(
-                      action.$3,
-                      color: action.$1 == 'cancel'
-                          ? appColors(context).danger
-                          : null,
-                    ),
-                    title: Text(action.$2),
-                    onTap: () => Navigator.pop(context, action.$1),
-                  ),
-                )
-                .toList(growable: false),
-          ),
-        ),
+      if (kind == 'video' && subscribed && subscription == null) return;
+      final actions = _actionOptions(
+        l,
+        subscribed: subscribed,
+        subscription: subscription,
+        showAddAction: showAddAction,
       );
+      final action =
+          selectedAction ??
+          await showGlassSheet<String>(
+            context: context,
+            builder: (context) => SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: actions
+                    .map(
+                      (action) => ListTile(
+                        leading: Icon(
+                          action.$3,
+                          color: action.$1 == 'cancel'
+                              ? appColors(context).danger
+                              : null,
+                        ),
+                        title: Text(action.$2),
+                        onTap: () => Navigator.pop(context, action.$1),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
+          );
       if (!context.mounted ||
           !_isCurrent(context, ref, query) ||
           action == null) {
@@ -385,6 +397,65 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     }
   }
 
+  List<(String, String, IconData)> _actionOptions(
+    AppL10n l, {
+    required bool subscribed,
+    required DbOnlineSubscriptionStatus? subscription,
+    required bool showAddAction,
+  }) {
+    if (!subscribed) {
+      return showAddAction
+          ? [
+              (
+                'add',
+                l.dbOnlineSubscriptionAdd,
+                Icons.add_circle_outline_rounded,
+              ),
+            ]
+          : const [];
+    }
+    final state = subscription;
+    if (kind == 'video' && state == null) return const [];
+    final actions = <(String, String, IconData)>[];
+    if (kind == 'video') {
+      final currentStatus = state!.status.isEmpty ? 'pending' : state.status;
+      if (state.overdue ||
+          currentStatus == 'skipped' ||
+          currentStatus == 'completed') {
+        actions.add((
+          'restore',
+          l.dbOnlineSubscriptionRestoreAction,
+          Icons.restart_alt_rounded,
+        ));
+      }
+      if (currentStatus == 'pending' &&
+          state.sourceType != 'video' &&
+          !state.overdue) {
+        actions.add((
+          'skip',
+          l.dbOnlineSubscriptionSkipAction,
+          Icons.skip_next_rounded,
+        ));
+      }
+      if (currentStatus == 'pending') {
+        actions.add((
+          'complete',
+          l.dbOnlineSubscriptionCompleteAction,
+          Icons.done_all_rounded,
+        ));
+      }
+    }
+    if (!showAddAction) {
+      actions.add(('edit', l.dbOnlineSubscriptionEdit, Icons.edit_outlined));
+    }
+    actions.add((
+      'cancel',
+      l.dbOnlineSubscriptionCancelAction,
+      Icons.remove_circle_outline_rounded,
+    ));
+    return actions;
+  }
+
   Future<void> _updateVideoSubscriptionStatus(
     BuildContext context,
     WidgetRef ref,
@@ -459,11 +530,10 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
       final root = _dataMap(await api.getSubscriptionPreset());
       final preset = _dataMap(root['preset']);
       if (preset['enabled'] != true) return const <String, dynamic>{};
-      final overdue = (int.tryParse(
-            preset['overdue_days']?.toString() ?? '',
-          ) ?? 0)
-          .clamp(0, 180)
-          .toInt();
+      final overdue =
+          (int.tryParse(preset['overdue_days']?.toString() ?? '') ?? 0)
+              .clamp(0, 180)
+              .toInt();
       final afterDate = preset['after_date']?.toString().trim() ?? '';
       return <String, dynamic>{
         'quality': preset['quality']?.toString() ?? '',

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -218,6 +219,7 @@ class GlassMenuAnchor<T> extends StatefulWidget {
     this.enabled = true,
     this.tooltip,
     this.onAnchorTap,
+    this.onLongPressEntries,
   }) : assert(
          (child == null) != (builder == null),
          'Provide exactly one of child or builder.',
@@ -239,6 +241,9 @@ class GlassMenuAnchor<T> extends StatefulWidget {
   final String? tooltip;
   final VoidCallback? onAnchorTap;
 
+  /// 长按后按需加载菜单项；适用于菜单选项依赖异步状态的锚点。
+  final Future<List<GlassMenuEntry<T>>?> Function()? onLongPressEntries;
+
   @override
   State<GlassMenuAnchor<T>> createState() => _GlassMenuAnchorState<T>();
 }
@@ -249,14 +254,12 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
   Rect? _menuRect;
   List<GlassMenuEntry<T>>? _openEntries;
   bool _interactive = false;
+  int _longPressRequest = 0;
+  bool _preparingLongPress = false;
+  bool _longPressReleased = false;
+  Offset? _longPressPosition;
 
-  double get _menuHeight {
-    final entries = widget.entries;
-    return GlassMenuPanel.verticalPadding * 2 +
-        entries.fold<double>(0, (total, entry) => total + entry.height);
-  }
-
-  Rect? _geometry() {
+  Rect? _geometry(List<GlassMenuEntry<T>> entries) {
     final anchorObject = context.findRenderObject();
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayObject = overlay.context.findRenderObject();
@@ -269,7 +272,9 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     final overlayTopLeft = overlayObject.localToGlobal(Offset.zero);
     final overlaySize = overlayObject.size;
     final overlayRect = overlayTopLeft & overlaySize;
-    final menuHeight = _menuHeight;
+    final menuHeight =
+        GlassMenuPanel.verticalPadding * 2 +
+        entries.fold<double>(0, (total, entry) => total + entry.height);
 
     final rawLeft = switch (widget.alignment) {
       GlassMenuAlignment.start => anchorRect.left + widget.offset.dx,
@@ -318,11 +323,16 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     return null;
   }
 
-  void _open({required bool interactive, Offset? initialPosition}) {
-    if (!widget.enabled || _overlayEntry != null || widget.entries.isEmpty) {
+  void _open({
+    required bool interactive,
+    Offset? initialPosition,
+    List<GlassMenuEntry<T>>? entries,
+  }) {
+    final openEntries = entries ?? widget.entries;
+    if (!widget.enabled || _overlayEntry != null || openEntries.isEmpty) {
       return;
     }
-    final rect = _geometry();
+    final rect = _geometry(openEntries);
     if (rect == null) return;
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayObject = overlay.context.findRenderObject();
@@ -332,7 +342,7 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     final selection = ValueNotifier<T?>(widget.initialSelection);
     _interactive = interactive;
     _menuRect = rect;
-    _openEntries = List<GlassMenuEntry<T>>.of(widget.entries);
+    _openEntries = List<GlassMenuEntry<T>>.of(openEntries);
     _selection = selection;
     final entry = OverlayEntry(
       builder: (context) => Positioned.fill(
@@ -392,10 +402,49 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     if (!widget.enabled) return;
     _close();
     AppHaptics.medium();
-    _open(interactive: false, initialPosition: details.globalPosition);
+    _longPressReleased = false;
+    _longPressPosition = details.globalPosition;
+    final loadEntries = widget.onLongPressEntries;
+    if (loadEntries == null) {
+      _open(interactive: false, initialPosition: details.globalPosition);
+      return;
+    }
+    _preparingLongPress = true;
+    final request = _longPressRequest;
+    unawaited(_openAfterLoadingEntries(loadEntries, request));
+  }
+
+  Future<void> _openAfterLoadingEntries(
+    Future<List<GlassMenuEntry<T>>?> Function() loadEntries,
+    int request,
+  ) async {
+    try {
+      final entries = await loadEntries();
+      if (!mounted || request != _longPressRequest || !widget.enabled) return;
+      final released = _longPressReleased;
+      _open(
+        interactive: released,
+        initialPosition: released ? null : _longPressPosition,
+        entries: entries,
+      );
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'glass menu',
+          context: ErrorDescription('while loading long-press menu entries'),
+        ),
+      );
+    } finally {
+      if (mounted && request == _longPressRequest) {
+        _preparingLongPress = false;
+      }
+    }
   }
 
   void _updateSelection(Offset globalPosition) {
+    _longPressPosition = globalPosition;
     final selection = _selection;
     if (selection == null) return;
     final next = _valueAt(globalPosition);
@@ -405,7 +454,13 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
   }
 
   void _finishLongPress(LongPressEndDetails details) {
-    if (_overlayEntry == null) return;
+    if (_overlayEntry == null) {
+      if (_preparingLongPress) {
+        _longPressReleased = true;
+        _longPressPosition = details.globalPosition;
+      }
+      return;
+    }
     final value = _valueAt(details.globalPosition);
     if (value != null) {
       _select(value);
@@ -424,6 +479,10 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
   }
 
   void _close() {
+    _longPressRequest++;
+    _preparingLongPress = false;
+    _longPressReleased = false;
+    _longPressPosition = null;
     final entry = _overlayEntry;
     _overlayEntry = null;
     _menuRect = null;

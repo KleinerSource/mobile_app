@@ -304,7 +304,7 @@ void main() {
     final beforeDelete = subscriptionReloads;
     await tester.tap(subscribedButton);
     await pumpFollowingFrames(tester);
-    await tester.tap(find.text('移除'));
+    await tester.tap(find.text('取消订阅'));
     await pumpFollowingFrames(tester);
     await tester.tap(find.text('删除订阅').last);
     await pumpFollowingFrames(tester);

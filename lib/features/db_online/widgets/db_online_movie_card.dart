@@ -5,18 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
-import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
+import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
+import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
+import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 import 'package:omm/features/db_online/widgets/db_online_subscription_status_badge.dart';
+import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/poster.dart';
-import 'package:omm/features/privacy/privacy_providers.dart';
-import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
-import 'package:omm/features/db_online/widgets/db_online_ranking_preview_card.dart';
-import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
+import 'package:omm/shared/glass_menu.dart';
 
 /// dbonline 字段适配器。
 ///
@@ -116,34 +117,54 @@ class DbOnlineMovieCard extends ConsumerWidget {
       onTap?.call();
     }
 
-    void handleLongPress() {
-      if (!subscriptionActionsEnabled || movie.number.trim().isEmpty) return;
-      if (privacyEnabled && !revealed) {
-        ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
-        return;
-      }
-      unawaited(
-        DbOnlineSubscriptionAction(
-          kind: 'video',
-          id: movie.number.trim(),
-          title: movie.title.trim(),
-        ).openForLongPress(context, ref),
+    final subscriptionAction = DbOnlineSubscriptionAction(
+      kind: 'video',
+      id: movie.number.trim(),
+      title: movie.title.trim(),
+    );
+    DbOnlineSubscriptionLongPressMenu? preparedMenu;
+    Widget wrapSubscriptionMenu(Widget child) {
+      if (!subscriptionActionsEnabled) return child;
+      return GlassMenuAnchor<String>(
+        width: 232,
+        entries: const [],
+        onLongPressEntries: () async {
+          preparedMenu = null;
+          if (privacyEnabled && !revealed) {
+            ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
+            return null;
+          }
+          if (movie.number.trim().isEmpty) return null;
+          preparedMenu = await subscriptionAction.prepareLongPressMenu(
+            context,
+            ref,
+          );
+          return preparedMenu?.entries;
+        },
+        onSelected: (action) {
+          final menu = preparedMenu;
+          if (menu == null) return;
+          unawaited(
+            subscriptionAction.selectLongPressMenuAction(
+              context,
+              ref,
+              menu,
+              action,
+            ),
+          );
+        },
+        onAnchorTap: handleTap,
+        child: child,
       );
     }
-
-    Widget wrapLongPress(Widget child) => subscriptionActionsEnabled
-        ? GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPress: handleLongPress,
-            child: child,
-          )
-        : child;
 
     if (previewList) {
       final rating = showRating ? normalizeMediaRating(movie.score) : null;
       // 已完成的绿点放在名称前，其余订阅状态角标留在预览图左下角。
-      final subscriptionCompleted = _isSubscriptionCompleted(subscriptionStatus);
-      return wrapLongPress(
+      final subscriptionCompleted = _isSubscriptionCompleted(
+        subscriptionStatus,
+      );
+      return wrapSubscriptionMenu(
         DbOnlineRankingPreviewCard(
           title: movie.title.trim().isEmpty
               ? l.movieCardUntitledTitle
@@ -164,15 +185,17 @@ class DbOnlineMovieCard extends ConsumerWidget {
               ? _subscriptionCompletedDot(l)
               : null,
           privacyId: privacyId,
-          onTap: handleTap,
+          onTap: subscriptionActionsEnabled ? null : handleTap,
         ),
       );
     }
 
     if (compact) {
       // 已完成的绿点放在标题前，其余订阅状态角标仍留在标题下方。
-      final subscriptionCompleted = _isSubscriptionCompleted(subscriptionStatus);
-      return wrapLongPress(
+      final subscriptionCompleted = _isSubscriptionCompleted(
+        subscriptionStatus,
+      );
+      return wrapSubscriptionMenu(
         CatalogListMovieCard(
           titleMaxLines: listTitleMaxLines,
           title: movie.title.trim().isEmpty
@@ -192,19 +215,15 @@ class DbOnlineMovieCard extends ConsumerWidget {
           titleLeading: subscriptionCompleted
               ? _subscriptionCompletedDot(l)
               : null,
-          onTap: handleTap,
+          onTap: subscriptionActionsEnabled ? null : handleTap,
         ),
       );
     }
 
-    // dbonline 没有 OMM 影片库的多选链路，因此卡片长按不应出现按压反馈。
-    // 保留共享卡片的展示层，把点击交给外层 GestureDetector，避免
-    // CatalogMovieCard 内部 InkWell 在长按时产生额外的 Material 特效。
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: handleTap,
-      onLongPress: subscriptionActionsEnabled ? handleLongPress : null,
-      child: CatalogMovieCard(
+    // dbonline 没有 OMM 影片库的多选链路，因此保留共享卡片的展示层，
+    // 点击与长按分别交给外层锚定菜单处理。
+    return wrapSubscriptionMenu(
+      CatalogMovieCard(
         title: movie.title.trim().isEmpty
             ? l.movieCardUntitledTitle
             : movie.title,
@@ -222,6 +241,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         showTitle: !codeOnly,
         showMeta: !codeOnly,
         landscape: landscape,
+        onTap: subscriptionActionsEnabled ? null : handleTap,
       ),
     );
   }
