@@ -604,7 +604,12 @@ class _RankedMovieCard extends ConsumerWidget {
           previewList: compact,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         ),
-        Positioned(left: 6, top: 6, child: _RankBadge(rank: rank)),
+        Positioned(
+          left: compact ? 6 : null,
+          right: compact ? null : 6,
+          top: 6,
+          child: _RankBadge(rank: rank),
+        ),
       ],
     );
   }
