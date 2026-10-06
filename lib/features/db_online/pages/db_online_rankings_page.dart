@@ -9,6 +9,7 @@ import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/sources/media/dbo/db_online_ranking.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/settings/settings_common.dart' show HapticSlider;
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/empty_view.dart';
@@ -488,7 +489,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 22),
-                          child: Slider(
+                          child: HapticSlider(
                             value: value.topN.toDouble(),
                             min: DbOnlineRankingAutoConfig.minTopN.toDouble(),
                             max: DbOnlineRankingAutoConfig.maxTopN.toDouble(),
