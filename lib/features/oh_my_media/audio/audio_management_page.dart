@@ -8,7 +8,6 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
@@ -19,7 +18,6 @@ import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/shared/debouncer.dart';
-import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_provider.dart';
@@ -59,8 +57,8 @@ String _transcriptionStageLabel(AppL10n l, AudioTranscription t) {
 /// 音频管理 · 集中查看已提取的音频资产与字幕转译进度
 ///
 /// - 汇总卡 + 搜索栏 (320ms debounce)
-/// - 提取中任务：来自任务中心 WebSocket，含实时进度，左滑取消
-/// - 资产卡片：影片 / 文件 / 规格 / 转译状态，单项操作左滑展开
+/// - 提取中任务：来自任务中心 WebSocket，含实时进度，可直接取消
+/// - 资产卡片：影片 / 文件 / 规格 / 转译状态，单项操作通过菜单访问
 /// - 长按多选（滑动连选）：批量加入转译、批量删除
 /// - 音频提取请从影片详情页发起
 class AudioManagementPage extends ConsumerStatefulWidget {
@@ -84,6 +82,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
   final _debounce = Debouncer();
   Timer? _taskReloadDebounce;
+  int? _loadingPageSerial;
   String? _search;
   String _lastTaskSignature = '';
   bool _lastPageComplete = false;
@@ -93,8 +92,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   final Set<int> _busyAssetIds = <int>{};
   final Set<String> _busyTaskIds = <String>{};
 
-  /// 当前左滑展开的行（资产 id 或 'task:$id'），同一时刻只展开一个。
-  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   bool _refreshing = false;
 
   @override
@@ -102,14 +99,15 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     super.initState();
     _selection = PagedSelectionController<int>();
     _selection.addModeListener(_onSelectionModeChanged);
-    _controller.addPageRequestListener(_fetch);
-    _scrollController.addListener(_closeSwipeOnScroll);
+    _scrollController.addListener(_handleScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reload();
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_closeSwipeOnScroll);
-    _openSwipe.dispose();
+    _scrollController.removeListener(_handleScroll);
     _taskReloadDebounce?.cancel();
     _debounce.cancel();
     _requests.dispose();
@@ -127,18 +125,42 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     if (mounted) setState(() {});
   }
 
-  /// 列表开始滚动时收起已展开的左滑操作。
-  void _closeSwipeOnScroll() {
-    if (_openSwipe.value != null) _openSwipe.value = null;
+  void _handleScroll() {
+    _requestNextPageIfNeeded();
+  }
+
+  void _requestNextPageIfNeeded() {
+    if (!_scrollController.hasClients ||
+        _controller.itemList == null ||
+        _controller.nextPageKey == null ||
+        _controller.error != null ||
+        _refreshing ||
+        _loadingPageSerial == _requestSerial) {
+      return;
+    }
+
+    final position = _scrollController.position;
+    if (position.extentAfter > position.viewportDimension) return;
+    unawaited(_fetch(_controller.nextPageKey!));
+  }
+
+  void _retryNextPage() {
+    final nextPageKey = _controller.nextPageKey;
+    if (nextPageKey == null) return;
+    _controller.error = null;
+    unawaited(_fetch(nextPageKey));
   }
 
   Future<void> _fetch(int offset) async {
     final pageRequest = _requests.begin(offset);
     if (pageRequest == null) return;
     final requestSerial = _requestSerial;
+    var didApplyPage = false;
     try {
       // 刷新已有列表时保留旧数据，避免列表组件触发额外的后续分页请求。
       if (_refreshing && offset != 0) return;
+      if (!mounted) return;
+      setState(() => _loadingPageSerial = requestSerial);
       final page = await ref
           .read(audioRepositoryProvider)
           .listAssets(limit: _pageSize, offset: offset, search: _search);
@@ -158,6 +180,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         restorer: _scrollRestorer,
         scrollController: _scrollController,
       );
+      didApplyPage = true;
       setState(() => _lastPageComplete = !hasMore);
       _pruneSelection(page.items);
     } catch (error) {
@@ -167,6 +190,14 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       _refreshing = false;
     } finally {
       pageRequest.finish();
+      if (mounted && _loadingPageSerial == requestSerial) {
+        setState(() => _loadingPageSerial = null);
+      }
+      if (mounted && didApplyPage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _requestNextPageIfNeeded();
+        });
+      }
     }
   }
 
@@ -257,6 +288,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       _pruneSelection(page.items);
       // 新快照提交后，不允许旧偏移的翻页再追加。
       _requests.invalidate();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _requestNextPageIfNeeded();
+      });
     } catch (_) {
       if (!pageRequest.isCurrent ||
           !mounted ||
@@ -316,18 +350,18 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     return asset.movieId > 0 && activeMovies.contains(asset.movieId);
   }
 
-  /// 单个资产的左滑操作集：无可用操作时返回空列表（禁用滑动）。
-  List<SwipeActionData> _assetSwipeActions(
+  /// 单个资产可用的菜单操作。
+  List<_AudioAssetAction> _assetActions(
     AppColors c,
     AudioAsset asset,
     bool transcriptionEnabled,
     bool locked,
   ) {
     final t = asset.transcriptionView;
-    final actions = <SwipeActionData>[];
+    final actions = <_AudioAssetAction>[];
     if (asset.isTranscriptionActive && t.taskId.isNotEmpty) {
       actions.add(
-        SwipeActionData(
+        _AudioAssetAction(
           icon: Icons.stop_rounded,
           label: AppL10n.of(context).audioActionCancelTranscription,
           color: c.danger,
@@ -336,7 +370,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       );
     } else if ((t.isFailed || t.isCanceled) && t.taskId.isNotEmpty) {
       actions.add(
-        SwipeActionData(
+        _AudioAssetAction(
           icon: Icons.refresh_rounded,
           label: AppL10n.of(context).audioActionRetryTranscription,
           color: c.warning,
@@ -345,7 +379,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       );
     } else if (transcriptionEnabled && asset.fileExists && !locked) {
       actions.add(
-        SwipeActionData(
+        _AudioAssetAction(
           icon: Icons.cloud_upload_outlined,
           label: AppL10n.of(context).audioActionEnqueueTranscription,
           color: c.accent,
@@ -355,7 +389,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     }
     if (!asset.isTranscriptionActive && !locked) {
       actions.add(
-        SwipeActionData(
+        _AudioAssetAction(
           icon: Icons.delete_outline_rounded,
           label: AppL10n.of(context).delete,
           color: c.danger,
@@ -705,14 +739,23 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     required String confirmLabel,
   }) {
     var overwrite = false;
-    return showGlassSheet<bool>(
+    final c = appColors(context);
+    return showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: c.sheetBackground,
+      barrierColor: c.sheetBarrier,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
-        final c = appColors(sheetContext);
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) => SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 20),
+              padding: const EdgeInsets.fromLTRB(22, 12, 22, 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -833,7 +876,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                         eyebrow: l.audioEyebrow,
                         bottomPadding: PageHeader.toolbarTopGap,
                         title: l.settingsAudioManagement,
-                        count: _controller.itemList == null ? null : _totalCount,
+                        count: _controller.itemList == null
+                            ? null
+                            : _totalCount,
                         countSuffix: l.audioAssetCountSuffix,
                         subtitle: _search == null
                             ? null
@@ -900,174 +945,181 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                 ),
                                 child: Container(
                                   decoration: settingsCardDecoration(context),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Column(
-                                      children: [
-                                        for (
-                                          var i = 0;
-                                          i < extractionTasks.length;
-                                          i++
-                                        ) ...[
-                                          if (i > 0)
-                                            Divider(
-                                              height: 1,
-                                              color: c.divider,
-                                            ),
-                                          SwipeActionCell(
-                                            group: _openSwipe,
-                                            cellKey:
-                                                'task:${extractionTasks[i].id}',
-                                            enabled:
-                                                !_selectionMode &&
-                                                !_busyTaskIds.contains(
-                                                  extractionTasks[i].id,
-                                                ),
-                                            actions: [
-                                              SwipeActionData(
-                                                icon: Icons.stop_rounded,
-                                                label: l
-                                                    .audioActionCancelExtraction,
-                                                color: c.danger,
-                                                onPressed: () =>
-                                                    _cancelExtraction(
-                                                      extractionTasks[i],
-                                                    ),
-                                              ),
-                                            ],
-                                            child: _ExtractionTaskCard(
-                                              task: extractionTasks[i],
-                                              busy: _busyTaskIds.contains(
-                                                extractionTasks[i].id,
-                                              ),
-                                            ),
+                                  child: Column(
+                                    children: [
+                                      for (
+                                        var i = 0;
+                                        i < extractionTasks.length;
+                                        i++
+                                      ) ...[
+                                        if (i > 0)
+                                          Divider(height: 1, color: c.divider),
+                                        _ExtractionTaskCard(
+                                          task: extractionTasks[i],
+                                          busy: _busyTaskIds.contains(
+                                            extractionTasks[i].id,
                                           ),
-                                        ],
+                                          onCancel: () => _cancelExtraction(
+                                            extractionTasks[i],
+                                          ),
+                                        ),
                                       ],
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
                           ],
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                              22,
-                              MediaListLayout.contentTopInset,
-                              22,
-                              _selectionMode ? 136 : 80,
-                            ),
-                            sliver: PagedSliverList<int, AudioAsset>.separated(
-                              pagingController: _controller,
-                              separatorBuilder: (_, itemIndex) {
-                                // 分页组件在末项与状态页脚之间也会排一条
-                                // 分隔线，末行底部圆角下会多出一条线，隐藏之。
-                                final count = _controller.itemList?.length ?? 0;
-                                return itemIndex >= count - 1
-                                    ? const SizedBox.shrink()
-                                    : Divider(height: 1, color: c.divider);
-                              },
-                              builderDelegate:
-                                  PagedChildBuilderDelegate<AudioAsset>(
-                                    itemBuilder: (ctx, asset, index) {
-                                      final busy = _busyAssetIds.contains(
-                                        asset.id,
-                                      );
-                                      final locked = _isAssetLocked(
-                                        asset,
-                                        activeMovies,
-                                      );
-                                      // 连排整条列表：首行圆上角、末行圆下角，
-                                      // 操作块沿用同一圆角避免顶出行轮廓。
-                                      final isLastRow =
+                          ValueListenableBuilder<PagingState<int, AudioAsset>>(
+                            valueListenable: _controller,
+                            builder: (context, paging, _) {
+                              final items = paging.itemList;
+                              final padding = EdgeInsets.fromLTRB(
+                                22,
+                                MediaListLayout.contentTopInset,
+                                22,
+                                _selectionMode ? 136 : 80,
+                              );
+                              if (items == null) {
+                                return SliverPadding(
+                                  padding: padding,
+                                  sliver: SliverToBoxAdapter(
+                                    child: paging.error == null
+                                        ? const Center(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(32),
+                                              child:
+                                                  CupertinoActivityIndicator(),
+                                            ),
+                                          )
+                                        : ErrorView(
+                                            message: localizedErrorMessage(
+                                              l,
+                                              paging.error,
+                                            ),
+                                            onRetry: _reload,
+                                          ),
+                                  ),
+                                );
+                              }
+                              if (items.isEmpty) {
+                                return SliverPadding(
+                                  padding: padding,
+                                  sliver: SliverToBoxAdapter(
+                                    child: paging.error == null
+                                        ? _EmptyState(
+                                            searching: _search != null,
+                                          )
+                                        : ErrorView(
+                                            message: localizedErrorMessage(
+                                              l,
+                                              paging.error,
+                                            ),
+                                            onRetry: _reload,
+                                          ),
+                                  ),
+                                );
+                              }
+
+                              return SliverPadding(
+                                padding: padding,
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    if (index == items.length) {
+                                      if (paging.nextPageKey == null) {
+                                        return const NoMoreContent();
+                                      }
+                                      if (paging.error != null) {
+                                        return PaginationRetry(
+                                          onRetry: _retryNextPage,
+                                        );
+                                      }
+                                      return _loadingPageSerial ==
+                                              _requestSerial
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(20),
+                                              child: Center(
+                                                child:
+                                                    CupertinoActivityIndicator(),
+                                              ),
+                                            )
+                                          : const SizedBox.shrink();
+                                    }
+
+                                    final asset = items[index];
+                                    final locked = _isAssetLocked(
+                                      asset,
+                                      activeMovies,
+                                    );
+                                    final rowRadius = BorderRadius.vertical(
+                                      top: index == 0
+                                          ? const Radius.circular(16)
+                                          : Radius.zero,
+                                      bottom:
                                           _lastPageComplete &&
-                                          index ==
-                                              (_controller.itemList?.length ??
-                                                      0) -
-                                                  1;
-                                      final rowRadius = BorderRadius.vertical(
-                                        top: index == 0
-                                            ? const Radius.circular(16)
-                                            : Radius.zero,
-                                        bottom: isLastRow
-                                            ? const Radius.circular(16)
-                                            : Radius.zero,
-                                      );
-                                      return SwipeActionCell(
-                                        key: ValueKey(asset.id),
-                                        actionBorderRadius: rowRadius,
-                                        group: _openSwipe,
-                                        cellKey: asset.id,
-                                        enabled: !_selectionMode && !busy,
-                                        actions: _assetSwipeActions(
-                                          c,
-                                          asset,
-                                          transcriptionEnabled,
-                                          locked,
-                                        ),
-                                        child: DragSelectionTarget<int>(
-                                          key: ValueKey(asset.id),
+                                              index == items.length - 1
+                                          ? const Radius.circular(16)
+                                          : Radius.zero,
+                                    );
+                                    return Column(
+                                      key: ValueKey(asset.id),
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        DragSelectionTarget<int>(
                                           id: asset.id,
                                           selectionIndex: index,
                                           selectionHandleAlignment:
                                               Alignment.centerLeft,
-                                          child: ClipRRect(
-                                            borderRadius: rowRadius,
-                                            child:
-                                                ValueListenableBuilder<
-                                                  Set<Object>
-                                                >(
-                                                  valueListenable: _selection
-                                                      .selectedListenable,
-                                                  builder:
-                                                      (
-                                                        context,
-                                                        selected,
-                                                        _,
-                                                      ) => _AssetCard(
-                                                        asset: asset,
-                                                        selected: selected
-                                                            .contains(asset.id),
-                                                        selecting:
-                                                            _selectionMode,
-                                                        locked: locked,
-                                                        onToggleSelect: () =>
-                                                            _toggleSelect(
-                                                              asset.id,
-                                                            ),
-                                                        onOpenMovie: () =>
-                                                            _openMovieDetail(
-                                                              asset,
-                                                            ),
+                                          child:
+                                              ValueListenableBuilder<
+                                                Set<Object>
+                                              >(
+                                                valueListenable: _selection
+                                                    .selectedListenable,
+                                                builder:
+                                                    (
+                                                      context,
+                                                      selected,
+                                                      _,
+                                                    ) => _AssetCard(
+                                                      asset: asset,
+                                                      selected: selected
+                                                          .contains(asset.id),
+                                                      selecting: _selectionMode,
+                                                      locked: locked,
+                                                      busy: _busyAssetIds
+                                                          .contains(asset.id),
+                                                      actions: _assetActions(
+                                                        c,
+                                                        asset,
+                                                        transcriptionEnabled,
+                                                        locked,
                                                       ),
-                                                ),
-                                          ),
+                                                      borderRadius: rowRadius,
+                                                      onAction: (action) =>
+                                                          action.onPressed(),
+                                                      onToggleSelect: () =>
+                                                          _toggleSelect(
+                                                            asset.id,
+                                                          ),
+                                                      onOpenMovie: () =>
+                                                          _openMovieDetail(
+                                                            asset,
+                                                          ),
+                                                    ),
+                                              ),
                                         ),
-                                      );
-                                    },
-                                    firstPageProgressIndicatorBuilder: (_) =>
-                                        const Center(
-                                          child: Padding(
-                                            padding: EdgeInsets.all(32),
-                                            child: CupertinoActivityIndicator(),
-                                          ),
-                                        ),
-                                    firstPageErrorIndicatorBuilder: (_) =>
-                                        ErrorView(
-                                          message: _controller.error == null
-                                              ? l.loadFailed
-                                              : localizedErrorMessage(
-                                                  l,
-                                                  _controller.error!,
-                                                ),
-                                          onRetry: () => _controller.refresh(),
-                                        ),
-                                    noItemsFoundIndicatorBuilder: (_) =>
-                                        _EmptyState(searching: _search != null),
-                                    noMoreItemsIndicatorBuilder: (_) =>
-                                        const NoMoreContent(),
-                                  ),
-                            ),
+                                        if (index < items.length - 1)
+                                          Divider(height: 1, color: c.divider),
+                                      ],
+                                    );
+                                  }, childCount: items.length + 1),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1174,9 +1226,14 @@ class _SearchField extends StatelessWidget {
 
 // ============ 提取中任务卡 ============
 class _ExtractionTaskCard extends StatelessWidget {
-  const _ExtractionTaskCard({required this.task, this.busy = false});
+  const _ExtractionTaskCard({
+    required this.task,
+    required this.onCancel,
+    this.busy = false,
+  });
 
   final TaskItem task;
+  final VoidCallback onCancel;
   final bool busy;
 
   @override
@@ -1192,84 +1249,85 @@ class _ExtractionTaskCard extends StatelessWidget {
         ? task.movieFileName
         : task.fileName;
 
-    return AnimatedOpacity(
-      opacity: busy ? 0.55 : 1,
-      duration: const Duration(milliseconds: 180),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: tint,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(Icons.audiotrack_rounded, size: 21, color: color),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: tint,
+              borderRadius: BorderRadius.circular(13),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title.isEmpty
-                              ? taskNameLabel(
-                                  AppL10n.of(context),
-                                  task.name,
-                                  taskType: task.taskType,
-                                )
-                              : title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
-                            height: 1.2,
-                          ),
+            child: Icon(Icons.audiotrack_rounded, size: 21, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title.isEmpty
+                            ? taskNameLabel(
+                                AppL10n.of(context),
+                                task.name,
+                                taskType: task.taskType,
+                              )
+                            : title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          height: 1.2,
                         ),
                       ),
-                      Text(
-                        '${task.progress.clampedPercent.toStringAsFixed(1)}%',
-                        style: AppText.mono(context, size: 12, color: c.text),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 9),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: percent.clamp(0.0, 1.0),
-                      minHeight: 4,
-                      backgroundColor: c.divider,
-                      color: color,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    task.status == 'idle'
-                        ? AppL10n.of(context).audioTaskQueued
-                        : AppL10n.of(context).audioTaskExtracting,
-                    style: TextStyle(
-                      color: c.muted,
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                    Text(
+                      '${task.progress.clampedPercent.toStringAsFixed(1)}%',
+                      style: AppText.mono(context, size: 12, color: c.text),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 9),
+                LinearProgressIndicator(
+                  value: percent.clamp(0.0, 1.0),
+                  minHeight: 4,
+                  backgroundColor: c.divider,
+                  color: color,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  task.status == 'idle'
+                      ? AppL10n.of(context).audioTaskQueued
+                      : AppL10n.of(context).audioTaskExtracting,
+                  style: TextStyle(
+                    color: c.muted,
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          IconButton(
+            tooltip: AppL10n.of(context).audioActionCancelExtraction,
+            onPressed: busy ? null : onCancel,
+            icon: const Icon(Icons.stop_rounded),
+            color: c.danger,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+          ),
+        ],
       ),
     );
   }
@@ -1282,6 +1340,10 @@ class _AssetCard extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.locked,
+    required this.busy,
+    required this.actions,
+    required this.borderRadius,
+    required this.onAction,
     required this.onToggleSelect,
     required this.onOpenMovie,
   });
@@ -1290,6 +1352,10 @@ class _AssetCard extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final bool locked;
+  final bool busy;
+  final List<_AudioAssetAction> actions;
+  final BorderRadius borderRadius;
+  final ValueChanged<_AudioAssetAction> onAction;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpenMovie;
 
@@ -1302,12 +1368,15 @@ class _AssetCard extends StatelessWidget {
 
     final inner = Container(
       // 分组连排行：无独立边框，选中以整行背景提示。
-      color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
+      decoration: BoxDecoration(
+        color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
+        borderRadius: borderRadius,
+      ),
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(c, status),
+          _buildHeader(context, c, status),
           const SizedBox(height: 6),
           Text(
             asset.fileName.isEmpty ? '-' : asset.fileName,
@@ -1337,7 +1406,7 @@ class _AssetCard extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(AppColors c, _StatusInfo status) {
+  Widget _buildHeader(BuildContext context, AppColors c, _StatusInfo status) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -1358,6 +1427,27 @@ class _AssetCard extends StatelessWidget {
             showDot: true,
             pulsing: status.pulsing,
           ),
+          if (actions.isNotEmpty)
+            PopupMenuButton<_AudioAssetAction>(
+              enabled: !busy,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              icon: Icon(Icons.more_horiz_rounded, color: c.muted),
+              onSelected: onAction,
+              itemBuilder: (context) => [
+                for (final action in actions)
+                  PopupMenuItem<_AudioAssetAction>(
+                    value: action,
+                    child: Row(
+                      children: [
+                        Icon(action.icon, size: 18, color: action.color),
+                        const SizedBox(width: 10),
+                        Text(action.label),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
         ],
       ],
     );
@@ -1510,14 +1600,11 @@ class _AssetCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (t.clampedPercent / 100).clamp(0.0, 1.0),
-              minHeight: 4,
-              backgroundColor: c.divider,
-              color: AppHues.top(AppHues.sky),
-            ),
+          LinearProgressIndicator(
+            value: (t.clampedPercent / 100).clamp(0.0, 1.0),
+            minHeight: 4,
+            backgroundColor: c.divider,
+            color: AppHues.top(AppHues.sky),
           ),
         ],
       );
@@ -1593,6 +1680,20 @@ class _StatusInfo {
   final String label;
   final Color color;
   final bool pulsing;
+}
+
+class _AudioAssetAction {
+  const _AudioAssetAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
 }
 
 // ============ 空态 ============
