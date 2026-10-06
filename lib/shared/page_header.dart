@@ -35,6 +35,12 @@ class PageHeader extends StatelessWidget {
 
   static const double trailingGap = 8;
 
+  /// 页头操作控件的可见边缘间距；圆形按钮相邻时，触区已提供此留白。
+  static const double actionGap = 12;
+
+  /// 圆形按钮与筛选／视图切换等自然宽度控件之间，扣除圆形触区留白。
+  static const double mixedActionGap = actionGap - trailingBleed;
+
   /// 相邻块（头部→工具栏、工具栏→搜索框等）之间的统一间距。
   static const double toolbarTopGap = 16;
 

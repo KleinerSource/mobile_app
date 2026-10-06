@@ -462,13 +462,13 @@ class _MediaBrowserFavoritesPageState
                               onTap: () => unawaited(_showSortSheet()),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: PageHeader.actionGap),
                           MediaViewModeToggle(
                             mode: _viewMode,
                             onChanged:
                                 ref.read(mediaServerViewModeProvider.notifier).set,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: PageHeader.mixedActionGap),
                           HeaderActionButton(
                             icon: Icons.settings_outlined,
                             tooltip: AppL10n.of(context).settingsTitle,

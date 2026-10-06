@@ -90,7 +90,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: PageHeader.actionGap),
                   SettingsAddButton(
                     onPressed: () => LibraryEditorPage.open(context),
                   ),

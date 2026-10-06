@@ -727,7 +727,7 @@ class _MediaBrowserLibraryPageState
                                 onTap: () => _openAdvancedFilter(context),
                               ),
                             if (!isStash) ...[
-                              const SizedBox(width: 8),
+                              const SizedBox(width: PageHeader.actionGap),
                               MediaViewModeToggle(
                                 mode: viewMode,
                                 onChanged: ref

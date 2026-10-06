@@ -322,7 +322,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                       onTap: () => _openFilterMenu(context),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: PageHeader.actionGap),
                   MediaViewModeToggle(
                     mode: viewMode,
                     onChanged: ref

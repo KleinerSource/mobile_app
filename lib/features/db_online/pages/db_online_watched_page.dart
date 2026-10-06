@@ -19,6 +19,7 @@ import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 import 'package:omm/features/db_online/widgets/db_online_watched_recheck_sheet.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/empty_view.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
@@ -299,7 +300,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
             onPressed: _recheck,
           ),
         if (canQuery) ...[
-          if (canRecheck) const SizedBox(width: 4),
+          if (canRecheck) const SizedBox(width: PageHeader.mixedActionGap),
           Tooltip(
             message: l.dbOnlineLibraryFilters,
             child: CompactFilterButton(
@@ -309,7 +310,7 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
               onTap: () => unawaited(_openFilterMenu()),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: PageHeader.actionGap),
           const MediaServerViewModeToggle(),
         ],
       ],

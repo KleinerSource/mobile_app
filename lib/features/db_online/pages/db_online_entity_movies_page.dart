@@ -298,7 +298,7 @@ class _DbOnlineEntityMoviesPageState
                     active: _filtersActive,
                     onTap: () => unawaited(_openFilterSheet()),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: PageHeader.actionGap),
                   MediaViewModeToggle(
                     mode: _viewMode,
                     onChanged: ref

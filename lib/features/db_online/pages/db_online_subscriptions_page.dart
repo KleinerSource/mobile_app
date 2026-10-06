@@ -631,7 +631,7 @@ class _DbOnlineSubscriptionsPageState
         children: [
           if (capabilities != null && _showsViewModeToggle) ...[
             const MediaServerViewModeToggle(),
-            const SizedBox(width: 4),
+            const SizedBox(width: PageHeader.mixedActionGap),
           ],
           if (actions.isNotEmpty)
             HeaderMenuButton<String>(

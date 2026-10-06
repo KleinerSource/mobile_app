@@ -21,6 +21,7 @@ import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/empty_view.dart';
+import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass.dart';
@@ -302,7 +303,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
             ),
           ),
         if (query) ...[
-          const SizedBox(width: 4),
+          if (database) const SizedBox(width: PageHeader.mixedActionGap),
           // 筛选按钮与影片库、榜单等其他页面的紧凑筛选样式一致。
           Tooltip(
             message: l.dbOnlineFollowingFilters,
@@ -314,7 +315,10 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
             ),
           ),
         ],
-        const SizedBox(width: 4),
+        if (query || database)
+          SizedBox(
+            width: query ? PageHeader.actionGap : PageHeader.mixedActionGap,
+          ),
         const MediaServerViewModeToggle(),
       ],
       filters: database

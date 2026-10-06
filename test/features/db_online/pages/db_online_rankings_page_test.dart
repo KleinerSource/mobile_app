@@ -140,6 +140,53 @@ void main() {
     expect(find.text('榜单影片'), findsOneWidget);
   });
 
+  testWidgets('Top250 筛选切换类型、年份和全部时传递匹配参数并更新列表', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final requests = <Map<String, dynamic>>[];
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final data = _responseFor(options.uri.path, top250Authorized: true);
+          if (options.uri.path == '/api/top250') {
+            requests.add(Map.of(options.queryParameters));
+            final query = options.queryParameters;
+            final movies = (data['data'] as Map)['movies'] as List;
+            (movies.single as Map)['title'] =
+                '${query['type']}:${query['type_value']}';
+          }
+          handler.resolve(Response<dynamic>(requestOptions: options, data: data));
+        },
+      ),
+    );
+    await pumpPage(tester, dio: dio);
+    await tester.tap(find.text('Top250'));
+    await tester.pumpAndSettle();
+    expect(requests.last['type'], 'all');
+
+    for (final (label, type, value) in [
+      ('有码', 'video_type', '0'),
+      ('无码', 'video_type', '1'),
+      ('欧美', 'video_type', '2'),
+      ('FC2', 'video_type', '3'),
+      ('${DateTime.now().year}', 'year', '${DateTime.now().year}'),
+      ('全部', 'all', ''),
+    ]) {
+      await tester.tap(find.byTooltip('筛选'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(requests.last['type'], type);
+      expect(requests.last['type_value'], value);
+      expect(requests.last['page'], 1);
+      Navigator.of(tester.element(find.text(label))).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('$type:$value'), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('切换演员榜请求演员接口并渲染演员卡片', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final requests = <String>[];

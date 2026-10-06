@@ -384,7 +384,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             activeCount: _currentFilter.activeAdvancedCount,
                             onTap: _openAdvancedFilter,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: PageHeader.actionGap),
                           MediaViewModeToggle(
                             mode: viewMode,
                             onChanged: (m) {

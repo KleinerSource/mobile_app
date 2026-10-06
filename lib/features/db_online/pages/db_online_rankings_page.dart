@@ -90,14 +90,13 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                     onPressed: () => unawaited(_openAutoConfig()),
                   ),
                   if (board == _Board.top250) ...[
-                    const SizedBox(width: 4),
                     HeaderActionButton(
                       icon: Icons.favorite_outline_rounded,
                       tooltip: l.dbOnlineRankingSubscribeAll,
                       color: appColors(context).accent,
                       onPressed: () => unawaited(_confirmSubscribeAll()),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: PageHeader.mixedActionGap),
                     // 筛选按钮与影片库等其他页面的紧凑筛选样式一致。
                     Tooltip(
                       message: l.dbOnlineLibraryFilters,
@@ -110,7 +109,11 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                     ),
                   ],
                   if (showsViewModeToggle) ...[
-                    const SizedBox(width: 4),
+                    SizedBox(
+                      width: board == _Board.top250
+                          ? PageHeader.actionGap
+                          : PageHeader.mixedActionGap,
+                    ),
                     const MediaServerViewModeToggle(),
                   ],
                 ],
@@ -174,6 +177,7 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
                     'top250:$_top250Value:$_startRank:$_ignoreWatched',
                   ),
                   typeValue: _top250Value,
+                  type: _top250TypeForRequest(),
                   startRank: _startRank,
                   ignoreWatched: _ignoreWatched,
                   viewMode: viewMode,
@@ -692,12 +696,14 @@ class _MovieRankingBoard extends ConsumerWidget {
 class _Top250Board extends ConsumerStatefulWidget {
   const _Top250Board({
     super.key,
+    required this.type,
     required this.typeValue,
     required this.startRank,
     required this.ignoreWatched,
     required this.viewMode,
   });
 
+  final String type;
   final String typeValue;
   final int startRank;
   final bool ignoreWatched;
@@ -738,6 +744,7 @@ class _Top250BoardState extends ConsumerState<_Top250Board> {
             serverId:
                 ref.read(mediaRuntimeConfigProvider)?.activeServerId ?? '',
             typeValue: widget.typeValue,
+            type: widget.type,
             startRank: widget.startRank,
             ignoreWatched: widget.ignoreWatched,
             page: page,
