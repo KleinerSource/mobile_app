@@ -256,6 +256,7 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           compact: _viewMode == MediaViewMode.list,
           previewList: _viewMode == MediaViewMode.list,
           showRating: false,
+          subscriptionActionsEnabled: true,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
         return _viewMode == MediaViewMode.landscape
