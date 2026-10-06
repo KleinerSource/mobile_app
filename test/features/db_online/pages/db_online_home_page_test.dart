@@ -39,6 +39,7 @@ void main() {
     String? duration,
     int magnetsCount = 0,
     bool compact = false,
+    bool subscriptionActionsEnabled = false,
     DbOnlineLibraryInfo? libraryInfo,
     BadgePositions? badgePositions,
   }) async {
@@ -70,6 +71,7 @@ void main() {
               ),
               config: config,
               compact: compact,
+              subscriptionActionsEnabled: subscriptionActionsEnabled,
               onTap: onTap,
             ),
           ),
@@ -197,7 +199,12 @@ void main() {
   });
 
   testWidgets('dbonline 卡片长按不启用 InkWell 按压反馈', (tester) async {
-    await pumpCard(tester, canPlay: false, onTap: () {});
+    await pumpCard(
+      tester,
+      canPlay: false,
+      onTap: () {},
+      subscriptionActionsEnabled: true,
+    );
 
     final inkWell = tester.widget<InkWell>(find.byType(InkWell));
     expect(inkWell.onTap, isNull);

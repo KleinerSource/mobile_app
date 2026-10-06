@@ -13,6 +13,7 @@ import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/poster.dart';
+import 'package:omm/shared/media_list_layout.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
@@ -192,7 +193,19 @@ void main() {
       final card = tester.getRect(find.byType(DbOnlineMovieCard));
       final page = tester.getRect(find.byType(DbOnlineLibraryPage));
       expect(card.left - page.left, 22);
-      expect(page.right - card.right, 22);
+      if (icon == Icons.crop_landscape_rounded) {
+        expect(
+          card.width,
+          closeTo(
+            MediaListLayout.landscapeCardWidthForWidth(
+              page.width - MediaListLayout.padding.horizontal,
+            ),
+            0.001,
+          ),
+        );
+      } else {
+        expect(page.right - card.right, 22);
+      }
       if (icon == Icons.view_list_rounded) {
         // 列表模式渲染预览条目：左侧 92px 竖版封面 + 右侧预览/回退大图。
         expect(find.byType(DbOnlineRankingPreviewCard), findsOneWidget);

@@ -18,6 +18,7 @@ import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_section_tab.dart';
 import 'package:omm/shared/media_view_mode.dart';
+import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -354,9 +355,14 @@ void main() {
       final card = tester.getRect(find.byType(CatalogMovieCard).first);
       final nextCard = tester.getRect(find.byType(CatalogMovieCard).last);
       final pageWidth = tester.getSize(find.byType(Scaffold).first).width;
+      final columns = MediaListLayout.columnsForWidth(pageWidth);
+      final expectedCardWidth =
+          (pageWidth -
+              MediaListLayout.padding.horizontal -
+              MediaListLayout.crossAxisSpacing * (columns - 1)) /
+          columns;
       expect(card.left, 22);
-      // 默认测试视口为 800，应与影片库一样使用 4 列。
-      expect(card.width, closeTo((pageWidth - 44 - 30) / 4, 0.001));
+      expect(card.width, closeTo(expectedCardWidth, 0.001));
       expect(card.width / card.height, closeTo(0.5, 0.001));
       expect(nextCard.left - card.right, closeTo(10, 0.001));
 

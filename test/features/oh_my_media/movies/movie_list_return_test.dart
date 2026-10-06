@@ -163,7 +163,10 @@ void main() {
         scroll.jumpTo(scroll.position.maxScrollExtent);
         await tester.pumpAndSettle();
         expect(paging.itemList!.length, greaterThan(50));
-        scroll.jumpTo(scroll.position.maxScrollExtent - 700);
+        final returnTestOffset = scroll.position.maxScrollExtent - 100;
+        scroll.jumpTo(
+          returnTestOffset.clamp(0.0, scroll.position.maxScrollExtent),
+        );
         await tester.pumpAndSettle();
         final idsBefore = paging.itemList!.map((item) => item.id).toList();
         final offsetBefore = scroll.offset;
