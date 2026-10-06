@@ -959,8 +959,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                             ),
                             sliver: PagedSliverList<int, AudioAsset>.separated(
                               pagingController: _controller,
-                              // 转译状态会改变行高，避免 iOS 保留逐行重绘图层。
-                              addRepaintBoundaries: false,
                               separatorBuilder: (_, itemIndex) {
                                 // 分页组件在末项与状态页脚之间也会排一条
                                 // 分隔线，末行底部圆角下会多出一条线，隐藏之。
