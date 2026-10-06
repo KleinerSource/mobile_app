@@ -256,6 +256,7 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
           width: double.infinity,
           landscape: viewMode == MediaViewMode.landscape,
           compact: viewMode == MediaViewMode.list,
+          subscriptionActionsEnabled: true,
           // 关注列表展示完整发行日期（年月日），便于按日期追更。
           fullReleaseDate: true,
           // 列表模式升级为预览条目：左封面 + 右预览图翻页。

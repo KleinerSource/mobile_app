@@ -599,6 +599,7 @@ class _RankedMovieCard extends ConsumerWidget {
           width: double.infinity,
           landscape: landscape,
           compact: compact,
+          subscriptionActionsEnabled: true,
           // 列表模式升级为预览条目：左封面 + 右预览图翻页。
           previewList: compact,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),

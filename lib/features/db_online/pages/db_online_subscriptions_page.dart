@@ -1249,13 +1249,13 @@ class _DbOnlineSubscriptionsPageState
         if (!restoring)
           _subscriptionMenuEntry(
             'complete',
-            l.dbOnlineSubscriptionCompleted,
+            l.dbOnlineSubscriptionCompleteAction,
             Icons.done_all_rounded,
           )
         else
           _subscriptionMenuEntry(
             'pending',
-            l.dbOnlineSubscriptionPendingStatus,
+            l.dbOnlineSubscriptionRestoreAction,
             Icons.restart_alt_rounded,
           ),
         _subscriptionMenuEntry(
@@ -1270,7 +1270,7 @@ class _DbOnlineSubscriptionsPageState
         ),
         _subscriptionMenuEntry(
           'delete',
-          l.dbOnlineSubscriptionDelete,
+          l.dbOnlineSubscriptionCancelAction,
           Icons.delete_outline_rounded,
           color: danger,
         ),
@@ -1291,7 +1291,7 @@ class _DbOnlineSubscriptionsPageState
       ),
       _subscriptionMenuEntry(
         'delete',
-        l.dbOnlineSubscriptionDelete,
+        l.dbOnlineSubscriptionCancelAction,
         Icons.delete_outline_rounded,
         color: danger,
       ),
@@ -2481,8 +2481,8 @@ GlassMenuEntry<String> _subscriptionMenuEntry(
 
 String _subscriptionQueueStatusLabel(String status, AppL10n l) =>
     switch (status) {
-      'pending' => l.dbOnlineSubscriptionPendingStatus,
-      'completed' => l.dbOnlineSubscriptionCompleted,
-      'skipped' => l.dbOnlineSubscriptionSkipped,
+      'pending' => l.dbOnlineSubscriptionRestoreAction,
+      'completed' => l.dbOnlineSubscriptionCompleteAction,
+      'skipped' => l.dbOnlineSubscriptionSkipAction,
       _ => status,
     };

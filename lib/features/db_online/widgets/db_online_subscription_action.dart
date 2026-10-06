@@ -35,6 +35,44 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
   final Map<String, dynamic> initial;
   final bool showLabel;
 
+  /// 从影片卡片长按打开订阅操作。状态先通过单影片查询确认，避免把
+  /// 状态批量查询失败误判成未订阅。
+  Future<void> openForLongPress(BuildContext context, WidgetRef ref) async {
+    final serverId =
+        ref.read(mediaRuntimeConfigProvider)?.activeServerId?.trim() ?? '';
+    if (!context.mounted || serverId.isEmpty || id.trim().isEmpty) return;
+    final query = DbOnlineSubscriptionStatusQuery(
+      serverId: serverId,
+      kind: kind,
+      id: id,
+      subType: initial['sub_type']?.toString() ?? 'series',
+    );
+    try {
+      final capabilities = await ref.read(
+        dbOnlineSubscriptionCapabilitiesProvider(serverId).future,
+      );
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
+      if (!capabilities.database) return;
+      final subscription = await ref.read(
+        dbOnlineSubscriptionStatusProvider(query).future,
+      );
+      if (!context.mounted || !_isCurrent(context, ref, query)) return;
+      await _openActions(
+        context,
+        ref,
+        query,
+        AppL10n.of(context),
+        subscribed: subscription.subscribed,
+        subscription: subscription,
+        showAddAction: true,
+      );
+    } catch (error) {
+      if (context.mounted && _isCurrent(context, ref, query)) {
+        _notify(context, localizedErrorMessage(AppL10n.of(context), error));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final serverId =
@@ -166,47 +204,60 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     AppL10n l, {
     required bool subscribed,
     required DbOnlineSubscriptionStatus? subscription,
+    bool showAddAction = false,
   }) async {
     if (!context.mounted || !_isCurrent(context, ref, query)) return;
     var editing = false;
-    if (subscribed) {
-      final state = subscription;
-      if (state == null) return;
-      final currentStatus = state.status.isEmpty ? 'pending' : state.status;
+    if (subscribed || showAddAction) {
       final actions = <(String, String, IconData)>[];
-      if (kind == 'video') {
-        if (state.overdue ||
-            currentStatus == 'skipped' ||
-            currentStatus == 'completed') {
-          actions.add((
-            'restore',
-            l.dbOnlineSubscriptionPendingStatus,
-            Icons.restart_alt_rounded,
-          ));
+      if (!subscribed) {
+        actions.add((
+          'add',
+          l.dbOnlineSubscriptionAdd,
+          Icons.add_circle_outline_rounded,
+        ));
+      } else {
+        final state = subscription;
+        if (state == null) return;
+        final currentStatus = state.status.isEmpty ? 'pending' : state.status;
+        if (kind == 'video') {
+          if (state.overdue ||
+              currentStatus == 'skipped' ||
+              currentStatus == 'completed') {
+            actions.add((
+              'restore',
+              l.dbOnlineSubscriptionRestoreAction,
+              Icons.restart_alt_rounded,
+            ));
+          }
+          if (currentStatus == 'pending' &&
+              state.sourceType != 'video' &&
+              !state.overdue) {
+            actions.add((
+              'skip',
+              l.dbOnlineSubscriptionSkipAction,
+              Icons.skip_next_rounded,
+            ));
+          }
+          if (currentStatus == 'pending') {
+            actions.add((
+              'complete',
+              l.dbOnlineSubscriptionCompleteAction,
+              Icons.done_all_rounded,
+            ));
+          }
         }
-        if (currentStatus == 'pending' &&
-            state.sourceType != 'video' &&
-            !state.overdue) {
-          actions.add((
-            'skip',
-            l.dbOnlineSubscriptionSkipped,
-            Icons.skip_next_rounded,
-          ));
+        if (!showAddAction) {
+          actions.add(
+            ('edit', l.dbOnlineSubscriptionEdit, Icons.edit_outlined),
+          );
         }
-        if (currentStatus != 'completed') {
-          actions.add((
-            'complete',
-            l.dbOnlineSubscriptionCompleted,
-            Icons.done_all_rounded,
-          ));
-        }
+        actions.add((
+          'cancel',
+          l.dbOnlineSubscriptionCancelAction,
+          Icons.remove_circle_outline_rounded,
+        ));
       }
-      actions.add(('edit', l.dbOnlineSubscriptionEdit, Icons.edit_outlined));
-      actions.add((
-        'remove',
-        l.dbOnlineSubscriptionRemove,
-        Icons.remove_circle_outline_rounded,
-      ));
       final action = await showGlassSheet<String>(
         context: context,
         builder: (context) => SafeArea(
@@ -218,7 +269,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
                   (action) => ListTile(
                     leading: Icon(
                       action.$3,
-                      color: action.$1 == 'remove'
+                      color: action.$1 == 'cancel'
                           ? appColors(context).danger
                           : null,
                     ),
@@ -235,16 +286,18 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           action == null) {
         return;
       }
-      if (action == 'remove') {
+      if (!subscribed && action != 'add') return;
+      if (subscribed && action == 'cancel') {
         await _deleteSubscription(context, ref, query, l);
         return;
       }
-      if (action != 'edit') {
+      if (subscribed && action != 'edit') {
+        final currentSubscription = subscription!;
         await _updateVideoSubscriptionStatus(
           context,
           ref,
           query,
-          state,
+          currentSubscription,
           l,
           action == 'restore'
               ? 'pending'
@@ -254,7 +307,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
         );
         return;
       }
-      editing = true;
+      editing = subscribed;
     }
 
     try {
