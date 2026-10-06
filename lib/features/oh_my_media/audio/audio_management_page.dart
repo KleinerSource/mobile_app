@@ -1377,6 +1377,7 @@ class _AssetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final textScaler = MediaQuery.textScalerOf(context);
     final transcription = asset.transcriptionView;
     final status = _statusInfo(context, c);
     final extracting = asset.isTranscriptionActive;
@@ -1401,12 +1402,18 @@ class _AssetCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildSpecs(context, c),
-          if (extracting ||
-              transcription.isFailed ||
-              transcription.isCanceled) ...[
-            const SizedBox(height: 10),
-            _buildTranscriptionSection(context, c, transcription),
-          ],
+          SizedBox(
+            height: textScaler.scale(42),
+            child: Padding(
+              padding: EdgeInsets.only(top: textScaler.scale(10)),
+              child:
+                  extracting ||
+                      transcription.isFailed ||
+                      transcription.isCanceled
+                  ? _buildTranscriptionSection(context, c, transcription)
+                  : null,
+            ),
+          ),
         ],
       ),
     );
@@ -1619,6 +1626,8 @@ class _AssetCard extends StatelessWidget {
     if (t.isCanceled) {
       return Text(
         AppL10n.of(context).audioTranscriptionCanceledHint,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: c.muted,
           fontSize: 11,
