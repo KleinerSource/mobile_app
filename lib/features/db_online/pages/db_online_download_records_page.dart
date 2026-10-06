@@ -173,7 +173,7 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
     unawaited(_fetch(0));
   }
 
-  Future<void> _filters(List<DbOnlineRecordDownloader> downloaders) async {
+  void _filters(List<DbOnlineRecordDownloader> downloaders) {
     final labels = {
       for (final downloader in downloaders)
         downloader.name: downloader.displayName,
@@ -185,19 +185,21 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
     if (_filter.downloader.isNotEmpty) {
       labels.putIfAbsent(_filter.downloader, () => _filter.downloader);
     }
-    final filter = await showGlassSheet<DbOnlineDownloadRecordFilter>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => DbOnlineDownloadRecordFilterSheet(
-        filter: _filter,
-        downloaders: [
-          for (final entry in labels.entries)
-            (value: entry.key, label: entry.value),
-        ],
-        isCurrent: () => _current,
+    unawaited(
+      showGlassSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => DbOnlineDownloadRecordFilterSheet(
+          filter: _filter,
+          downloaders: [
+            for (final entry in labels.entries)
+              (value: entry.key, label: entry.value),
+          ],
+          isCurrent: () => _current,
+          onChanged: _apply,
+        ),
       ),
     );
-    if (filter != null && _current) _apply(filter);
   }
 
   Future<void> _repush(
@@ -275,7 +277,7 @@ class _RecordsState extends ConsumerState<_DownloadRecordsPage> {
                   _filter.toQuery(),
                   DbOnlineDownloadRecordFilter.today().toQuery(),
                 ),
-                onTap: () => unawaited(_filters(downloaders)),
+                onTap: () => _filters(downloaders),
               ),
             ),
           ),

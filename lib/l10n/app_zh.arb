@@ -2774,7 +2774,7 @@
   "dbOnlineDownloadRecordsTitle": "下载记录",
   "dbOnlineDownloadRecordsEmpty": "暂无下载记录",
   "dbOnlineDownloadRecordsSearch": "搜索番号、标题、资源名",
-  "dbOnlineDownloadRecordsFilters": "筛选条件",
+  "dbOnlineDownloadRecordsFilters": "筛选",
   "dbOnlineDownloadRecordsStartDate": "开始日期",
   "dbOnlineDownloadRecordsEndDate": "结束日期",
   "dbOnlineDownloadRecordsInvalidDates": "结束日期不能早于开始日期",

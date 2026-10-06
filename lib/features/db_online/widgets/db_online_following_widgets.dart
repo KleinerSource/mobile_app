@@ -110,24 +110,35 @@ class DbOnlineFollowingButtonRow extends StatelessWidget {
   final bool Function(String) isSelected;
   final ValueChanged<String> onSelected;
 
+  String? get _scrollTargetValue {
+    for (final option in options) {
+      if (isSelected(option.value)) return option.value;
+    }
+    return null;
+  }
+
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-    child: Row(
-      children: [
-        for (final option in options)
-          Padding(
-            padding: const EdgeInsets.only(right: 7),
-            child: CompactFilterButton(
-              label: option.label,
-              active: isSelected(option.value),
-              onTap: () => onSelected(option.value),
+  Widget build(BuildContext context) {
+    final scrollTargetValue = _scrollTargetValue;
+    return SelectedHorizontalScrollView(
+      selectedValue: scrollTargetValue,
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+      childBuilder: (context, selectedItemKey) => Row(
+        children: [
+          for (final option in options)
+            Padding(
+              padding: const EdgeInsets.only(right: 7),
+              child: CompactFilterButton(
+                key: option.value == scrollTargetValue ? selectedItemKey : null,
+                label: option.label,
+                active: isSelected(option.value),
+                onTap: () => onSelected(option.value),
+              ),
             ),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 String formatDbOnlineFollowingDate(String value) {

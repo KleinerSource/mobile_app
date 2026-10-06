@@ -98,7 +98,7 @@ void main() {
         ..records = [downloadRecord(1, success: success)];
       await pumpRecords(tester, backend);
       final filter = find.descendant(
-        of: find.byTooltip('筛选条件'),
+        of: find.byTooltip('筛选'),
         matching: find.byType(CompactFilterButton),
       );
       expect(filter, findsOneWidget);
@@ -159,17 +159,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('取消筛选不请求，应用多组选项后重置偏移量并发送false', (tester) async {
+  testWidgets('筛选选项立即应用并在重开后保留，重置偏移量并发送false', (tester) async {
     final backend = DownloadRecordsTestBackend();
     await pumpRecords(tester, backend);
-    await tester.tap(find.byTooltip('筛选条件'));
+    await tester.tap(find.byTooltip('筛选'));
     await pumpFollowingFrames(tester);
     await sheetTap(tester, '失败');
-    await sheetTap(tester, '取消');
-    expect(backend.to('/download-records'), hasLength(1));
-    await tester.tap(find.byTooltip('筛选条件'));
+    expect(backend.to('/download-records'), hasLength(2));
+    expect(
+      backend.to('/download-records').last.queryParameters['success'],
+      false,
+    );
+    Navigator.of(
+      tester.element(find.byType(DbOnlineDownloadRecordFilterSheet)),
+    ).pop();
     await pumpFollowingFrames(tester);
-    for (final label in ['高清', '字幕', '破解', '115 网盘', '综合订阅', '失败', '确定']) {
+    await tester.tap(find.byTooltip('筛选'));
+    await pumpFollowingFrames(tester);
+    for (final label in ['高清', '字幕', '破解', '115 网盘', '综合订阅', '失败']) {
       await sheetTap(tester, label);
     }
     final query = backend.to('/download-records').last.queryParameters;
@@ -182,7 +189,7 @@ void main() {
       tester
           .widget<CompactFilterButton>(
             find.descendant(
-              of: find.byTooltip('筛选条件'),
+              of: find.byTooltip('筛选'),
               matching: find.byType(CompactFilterButton),
             ),
           )
@@ -193,10 +200,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('日期选择和无效范围校验，取消不会提交请求', (tester) async {
+  testWidgets('日期无效范围会即时阻止应用', (tester) async {
     final backend = DownloadRecordsTestBackend();
     await pumpRecords(tester, backend);
-    await tester.tap(find.byTooltip('筛选条件'));
+    await tester.tap(find.byTooltip('筛选'));
     await pumpFollowingFrames(tester);
     await tester.tap(find.byKey(const ValueKey('record-end-date')));
     await pumpFollowingFrames(tester);
@@ -205,12 +212,14 @@ void main() {
       tester.element(find.byType(DatePickerDialog)),
     ).pop(DateTime(2000, 1, 1));
     await pumpFollowingFrames(tester);
-    await sheetTap(tester, '确定');
     expect(find.text('结束日期不能早于开始日期'), findsOneWidget);
     expect(backend.to('/download-records'), hasLength(1));
     expect(find.byType(DbOnlineDownloadRecordFilterSheet), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
-    await sheetTap(tester, '取消');
+    Navigator.of(
+      tester.element(find.byType(DbOnlineDownloadRecordFilterSheet)),
+    ).pop();
+    await pumpFollowingFrames(tester);
     expect(tester.takeException(), isNull);
   });
 
@@ -517,7 +526,7 @@ void main() {
     await tester.enterText(find.byType(TextField), '旧');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await pumpFollowingFrames(tester);
-    await tester.tap(find.byTooltip('筛选条件'));
+    await tester.tap(find.byTooltip('筛选'));
     await pumpFollowingFrames(tester);
     (container.read(serverConfigProvider.notifier) as FollowingTestServerState)
         .select('b');
@@ -617,7 +626,7 @@ void main() {
         ),
       );
       expect(repush.height, closeTo(badge.height, 0.01));
-      await tester.tap(find.byTooltip(localeCode == 'zh' ? '筛选条件' : 'Filters'));
+      await tester.tap(find.byTooltip(localeCode == 'zh' ? '筛选' : 'Filter'));
       await pumpFollowingFrames(tester);
       expect(find.byType(DbOnlineDownloadRecordFilterSheet), findsOneWidget);
       expect(tester.takeException(), isNull);

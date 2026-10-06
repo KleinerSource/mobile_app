@@ -103,6 +103,78 @@ class CompactSortButton extends StatelessWidget {
   }
 }
 
+/// 水平选项行，并在打开或选中值变化后将目标项滚动到可视区中央。
+///
+/// [childBuilder] 应将第二个参数设为当前选中项的 key；[selectedValue] 为空时
+/// 保持默认滚动位置。
+class SelectedHorizontalScrollView extends StatefulWidget {
+  const SelectedHorizontalScrollView({
+    super.key,
+    required this.selectedValue,
+    required this.childBuilder,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final String? selectedValue;
+  final EdgeInsetsGeometry padding;
+  final Widget Function(BuildContext context, Key selectedItemKey) childBuilder;
+
+  @override
+  State<SelectedHorizontalScrollView> createState() =>
+      _SelectedHorizontalScrollViewState();
+}
+
+class _SelectedHorizontalScrollViewState
+    extends State<SelectedHorizontalScrollView> {
+  final _scrollController = ScrollController();
+  final _selectedItemKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToSelectedItem();
+  }
+
+  @override
+  void didUpdateWidget(covariant SelectedHorizontalScrollView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedValue != widget.selectedValue) {
+      _scrollToSelectedItem();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelectedItem() {
+    if (widget.selectedValue == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final target = _selectedItemKey.currentContext?.findRenderObject();
+      if (target == null) return;
+      _scrollController.position.ensureVisible(
+        target,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      padding: widget.padding,
+      child: widget.childBuilder(context, _selectedItemKey),
+    );
+  }
+}
+
 /// 排序选项 chip 行 · 筛选弹层内排序区的统一呈现：
 /// 点击未选中字段选中并按升序；点击已选中字段在升序/降序间切换，
 /// 当前方向以选中 chip 的箭头展示，无独立的升降序切换按钮。
@@ -128,13 +200,14 @@ class SortOptionChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    return SelectedHorizontalScrollView(
+      selectedValue: selected,
+      childBuilder: (context, selectedItemKey) => Row(
         children: [
           for (var index = 0; index < options.length; index++) ...[
             if (index > 0) const SizedBox(width: 7),
             CompactFilterButton(
+              key: options[index].value == selected ? selectedItemKey : null,
               label: options[index].label,
               active: options[index].value == selected,
               trailingIcon: options[index].value == selected

@@ -135,7 +135,7 @@ class _FilterSectionTitle extends StatelessWidget {
   }
 }
 
-class _FilterButtonRow extends StatefulWidget {
+class _FilterButtonRow extends StatelessWidget {
   const _FilterButtonRow({
     required this.options,
     required this.selectedValue,
@@ -148,77 +148,34 @@ class _FilterButtonRow extends StatefulWidget {
   final ValueChanged<String> onSelected;
   final bool multiSelect;
 
-  @override
-  State<_FilterButtonRow> createState() => _FilterButtonRowState();
-}
-
-class _FilterButtonRowState extends State<_FilterButtonRow> {
-  final _scrollController = ScrollController();
-  final _selectedOptionKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollToSelectedOption();
-  }
-
-  @override
-  void didUpdateWidget(covariant _FilterButtonRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedValue != widget.selectedValue) {
-      _scrollToSelectedOption();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  bool _isSelected(String value) => widget.multiSelect
-      ? widget.selectedValue.split(',').contains(value)
-      : value == widget.selectedValue;
+  bool _isSelected(String value) => multiSelect
+      ? selectedValue.split(',').contains(value)
+      : value == selectedValue;
 
   String? get _scrollTargetValue {
-    for (final option in widget.options) {
+    for (final option in options) {
       if (_isSelected(option.value)) return option.value;
     }
     return null;
   }
 
-  void _scrollToSelectedOption() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final target = _selectedOptionKey.currentContext?.findRenderObject();
-      if (target == null) return;
-      _scrollController.position.ensureVisible(
-        target,
-        alignment: 0.5,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final scrollTargetValue = _scrollTargetValue;
-    return SingleChildScrollView(
-      controller: _scrollController,
-      scrollDirection: Axis.horizontal,
+    return SelectedHorizontalScrollView(
+      selectedValue: scrollTargetValue,
       padding: const EdgeInsets.symmetric(horizontal: 22),
-      child: Row(
+      childBuilder: (context, selectedItemKey) => Row(
         children: [
-          for (var index = 0; index < widget.options.length; index++) ...[
+          for (var index = 0; index < options.length; index++) ...[
             if (index > 0) const SizedBox(width: 7),
             CompactFilterButton(
-              key: widget.options[index].value == scrollTargetValue
-                  ? _selectedOptionKey
+              key: options[index].value == scrollTargetValue
+                  ? selectedItemKey
                   : null,
-              label: widget.options[index].label,
-              active: _isSelected(widget.options[index].value),
-              onTap: () => widget.onSelected(widget.options[index].value),
+              label: options[index].label,
+              active: _isSelected(options[index].value),
+              onTap: () => onSelected(options[index].value),
             ),
           ],
         ],

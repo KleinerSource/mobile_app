@@ -39,7 +39,10 @@ class _DbOnlineActorCategoriesSheetState
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final categories = ref.watch(dbOnlineActorCategoriesProvider(widget.actorId));
+    final categories = ref.watch(
+      dbOnlineActorCategoriesProvider(widget.actorId),
+    );
+    final selectedTarget = _selected.isEmpty ? null : _selected.last;
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -92,15 +95,16 @@ class _DbOnlineActorCategoriesSheetState
               ),
             ),
             if (_selected.isNotEmpty)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+              SelectedHorizontalScrollView(
+                selectedValue: selectedTarget,
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Row(
+                childBuilder: (context, selectedItemKey) => Row(
                   children: [
                     for (final id in _selected)
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: CompactFilterButton(
+                          key: id == selectedTarget ? selectedItemKey : null,
                           label: _categoryName(categories.asData?.value, id),
                           active: true,
                           trailingIcon: Icons.close_rounded,

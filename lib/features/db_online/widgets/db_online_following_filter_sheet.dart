@@ -233,6 +233,7 @@ class _StylesState extends ConsumerState<_FollowingStylesSheet> {
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     final styles = ref.watch(dbOnlineFollowingStylesProvider(widget.serverId));
+    final selectedTarget = _selected.isEmpty ? null : _selected.last;
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -277,15 +278,16 @@ class _StylesState extends ConsumerState<_FollowingStylesSheet> {
               ),
             ),
             if (_selected.isNotEmpty)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+              SelectedHorizontalScrollView(
+                selectedValue: selectedTarget,
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Row(
+                childBuilder: (context, selectedItemKey) => Row(
                   children: [
                     for (final id in _selected)
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: CompactFilterButton(
+                          key: id == selectedTarget ? selectedItemKey : null,
                           label:
                               styles.asData?.value
                                   .where((item) => item.id == id)

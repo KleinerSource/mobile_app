@@ -14,11 +14,13 @@ class DbOnlineDownloadRecordFilterSheet extends StatefulWidget {
     required this.filter,
     required this.downloaders,
     required this.isCurrent,
+    required this.onChanged,
   });
 
   final DbOnlineDownloadRecordFilter filter;
   final List<({String value, String label})> downloaders;
   final bool Function() isCurrent;
+  final ValueChanged<DbOnlineDownloadRecordFilter> onChanged;
 
   @override
   State<DbOnlineDownloadRecordFilterSheet> createState() => _FilterState();
@@ -37,17 +39,17 @@ class _FilterState extends State<DbOnlineDownloadRecordFilterSheet> {
     );
     if (!mounted || !widget.isCurrent() || selected == null) return;
     final date = selected.toIso8601String().split('T').first;
-    setState(
-      () => _filter = start
+    _update(
+      start
           ? _filter.copyWith(startDate: date)
           : _filter.copyWith(endDate: date),
     );
   }
 
-  void _apply() {
+  void _update(DbOnlineDownloadRecordFilter filter) {
     if (!widget.isCurrent()) return;
-    final start = DateTime.tryParse(_filter.startDate);
-    final end = DateTime.tryParse(_filter.endDate);
+    final start = DateTime.tryParse(filter.startDate);
+    final end = DateTime.tryParse(filter.endDate);
     if (start != null && end != null && end.isBefore(start)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -58,7 +60,8 @@ class _FilterState extends State<DbOnlineDownloadRecordFilterSheet> {
       );
       return;
     }
-    Navigator.pop(context, _filter);
+    setState(() => _filter = filter);
+    widget.onChanged(filter);
   }
 
   @override
@@ -144,8 +147,8 @@ class _FilterState extends State<DbOnlineDownloadRecordFilterSheet> {
                         } else if (!types.remove(value)) {
                           types.add(value);
                         }
-                        setState(
-                          () => _filter = _filter.copyWith(
+                        _update(
+                          _filter.copyWith(
                             resourceTypes: downloadRecordResourceOptions(l)
                                 .map((option) => option.value)
                                 .where(types.contains)
@@ -158,17 +161,13 @@ class _FilterState extends State<DbOnlineDownloadRecordFilterSheet> {
                     options(
                       widget.downloaders,
                       _filter.downloader,
-                      (value) => setState(
-                        () => _filter = _filter.copyWith(downloader: value),
-                      ),
+                      (value) => _update(_filter.copyWith(downloader: value)),
                     ),
                     label(l.dbOnlineDownloadRecordsSource),
                     options(
                       downloadRecordSourceOptions(l),
                       _filter.sourceType,
-                      (value) => setState(
-                        () => _filter = _filter.copyWith(sourceType: value),
-                      ),
+                      (value) => _update(_filter.copyWith(sourceType: value)),
                     ),
                     label(l.dbOnlineDownloadRecordsStatus),
                     options(
@@ -183,28 +182,12 @@ class _FilterState extends State<DbOnlineDownloadRecordFilterSheet> {
                         ),
                       ],
                       _filter.status,
-                      (value) => setState(
-                        () => _filter = _filter.copyWith(status: value),
-                      ),
+                      (value) => _update(_filter.copyWith(status: value)),
                     ),
                     const SizedBox(height: 12),
                   ],
                 ),
               ),
-            ),
-            SheetActionBar.buttons(
-              buttons: [
-                OutlinedButton(
-                  style: sheetSecondaryButtonStyle(context),
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(l.cancel),
-                ),
-                FilledButton(
-                  style: sheetPrimaryButtonStyle(context),
-                  onPressed: _apply,
-                  child: Text(l.confirm),
-                ),
-              ],
             ),
           ],
         ),

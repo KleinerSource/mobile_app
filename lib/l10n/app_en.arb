@@ -2774,7 +2774,7 @@
   "dbOnlineDownloadRecordsTitle": "Download records",
   "dbOnlineDownloadRecordsEmpty": "No download records",
   "dbOnlineDownloadRecordsSearch": "Search code, title, or resource name",
-  "dbOnlineDownloadRecordsFilters": "Filters",
+  "dbOnlineDownloadRecordsFilters": "Filter",
   "dbOnlineDownloadRecordsStartDate": "Start date",
   "dbOnlineDownloadRecordsEndDate": "End date",
   "dbOnlineDownloadRecordsInvalidDates": "End date must be on or after start date",
