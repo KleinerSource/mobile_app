@@ -33,7 +33,7 @@ abstract final class MediaListLayout {
 
   static int columnsForWidth(double width) {
     if (width < 1100) {
-      return width >= 820
+      return width >= 720
           ? 5
           : width >= 600
           ? 4
