@@ -47,7 +47,7 @@ void _checkHeader(
       of: button,
       matching: find.byType(HeaderActionIcon),
     );
-    expect(tester.getSize(button), const Size.square(48));
+    expect(tester.getSize(button), const Size.square(44));
     expect(tester.getSize(circle), const Size.square(36));
     expect(tester.getCenter(circle), tester.getCenter(button));
     expect(tester.getCenter(button).dy, closeTo(headingRect.center.dy, 1));

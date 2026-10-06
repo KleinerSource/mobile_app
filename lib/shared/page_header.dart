@@ -28,15 +28,15 @@ class PageHeader extends StatelessWidget {
   static const double leadingBleed = (leadingWidth - 24) / 2;
 
   /// trailing 触区向右挤进水平边距的量：圆形操作按钮的可见圆（36px）在
-  /// 48px 触区内居中，两侧各留 6px 空隙；出血后可见圆右缘正好落在
+  /// 44px 触区内居中，两侧各留 4px 空隙；出血后可见圆右缘正好落在
   /// [horizontalPadding]，与标题/返回图标的左缘对称，同时保留完整
-  /// 48x48 点击区域。
-  static const double trailingBleed = (48 - 36) / 2;
+  /// 44x44 点击区域。
+  static const double trailingBleed = (44 - 36) / 2;
 
   static const double trailingGap = 8;
 
   /// 页头操作控件的可见边缘间距；圆形按钮相邻时，触区已提供此留白。
-  static const double actionGap = 12;
+  static const double actionGap = 8;
 
   /// 圆形按钮与筛选／视图切换等自然宽度控件之间，扣除圆形触区留白。
   static const double mixedActionGap = actionGap - trailingBleed;
@@ -50,7 +50,7 @@ class PageHeader extends StatelessWidget {
   /// 列表与上一块的间距不变。
   static const double aboveListGap = 12;
 
-  /// 标题行高由 48px 操作按钮撑起，与 [AppText.pageTitle] 的字号/行高
+  /// 标题行最小高度为 48px，与 [AppText.pageTitle] 的字号/行高
   /// 保持同步；用于在 [build] 中计算文字居中产生的下方空隙。
   static const double _titleFontSize = 28;
   static const double _titleLineHeightFactor = 1.05;
@@ -78,7 +78,7 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleInset = leading == null ? 0.0 : leadingWidth;
-    // 标题行高由 48px 操作按钮撑起，文字居中会在文字下方产生空隙；
+    // 标题行最小高度为 48px，文字居中会在文字下方产生空隙；
     // 放大字体后标题行随文字增高、空隙归零。subtitle 紧贴标题行底部，
     // 不经过该空隙，无需补偿。
     final scaledTitleLineHeight =

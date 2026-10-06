@@ -154,7 +154,7 @@ void _expectHeaderLayout(WidgetTester tester, String variant, double width) {
       of: button,
       matching: find.byType(HeaderActionIcon),
     );
-    expect(tester.getSize(button), const Size.square(48));
+    expect(tester.getSize(button), const Size.square(44));
     expect(tester.getSize(circle), const Size.square(36));
     expect(tester.getCenter(circle), tester.getCenter(button));
     expect(tester.getCenter(button).dy, closeTo(title.center.dy, 0.01));

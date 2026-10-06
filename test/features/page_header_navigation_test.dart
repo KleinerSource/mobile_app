@@ -244,7 +244,7 @@ void _expectHeaderIconCenters(WidgetTester tester, Finder header) {
     final icon = find.descendant(of: circle, matching: find.byType(Icon));
     final circleRect = tester.getRect(circle);
     expect(circleRect.size, const Size.square(36));
-    expect(tester.getSize(ink), const Size.square(48));
+    expect(tester.getSize(ink), const Size.square(44));
     expect(tester.getCenter(icon).dx, closeTo(circleRect.center.dx, 0.01));
     expect(tester.getCenter(icon).dy, closeTo(circleRect.center.dy, 0.01));
     expect(tester.getCenter(ink), circleRect.center);

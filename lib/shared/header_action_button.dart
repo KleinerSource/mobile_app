@@ -64,7 +64,7 @@ class HeaderCircleInk extends StatelessWidget {
   );
 }
 
-/// Header 的圆形操作：点击区域 48，长按显示 [tooltip]。
+/// Header 的圆形操作：点击区域 44，长按显示 [tooltip]。
 class HeaderActionButton extends StatelessWidget {
   const HeaderActionButton({
     super.key,
@@ -76,7 +76,7 @@ class HeaderActionButton extends StatelessWidget {
     this.style = HeaderActionStyle.solid,
   });
 
-  static const double tapTargetSize = 48;
+  static const double tapTargetSize = 44;
 
   final IconData icon;
   final String tooltip;

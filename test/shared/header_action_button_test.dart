@@ -16,13 +16,13 @@ GlassMenuEntry<String> _entry(String value) => GlassMenuEntry<String>.action(
       GlassMenuRow(label: value, selected: selected, onTap: onTap),
 );
 
-/// 波纹裁剪区域：在 48 点击区域内居中的可见圆。
+/// 波纹裁剪区域：在 44 点击区域内居中的可见圆。
 Rect _rippleBounds(WidgetTester tester, Finder button) {
   final ink = tester.widget<InkWell>(
     find.descendant(of: button, matching: find.byType(InkWell)),
   );
   return ink.customBorder!
-      .getOuterPath(const Rect.fromLTWH(0, 0, 48, 48))
+      .getOuterPath(const Rect.fromLTWH(0, 0, 44, 44))
       .getBounds();
 }
 
@@ -40,11 +40,11 @@ void main() {
         ),
       );
       final button = find.byType(HeaderActionButton);
-      expect(tester.getSize(button), const Size.square(48));
+      expect(tester.getSize(button), const Size.square(44));
       expect(
         _rippleBounds(tester, button),
         Rect.fromCircle(
-          center: const Offset(24, 24),
+          center: const Offset(22, 22),
           radius: style.diameter / 2,
         ),
       );
@@ -134,10 +134,10 @@ void main() {
       ),
     );
     final button = find.byType(HeaderMenuButton<String>);
-    expect(tester.getSize(button), const Size.square(48));
+    expect(tester.getSize(button), const Size.square(44));
     expect(
       _rippleBounds(tester, button),
-      Rect.fromCircle(center: const Offset(24, 24), radius: 18),
+      Rect.fromCircle(center: const Offset(22, 22), radius: 18),
     );
 
     await tester.tap(button);

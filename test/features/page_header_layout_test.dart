@@ -66,7 +66,7 @@ void main() {
     );
     final button = tester.getRect(find.byType(HeaderActionButton));
     final menu = tester.getRect(find.byType(GlassMenuAnchor<String>));
-    expect(button.size, const Size.square(48));
+    expect(button.size, const Size.square(44));
     expect(menu.size, button.size);
     expect(menu.center.dy, button.center.dy);
     for (final element in find.byType(HeaderActionIcon).evaluate()) {
@@ -119,7 +119,7 @@ void main() {
         );
         final button = find.byType(HeaderActionButton);
         final before = tester.getRect(button);
-        expect(before.size, const Size.square(48));
+        expect(before.size, const Size.square(44));
         final circle = find.byType(HeaderActionIcon);
         expect(tester.getSize(circle), const Size.square(36));
         expect(tester.getCenter(circle), before.center);
