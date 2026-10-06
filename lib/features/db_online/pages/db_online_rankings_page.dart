@@ -395,110 +395,124 @@ class _DbOnlineRankingsPageState extends ConsumerState<DbOnlineRankingsPage> {
 
           return SafeArea(
             top: false,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SheetHeader(
-                    icon: Icons.notifications_none_rounded,
-                    title: l.dbOnlineRankingAutoTitle,
-                    padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    child: Text(
-                      l.dbOnlineRankingAutoHint,
-                      style: AppText.meta(sheetContext),
-                    ),
-                  ),
-                  SwitchListTile(
-                    value: value.enabled,
-                    onChanged: (enabled) =>
-                        update(value.copyWith(enabled: enabled)),
-                    title: Text(
-                      l.dbOnlineRankingAutoEnabled,
-                      style: AppText.body(sheetContext),
-                    ),
-                  ),
-                  _SheetSectionTitle(title: l.dbOnlineRankingAutoCheckTime),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    child: CompactFilterButton(
-                      label: value.checkTime,
-                      icon: Icons.schedule_outlined,
-                      active: false,
-                      onTap: () => unawaited(pickTime()),
-                    ),
-                  ),
-                  _SheetSectionTitle(title: l.dbOnlineRankingAutoPeriods),
-                  _MultiChipRow(
-                    labels: [
-                      l.dbOnlineRankingDaily,
-                      l.dbOnlineRankingWeekly,
-                      l.dbOnlineRankingMonthly,
-                    ],
-                    values: DbOnlineRankingAutoConfig.validPeriods.toList(),
-                    selected: value.periods,
-                    onToggled: (period, selected) => update(
-                      value.copyWith(
-                        periods: selected
-                            ? [...value.periods, period]
-                            : value.periods
-                                  .where((item) => item != period)
-                                  .toList(),
-                      ),
-                    ),
-                  ),
-                  _SheetSectionTitle(title: l.dbOnlineRankingAutoContentTypes),
-                  _MultiChipRow(
-                    labels: [
-                      for (final value in const ['0', '1', '2', '3'])
-                        dbOnlineCategoryLabel(l, value),
-                    ],
-                    values: const ['0', '1', '2', '3'],
-                    selected: [for (final type in value.contentTypes) '$type'],
-                    onToggled: (typeValue, selected) {
-                      final type = int.parse(typeValue);
-                      update(
-                        value.copyWith(
-                          contentTypes: selected
-                              ? [...value.contentTypes, type]
-                              : value.contentTypes
-                                    .where((item) => item != type)
-                                    .toList(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SheetHeader(
+                          icon: Icons.notifications_none_rounded,
+                          title: l.dbOnlineRankingAutoTitle,
+                          padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
                         ),
-                      );
-                    },
-                  ),
-                  _SheetSectionTitle(
-                    title: l.dbOnlineRankingAutoTopN(value.topN),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    child: Slider(
-                      value: value.topN.toDouble(),
-                      min: DbOnlineRankingAutoConfig.minTopN.toDouble(),
-                      max: DbOnlineRankingAutoConfig.maxTopN.toDouble(),
-                      divisions:
-                          DbOnlineRankingAutoConfig.maxTopN -
-                          DbOnlineRankingAutoConfig.minTopN,
-                      onChanged: (slider) =>
-                          update(value.copyWith(topN: slider.round())),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          child: Text(
+                            l.dbOnlineRankingAutoHint,
+                            style: AppText.meta(sheetContext),
+                          ),
+                        ),
+                        SwitchListTile(
+                          value: value.enabled,
+                          onChanged: (enabled) =>
+                              update(value.copyWith(enabled: enabled)),
+                          title: Text(
+                            l.dbOnlineRankingAutoEnabled,
+                            style: AppText.body(sheetContext),
+                          ),
+                        ),
+                        _SheetSectionTitle(
+                          title: l.dbOnlineRankingAutoCheckTime,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          child: CompactFilterButton(
+                            label: value.checkTime,
+                            icon: Icons.schedule_outlined,
+                            active: false,
+                            onTap: () => unawaited(pickTime()),
+                          ),
+                        ),
+                        _SheetSectionTitle(title: l.dbOnlineRankingAutoPeriods),
+                        _MultiChipRow(
+                          labels: [
+                            l.dbOnlineRankingDaily,
+                            l.dbOnlineRankingWeekly,
+                            l.dbOnlineRankingMonthly,
+                          ],
+                          values: DbOnlineRankingAutoConfig.validPeriods
+                              .toList(),
+                          selected: value.periods,
+                          onToggled: (period, selected) => update(
+                            value.copyWith(
+                              periods: selected
+                                  ? [...value.periods, period]
+                                  : value.periods
+                                        .where((item) => item != period)
+                                        .toList(),
+                            ),
+                          ),
+                        ),
+                        _SheetSectionTitle(
+                          title: l.dbOnlineRankingAutoContentTypes,
+                        ),
+                        _MultiChipRow(
+                          labels: [
+                            for (final value in const ['0', '1', '2', '3'])
+                              dbOnlineCategoryLabel(l, value),
+                          ],
+                          values: const ['0', '1', '2', '3'],
+                          selected: [
+                            for (final type in value.contentTypes) '$type',
+                          ],
+                          onToggled: (typeValue, selected) {
+                            final type = int.parse(typeValue);
+                            update(
+                              value.copyWith(
+                                contentTypes: selected
+                                    ? [...value.contentTypes, type]
+                                    : value.contentTypes
+                                          .where((item) => item != type)
+                                          .toList(),
+                              ),
+                            );
+                          },
+                        ),
+                        _SheetSectionTitle(
+                          title: l.dbOnlineRankingAutoTopN(value.topN),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          child: Slider(
+                            value: value.topN.toDouble(),
+                            min: DbOnlineRankingAutoConfig.minTopN.toDouble(),
+                            max: DbOnlineRankingAutoConfig.maxTopN.toDouble(),
+                            divisions:
+                                DbOnlineRankingAutoConfig.maxTopN -
+                                DbOnlineRankingAutoConfig.minTopN,
+                            onChanged: (slider) =>
+                                update(value.copyWith(topN: slider.round())),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => unawaited(save(sheetContext)),
-                        child: Text(l.save),
-                      ),
+                ),
+                SheetActionBar.buttons(
+                  buttons: [
+                    FilledButton(
+                      onPressed: () => unawaited(save(sheetContext)),
+                      style: sheetPrimaryButtonStyle(sheetContext),
+                      child: Text(l.save),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           );
         },
