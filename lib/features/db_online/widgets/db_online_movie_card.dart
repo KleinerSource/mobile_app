@@ -126,7 +126,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     Widget wrapSubscriptionMenu(Widget child) {
       if (!subscriptionActionsEnabled) return child;
       return GlassMenuAnchor<String>(
-        width: 232,
+        width: GlassMenuPanel.defaultWidth,
         entries: const [],
         onLongPressEntries: () async {
           preparedMenu = null;

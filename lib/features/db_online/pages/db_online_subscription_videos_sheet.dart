@@ -302,6 +302,14 @@ class _DbOnlineSubscriptionVideosSheetState
                                 gridDelegate: const MediaGridDelegate(),
                                 builderDelegate: delegate,
                               )
+                            : viewMode == MediaViewMode.landscape
+                            ? MediaLandscapePagedSliver<
+                                int,
+                                DbOnlineSubscriptionItem
+                              >(
+                                pagingController: _pagingController,
+                                builderDelegate: delegate,
+                              )
                             : PagedSliverList<int, DbOnlineSubscriptionItem>(
                                 pagingController: _pagingController,
                                 builderDelegate: delegate,
@@ -346,7 +354,7 @@ class _DbOnlineSubscriptionVideosSheetState
         !ref.watch(revealedMoviesProvider).contains(privacyId);
     final card = LayoutBuilder(
       builder: (context, constraints) => GlassMenuAnchor<String>(
-        width: 232,
+        width: GlassMenuPanel.defaultWidth,
         entries: hidden ? const [] : menuEntries,
         onSelected: (status) => _updateStatus(item, status, l),
         onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),

@@ -492,9 +492,9 @@ class _MediaBrowserFavoritesPageState
                           child: PagedSelectionScope<MediaBrowserItem>(
                             selection: _selection,
                             scrollController: _scrollController,
-                            layout: _viewMode == MediaViewMode.portrait
-                                ? DragSelectionLayout.grid
-                                : DragSelectionLayout.list,
+                            layout: _viewMode == MediaViewMode.list
+                                ? DragSelectionLayout.list
+                                : DragSelectionLayout.grid,
                             child: CustomScrollView(
                               controller: _scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
@@ -540,18 +540,19 @@ class _MediaBrowserFavoritesPageState
                                   SliverPadding(
                                     padding: MediaListLayout.contentPadding,
                                     sliver: urls.maybeWhen(
-                                      data: (value) => PagedSliverList<int, MediaBrowserItem>(
+                                      data: (value) => MediaLandscapePagedSliver<int, MediaBrowserItem>(
                                         pagingController: _controller,
                                         builderDelegate:
                                             PagedChildBuilderDelegate<
                                               MediaBrowserItem
                                             >(
-                                              itemBuilder: (context, item, _) =>
+                                              itemBuilder: (context, item, index) =>
                                                   mediaBrowserSelectableLandscapeItem(
                                                     selection: _selection,
                                                     item: item,
                                                     urls: value,
                                                     width: double.infinity,
+                                                    index: index,
                                                     showFavoriteBadge: false,
                                                     onOpen: _openItem,
                                                   ),

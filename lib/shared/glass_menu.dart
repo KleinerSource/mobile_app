@@ -19,8 +19,8 @@ class GlassMenuPanel extends StatelessWidget {
 
   static const defaultWidth = 224.0;
   static const defaultBorderRadius = BorderRadius.all(Radius.circular(18));
-  static const verticalPadding = 6.0;
-  static const rowHeight = 48.0;
+  static const verticalPadding = 4.0;
+  static const rowHeight = 44.0;
   static const dividerHeight = 10.0;
 
   final List<Widget> children;
@@ -44,9 +44,9 @@ class GlassMenuPanel extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: c.bg.withValues(alpha: isDark ? 0.70 : 0.76),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.56),
-              ),
+              border: isDark
+                  ? Border.all(color: Colors.white.withValues(alpha: 0.18))
+                  : null,
               borderRadius: borderRadius,
             ),
             child: Padding(
@@ -74,7 +74,7 @@ class GlassMenuRow extends StatelessWidget {
     this.fontSize = 14,
     this.fontWeight,
     this.height = GlassMenuPanel.rowHeight,
-    this.iconSize = 21,
+    this.iconSize = 19,
   });
 
   final String label;

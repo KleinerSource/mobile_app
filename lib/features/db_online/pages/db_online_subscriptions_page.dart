@@ -310,6 +310,18 @@ class _DbOnlineSubscriptionsPageState
                                     viewMode,
                                   ),
                                 )
+                              : viewMode == MediaViewMode.landscape
+                              ? MediaLandscapePagedSliver<
+                                  int,
+                                  DbOnlineSubscriptionItem
+                                >(
+                                  pagingController: _pagingController,
+                                  builderDelegate: _pagingDelegate(
+                                    l,
+                                    serverConfig,
+                                    viewMode,
+                                  ),
+                                )
                               : PagedSliverList<int, DbOnlineSubscriptionItem>(
                                   pagingController: _pagingController,
                                   builderDelegate: _pagingDelegate(
@@ -625,7 +637,7 @@ class _DbOnlineSubscriptionsPageState
             HeaderMenuButton<String>(
               icon: Icons.more_vert_rounded,
               tooltip: l.dbOnlineSubscriptionTitle,
-              menuWidth: 232,
+              menuWidth: GlassMenuPanel.defaultWidth,
               onSelected: (action) => _handleHeaderAction(action, l),
               entries: [
                 for (final action in actions)
@@ -1132,7 +1144,7 @@ class _DbOnlineSubscriptionsPageState
     }
     if (entries.isEmpty) return card;
     return GlassMenuAnchor<String>(
-      width: 232,
+      width: GlassMenuPanel.defaultWidth,
       entries: entries,
       onSelected: (action) => _handleItemAction(action, item, l),
       onAnchorTap: _section == 'actor' || _section == 'series'
@@ -1203,7 +1215,7 @@ class _DbOnlineSubscriptionsPageState
         );
         if (entries.isEmpty) return card;
         return GlassMenuAnchor<String>(
-          width: 232,
+          width: GlassMenuPanel.defaultWidth,
           entries: entries,
           onSelected: (action) => _handleItemAction(action, item, l),
           onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),

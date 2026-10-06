@@ -316,8 +316,8 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
       // canQuery 时末尾是视图切换胶囊，只有圆形按钮收尾才对齐到边距。
       alignTrailingToPadding: !canQuery,
       // 筛选已移入页头，这里只在复查运行时显示进度。
-      filters: scheduler != null &&
-              (scheduler.rechecking || scheduler.recheckQueued)
+      filters:
+          scheduler != null && (scheduler.rechecking || scheduler.recheckQueued)
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -370,6 +370,11 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
                                     ).scale(titleFontSize) /
                                     titleFontSize,
                               ),
+                              builderDelegate: delegate,
+                            )
+                          : viewMode == MediaViewMode.landscape
+                          ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                              pagingController: _paging,
                               builderDelegate: delegate,
                             )
                           : PagedSliverList<int, DbOnlineMovie>(

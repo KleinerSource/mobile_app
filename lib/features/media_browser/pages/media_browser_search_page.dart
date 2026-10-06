@@ -439,7 +439,8 @@ class _MediaBrowserSearchResultsState
     final width = MediaListLayout.contentWidth(
       context,
     ).clamp(1.0, double.infinity);
-    final coverHeight = width * 9 / 16;
+    final cardWidth = MediaListLayout.landscapeCardWidthForWidth(width);
+    final coverHeight = cardWidth * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _itemKeys[item.id]),
       viewportKey: _listViewportKey,
@@ -474,7 +475,7 @@ class _MediaBrowserSearchResultsState
           PagedSelectionScope<MediaBrowserItem>(
             selection: _selection,
             scrollController: _scrollController,
-            layout: isStash || !isPortrait
+            layout: isStash || (!isPortrait && !isLandscape)
                 ? DragSelectionLayout.list
                 : DragSelectionLayout.grid,
             child: CustomScrollView(
@@ -509,6 +510,7 @@ class _MediaBrowserSearchResultsState
                                     item: item,
                                     urls: value,
                                     width: double.infinity,
+                                    index: index,
                                     showFavoriteBadge: true,
                                     onOpen: _openItem,
                                   )
@@ -551,7 +553,14 @@ class _MediaBrowserSearchResultsState
                                 const NoMoreContent(),
                           );
                       if (isStash) {
-                        return PagedSliverList<int, MediaBrowserItem>(
+                        return MediaLandscapePagedSliver<int, MediaBrowserItem>(
+                          pagingController: _pagingController,
+                          builderDelegate: delegate,
+                          infoHeight: 136,
+                        );
+                      }
+                      if (isLandscape) {
+                        return MediaLandscapePagedSliver<int, MediaBrowserItem>(
                           pagingController: _pagingController,
                           builderDelegate: delegate,
                         );

@@ -204,7 +204,9 @@ double _serverMenuWidth(List<ServerProfile> servers) {
   }
 
   // 头像、间距和状态图标占用固定空间，名称长度决定剩余宽度。
-  return (maxNameLength * 15.0 + 92.0).clamp(148.0, 224.0).toDouble();
+  return (maxNameLength * 15.0 + 92.0)
+      .clamp(148.0, GlassMenuPanel.defaultWidth)
+      .toDouble();
 }
 
 /// 构建可挂载到底部导航 Tab 的服务器快捷菜单。

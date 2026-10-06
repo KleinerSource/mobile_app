@@ -186,6 +186,12 @@ class OmmMoviePagedSliver extends ConsumerWidget {
         builderDelegate: delegate,
       );
     }
+    if (viewMode == MediaViewMode.landscape) {
+      return MediaLandscapePagedSliver<int, MovieListItem>(
+        pagingController: controller,
+        builderDelegate: delegate,
+      );
+    }
     return PagedSliverList<int, MovieListItem>(
       pagingController: controller,
       builderDelegate: delegate,

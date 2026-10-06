@@ -417,6 +417,11 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
                               gridDelegate: const MediaGridDelegate(),
                               builderDelegate: delegate,
                             )
+                          : viewMode == MediaViewMode.landscape
+                          ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                              pagingController: _paging,
+                              builderDelegate: delegate,
+                            )
                           : PagedSliverList<int, DbOnlineMovie>(
                               pagingController: _paging,
                               builderDelegate: delegate,

@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'movie_card.dart';
 
@@ -13,6 +16,13 @@ abstract final class MediaListLayout {
   /// 列表首项与上方页头/工具栏的统一呼吸空间。
   static const double contentTopInset = 4.0;
 
+  /// 大屏竖版封面维持可读尺寸，继续增加列数而不放大封面。
+  static const double maxPortraitCardWidth = 184.0;
+
+  static const double minLandscapeCardWidth = 270.0;
+  static const double maxLandscapeCardWidth = 440.0;
+  static const double landscapeInfoHeight = 76.0;
+
   /// 所有列表的基准 padding；底部留白由页面按悬浮 Tab 栏等场景 copyWith。
   static const EdgeInsets contentPadding = EdgeInsets.fromLTRB(
     horizontalInset,
@@ -21,13 +31,40 @@ abstract final class MediaListLayout {
     0,
   );
 
-  static int columnsForWidth(double width) => width >= 1100
-      ? 6
-      : width >= 820
-      ? 5
-      : width >= 600
-      ? 4
-      : 3;
+  static int columnsForWidth(double width) {
+    if (width < 1100) {
+      return width >= 820
+          ? 5
+          : width >= 600
+          ? 4
+          : 3;
+    }
+    final availableWidth = width - padding.horizontal;
+    return ((availableWidth + crossAxisSpacing) /
+            (maxPortraitCardWidth + crossAxisSpacing))
+        .ceil();
+  }
+
+  /// 横版卡片宽度保持在适合阅读的区间内，并据可用宽度决定列数。
+  static int landscapeColumnsForWidth(double width) {
+    final spacingAdjustedWidth = width + crossAxisSpacing;
+    final columnsToLimitWidth =
+        (spacingAdjustedWidth / (maxLandscapeCardWidth + crossAxisSpacing))
+            .ceil();
+    final columnsToKeepReadable = math
+        .max(
+          1,
+          (spacingAdjustedWidth / (minLandscapeCardWidth + crossAxisSpacing))
+              .floor(),
+        )
+        .toInt();
+    return math.min(columnsToLimitWidth, columnsToKeepReadable).toInt();
+  }
+
+  static double landscapeCardWidthForWidth(double width) {
+    final columns = landscapeColumnsForWidth(width);
+    return (width - crossAxisSpacing * (columns - 1)) / columns;
+  }
 
   /// 仅用于预览可见区域计算；卡片本身由父布局约束宽度。
   static double contentWidth(BuildContext context) {
@@ -71,6 +108,68 @@ class MediaGridDelegate extends SliverGridDelegate {
   bool shouldRelayout(covariant MediaGridDelegate oldDelegate) =>
       square != oldDelegate.square ||
       textScaleFactor != oldDelegate.textScaleFactor;
+}
+
+/// 横版卡片在手机上保持单列，在横屏手机和平板上按可用宽度排成多列。
+class MediaLandscapePagedSliver<PageKeyType, ItemType> extends StatelessWidget {
+  const MediaLandscapePagedSliver({
+    super.key,
+    required this.pagingController,
+    required this.builderDelegate,
+    this.infoHeight = MediaListLayout.landscapeInfoHeight,
+  });
+
+  final PagingController<PageKeyType, ItemType> pagingController;
+  final PagedChildBuilderDelegate<ItemType> builderDelegate;
+  final double infoHeight;
+
+  @override
+  Widget build(BuildContext context) => PagedSliverGrid<PageKeyType, ItemType>(
+    pagingController: pagingController,
+    builderDelegate: builderDelegate,
+    gridDelegate: MediaLandscapeGridDelegate(
+      textScaleFactor: MediaQuery.textScalerOf(context).scale(14) / 14,
+      infoHeight: infoHeight,
+    ),
+    showNewPageProgressIndicatorAsGridChild: false,
+    showNewPageErrorIndicatorAsGridChild: false,
+    showNoMoreItemsIndicatorAsGridChild: false,
+  );
+}
+
+class MediaLandscapeGridDelegate extends SliverGridDelegate {
+  const MediaLandscapeGridDelegate({
+    this.textScaleFactor = 1,
+    this.infoHeight = MediaListLayout.landscapeInfoHeight,
+  });
+
+  final double textScaleFactor;
+  final double infoHeight;
+
+  @override
+  SliverGridLayout getLayout(SliverConstraints constraints) {
+    final columns = MediaListLayout.landscapeColumnsForWidth(
+      constraints.crossAxisExtent,
+    );
+    final itemWidth = MediaListLayout.landscapeCardWidthForWidth(
+      constraints.crossAxisExtent,
+    );
+    final scaledInfoHeight = (infoHeight * textScaleFactor.clamp(1.0, 2.5))
+        .toDouble();
+    final itemHeight =
+        itemWidth * 9 / 16 + scaledInfoHeight + MediaListLayout.mainAxisSpacing;
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      crossAxisSpacing: MediaListLayout.crossAxisSpacing,
+      mainAxisSpacing: 0,
+      mainAxisExtent: itemHeight,
+    ).getLayout(constraints);
+  }
+
+  @override
+  bool shouldRelayout(covariant MediaLandscapeGridDelegate oldDelegate) =>
+      textScaleFactor != oldDelegate.textScaleFactor ||
+      infoHeight != oldDelegate.infoHeight;
 }
 
 /// 横版卡片的纵向列表统一使用相同的行间距。

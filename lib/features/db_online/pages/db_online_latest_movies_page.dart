@@ -186,8 +186,7 @@ class _DbOnlineLatestMoviesPageState
               title: title,
               trailing: MediaViewModeToggle(
                 mode: _viewMode,
-                onChanged:
-                    ref.read(mediaServerViewModeProvider.notifier).set,
+                onChanged: ref.read(mediaServerViewModeProvider.notifier).set,
               ),
             ),
             body: RefreshIndicator(
@@ -204,6 +203,11 @@ class _DbOnlineLatestMoviesPageState
                             // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
                             showNoMoreItemsIndicatorAsGridChild: false,
                             gridDelegate: const MediaGridDelegate(),
+                            builderDelegate: delegate,
+                          )
+                        : _viewMode == MediaViewMode.landscape
+                        ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                            pagingController: _controller,
                             builderDelegate: delegate,
                           )
                         : PagedSliverList<int, DbOnlineMovie>(

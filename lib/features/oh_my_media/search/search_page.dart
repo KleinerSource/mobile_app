@@ -239,8 +239,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               ),
               trailing: MediaViewModeToggle(
                 mode: viewMode,
-                onChanged:
-                    ref.read(mediaServerViewModeProvider.notifier).set,
+                onChanged: ref.read(mediaServerViewModeProvider.notifier).set,
               ),
             ),
             Padding(
@@ -560,7 +559,8 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     final width = MediaListLayout.contentWidth(
       context,
     ).clamp(1.0, double.infinity);
-    final coverHeight = width * 9 / 16;
+    final cardWidth = MediaListLayout.landscapeCardWidthForWidth(width);
+    final coverHeight = cardWidth * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _previewItemKeys[item.id]),
       viewportKey: _previewViewportKey,
@@ -645,6 +645,46 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final isPortrait = widget.viewMode == MediaViewMode.portrait;
     final isLandscape = widget.viewMode == MediaViewMode.landscape;
+    final landscapeOrListDelegate = PagedChildBuilderDelegate<MovieListItem>(
+      itemBuilder: (ctx, movie, _) => isLandscape
+          ? MediaLandscapeListItem(
+              child: OmmMoviePreviewCard(
+                key: _previewItemKeys.putIfAbsent(movie.id, GlobalKey.new),
+                movie: movie,
+                posterUrlBuilder: urlBuilder,
+                coordinator: _previewCoordinator,
+                autoPlayPreview: movie.id == _autoPreviewId,
+                onTap: () => unawaited(_openMovie(movie.id)),
+              ),
+            )
+          : CatalogListMovieCard(
+              key: ValueKey(movie.id),
+              title: movie.title,
+              imageUrl: movie.posterUuid == null
+                  ? null
+                  : urlBuilder(movie.posterUuid!),
+              meta: formatMediaCardMeta(
+                AppL10n.of(context),
+                year: movie.year,
+                duration: movie.runtime,
+              ),
+              privacyId: movie.id,
+              onTap: () => unawaited(_openMovie(movie.id)),
+            ),
+      firstPageProgressIndicatorBuilder: (_) =>
+          const Center(child: CircularProgressIndicator()),
+      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+        message: _controller.error == null
+            ? AppL10n.of(context).loadFailed
+            : localizedErrorMessage(AppL10n.of(context), _controller.error!),
+        onRetry: _controller.refresh,
+      ),
+      newPageErrorIndicatorBuilder: (_) =>
+          PaginationRetry(onRetry: _controller.retryLastFailedRequest),
+      noItemsFoundIndicatorBuilder: (_) =>
+          EmptyView(message: AppL10n.of(context).searchNoResult),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+    );
     return StatusBarScrollToTop(
       // 搜索 Tab 的结果列表持自有控制器（分页位置恢复/自动预览），
       // 由此接入状态栏点击回顶。
@@ -688,56 +728,14 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                       noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                     ),
                   )
+                : isLandscape
+                ? MediaLandscapePagedSliver<int, MovieListItem>(
+                    pagingController: _controller,
+                    builderDelegate: landscapeOrListDelegate,
+                  )
                 : PagedSliverList<int, MovieListItem>(
                     pagingController: _controller,
-                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                      itemBuilder: (ctx, movie, _) => isLandscape
-                          ? MediaLandscapeListItem(
-                              child: OmmMoviePreviewCard(
-                                key: _previewItemKeys.putIfAbsent(
-                                  movie.id,
-                                  GlobalKey.new,
-                                ),
-                                movie: movie,
-                                posterUrlBuilder: urlBuilder,
-                                coordinator: _previewCoordinator,
-                                autoPlayPreview: movie.id == _autoPreviewId,
-                                onTap: () => unawaited(_openMovie(movie.id)),
-                              ),
-                            )
-                          : CatalogListMovieCard(
-                              key: ValueKey(movie.id),
-                              title: movie.title,
-                              imageUrl: movie.posterUuid == null
-                                  ? null
-                                  : urlBuilder(movie.posterUuid!),
-                              meta: formatMediaCardMeta(
-                                AppL10n.of(context),
-                                year: movie.year,
-                                duration: movie.runtime,
-                              ),
-                              privacyId: movie.id,
-                              onTap: () => unawaited(_openMovie(movie.id)),
-                            ),
-                      firstPageProgressIndicatorBuilder: (_) =>
-                          const Center(child: CircularProgressIndicator()),
-                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message: _controller.error == null
-                            ? AppL10n.of(context).loadFailed
-                            : localizedErrorMessage(
-                                AppL10n.of(context),
-                                _controller.error!,
-                              ),
-                        onRetry: _controller.refresh,
-                      ),
-                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                        onRetry: _controller.retryLastFailedRequest,
-                      ),
-                      noItemsFoundIndicatorBuilder: (_) => EmptyView(
-                        message: AppL10n.of(context).searchNoResult,
-                      ),
-                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-                    ),
+                    builderDelegate: landscapeOrListDelegate,
                   ),
           ),
         ],

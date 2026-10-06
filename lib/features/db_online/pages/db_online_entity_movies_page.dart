@@ -301,8 +301,9 @@ class _DbOnlineEntityMoviesPageState
                   const SizedBox(width: 8),
                   MediaViewModeToggle(
                     mode: _viewMode,
-                    onChanged:
-                        ref.read(mediaServerViewModeProvider.notifier).set,
+                    onChanged: ref
+                        .read(mediaServerViewModeProvider.notifier)
+                        .set,
                   ),
                 ],
               ),
@@ -321,6 +322,11 @@ class _DbOnlineEntityMoviesPageState
                             // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
                             showNoMoreItemsIndicatorAsGridChild: false,
                             gridDelegate: const MediaGridDelegate(),
+                            builderDelegate: delegate,
+                          )
+                        : _viewMode == MediaViewMode.landscape
+                        ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                            pagingController: _controller,
                             builderDelegate: delegate,
                           )
                         : PagedSliverList<int, DbOnlineMovie>(

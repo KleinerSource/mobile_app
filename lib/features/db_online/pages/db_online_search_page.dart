@@ -262,8 +262,9 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                         const SizedBox(width: 8),
                         MediaViewModeToggle(
                           mode: viewMode,
-                          onChanged:
-                              ref.read(mediaServerViewModeProvider.notifier).set,
+                          onChanged: ref
+                              .read(mediaServerViewModeProvider.notifier)
+                              .set,
                         ),
                       ],
                     )
@@ -506,6 +507,11 @@ class _DbOnlineSearchResultsState
                   pagingController: _pagingController,
                   showNoMoreItemsIndicatorAsGridChild: false,
                   gridDelegate: const MediaGridDelegate(),
+                  builderDelegate: delegate,
+                )
+              : widget.viewMode == MediaViewMode.landscape
+              ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                  pagingController: _pagingController,
                   builderDelegate: delegate,
                 )
               : PagedSliverList<int, DbOnlineMovie>(

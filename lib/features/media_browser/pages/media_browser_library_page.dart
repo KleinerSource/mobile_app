@@ -356,7 +356,8 @@ class _MediaBrowserLibraryPageState
     final width = MediaListLayout.contentWidth(
       context,
     ).clamp(1.0, double.infinity);
-    final coverHeight = width * 9 / 16;
+    final cardWidth = MediaListLayout.landscapeCardWidthForWidth(width);
+    final coverHeight = cardWidth * 9 / 16;
     final actualIndex = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _itemKeys[item.id]),
       viewportKey: _listViewportKey,
@@ -729,12 +730,9 @@ class _MediaBrowserLibraryPageState
                               const SizedBox(width: 8),
                               MediaViewModeToggle(
                                 mode: viewMode,
-                                onChanged:
-                                    ref
-                                        .read(
-                                          mediaServerViewModeProvider.notifier,
-                                        )
-                                        .set,
+                                onChanged: ref
+                                    .read(mediaServerViewModeProvider.notifier)
+                                    .set,
                               ),
                             ],
                           ],
@@ -806,7 +804,7 @@ class _MediaBrowserLibraryPageState
                             child: PagedSelectionScope<MediaBrowserItem>(
                               selection: _selection,
                               scrollController: _scrollController,
-                              layout: isStash || !isPortrait
+                              layout: isStash || (!isPortrait && !isLandscape)
                                   ? DragSelectionLayout.list
                                   : DragSelectionLayout.grid,
                               child: CustomScrollView(
@@ -844,6 +842,7 @@ class _MediaBrowserLibraryPageState
                                                   item: item,
                                                   urls: value,
                                                   width: double.infinity,
+                                                  index: index,
                                                   showFavoriteBadge: true,
                                                   selectionEnabled: true,
                                                   onOpen: _openItem,
@@ -917,7 +916,17 @@ class _MediaBrowserLibraryPageState
                                               const NoMoreContent(),
                                         );
                                         if (isStash) {
-                                          return PagedSliverList<
+                                          return MediaLandscapePagedSliver<
+                                            int,
+                                            MediaBrowserItem
+                                          >(
+                                            pagingController: _controller,
+                                            builderDelegate: delegate,
+                                            infoHeight: 136,
+                                          );
+                                        }
+                                        if (isLandscape) {
+                                          return MediaLandscapePagedSliver<
                                             int,
                                             MediaBrowserItem
                                           >(

@@ -288,8 +288,9 @@ class _MediaBrowserCollectionDetailPageState
                       ),
                       MediaViewModeToggle(
                         mode: viewMode,
-                        onChanged:
-                            ref.read(mediaServerViewModeProvider.notifier).set,
+                        onChanged: ref
+                            .read(mediaServerViewModeProvider.notifier)
+                            .set,
                       ),
                     ],
                   ),
@@ -368,6 +369,15 @@ class _MediaBrowserCollectionDetailPageState
               pagingController: _controller,
               showNoMoreItemsIndicatorAsGridChild: false,
               gridDelegate: const MediaGridDelegate(),
+              builderDelegate: delegate,
+            ),
+          );
+        }
+        if (_viewMode == MediaViewMode.landscape) {
+          return SliverPadding(
+            padding: MediaListLayout.contentPadding,
+            sliver: MediaLandscapePagedSliver<int, MediaBrowserItem>(
+              pagingController: _controller,
               builderDelegate: delegate,
             ),
           );

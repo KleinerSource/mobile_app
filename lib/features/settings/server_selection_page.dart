@@ -23,6 +23,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../features/cache/image_cache_manager.dart';
 import '../../shared/glass.dart';
+import '../../shared/glass_menu.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/localized_error_message.dart';
 import '../../shared/server_avatar.dart';

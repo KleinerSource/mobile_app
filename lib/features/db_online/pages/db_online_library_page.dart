@@ -213,10 +213,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           options: _resolve(_sortOptions, l),
           selected: _sortBy,
           ascending: _orderBy == 'asc',
-          onSortSelected: (value, ascending) => _reloadWith(
-            sortBy: value,
-            orderBy: ascending ? 'asc' : 'desc',
-          ),
+          onSortSelected: (value, ascending) =>
+              _reloadWith(sortBy: value, orderBy: ascending ? 'asc' : 'desc'),
         ),
         DbOnlineFilterSection(
           title: l.dbOnlineLibraryResourceType,
@@ -327,8 +325,9 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                   const SizedBox(width: 8),
                   MediaViewModeToggle(
                     mode: viewMode,
-                    onChanged:
-                        ref.read(mediaServerViewModeProvider.notifier).set,
+                    onChanged: ref
+                        .read(mediaServerViewModeProvider.notifier)
+                        .set,
                   ),
                 ],
               ),
@@ -350,6 +349,11 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                                 // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
                                 showNoMoreItemsIndicatorAsGridChild: false,
                                 gridDelegate: const MediaGridDelegate(),
+                                builderDelegate: delegate,
+                              )
+                            : _viewMode == MediaViewMode.landscape
+                            ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                                pagingController: _controller,
                                 builderDelegate: delegate,
                               )
                             : PagedSliverList<int, DbOnlineMovie>(

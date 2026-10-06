@@ -611,8 +611,8 @@ class _ServerActionList extends StatelessWidget {
   });
 
   static const width = 196.0;
-  static const itemHeight = 50.0;
-  static const height = 101.0;
+  static const height =
+      GlassMenuPanel.verticalPadding * 2 + 2 * GlassMenuPanel.rowHeight + 1;
 
   final Key editKey;
   final Key deleteKey;
@@ -623,101 +623,25 @@ class _ServerActionList extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final l = AppL10n.of(context);
-    final overlayBackground = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF1B1A24)
-        : Colors.white;
-    return Material(
-      color: overlayBackground,
-      elevation: 12,
-      shadowColor: Colors.black.withValues(alpha: 0.34),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(
-          color: colors.cardBorder.withValues(alpha: 0.45),
-          width: 0.5,
+    return GlassMenuPanel(
+      width: width,
+      children: [
+        GlassMenuRow(
+          key: editKey,
+          icon: Icons.edit_outlined,
+          label: l.serverEditAction,
+          foregroundColor: colors.text,
+          onTap: onEdit,
         ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Column(
-          children: [
-            SizedBox(
-              height: itemHeight,
-              child: _ServerActionListItem(
-                key: editKey,
-                icon: Icons.edit_outlined,
-                label: l.serverEditAction,
-                color: colors.text,
-                onTap: onEdit,
-              ),
-            ),
-            SizedBox(height: 1, child: ColoredBox(color: colors.divider)),
-            SizedBox(
-              height: itemHeight,
-              child: _ServerActionListItem(
-                key: deleteKey,
-                icon: Icons.delete_outline,
-                label: l.serverDeleteAction,
-                color: colors.danger,
-                onTap: onDelete,
-              ),
-            ),
-          ],
+        SizedBox(height: 1, child: ColoredBox(color: colors.divider)),
+        GlassMenuRow(
+          key: deleteKey,
+          icon: Icons.delete_outline,
+          label: l.serverDeleteAction,
+          foregroundColor: colors.danger,
+          onTap: onDelete,
         ),
-      ),
-    );
-  }
-}
-
-class _ServerActionListItem extends StatelessWidget {
-  const _ServerActionListItem({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color,
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      ],
     );
   }
 }

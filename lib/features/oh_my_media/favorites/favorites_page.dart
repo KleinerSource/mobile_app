@@ -156,7 +156,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     final width = MediaListLayout.contentWidth(
       context,
     ).clamp(1.0, double.infinity);
-    final coverHeight = width * 9 / 16;
+    final cardWidth = MediaListLayout.landscapeCardWidthForWidth(width);
+    final coverHeight = cardWidth * 9 / 16;
     final index = previewItemIndexForViewportKeys(
       itemKeys: items.map((item) => _previewItemKeys[item.id]),
       viewportKey: _previewViewportKey,
@@ -718,7 +719,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                           ),
                                         )
                                       : viewMode == MediaViewMode.landscape
-                                      ? PagedSliverList<int, MovieListItem>(
+                                      ? MediaLandscapePagedSliver<
+                                          int,
+                                          MovieListItem
+                                        >(
                                           pagingController: _controller,
                                           builderDelegate: _buildGridDelegate(
                                             urlBuilder,

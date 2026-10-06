@@ -99,19 +99,8 @@ class ListDetailPage extends ConsumerWidget {
             else
               SliverPadding(
                 padding: MediaListLayout.contentPadding.copyWith(bottom: 80),
-                sliver: viewMode == MediaViewMode.portrait
-                    ? SliverGrid(
-                        gridDelegate: const MediaGridDelegate(),
-                        delegate: SliverChildBuilderDelegate((ctx, i) {
-                          final id = list.movieIds[i];
-                          return _ListMovieCell(
-                            movieId: id,
-                            listId: list.id,
-                            viewMode: viewMode,
-                          );
-                        }, childCount: list.movieIds.length),
-                      )
-                    : SliverList.builder(
+                sliver: viewMode == MediaViewMode.list
+                    ? SliverList.builder(
                         itemCount: list.movieIds.length,
                         itemBuilder: (ctx, i) {
                           final id = list.movieIds[i];
@@ -121,6 +110,19 @@ class ListDetailPage extends ConsumerWidget {
                             viewMode: viewMode,
                           );
                         },
+                      )
+                    : SliverGrid(
+                        gridDelegate: viewMode == MediaViewMode.landscape
+                            ? const MediaLandscapeGridDelegate()
+                            : const MediaGridDelegate(),
+                        delegate: SliverChildBuilderDelegate((ctx, i) {
+                          final id = list.movieIds[i];
+                          return _ListMovieCell(
+                            movieId: id,
+                            listId: list.id,
+                            viewMode: viewMode,
+                          );
+                        }, childCount: list.movieIds.length),
                       ),
               ),
           ],
@@ -318,11 +320,7 @@ class _ListMovieCell extends ConsumerWidget {
           child: Text(
             AppL10n.of(context).loadFailed,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: c.muted,
-              fontFamily: 'Inter',
-              fontSize: 10,
-            ),
+            style: TextStyle(color: c.muted, fontFamily: 'Inter', fontSize: 10),
           ),
         ),
       ),

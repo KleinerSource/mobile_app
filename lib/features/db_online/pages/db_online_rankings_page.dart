@@ -653,26 +653,28 @@ class _MovieRankingBoard extends ConsumerWidget {
           slivers: [
             SliverPadding(
               padding: MediaListLayout.contentPadding.copyWith(bottom: 120),
-              sliver: viewMode == MediaViewMode.portrait
-                  ? SliverGrid(
-                      gridDelegate: const MediaGridDelegate(),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _RankedMovieCard(
-                          rank: index + 1,
-                          movie: page.movies[index],
-                        ),
-                        childCount: page.movies.length,
-                      ),
-                    )
-                  : SliverList.builder(
-                      itemCount: page.movies.length,
-                      itemBuilder: (context, index) => _RankedMovieCard(
-                        rank: index + 1,
-                        movie: page.movies[index],
-                        landscape: viewMode == MediaViewMode.landscape,
-                        compact: viewMode == MediaViewMode.list,
-                      ).wrapped(),
-                    ),
+              sliver: SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final delegate = SliverChildBuilderDelegate(
+                    (context, index) => _RankedMovieCard(
+                      rank: index + 1,
+                      movie: page.movies[index],
+                      landscape: viewMode == MediaViewMode.landscape,
+                      compact: viewMode == MediaViewMode.list,
+                    ).wrapped(),
+                    childCount: page.movies.length,
+                  );
+                  if (viewMode == MediaViewMode.list) {
+                    return SliverList(delegate: delegate);
+                  }
+                  return SliverGrid(
+                    gridDelegate: viewMode == MediaViewMode.landscape
+                        ? const MediaLandscapeGridDelegate()
+                        : const MediaGridDelegate(),
+                    delegate: delegate,
+                  );
+                },
+              ),
             ),
           ],
         );
@@ -784,6 +786,11 @@ class _Top250BoardState extends ConsumerState<_Top250Board> {
                   pagingController: _pagingController,
                   showNoMoreItemsIndicatorAsGridChild: false,
                   gridDelegate: const MediaGridDelegate(),
+                  builderDelegate: _pagedDelegate(l),
+                )
+              : widget.viewMode == MediaViewMode.landscape
+              ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
+                  pagingController: _pagingController,
                   builderDelegate: _pagedDelegate(l),
                 )
               : PagedSliverList<int, DbOnlineMovie>(
