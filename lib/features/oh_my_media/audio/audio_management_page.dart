@@ -35,6 +35,7 @@ import 'audio_providers.dart';
 
 /// 转译阶段的展示文案：未知 stage 原样返回，stage 为空且活跃时显示兜底。
 String _transcriptionStageLabel(AppL10n l, AudioTranscription t) {
+  if (t.status == 'queued') return l.audioStageQueued;
   if (t.stage.isNotEmpty) {
     return switch (t.stage) {
       'queued' => l.audioStageQueued,
@@ -335,23 +336,62 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
   // ============ 任务联动 ============
 
+  /// 调度排队先于资产投影写入；按资产 ID 补齐等待状态，执行后使用行内进度。
+  AudioAsset _assetWithTaskState(AudioAsset asset, List<TaskItem> tasks) {
+    final transcription = asset.transcriptionView;
+    final task = tasks
+        .where(
+          (task) =>
+              task.taskType == 'subtitle_transcription' &&
+              (task.audioAssetIds.contains(asset.id) ||
+                  (transcription.taskId.isNotEmpty &&
+                      task.id == transcription.taskId)),
+        )
+        .firstOrNull;
+    if (task == null) return asset;
+    if ((task.status != 'queued' || transcription.isActive) &&
+        transcription.taskId == task.id &&
+        transcription.status.isNotEmpty) {
+      return asset;
+    }
+    // 批量任务完成不代表每个音频转译成功，终态完成仍以资产投影为准。
+    if (!task.isActive && !task.isFailed && !task.isCanceled) return asset;
+    return asset.withTranscription(
+      AudioTranscription(
+        taskId: task.id,
+        status: task.status,
+        stage: task.status == 'queued' ? 'queued' : '',
+        message: task.message,
+        errorMessage: task.isFailed ? task.message : '',
+      ),
+    );
+  }
+
   /// WebSocket 中正在转译的影片集合：当前页之外的资产也据此禁用选择与入队。
   Set<int> _activeTranscriptionMovieIds() {
     final ids = <int>{};
+    final assetIds = <int>{};
     for (final task in ref.read(taskCenterProvider)) {
-      if (task.taskType == 'subtitle_transcription' &&
-          (task.status == 'queued' ||
-              task.status == 'running' ||
-              task.status == 'canceling') &&
-          task.movieId > 0) {
-        ids.add(task.movieId);
+      if (task.taskType == 'subtitle_transcription' && task.isActive) {
+        if (task.movieId > 0) ids.add(task.movieId);
+        assetIds.addAll(task.audioAssetIds);
+      }
+    }
+    for (final asset in _controller.itemList ?? const <AudioAsset>[]) {
+      if (assetIds.contains(asset.id) && asset.movieId > 0) {
+        ids.add(asset.movieId);
       }
     }
     return ids;
   }
 
   bool _isAssetLocked(AudioAsset asset, Set<int> activeMovies) {
-    if (asset.isTranscriptionActive) return true;
+    if (_assetWithTaskState(
+      asset,
+      ref.read(taskCenterProvider),
+    ).isTranscriptionActive) {
+      return true;
+    }
     return asset.movieId > 0 && activeMovies.contains(asset.movieId);
   }
 
@@ -373,7 +413,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
           onPressed: () => _cancelTranscription(asset),
         ),
       );
-    } else if ((t.isFailed || t.isCanceled) && t.taskId.isNotEmpty) {
+    } else if ((t.isFailed || t.isCanceled) && t.taskId.isNotEmpty && !locked) {
       actions.add(
         SwipeActionData(
           icon: Icons.refresh_rounded,
@@ -471,7 +511,11 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
   List<AudioAsset> _selectedItems() {
     final loaded = _controller.itemList ?? const <AudioAsset>[];
-    return loaded.where((item) => _selectedIds.contains(item.id)).toList();
+    return loaded
+        .where(
+          (item) => _selectedIds.contains(item.id) && _isSelectableId(item.id),
+        )
+        .toList();
   }
 
   // ============ 操作 ============
@@ -550,6 +594,9 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   /// 新建单个或批量转译时，让用户选择是否覆盖已有同名字幕。
   Future<void> _enqueueTranscriptions(List<AudioAsset> assets) async {
     if (assets.isEmpty || _busyAssetIds.isNotEmpty) return;
+    assets = assets.where((asset) => _isSelectableId(asset.id)).toList();
+    if (assets.isEmpty) return;
+    final repository = ref.read(audioRepositoryProvider);
     final l = AppL10n.of(context);
     final overwrite = await _showTranscriptionSheet(
       title: assets.length == 1
@@ -561,16 +608,24 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       confirmLabel: l.audioEnqueueConfirm,
     );
     if (overwrite == null || !mounted) return;
+    if (!identical(repository, ref.read(audioRepositoryProvider))) return;
 
+    assets = assets.where((asset) => _isSelectableId(asset.id)).toList();
+    if (assets.isEmpty || _busyAssetIds.isNotEmpty) return;
     final ids = assets.map((asset) => asset.id).toList();
     if (!_busyAssetIds.add(ids.first)) return;
     setState(() {});
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final result = await ref
-          .read(audioRepositoryProvider)
-          .enqueueTranscriptions(ids, overwrite: overwrite);
+      final result = await repository.enqueueTranscriptions(
+        ids,
+        overwrite: overwrite,
+      );
       if (!mounted) return;
+      if (!identical(repository, ref.read(audioRepositoryProvider))) return;
+      if (result.task case final task? when task.id.isNotEmpty) {
+        ref.read(taskCenterProvider.notifier).restore(task);
+      }
       AppHaptics.medium();
       final rejected = result.rejected.isNotEmpty
           ? result.rejected.first.message
@@ -611,6 +666,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   Future<void> _retryTranscription(AudioAsset asset) async {
+    if (!_isSelectableId(asset.id)) return;
     final taskId = asset.transcriptionTaskId;
     if (taskId.isEmpty) return;
     if (!_busyAssetIds.add(asset.id)) return;
@@ -865,13 +921,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                       .contains(extractionSearch)),
         )
         .toList();
-    final activeMovies = {
-      for (final task in tasks)
-        if (task.taskType == 'subtitle_transcription' &&
-            task.isActive &&
-            task.movieId > 0)
-          task.movieId,
-    };
+    final activeMovies = _activeTranscriptionMovieIds();
     final transcriptionEnabled = ref
         .watch(modalTranscriptionConfigProvider)
         .when(
@@ -883,6 +933,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     // 转译/提取进度通过 WS 高频推送，防抖后刷新列表同步行内进度。
     ref.listen<List<TaskItem>>(taskCenterProvider, (previous, next) {
       _scheduleTaskDrivenReload(next);
+      _pruneSelection(_controller.itemList ?? const <AudioAsset>[]);
     });
 
     return Scaffold(
@@ -1080,7 +1131,10 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
                                       final assetIndex =
                                           index - extractionCount;
-                                      final asset = assets[assetIndex];
+                                      final asset = _assetWithTaskState(
+                                        assets[assetIndex],
+                                        tasks,
+                                      );
                                       final locked = _isAssetLocked(
                                         asset,
                                         activeMovies,

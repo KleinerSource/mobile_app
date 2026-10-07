@@ -495,7 +495,12 @@ void main() {
       ),
     );
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsNothing);
+    final progress = find.descendant(
+      of: dialog,
+      matching: find.byType(LinearProgressIndicator),
+    );
+    expect(progress, findsOneWidget);
+    expect(tester.widget<LinearProgressIndicator>(progress).value, 0);
     expect(barrier, findsOneWidget);
     final batchMenu = find.byWidgetPredicate(
       (widget) => widget is PopupMenuButton<int> && widget.tooltip == '批量操作',
@@ -519,6 +524,7 @@ void main() {
 
     expect(find.text('删除完成'), findsOneWidget);
     expect(find.text('已处理 1 / 1 项'), findsOneWidget);
+    expect(tester.widget<LinearProgressIndicator>(progress).value, 1);
     expect(tester.widget<IgnorePointer>(navigationLock).ignoring, isFalse);
 
     await tester.tap(find.byIcon(Icons.settings_rounded), warnIfMissed: false);

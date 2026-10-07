@@ -349,6 +349,19 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
 
   void _upsert(TaskItem incoming, {bool updateMeta = true}) {
     final next = [...state];
+    if (incoming.audioAssetIds.isEmpty) {
+      final previous = next
+          .where(
+            (task) => task.id == incoming.id && task.audioAssetIds.isNotEmpty,
+          )
+          .firstOrNull;
+      if (previous != null) {
+        incoming = incoming.copyWith(
+          audioAssetIds: previous.audioAssetIds,
+          updatedAt: incoming.updatedAt,
+        );
+      }
+    }
     if (incoming.attempt > 0) {
       next.removeWhere(
         (item) =>
@@ -396,6 +409,15 @@ class TaskCenterNotifier extends Notifier<List<TaskItem>> {
     if (index >= 0) {
       final previous = next[index];
       if (incoming.revision > 0 && previous.revision > incoming.revision) {
+        // 提交响应/历史记录可能晚于 WS，但仍提供快照没有的音频关联。
+        if (previous.audioAssetIds.isEmpty &&
+            incoming.audioAssetIds.isNotEmpty) {
+          next[index] = previous.copyWith(
+            audioAssetIds: incoming.audioAssetIds,
+            updatedAt: previous.updatedAt,
+          );
+          state = next;
+        }
         return;
       }
       previousTask = previous;

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:omm/core/models/library.dart';
@@ -84,6 +86,7 @@ class TaskItem {
     this.libraryName = '',
     this.displayName = '',
     this.movieId = 0,
+    this.audioAssetIds = const [],
     this.movieTitle = '',
     this.movieFileName = '',
     this.fileName = '',
@@ -220,6 +223,7 @@ class TaskItem {
       libraryIds: _asIntList(json['library_ids'] ?? json['libraryIds']),
       displayName: _asString(json['display_name'] ?? json['displayName']),
       movieId: _asInt(json['movie_id'] ?? json['movieId']),
+      audioAssetIds: _audioAssetIdsFromInput(json['input_json']),
       movieTitle: _asString(json['movie_title'] ?? json['movieTitle']),
       movieFileName: _asString(
         json['movie_file_name'] ?? json['movieFileName'],
@@ -300,6 +304,7 @@ class TaskItem {
   final String libraryName;
   final String displayName;
   final int movieId;
+  final List<int> audioAssetIds;
   final String movieTitle;
   final String movieFileName;
   final String fileName;
@@ -364,6 +369,7 @@ class TaskItem {
     String? libraryName,
     String? displayName,
     int? movieId,
+    List<int>? audioAssetIds,
     String? movieTitle,
     String? movieFileName,
     String? fileName,
@@ -398,6 +404,7 @@ class TaskItem {
       libraryName: libraryName ?? this.libraryName,
       displayName: displayName ?? this.displayName,
       movieId: movieId ?? this.movieId,
+      audioAssetIds: audioAssetIds ?? this.audioAssetIds,
       movieTitle: movieTitle ?? this.movieTitle,
       movieFileName: movieFileName ?? this.movieFileName,
       fileName: fileName ?? this.fileName,
@@ -436,6 +443,9 @@ class TaskItem {
           ? displayName
           : incoming.displayName,
       movieId: incoming.movieId == 0 ? movieId : incoming.movieId,
+      audioAssetIds: incoming.audioAssetIds.isEmpty
+          ? audioAssetIds
+          : incoming.audioAssetIds,
       movieTitle: incoming.movieTitle.isEmpty
           ? movieTitle
           : incoming.movieTitle,
@@ -465,6 +475,16 @@ class TaskItem {
 }
 
 final _epoch = DateTime.fromMillisecondsSinceEpoch(0);
+
+List<int> _audioAssetIdsFromInput(Object? raw) {
+  if (raw is! String || raw.isEmpty) return const [];
+  try {
+    final input = jsonDecode(raw);
+    return input is Map ? _asIntList(input['audio_asset_ids']) : const [];
+  } on FormatException {
+    return const [];
+  }
+}
 
 bool _isActiveStatus(String status) {
   return const {

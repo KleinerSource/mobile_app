@@ -66,15 +66,19 @@ void main() {
 
     final result = await repository.enqueueTranscriptions([
       11,
+      12,
     ], overwrite: true);
 
     expect(adapter.requestBodies[0]['task_type'], 'subtitle_transcription');
     expect(adapter.requestBodies[0]['input'], {
-      'audio_asset_ids': [11],
+      'audio_asset_ids': [11, 12],
       'overwrite': true,
     });
-    expect(result.accepted, 1);
+    expect(result.accepted, 2);
     expect(result.rejected, isEmpty);
+    expect(result.task?.id, 'transcription-11');
+    expect(result.task?.status, 'queued');
+    expect(result.task?.audioAssetIds, [11, 12]);
   });
 
   test('取消与重试使用统一任务 ID 路径', () async {

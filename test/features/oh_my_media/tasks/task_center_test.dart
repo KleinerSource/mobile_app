@@ -20,6 +20,28 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_models_test.dart ====================
 void _main_0() {
+  test('转译任务历史恢复批量音频关联，轻量快照合并保留关联', () {
+    final task = TaskItem.fromHistory(const {
+      'task_id': 'transcription-1',
+      'task_type': 'subtitle_transcription',
+      'status': 'queued',
+      'input_json': '{"audio_asset_ids":[11,"12",0,"invalid"]}',
+    });
+    expect(task.audioAssetIds, [11, 12]);
+    final updated = task.merge(
+      TaskItem.fromSchedulerMessage(const {
+        'taskId': 'transcription-1',
+        'taskType': 'subtitle_transcription',
+        'status': 'running',
+      }),
+    );
+    expect(updated.audioAssetIds, [11, 12]);
+    expect(updated.status, 'running');
+    for (final raw in [null, '', 'invalid', '[]', '{}']) {
+      expect(TaskItem.fromHistory({'input_json': raw}).audioAssetIds, isEmpty);
+    }
+  });
+
   test('任务进度可以兼容数字和字符串，并限制展示百分比', () {
     final progress = TaskProgress.fromJson(const {
       'total': '8',
@@ -257,6 +279,57 @@ void _main_0() {
 
 // ==================== 原 test/features/oh_my_media/tasks/task_center_provider_test.dart ====================
 void _main_1() {
+  test('较晚提交响应补充音频关联但不倒退WS状态，重试沿用关联', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(taskCenterProvider.notifier);
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'transcription-1',
+      'taskType': 'subtitle_transcription',
+      'taskName': '字幕转译',
+      'attempt': 1,
+      'revision': 3,
+      'status': 'running',
+      'updatedAt': '2026-10-07T01:00:00Z',
+    });
+    notifier.restore(
+      TaskItem.fromHistory(const {
+        'task_id': 'transcription-1',
+        'task_type': 'subtitle_transcription',
+        'task_name': '字幕转译',
+        'attempt': 1,
+        'revision': 1,
+        'status': 'queued',
+        'input_json': '{"audio_asset_ids":[11,12]}',
+      }),
+    );
+    final task = container.read(taskCenterProvider).single;
+    expect(task.status, 'running');
+    expect(task.revision, 3);
+    expect(task.audioAssetIds, [11, 12]);
+    expect(task.updatedAt, DateTime.parse('2026-10-07T01:00:00Z'));
+    notifier.updateFromSchedulerMessage(const {
+      'type': 'scheduler_status',
+      'taskId': 'transcription-1',
+      'taskType': 'subtitle_transcription',
+      'taskName': '字幕转译',
+      'attempt': 2,
+      'revision': 1,
+      'status': 'queued',
+      'updatedAt': '2026-10-07T02:00:00Z',
+    });
+    final retried = container.read(taskCenterProvider).single;
+    expect(retried.status, 'queued');
+    expect(retried.attempt, 2);
+    expect(retried.audioAssetIds, [11, 12]);
+    expect(retried.updatedAt, DateTime.parse('2026-10-07T02:00:00Z'));
+  });
+
   test('服务器连接暂停时不启动任务历史请求', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

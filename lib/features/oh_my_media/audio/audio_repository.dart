@@ -1,5 +1,6 @@
 import 'package:omm/core/api/envelope.dart';
 import 'package:omm/core/sources/media/omm_audio_operations_source.dart';
+import '../tasks/task_model.dart';
 import 'audio_models.dart';
 
 /// 音频资产与字幕转译任务的数据仓库。
@@ -74,6 +75,11 @@ class AudioRepository {
           : const [];
       return TranscriptionEnqueueResult(
         accepted: accepted.isNotEmpty ? assetIds.length : items.length,
+        task: data['task'] is Map
+            ? TaskItem.fromSchedulerMessage(
+                Map<String, dynamic>.from(data['task'] as Map),
+              ).copyWith(audioAssetIds: List<int>.unmodifiable(assetIds))
+            : null,
         rejected: [
           for (final value in rejected)
             if (value is Map)

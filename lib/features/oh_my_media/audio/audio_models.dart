@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../tasks/task_model.dart';
 
 /// 音频资产行上内嵌的字幕转译信息。
 ///
@@ -113,6 +114,22 @@ class AudioAsset {
 
   bool get isTranscriptionActive => transcriptionView.isActive;
 
+  AudioAsset withTranscription(AudioTranscription value) => AudioAsset(
+    id: id,
+    movieId: movieId,
+    movieTitle: movieTitle,
+    movieFileName: movieFileName,
+    fileName: fileName,
+    subtitleTranslated: subtitleTranslated,
+    format: format,
+    codec: codec,
+    bitrateKbps: bitrateKbps,
+    durationSec: durationSec,
+    fileSize: fileSize,
+    fileExists: fileExists,
+    transcription: value,
+  );
+
   /// 标题兜底保持语言中立（#id），本地化文案由展示层补充。
   String get displayTitle => movieTitle.isNotEmpty ? movieTitle : '#$movieId';
 
@@ -182,11 +199,13 @@ class TranscriptionEnqueueResult {
     this.accepted = 0,
     this.rejected = const [],
     this.message,
+    this.task,
   });
 
   final int accepted;
   final List<TranscriptionEnqueueRejection> rejected;
   final String? message;
+  final TaskItem? task;
 }
 
 String _asString(Object? value) {
