@@ -273,6 +273,7 @@ class GlassMenuAnchor<T> extends StatefulWidget {
     this.tooltip,
     this.onAnchorTap,
     this.onLongPressEntries,
+    this.followLongPressPosition = false,
   }) : assert(
          (child == null) != (builder == null),
          'Provide exactly one of child or builder.',
@@ -298,6 +299,9 @@ class GlassMenuAnchor<T> extends StatefulWidget {
 
   /// 长按后按需加载菜单项；适用于菜单选项依赖异步状态的锚点。
   final Future<List<GlassMenuEntry<T>>?> Function()? onLongPressEntries;
+
+  /// 让长按菜单以手指位置为锚点；固定按钮菜单保留组件自身的位置。
+  final bool followLongPressPosition;
 
   @override
   State<GlassMenuAnchor<T>> createState() => _GlassMenuAnchorState<T>();
@@ -531,7 +535,9 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
       _open(
         interactive: false,
         initialPosition: details.globalPosition,
-        anchorPosition: details.globalPosition,
+        anchorPosition: widget.followLongPressPosition
+            ? details.globalPosition
+            : null,
       );
       return;
     }
@@ -551,7 +557,9 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
       _open(
         interactive: released,
         initialPosition: released ? null : _longPressPosition,
-        anchorPosition: _longPressOrigin,
+        anchorPosition: widget.followLongPressPosition
+            ? _longPressOrigin
+            : null,
         entries: entries,
       );
     } catch (error, stackTrace) {
