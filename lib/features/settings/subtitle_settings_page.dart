@@ -31,6 +31,7 @@ class SubtitleSettingsPage extends ConsumerWidget {
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppSettings,

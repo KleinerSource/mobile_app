@@ -245,6 +245,7 @@ class _ModalTranscriptionSettingsPageState
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
@@ -277,7 +278,12 @@ class _ModalTranscriptionSettingsPageState
     final l = AppL10n.of(context);
     return ListView(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        0,
+        22,
+        28 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         Container(
           decoration: settingsCardDecoration(context),

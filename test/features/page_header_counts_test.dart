@@ -67,6 +67,7 @@ Future<void> _pumpPage(
   Completer<bool> ready,
   int total, {
   double scale = 1,
+  double? bottomInset,
 }) async {
   SharedPreferences.setMockInitialValues({
     'privacy.app_switcher_shield': false,
@@ -123,9 +124,12 @@ Future<void> _pumpPage(
       ],
       child: MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            padding: bottomInset == null
+                ? MediaQuery.paddingOf(context)
+                : MediaQuery.paddingOf(context).copyWith(bottom: bottomInset),
+          ),
           child: child!,
         ),
         locale: const Locale('zh'),
@@ -186,6 +190,39 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('资源管理页滚动布局穿透底部安全区', (tester) async {
+    final ready = Completer<bool>();
+    await _pumpPage(
+      tester,
+      const ResourceListPage(kind: ResourceKind.genre),
+      ready,
+      321,
+      bottomInset: 34,
+    );
+
+    final scaffold = find.byType(Scaffold).first;
+    final safeArea = find
+        .descendant(of: scaffold, matching: find.byType(SafeArea))
+        .first;
+    expect(tester.widget<SafeArea>(safeArea).bottom, isFalse);
+    expect(tester.getRect(safeArea).bottom, tester.getRect(scaffold).bottom);
+    expect(
+      MediaQuery.paddingOf(
+        tester.element(find.byType(SettingsFixedHeaderLayout)),
+      ),
+      isA<EdgeInsets>().having((padding) => padding.bottom, 'bottom', 34),
+    );
+    final listPadding = tester.widget<SliverPadding>(
+      find.descendant(
+        of: find.byType(CustomScrollView),
+        matching: find.byType(SliverPadding),
+      ).first,
+    );
+    expect(listPadding.padding.resolve(TextDirection.ltr).bottom, 80);
+    ready.complete(false);
+    await tester.pumpAndSettle();
+  });
 
   final pages = <(Widget, String, String)>[
     (const ResourceListPage(kind: ResourceKind.genre), '类型管理', '个类型'),

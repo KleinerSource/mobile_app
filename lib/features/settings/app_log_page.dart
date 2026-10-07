@@ -19,6 +19,7 @@ class AppLogPage extends StatelessWidget {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppUpdate,

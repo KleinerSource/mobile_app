@@ -29,6 +29,7 @@ class SecuritySettingsPage extends ConsumerWidget {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsAppSettings,

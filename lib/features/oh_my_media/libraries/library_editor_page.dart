@@ -202,6 +202,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupLibrary,
@@ -223,7 +224,12 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
             ),
             body: ListView(
               primary: true,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                24 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 // 名称
                 Text(l.libraryEditorName, style: AppText.eyebrow(context)),

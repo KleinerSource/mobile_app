@@ -217,6 +217,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(

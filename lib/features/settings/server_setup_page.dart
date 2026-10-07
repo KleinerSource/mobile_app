@@ -805,6 +805,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupServer,
@@ -817,7 +818,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
             ),
             body: ListView(
               primary: true,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                30 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 GlassPanel(
                   borderRadius: BorderRadius.circular(20),

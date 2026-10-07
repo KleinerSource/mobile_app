@@ -353,6 +353,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         },
         child: GlowBackground(
           child: SafeArea(
+            bottom: false,
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
               header: Column(

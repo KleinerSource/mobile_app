@@ -63,6 +63,7 @@ class _MediaBrowserLibrarySettingsPageState
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: config.brandLabel,
@@ -724,6 +725,7 @@ class _MediaBrowserLibraryEditorPageState
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: config?.brandLabel ?? l.mediaBrowserLibrariesTitle,
@@ -733,7 +735,12 @@ class _MediaBrowserLibraryEditorPageState
             ),
             body: ListView(
               primary: true,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                32 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 TextField(
                   controller: _nameController,

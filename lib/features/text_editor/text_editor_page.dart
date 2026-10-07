@@ -174,6 +174,7 @@ class _TextEditorPageState extends State<TextEditorPage> {
         backgroundColor: c.bg,
         body: GlowBackground(
           child: SafeArea(
+            bottom: false,
             child: SettingsFixedHeaderLayout(
               header: _buildHeader(context, canEdit),
               body: _editing ? _buildEditor(context) : _buildReadOnly(context),
@@ -263,7 +264,12 @@ class _TextEditorPageState extends State<TextEditorPage> {
       width: double.infinity,
       child: Scrollbar(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
+          padding: EdgeInsets.fromLTRB(
+            22,
+            18,
+            22,
+            32 + MediaQuery.paddingOf(context).bottom,
+          ),
           child: SelectableText(
             widget.text,
             textAlign: TextAlign.left,

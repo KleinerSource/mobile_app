@@ -150,6 +150,7 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
@@ -176,7 +177,12 @@ class _PreviewSettingsPageState extends ConsumerState<PreviewSettingsPage> {
   Widget _buildForm(AppColors colors) {
     final l = AppL10n.of(context);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        0,
+        22,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         _switchCard(
           colors,

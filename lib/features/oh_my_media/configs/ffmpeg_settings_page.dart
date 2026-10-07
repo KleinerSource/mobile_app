@@ -92,6 +92,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
@@ -119,7 +120,12 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
     final l = AppL10n.of(context);
     return ListView(
       primary: true,
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        0,
+        22,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         _sectionLabel(l.ffmpegHwSection),
         _switchCard(

@@ -85,16 +85,40 @@ void main() {
             serverId,
           ).overrideWith((ref) => loading.future),
         ],
-        child: const MaterialApp(
-          locale: Locale('zh'),
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.paddingOf(context).copyWith(bottom: 34),
+            ),
+            child: child!,
+          ),
+          locale: const Locale('zh'),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          home: FileSourcesPage(),
+          home: const FileSourcesPage(),
         ),
       ),
     );
     _activateFileRuntime(tester, serverId);
     await tester.pump();
+
+    final safeArea = find.byType(SafeArea).first;
+    expect(tester.widget<SafeArea>(safeArea).bottom, isFalse);
+    expect(
+      tester.getRect(safeArea).bottom,
+      tester.getRect(find.byType(Scaffold).first).bottom,
+    );
+    final bottomContentPadding = tester.widget<Padding>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Padding &&
+            widget.padding.resolve(TextDirection.ltr).bottom > 34,
+      ).first,
+    );
+    expect(
+      bottomContentPadding.padding.resolve(TextDirection.ltr).bottom,
+      greaterThan(34),
+    );
 
     final title = find.text('SMB 一号');
     expect(

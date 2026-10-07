@@ -22,6 +22,7 @@ class PosterBadgeDisplayPage extends ConsumerWidget {
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppSettings,
@@ -30,7 +31,9 @@ class PosterBadgeDisplayPage extends ConsumerWidget {
             ),
             body: ListView(
               primary: true,
-              padding: EdgeInsets.zero,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 _PosterBadgePreview(visibility: visibility),
                 SettingsGroup(

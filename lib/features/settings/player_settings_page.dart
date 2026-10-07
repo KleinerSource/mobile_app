@@ -37,6 +37,7 @@ class PlayerSettingsPage extends ConsumerWidget {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppSettings,

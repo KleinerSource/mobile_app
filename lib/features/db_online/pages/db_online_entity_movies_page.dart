@@ -281,6 +281,7 @@ class _DbOnlineEntityMoviesPageState
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
@@ -316,7 +317,9 @@ class _DbOnlineEntityMoviesPageState
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: MediaListLayout.contentPadding,
+                    padding: MediaListLayout.contentPadding.copyWith(
+                      bottom: MediaQuery.paddingOf(context).bottom,
+                    ),
                     sliver: isPortrait
                         ? PagedSliverGrid<int, DbOnlineMovie>(
                             pagingController: _controller,

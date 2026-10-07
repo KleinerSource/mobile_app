@@ -1060,6 +1060,7 @@ class _SubtitlePreviewPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: colors.bg,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             Row(
@@ -1082,7 +1083,12 @@ class _SubtitlePreviewPage extends StatelessWidget {
             Expanded(
               child: Scrollbar(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+                  padding: EdgeInsets.fromLTRB(
+                    22,
+                    12,
+                    22,
+                    28 + MediaQuery.paddingOf(context).bottom,
+                  ),
                   child: SelectableText(
                     content,
                     style: const TextStyle(

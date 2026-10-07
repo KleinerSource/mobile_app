@@ -55,11 +55,17 @@ void main() {
           requiredApiClientProvider.overrideWithValue(client),
           sharedPrefsProvider.overrideWithValue(preferences),
         ],
-        child: const MaterialApp(
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.paddingOf(context).copyWith(bottom: 34),
+            ),
+            child: child!,
+          ),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: Locale('zh'),
-          home: Scaffold(
+          locale: const Locale('zh'),
+          home: const Scaffold(
             body: DbOnlineEntityMoviesPage(
               kind: 'maker',
               id: 'mk-1',
@@ -74,11 +80,34 @@ void main() {
     expect(requestPath, '/api/makers/mk-1/movies');
     expect(find.text('示例片商'), findsOneWidget);
     expect(find.text('片商影片'), findsOneWidget);
+    final page = find.byType(DbOnlineEntityMoviesPage);
+    final safeArea = find
+        .descendant(of: page, matching: find.byType(SafeArea))
+        .first;
+    expect(tester.widget<SafeArea>(safeArea).bottom, isFalse);
+    final pageScaffold = find
+        .descendant(of: page, matching: find.byType(Scaffold))
+        .first;
+    expect(
+      tester.getRect(safeArea).bottom,
+      tester.getRect(pageScaffold).bottom,
+    );
+    final contentPadding = tester.widget<SliverPadding>(
+      find.descendant(
+        of: find.byType(CustomScrollView),
+        matching: find.byType(SliverPadding),
+      ).first,
+    );
+    expect(
+      contentPadding.padding.resolve(TextDirection.ltr).bottom,
+      34,
+    );
 
     // 页头筛选按钮打开弹层，选择资源条件后按参数重新加载。
     await tester.tap(find.byIcon(Icons.tune_rounded));
     await tester.pumpAndSettle();
     expect(find.text('资源条件'), findsOneWidget);
+    expect(tester.widget<SafeArea>(find.byType(SafeArea).last).bottom, isTrue);
 
     await tester.tap(find.text('字幕').first);
     await tester.pumpAndSettle();

@@ -75,6 +75,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         backgroundColor: colors.bg,
         body: GlowBackground(
           child: SafeArea(
+            bottom: false,
             child: SettingsFixedHeaderLayout(
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupServer,
@@ -92,6 +93,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         backgroundColor: colors.bg,
         body: GlowBackground(
           child: SafeArea(
+            bottom: false,
             child: SettingsFixedHeaderLayout(
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupServer,
@@ -112,6 +114,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
@@ -120,7 +123,12 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             ),
             body: ListView(
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                30 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 _buildActions(),
                 const SizedBox(height: 16),

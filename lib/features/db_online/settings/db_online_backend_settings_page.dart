@@ -116,6 +116,7 @@ class DboBackendSettingsPage extends StatelessWidget {
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: 'DB ONLINE',
@@ -412,6 +413,7 @@ class _DboBackendConfigDetailPageState
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: 'DB ONLINE',
@@ -419,7 +421,12 @@ class _DboBackendConfigDetailPageState
             ),
             body: ListView(
               primary: true,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                0,
+                22,
+                30 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 if (widget.section.testName == 'pan115' &&
                     _readPath(widget.config, 'downloader.pan115.enabled') ==

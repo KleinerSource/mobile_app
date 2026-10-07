@@ -84,6 +84,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.settingsAppSettings,

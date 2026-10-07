@@ -43,6 +43,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: l.taskCenterEyebrow,
@@ -61,11 +62,11 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                 child: ListView(
                   primary: true,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     22,
                     MediaListLayout.contentTopInset,
                     22,
-                    32,
+                    32 + MediaQuery.paddingOf(context).bottom,
                   ),
                   children: [
                     _buildSummary(colors, tasks, activeCount, meta),

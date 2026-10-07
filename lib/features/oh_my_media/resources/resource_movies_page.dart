@@ -147,6 +147,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
+        bottom: false,
         child: StatusBarScrollToTop(
           // 列表持自有控制器（分页位置恢复），由此接入状态栏点击回顶。
           scrollController: _scrollController,

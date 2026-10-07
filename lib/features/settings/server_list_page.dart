@@ -75,6 +75,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
             header: SettingsSubPageHeader(
@@ -89,7 +90,12 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
                 : ReorderableListView.builder(
                     itemCount: servers.length,
                     scrollController: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+                    padding: EdgeInsets.fromLTRB(
+                      22,
+                      0,
+                      22,
+                      32 + MediaQuery.paddingOf(context).bottom,
+                    ),
                     proxyDecorator: _dragProxyDecorator,
                     onReorderStart: (index) {
                       AppHaptics.light();

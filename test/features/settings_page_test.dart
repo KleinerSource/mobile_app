@@ -55,9 +55,36 @@ void main() {
     expect(find.byType(ServerListPage), findsOneWidget);
   });
 
+  testWidgets('设置页滚动区域延伸到系统底部安全区', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(_app(prefs, bottomInset: 34));
+    await tester.pumpAndSettle();
+
+    final scaffold = find.byType(Scaffold).first;
+    final safeArea = find
+        .descendant(of: scaffold, matching: find.byType(SafeArea))
+        .first;
+    expect(tester.widget<SafeArea>(safeArea).bottom, isFalse);
+    expect(tester.getRect(safeArea).bottom, tester.getRect(scaffold).bottom);
+    expect(
+      MediaQuery.paddingOf(tester.element(find.byType(ListView).first)).bottom,
+      34,
+    );
+    final bottomSpacer = find.byWidgetPredicate(
+      (widget) => widget is SizedBox && widget.height == 80,
+    );
+    expect(bottomSpacer, findsOneWidget);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(bottomSpacer).height,
+      greaterThanOrEqualTo(80),
+    );
+  });
 }
 
-Widget _app(SharedPreferences prefs) {
+Widget _app(SharedPreferences prefs, {double? bottomInset}) {
   return ProviderScope(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
@@ -70,11 +97,19 @@ Widget _app(SharedPreferences prefs) {
         ),
       ),
     ],
-    child: const MaterialApp(
-      locale: Locale('zh'),
+    child: MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          padding: bottomInset == null
+              ? MediaQuery.paddingOf(context)
+              : MediaQuery.paddingOf(context).copyWith(bottom: bottomInset),
+        ),
+        child: child!,
+      ),
+      locale: const Locale('zh'),
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
-      home: SettingsPage(),
+      home: const SettingsPage(),
     ),
   );
 }

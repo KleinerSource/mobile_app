@@ -308,6 +308,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: PopScope(
             canPop: !_selectionMode,
             onPopInvokedWithResult: (didPop, _) {

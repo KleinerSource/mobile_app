@@ -116,11 +116,17 @@ void main() {
             (_) async => const MediaBrowserUser(id: 'user-1', name: '普通用户'),
           ),
         ],
-        child: const MaterialApp(
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.paddingOf(context).copyWith(bottom: 34),
+            ),
+            child: child!,
+          ),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
-          locale: Locale('zh'),
-          home: MediaBrowserLibrarySettingsPage(),
+          locale: const Locale('zh'),
+          home: const MediaBrowserLibrarySettingsPage(),
         ),
       ),
     );
@@ -129,6 +135,23 @@ void main() {
     expect(find.text('需要管理员账号'), findsOneWidget);
     expect(find.text('添加'), findsNothing);
     expect(find.byTooltip('刷新'), findsNothing);
+    final safeArea = find
+        .descendant(
+          of: find.byType(MediaBrowserLibrarySettingsPage),
+          matching: find.byType(SafeArea),
+        )
+        .first;
+    expect(tester.widget<SafeArea>(safeArea).bottom, isFalse);
+    final pageScaffold = find
+        .descendant(
+          of: find.byType(MediaBrowserLibrarySettingsPage),
+          matching: find.byType(Scaffold),
+        )
+        .first;
+    expect(
+      tester.getRect(safeArea).bottom,
+      tester.getRect(pageScaffold).bottom,
+    );
   });
 
   testWidgets('管理员编辑媒体库按差异提交并只触发一次刷新', (tester) async {

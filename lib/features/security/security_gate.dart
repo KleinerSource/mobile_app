@@ -422,6 +422,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
       color: colors.bg,
       child: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 36, 24, 36),

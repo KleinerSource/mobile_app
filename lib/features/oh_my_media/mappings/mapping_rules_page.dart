@@ -266,6 +266,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         },
         child: GlowBackground(
           child: SafeArea(
+            bottom: false,
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
               header: Column(

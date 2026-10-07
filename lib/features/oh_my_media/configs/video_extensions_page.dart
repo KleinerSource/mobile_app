@@ -87,6 +87,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
+          bottom: false,
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
@@ -115,7 +116,12 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
     final l = AppL10n.of(context);
     return ListView(
       primary: true,
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        0,
+        22,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         // 添加输入
         Text(l.videoExtensionsAddLabel, style: AppText.eyebrow(context)),
