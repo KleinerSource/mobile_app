@@ -70,7 +70,6 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
   Completer<void>? _refreshCompleter;
   Timer? _taskRefresh;
   int _completionRevision = 0;
-  int _connectionRevision = 0;
 
   bool get _current =>
       mounted &&
@@ -253,13 +252,10 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
       ref.listen(dbOnlineSchedulerProvider(widget.serverId), (_, next) {
         final value = next.asData?.value;
         if (!_current || value == null) return;
-        if (value.completionRevision > _completionRevision ||
-            (_connectionRevision > 0 &&
-                value.connectionRevision > _connectionRevision)) {
+        if (value.completionRevision > _completionRevision) {
           _scheduleTaskRefresh();
         }
         _completionRevision = value.completionRevision;
-        _connectionRevision = value.connectionRevision;
       });
     }
     final viewMode = ref.watch(mediaServerViewModeProvider);
