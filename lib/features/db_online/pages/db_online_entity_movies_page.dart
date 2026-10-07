@@ -247,6 +247,7 @@ class _DbOnlineEntityMoviesPageState
           width: double.infinity,
           landscape: _viewMode == MediaViewMode.landscape,
           compact: _viewMode == MediaViewMode.list,
+          subscriptionActionsEnabled: true,
           // 列表模式升级为预览条目：左封面 + 右预览图翻页。
           previewList: _viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),

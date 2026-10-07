@@ -203,8 +203,11 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(ErrorWidget), findsNothing);
       expect(tester.getRect(row), rowRect);
-      for (final file in ['first.m4a', 'same-movie.m4a', 'other-movie.m4a']) {
-        expect(find.text(file).hitTestable(), findsOneWidget);
+      for (final id in [1, 2, 3]) {
+        expect(
+          find.byKey(ValueKey('audio-asset-$id')).hitTestable(),
+          findsOneWidget,
+        );
       }
 
       repo.response.complete(_transcriptionAssets(finalStatus));
@@ -212,7 +215,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       expect(tester.takeException(), isNull);
       expect(find.byType(ErrorWidget), findsNothing);
-      expect(tester.getRect(row), rowRect);
+      // 转译状态区允许改变行高，刷新后所有资产仍须可见、可交互。
+      for (final id in [1, 2, 3]) {
+        expect(
+          find.byKey(ValueKey('audio-asset-$id')).hitTestable(),
+          findsOneWidget,
+        );
+      }
       if (finalStatus == 'running') {
         expect(find.text('5%'), findsOneWidget);
       } else {
@@ -247,7 +256,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('voice.mp3'), findsOneWidget);
+      final asset = find.byKey(const ValueKey('audio-asset-1'));
+      expect(asset.hitTestable(), findsOneWidget);
       var done = false;
       final refresh = tester
           .widget<RefreshIndicator>(find.byType(RefreshIndicator))
@@ -260,7 +270,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       expect(done, isFalse);
       expect(repo.calls, 2);
-      expect(find.text('voice.mp3'), findsOneWidget);
+      expect(asset.hitTestable(), findsOneWidget);
       if (success) {
         repo.response.complete(const AudioAssetListResult());
       } else {
@@ -268,7 +278,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(done, isTrue);
-      expect(find.text('voice.mp3'), success ? findsNothing : findsOneWidget);
+      expect(asset.hitTestable(), success ? findsNothing : findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
