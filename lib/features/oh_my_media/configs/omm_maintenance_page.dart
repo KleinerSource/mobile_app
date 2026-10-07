@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'omm_admin_repository.dart';
@@ -89,30 +90,32 @@ class _MaintenanceViewState extends State<_MaintenanceView> {
     final data = _data;
     return OmmAdminScaffold(
       title: l.ommMaintenance,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
-        children: [
-          if (_busy) const LinearProgressIndicator(),
-          if (data != null) ...[
-            Text(l.ommCleanupHint, style: AppText.body(context)),
-            OmmInfoRow(
-              l.ommOrphanCount,
-              '${data.values.whereType<num>().fold<int>(0, (sum, count) => sum + count.toInt())}',
+      child: RefreshIndicator(
+        color: appColors(context).accent,
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
+          children: [
+            if (_busy) const LinearProgressIndicator(),
+            if (data != null) ...[
+              Text(l.ommCleanupHint, style: AppText.body(context)),
+              OmmInfoRow(
+                l.ommOrphanCount,
+                '${data.values.whereType<num>().fold<int>(0, (sum, count) => sum + count.toInt())}',
+              ),
+            ],
+            if (_result != null) Text(_result!),
+            if (_error != null)
+              Text(_error!, style: TextStyle(color: appColors(context).danger)),
+            const SizedBox(height: 16),
+            SettingsSaveButton(
+              onPressed: _busy || data == null ? null : _change,
+              label: l.ommCleanup,
+              icon: Icons.cleaning_services_outlined,
             ),
           ],
-          if (_result != null) Text(_result!),
-          if (_error != null)
-            Text(_error!, style: TextStyle(color: appColors(context).danger)),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: _busy ? null : _load,
-            child: Text(l.ommRefreshStatus),
-          ),
-          FilledButton(
-            onPressed: _busy || data == null ? null : _change,
-            child: Text(l.ommCleanup),
-          ),
-        ],
+        ),
       ),
     );
   }

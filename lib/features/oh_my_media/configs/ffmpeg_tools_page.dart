@@ -166,65 +166,64 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
     };
     return OmmAdminScaffold(
       title: l.ommFfmpegTools,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
-        children: [
-          if (_busy || _install?['running'] == true)
-            const LinearProgressIndicator(),
-          if (_status != null) ...[
-            OmmInfoRow(
-              'FFmpeg',
-              '${ready(_status!['ffmpeg_ok'])}\n${_status!['ffmpeg_path'] ?? ''}',
-            ),
-            OmmInfoRow(
-              'FFprobe',
-              '${ready(_status!['ffprobe_ok'])}\n${_status!['ffprobe_path'] ?? ''}',
+      child: RefreshIndicator(
+        color: appColors(context).accent,
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
+          children: [
+            if (_busy || _install?['running'] == true)
+              const LinearProgressIndicator(),
+            if (_status != null) ...[
+              OmmInfoRow(
+                'FFmpeg',
+                '${ready(_status!['ffmpeg_ok'])}\n${_status!['ffmpeg_path'] ?? ''}',
+              ),
+              OmmInfoRow(
+                'FFprobe',
+                '${ready(_status!['ffprobe_ok'])}\n${_status!['ffprobe_path'] ?? ''}',
+              ),
+            ],
+            if (_gpu != null)
+              OmmInfoRow(
+                l.ommGpu,
+                '${_gpu!['gpu'] ?? ''}\n${_gpu!['effective_hwaccel'] ?? ''}',
+              ),
+            if (_environment != null) ...[
+              OmmInfoRow(
+                l.ommEnvironment,
+                '${_environment!['os'] ?? ''} / ${_environment!['arch'] ?? ''}',
+              ),
+              OmmInfoRow(
+                l.ommInstallDirectory,
+                _environment!['target_dir']?.toString() ?? '',
+              ),
+              if (_environment!['supported'] != true)
+                Text(_environment!['reason']?.toString() ?? l.ommUnavailable),
+            ],
+            if (_install != null) OmmInfoRow(l.ommInstallStatus, stage),
+            if ((_install?['error']?.toString() ?? '').isNotEmpty)
+              Text(
+                _install!['error'].toString(),
+                style: TextStyle(color: appColors(context).danger),
+              ),
+            if (_error != null)
+              Text(_error!, style: TextStyle(color: appColors(context).danger)),
+            const SizedBox(height: 16),
+            SettingsSaveButton(
+              onPressed:
+                  _busy ||
+                      _toolsAvailable ||
+                      _install?['running'] == true ||
+                      _environment?['supported'] != true
+                  ? null
+                  : _startInstall,
+              label: l.ommInstallFfmpeg,
+              icon: Icons.download_rounded,
             ),
           ],
-          if (_gpu != null)
-            OmmInfoRow(
-              l.ommGpu,
-              '${_gpu!['gpu'] ?? ''}\n${_gpu!['effective_hwaccel'] ?? ''}',
-            ),
-          if (_environment != null) ...[
-            OmmInfoRow(
-              l.ommEnvironment,
-              '${_environment!['os'] ?? ''} / ${_environment!['arch'] ?? ''}',
-            ),
-            OmmInfoRow(
-              l.ommInstallDirectory,
-              _environment!['target_dir']?.toString() ?? '',
-            ),
-            if (_environment!['supported'] != true)
-              Text(_environment!['reason']?.toString() ?? l.ommUnavailable),
-          ],
-          if (_install != null) OmmInfoRow(l.ommInstallStatus, stage),
-          if ((_install?['error']?.toString() ?? '').isNotEmpty)
-            Text(
-              _install!['error'].toString(),
-              style: TextStyle(color: appColors(context).danger),
-            ),
-          if (_error != null)
-            Text(_error!, style: TextStyle(color: appColors(context).danger)),
-          const SizedBox(height: 16),
-          SettingsSaveButton(
-            onPressed: _busy ? null : _load,
-            label: l.ommRefreshStatus,
-            icon: Icons.refresh_rounded,
-          ),
-          const SizedBox(height: 12),
-          SettingsSaveButton(
-            onPressed:
-                _busy ||
-                    _toolsAvailable ||
-                    _install?['running'] == true ||
-                    _environment?['supported'] != true
-                ? null
-                : _startInstall,
-            label: l.ommInstallFfmpeg,
-            icon: Icons.download_rounded,
-          ),
-        ],
+        ),
       ),
     );
   }

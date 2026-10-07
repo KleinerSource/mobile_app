@@ -171,6 +171,22 @@ Future<void> _tap(WidgetTester tester, String label) async {
   await tester.pump(const Duration(milliseconds: 50));
 }
 
+Future<void> _pullToRefresh(WidgetTester tester) async {
+  final scrollable = find
+      .descendant(
+        of: find.byType(RefreshIndicator),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+  await tester.pump();
+  await tester.drag(find.byType(ListView), const Offset(0, 400));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+}
+
 void main() {
   test('预检查参数匹配后端契约；保留演员重命名检查', () async {
     final backend = _Backend()
@@ -281,10 +297,25 @@ void main() {
     });
   }
 
-  testWidgets('清理取消不请求，确认后显示数量并刷新', (tester) async {
+  testWidgets('维护短页面可下拉更新数量，清理取消不请求，确认后显示结果', (tester) async {
     final backend = _Backend();
     await _pump(tester, const OmmMaintenancePage(), backend.client());
     expect(find.text('3'), findsOneWidget);
+    expect(find.text('刷新状态'), findsNothing);
+    expect(
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .maxScrollExtent,
+      0,
+    );
+    backend.fixtures['/maintenance/orphaned-count'] = {
+      'movie_tags_count': 4,
+      'movie_actors_count': 1,
+    };
+    await _pullToRefresh(tester);
+    expect(find.text('5'), findsOneWidget);
+    expect(backend.count('/maintenance/orphaned-count'), 2);
     await _tap(tester, '清理孤立关联');
     await _tap(tester, '取消');
     expect(backend.count('/maintenance/cleanup-orphans'), 0);
@@ -322,6 +353,7 @@ void main() {
       'ffprobe_path': '/usr/bin/ffprobe',
     };
     await _pump(tester, const FfmpegToolsPage(), backend.client());
+    expect(find.text('刷新状态'), findsNothing);
     expect(find.text('可用'), findsOneWidget);
     expect(find.text('未开始安装'), findsNothing);
     expect(find.text('可用\n/usr/bin/ffmpeg'), findsOneWidget);
@@ -369,7 +401,7 @@ void main() {
       'done': false,
       'stage': 'downloading',
     };
-    await _tap(tester, '刷新状态');
+    await _pullToRefresh(tester);
     expect(find.text('下载中'), findsOneWidget);
     expect(find.text('未开始安装'), findsNothing);
     backend.fixtures['/ffmpeg/install/status'] = {
@@ -388,7 +420,7 @@ void main() {
       'running': false,
       'done': false,
     };
-    await _tap(tester, '刷新状态');
+    await _pullToRefresh(tester);
     expect(find.text('可用'), findsOneWidget);
     expect(find.text('安装失败'), findsNothing);
     expect(find.text('未开始安装'), findsNothing);
@@ -541,7 +573,7 @@ void main() {
     });
   }
 
-  testWidgets('维护加载失败可重试，确认清理后防止重复提交', (tester) async {
+  testWidgets('维护加载失败可下拉重试，确认清理后防止重复提交', (tester) async {
     final pending = Completer<Object?>();
     final backend = _Backend();
     var fail = true;
@@ -555,7 +587,9 @@ void main() {
     await _pump(tester, const OmmMaintenancePage(), backend.client());
     expect(find.text('统计不可用'), findsOneWidget);
     fail = false;
-    await _tap(tester, '刷新状态');
+    await _pullToRefresh(tester);
+    expect(find.text('统计不可用'), findsNothing);
+    expect(backend.count('/maintenance/orphaned-count'), 2);
     await _tap(tester, '清理孤立关联');
     await _tap(tester, '确定');
     expect(
@@ -611,7 +645,7 @@ void main() {
     expect(find.text('/original'), findsOneWidget);
   });
 
-  testWidgets('FFmpeg 手动刷新后旧轮询晚到不能覆盖终态', (tester) async {
+  testWidgets('FFmpeg 下拉刷新后旧轮询晚到不能覆盖终态', (tester) async {
     final backend = _Backend();
     final pending = Completer<Object?>();
     var calls = 0;
@@ -631,7 +665,7 @@ void main() {
       'done': true,
       'stage': 'done',
     };
-    await _tap(tester, '刷新状态');
+    await _pullToRefresh(tester);
     expect(find.text('安装完成'), findsOneWidget);
     pending.complete({'running': true, 'stage': 'downloading'});
     await tester.pump();
