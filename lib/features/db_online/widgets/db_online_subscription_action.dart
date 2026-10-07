@@ -169,9 +169,11 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     final actionLabel = style.label;
     final iconData = style.icon;
     final stateColor = style.color;
-    // 状态色的反色文字，与 app_theme 的 accent 反色约定一致。
+    // 已完成按钮使用白色文字与图标，其他状态按背景亮度选择前景色。
     final onStateColor = stateColor == null
         ? null
+        : subscription?.status == 'completed' && subscription?.overdue != true
+        ? Colors.white
         : ThemeData.estimateBrightnessForColor(stateColor) == Brightness.light
         ? const Color(0xFF1A1A22)
         : Colors.white;
@@ -570,6 +572,10 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: appColors(context).danger,
+              foregroundColor: Colors.white,
+            ),
             child: Text(l.dbOnlineSubscriptionDelete),
           ),
         ],

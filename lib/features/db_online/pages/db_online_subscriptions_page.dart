@@ -1463,6 +1463,10 @@ class _DbOnlineSubscriptionsPageState
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: appColors(context).danger,
+              foregroundColor: Colors.white,
+            ),
             child: Text(l.dbOnlineSubscriptionDelete),
           ),
         ],
