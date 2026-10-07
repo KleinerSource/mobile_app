@@ -54,24 +54,25 @@ jobs:
           fi
           dart tool/generate_build_changelog.dart --version "${version}" --release-tag "${release_tag}"
 
-      - name: 接受 Android SDK 许可证
-        timeout-minutes: 3
-        run: |
-          set +o pipefail
-          yes | flutter doctor --android-licenses
-
-      - name: Flutter doctor
-        timeout-minutes: 3
-        run: flutter doctor -v
-
-      - name: 安装 Android SDK 36
-        timeout-minutes: 5
+      - name: 准备 Android SDK 36 与许可证
+        timeout-minutes: 15
+        shell: bash
         run: |
           set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "${sdk_root}" ]; then
+            echo "::error::未配置 Android SDK 路径"
+            exit 1
+          fi
+          # 托管 runner 通常已安装 SDK 并接受许可证，无需再次联网扫描所有仓库。
+          if [ -s "${sdk_root}/licenses/android-sdk-license" ] && \
+             [ -s "${sdk_root}/platforms/android-36/android.jar" ]; then
+            echo "复用已安装的 Android SDK 36 与许可证"
+            exit 0
+          fi
           sdkmanager_bin="$(command -v sdkmanager || true)"
           if [ -z "${sdkmanager_bin}" ]; then
-            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-            if [ -n "${sdk_root}" ] && [ -d "${sdk_root}/cmdline-tools" ]; then
+            if [ -d "${sdk_root}/cmdline-tools" ]; then
               sdkmanager_bin="$(find "${sdk_root}/cmdline-tools" -path '*/bin/sdkmanager' -type f -print -quit 2>/dev/null || true)"
             fi
           fi
@@ -79,8 +80,33 @@ jobs:
             echo "无法定位 Android SDK sdkmanager"
             exit 1
           fi
-          yes | "${sdkmanager_bin}" --licenses >/dev/null || true
-          "${sdkmanager_bin}" "platforms;android-36"
+          run_sdkmanager() {
+            local attempt status
+            for attempt in 1 2 3; do
+              # 只忽略 yes 的 SIGPIPE，保留 sdkmanager 的失败与超时退出码。
+              if (set +o pipefail; yes | timeout --kill-after=10s 120s \
+                  "${sdkmanager_bin}" --sdk_root="${sdk_root}" "$@"); then
+                return 0
+              else
+                status=$?
+              fi
+              echo "::warning::sdkmanager $* 第 ${attempt}/3 次失败，退出码 ${status}"
+              if [ "${attempt}" -lt 3 ]; then sleep 5; fi
+            done
+            return "${status}"
+          }
+
+          if [ ! -s "${sdk_root}/licenses/android-sdk-license" ]; then
+            run_sdkmanager --licenses
+          fi
+          if [ ! -s "${sdk_root}/platforms/android-36/android.jar" ]; then
+            run_sdkmanager "platforms;android-36"
+          fi
+          if [ ! -s "${sdk_root}/licenses/android-sdk-license" ] || \
+             [ ! -s "${sdk_root}/platforms/android-36/android.jar" ]; then
+            echo "::error::Android SDK 36 或许可证准备不完整"
+            exit 1
+          fi
 
       # 仓库只保留 Android 必要的源码文件，CI checkout 后补齐 Gradle 工程。
       - name: Bootstrap android/ if Gradle project is missing
