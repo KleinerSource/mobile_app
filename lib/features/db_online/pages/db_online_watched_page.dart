@@ -64,10 +64,9 @@ class _WatchedPage extends ConsumerStatefulWidget {
 
 class _WatchedPageState extends ConsumerState<_WatchedPage> {
   final _paging = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 1);
   final _scroll = ScrollController();
   DbOnlineWatchedFilter _filter = const DbOnlineWatchedFilter();
-  Completer<void>? _refreshCompleter;
   Timer? _taskRefresh;
   int _completionRevision = 0;
 
@@ -84,7 +83,6 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
   @override
   void dispose() {
     _taskRefresh?.cancel();
-    _completeRefresh();
     _requests.dispose();
     _paging.dispose();
     _scroll.dispose();
@@ -121,14 +119,12 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
         _paging.error = localizedErrorMessage(l, error);
       }
     } finally {
-      if (page == 1 && request.isCurrent) _completeRefresh();
       request.finish();
     }
   }
 
   void _apply(DbOnlineWatchedFilter filter) {
     if (!_current || filter == _filter) return;
-    _completeRefresh();
     setState(() => _filter = filter);
     _requests.invalidate();
     refreshPagedController(
@@ -140,22 +136,15 @@ class _WatchedPageState extends ConsumerState<_WatchedPage> {
   }
 
   Future<void> _refresh() {
-    _completeRefresh();
-    _refreshCompleter = Completer<void>();
-    final result = _refreshCompleter!.future;
+    // 保留连续刷新替换旧请求的语义；先释放旧刷新，再启动新一轮。
     _requests.invalidate();
-    refreshPagedController(
-      controller: _paging,
-      requests: _requests,
-      loadPage: _fetch,
-    );
-    return result;
-  }
-
-  void _completeRefresh() {
-    final pending = _refreshCompleter;
-    _refreshCompleter = null;
-    if (pending != null && !pending.isCompleted) pending.complete();
+    return _requests.refresh(() {
+      refreshPagedController(
+        controller: _paging,
+        requests: _requests,
+        loadPage: _fetch,
+      );
+    });
   }
 
   void _scheduleTaskRefresh() {

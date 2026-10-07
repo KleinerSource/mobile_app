@@ -15,6 +15,8 @@ class ContinueWatchingEntry {
     required this.title,
     required this.meta,
     this.coverUrl,
+    this.year,
+    this.showEmptyProgress = false,
     this.progress = 0,
     this.minutesLeft,
     required this.onOpen,
@@ -26,7 +28,9 @@ class ContinueWatchingEntry {
   /// 隐私遮罩键（条目 ID）。
   final Object privacyId;
   final String title;
-  final String meta;
+  final String? meta;
+  final int? year;
+  final bool showEmptyProgress;
   final String? coverUrl;
 
   /// 观看进度 0..1。
@@ -138,6 +142,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                     child: Poster(
                       url: entry.coverUrl,
                       title: entry.title,
+                      year: entry.year,
                       aspectRatio: 16 / 10,
                       radius: 0,
                       imageAlignment: Alignment.centerRight,
@@ -205,7 +210,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                           ),
                         ),
                         // 接下来观看等未开播条目没有进度，空进度槽不展示。
-                        if (progress > 0) ...[
+                        if (progress > 0 || entry.showEmptyProgress) ...[
                           const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
@@ -243,18 +248,19 @@ class _ContinueWatchingCard extends StatelessWidget {
               height: 1.2,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              entry.meta,
-              style: TextStyle(
-                color: c.muted,
-                fontFamily: 'Inter',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
+          if (entry.meta != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                entry.meta!,
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

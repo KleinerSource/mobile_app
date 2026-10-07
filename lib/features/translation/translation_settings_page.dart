@@ -321,10 +321,10 @@ class _TranslationSettingsPageState
             ),
           ),
         ),
-        _label('API URL', l.translationApiUrlHelp),
+        SettingsFieldLabel('API URL', l.translationApiUrlHelp),
         _input(_apiUrl, hint: 'https://api.openai.com/v1', icon: Icons.link),
         const SizedBox(height: 18),
-        _label(
+        SettingsFieldLabel(
           'API Key',
           _hasSavedKey ? l.translationConfiguredKeepHint : 'sk-...',
         ),
@@ -334,7 +334,7 @@ class _TranslationSettingsPageState
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: _label(
+              child: SettingsFieldLabel(
                 l.translationModelNameLabel,
                 l.translationModelNameHelp,
               ),
@@ -363,9 +363,13 @@ class _TranslationSettingsPageState
         const SizedBox(height: 18),
         Row(
           children: [
-            Expanded(child: _label(l.translationSourceLanguage, '')),
+            Expanded(
+              child: SettingsFieldLabel(l.translationSourceLanguage, ''),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _label(l.translationTargetLanguage, '')),
+            Expanded(
+              child: SettingsFieldLabel(l.translationTargetLanguage, ''),
+            ),
           ],
         ),
         Row(
@@ -388,7 +392,7 @@ class _TranslationSettingsPageState
           ],
         ),
         const SizedBox(height: 18),
-        _label(
+        SettingsFieldLabel(
           l.translationPromptTemplateLabel,
           l.translationPromptTemplateHelp('{text} {target_language}'),
         ),
@@ -474,22 +478,6 @@ class _TranslationSettingsPageState
     );
   }
 
-  Widget _label(String label, String help) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label.toUpperCase(), style: AppText.eyebrow(context)),
-          if (help.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(help, style: AppText.meta(context).copyWith(fontSize: 10.5)),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _input(
     TextEditingController controller, {
     String? hint,
@@ -498,11 +486,9 @@ class _TranslationSettingsPageState
   }) {
     final c = appColors(context);
     return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(
+        context,
+      ).copyWith(borderRadius: BorderRadius.circular(12)),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
@@ -529,11 +515,9 @@ class _TranslationSettingsPageState
   Widget _passwordInput() {
     final c = appColors(context);
     return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(
+        context,
+      ).copyWith(borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
           Expanded(
@@ -580,11 +564,9 @@ class _TranslationSettingsPageState
   }) {
     final c = appColors(context);
     return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(
+        context,
+      ).copyWith(borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: DropdownButton<String>(
         value: options.contains(value) ? value : options.first,

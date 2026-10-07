@@ -1,3 +1,4 @@
+import 'package:omm/features/home/home_hero_fallback.dart';
 import 'package:omm/shared/see_all_button.dart';
 import 'dart:async';
 
@@ -227,7 +228,9 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
       heroFallback: Column(
         children: [
           const HomeGreetingRow(onHero: false),
-          _MediaBrowserHeroFallback(
+          HomeHeroFallback(
+            retryLabel: AppL10n.of(context).mediaBrowserRetry,
+            emptyMessage: AppL10n.of(context).mediaBrowserNoData,
             value: latest,
             height: heroMaxHeight,
             onRetry: () => ref.invalidate(mediaBrowserLatestProvider),
@@ -701,61 +704,6 @@ class _MediaBrowserStatDivider extends StatelessWidget {
     return SizedBox(
       height: 58,
       child: VerticalDivider(width: 1, thickness: 1, color: color),
-    );
-  }
-}
-
-/// 「查看全部」入口按钮，样式与 OMM 首页一致。
-
-class _MediaBrowserHeroFallback extends StatelessWidget {
-  const _MediaBrowserHeroFallback({
-    required this.value,
-    required this.height,
-    required this.onRetry,
-  });
-
-  final AsyncValue<List<MediaBrowserItem>> value;
-  final double height;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return SizedBox(
-      height: height,
-      child: value.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    localizedErrorMessage(AppL10n.of(context), error),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: colors.muted),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: onRetry,
-                  child: Text(AppL10n.of(context).mediaBrowserRetry),
-                ),
-              ],
-            ),
-          ),
-        ),
-        data: (items) => items.isEmpty
-            ? Center(
-                child: Text(
-                  AppL10n.of(context).mediaBrowserNoData,
-                  style: TextStyle(color: colors.muted),
-                ),
-              )
-            : const SizedBox.shrink(),
-      ),
     );
   }
 }

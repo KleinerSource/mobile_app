@@ -25,6 +25,7 @@ class PosterCropController extends ConsumerStatefulWidget {
     required this.fanartUrl,
     required this.cropOffset,
     required this.onChanged,
+    this.coverBytes,
     this.subtitle,
     this.exsub,
     this.crack,
@@ -34,6 +35,7 @@ class PosterCropController extends ConsumerStatefulWidget {
 
   final int movieId;
   final String fanartUrl;
+  final Uint8List? coverBytes;
   final double cropOffset;
   final ValueChanged<double> onChanged;
 
@@ -56,6 +58,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
 
   Uint8List? _previewBytes;
   bool _previewLoading = false;
+  int _previewGeneration = 0;
   final _debounce = Debouncer();
 
   // fanart 真实纵横比 (w/h) · 异步加载后填充
@@ -74,11 +77,12 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
   );
 
   void _attachImageStream() {
-    final url = widget.fanartUrl;
-    final imgProvider = CachedNetworkImageProvider(
-      url,
-      cacheManager: AppImageCacheManager.instance,
-    );
+    final ImageProvider imgProvider = widget.coverBytes != null
+        ? MemoryImage(widget.coverBytes!)
+        : CachedNetworkImageProvider(
+            widget.fanartUrl,
+            cacheManager: AppImageCacheManager.instance,
+          );
     final newStream = imgProvider.resolve(const ImageConfiguration());
     if (_imgStream?.key == newStream.key) return;
     _imgStream?.removeListener(_imgListener);
@@ -89,7 +93,8 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
   @override
   void didUpdateWidget(covariant PosterCropController old) {
     super.didUpdateWidget(old);
-    if (widget.fanartUrl != old.fanartUrl) {
+    if (widget.fanartUrl != old.fanartUrl ||
+        widget.coverBytes != old.coverBytes) {
       _fanartAspect = null;
       _attachImageStream();
     }
@@ -99,12 +104,18 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
         widget.crack != old.crack ||
         widget.resolution != old.resolution ||
         widget.enabled != old.enabled;
-    if (widget.cropOffset != old.cropOffset || flagsChanged) {
+    if (widget.cropOffset != old.cropOffset ||
+        flagsChanged ||
+        widget.fanartUrl != old.fanartUrl ||
+        widget.coverBytes != old.coverBytes) {
+      _previewGeneration++;
+      _previewBytes = null;
       if (widget.enabled) {
         _scheduleFetch();
       } else {
-        // 禁用 → 清空预览
-        setState(() => _previewBytes = null);
+        // 禁用后旧预览不再更新，也不继续发送延迟请求。
+        _debounce.cancel();
+        _previewLoading = false;
       }
     }
   }
@@ -132,26 +143,47 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
 
   Future<void> _fetchPreview() async {
     if (!mounted) return;
+    final generation = ++_previewGeneration;
+    final repo = ref.read(mediaRepositoryProvider);
     setState(() => _previewLoading = true);
     try {
-      final bytes = await ref
-          .read(mediaRepositoryProvider)
-          .previewPosterCrop(
-            widget.movieId,
-            cropOffset: widget.cropOffset,
-            subtitle: widget.subtitle,
-            exsub: widget.exsub,
-            crack: widget.crack,
-            resolution: widget.resolution,
-          );
-      if (!mounted) return;
+      final bytes = await repo.previewPosterCrop(
+        widget.movieId,
+        cropOffset: widget.cropOffset,
+        subtitle: widget.subtitle,
+        exsub: widget.exsub,
+        crack: widget.crack,
+        resolution: widget.resolution,
+        coverBytes: widget.coverBytes,
+      );
+      if (!mounted ||
+          generation != _previewGeneration ||
+          !identical(repo, ref.read(mediaRepositoryProvider))) {
+        return;
+      }
       setState(() => _previewBytes = Uint8List.fromList(bytes));
     } catch (_) {
       // 静默失败,允许用户继续拖
     } finally {
-      if (mounted) setState(() => _previewLoading = false);
+      if (mounted && generation == _previewGeneration) {
+        setState(() => _previewLoading = false);
+      }
     }
   }
+
+  Widget _sourceImage(AppColors c) => widget.coverBytes != null
+      ? Image.memory(
+          widget.coverBytes!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => ColoredBox(color: c.surfaceAlt),
+        )
+      : CachedNetworkImage(
+          cacheManager: AppImageCacheManager.instance,
+          imageUrl: widget.fanartUrl,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
+          errorWidget: (_, __, ___) => ColoredBox(color: c.surfaceAlt),
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -167,19 +199,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
             aspectRatio: 16 / 9,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedNetworkImage(
-                    cacheManager: AppImageCacheManager.instance,
-                    imageUrl: widget.fanartUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
-                    errorWidget: (_, __, ___) =>
-                        ColoredBox(color: c.surfaceAlt),
-                  ),
-                ],
-              ),
+              child: Stack(fit: StackFit.expand, children: [_sourceImage(c)]),
             ),
           );
         }
@@ -199,16 +219,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
               borderRadius: BorderRadius.circular(12),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: CachedNetworkImage(
-                      cacheManager: AppImageCacheManager.instance,
-                      imageUrl: widget.fanartUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
-                      errorWidget: (_, __, ___) =>
-                          ColoredBox(color: c.surfaceAlt),
-                    ),
-                  ),
+                  Positioned.fill(child: _sourceImage(c)),
                   Positioned.fill(
                     child: ColoredBox(
                       color: Colors.black.withValues(alpha: 0.25),

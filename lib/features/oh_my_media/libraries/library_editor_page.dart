@@ -10,6 +10,8 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/single_flight_gate.dart';
 import 'libraries_providers.dart';
+import '../configs/omm_admin_repository.dart';
+import '../configs/omm_admin_widgets.dart';
 
 /// 媒体库编辑器
 /// - 名称 + 启用开关
@@ -27,7 +29,9 @@ class LibraryEditorPage extends ConsumerStatefulWidget {
     return _openGate.run(() async {
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (_) => LibraryEditorPage(library: library),
+          builder: (_) => OmmAdminScope(
+            builder: (_) => LibraryEditorPage(library: library),
+          ),
         ),
       );
     });
@@ -42,6 +46,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
   bool _enabled = true;
   final List<_DirRow> _dirs = [];
   bool _saving = false;
+  bool _loadingDirectory = false;
   String? _error;
 
   bool get _isEdit => widget.library != null;
@@ -76,6 +81,57 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
     final removed = _dirs.removeAt(i);
     removed.controller.dispose();
     setState(() {});
+  }
+
+  Future<void> _showDirectory(int id) async {
+    if (_loadingDirectory || _saving) return;
+    final repository = ref.read(ommAdminRepositoryProvider);
+    setState(() => _loadingDirectory = true);
+    try {
+      final data = await repository.directoryDetail(widget.library!.id, id);
+      if (!mounted || !repository.isActive) return;
+      final l = AppL10n.of(context);
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.ommDirectoryDetails),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OmmInfoRow(
+                  l.libraryEditorNameHint,
+                  data['name']?.toString() ?? '',
+                ),
+                OmmInfoRow(l.ommDirectoryPath, data['path']?.toString() ?? ''),
+                OmmInfoRow(
+                  l.ommLastScan,
+                  data['last_scan_time']?.toString() ?? '',
+                ),
+                Text(
+                  data['enabled'] == true ? l.libraryEnable : l.libraryDisable,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l.confirm),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (mounted && repository.isActive) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingDirectory = false);
+    }
   }
 
   Future<void> _save() async {
@@ -343,6 +399,10 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                       canRemove: _dirs.length > 1,
                       onRemove: () => _removeDir(i),
                       onChanged: () => setState(() {}),
+                      onInfo:
+                          _dirs[i].id == null || _loadingDirectory || _saving
+                          ? null
+                          : () => _showDirectory(_dirs[i].id!),
                     ),
                   ),
                 if (_error != null) ...[
@@ -404,6 +464,7 @@ class _DirEditor extends StatelessWidget {
     required this.canRemove,
     required this.onRemove,
     required this.onChanged,
+    this.onInfo,
   });
 
   final _DirRow row;
@@ -411,6 +472,7 @@ class _DirEditor extends StatelessWidget {
   final bool canRemove;
   final VoidCallback onRemove;
   final VoidCallback onChanged;
+  final VoidCallback? onInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -465,6 +527,12 @@ class _DirEditor extends StatelessWidget {
                   ),
                 ),
               ),
+              if (row.id != null)
+                IconButton(
+                  onPressed: onInfo,
+                  tooltip: AppL10n.of(context).ommDirectoryDetails,
+                  icon: const Icon(Icons.info_outline, size: 18),
+                ),
               if (canRemove)
                 IconButton(
                   icon: Icon(Icons.close, size: 16, color: c.muted),

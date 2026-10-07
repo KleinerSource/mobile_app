@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../envelope.dart';
+
 class ConfigsExtendedApi {
   ConfigsExtendedApi(this._dio);
 
@@ -22,13 +24,17 @@ class ConfigsExtendedApi {
   Future<Object?> savePreview(Map<String, dynamic> body) =>
       _post('/configs/preview', body);
 
-  Future<Object?> getByKey(String key) => _get('/configs/key/$key');
+  Future<Object?> getByKey(String key) =>
+      _get('/configs/key/${Uri.encodeComponent(key)}');
 
   Future<Object?> updateByKey(String key, Map<String, dynamic> body) =>
-      _patch('/configs/key/$key', body);
+      _patch('/configs/key/${Uri.encodeComponent(key)}', body);
 
   Future<void> deleteByKey(String key) async {
-    await _dio.delete<dynamic>('/configs/key/$key');
+    final response = await _dio.delete<dynamic>(
+      '/configs/key/${Uri.encodeComponent(key)}',
+    );
+    unwrapStd<void>(response.data, (_) {});
   }
 
   Future<Object?> _get(String path) async =>

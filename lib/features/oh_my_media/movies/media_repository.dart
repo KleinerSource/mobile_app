@@ -277,6 +277,9 @@ class MediaRepository {
   Future<String?> applyDuplicateNfo(Map<String, dynamic> payload) =>
       _operations.applyDuplicateNfo(payload);
 
+  Future<List<int>> fetchDbonlineCover(int id) =>
+      _operations.fetchDbonlineCover(_movieRef(id));
+
   Future<String?> applyPosterCrop(
     int id, {
     required double cropOffset,
@@ -285,6 +288,7 @@ class MediaRepository {
     bool? crack,
     String? resolution,
     bool syncParts = false,
+    List<int>? coverBytes,
   }) async {
     final message = await _operations.applyPosterCrop(
       _movieRef(id),
@@ -294,6 +298,7 @@ class MediaRepository {
       crack: crack,
       resolution: resolution,
       syncParts: syncParts,
+      coverBytes: coverBytes,
     );
     MovieDataChanges.bumpImages(movieId: id);
     return message;
@@ -306,6 +311,7 @@ class MediaRepository {
     bool? exsub,
     bool? crack,
     String? resolution,
+    List<int>? coverBytes,
   }) => _operations.previewPosterCrop(
     _movieRef(id),
     cropOffset: cropOffset,
@@ -313,6 +319,7 @@ class MediaRepository {
     exsub: exsub,
     crack: crack,
     resolution: resolution,
+    coverBytes: coverBytes,
   );
 
   Future<PreviewStartResult> generatePreview(

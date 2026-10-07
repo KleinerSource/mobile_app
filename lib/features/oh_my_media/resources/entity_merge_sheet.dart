@@ -10,6 +10,7 @@ import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
+import '../configs/omm_admin_widgets.dart';
 
 /// 资源批量合并：从当前已选资源中选择保留的目标名称。
 class EntityMergeSheet extends ConsumerStatefulWidget {
@@ -26,7 +27,9 @@ class EntityMergeSheet extends ConsumerStatefulWidget {
     return showGlassSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => EntityMergeSheet(kind: kind, items: items),
+      builder: (_) => OmmAdminScope(
+        builder: (_) => EntityMergeSheet(kind: kind, items: items),
+      ),
     );
   }
 
@@ -53,13 +56,33 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
     if (_saving || widget.items.length < 2) return;
     setState(() => _saving = true);
     try {
-      final message = await ref
-          .read(resourcesRepositoryProvider)
-          .merge(
-            widget.kind,
-            sourceIds: widget.items.map((item) => item.id).toList(),
-            targetName: _target.name,
-          );
+      final repo = ref.read(resourcesRepositoryProvider);
+      final ids = widget.items.map((item) => item.id).toList();
+      final targetName = _target.name;
+      final check = await repo.checkMerge(widget.kind, ids, targetName);
+      if (!mounted || !identical(repo, ref.read(resourcesRepositoryProvider))) {
+        return;
+      }
+      if (check['can_merge'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              check['message']?.toString() ??
+                  AppL10n.of(context).ommMergeBlocked,
+            ),
+          ),
+        );
+        setState(() => _saving = false);
+        return;
+      }
+      final message = await repo.merge(
+        widget.kind,
+        sourceIds: ids,
+        targetName: targetName,
+      );
+      if (!mounted || !identical(repo, ref.read(resourcesRepositoryProvider))) {
+        return;
+      }
       if (!mounted) return;
       AppHaptics.medium();
       if (message != null && message.isNotEmpty) {

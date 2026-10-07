@@ -43,6 +43,105 @@ void main() {
     expect(first.isCurrent, isFalse);
   });
 
+  for (final firstKey in [0, 1]) {
+    test('替换刷新仅由最新首屏结束，首键=$firstKey', () async {
+      final requests = PagedRequestCoordinator(firstPageKey: firstKey);
+      late PagedRequest old;
+      final previous = requests.refresh(() => old = requests.begin(firstKey)!);
+      requests.invalidate();
+      late PagedRequest current;
+      final next = requests.refresh(() => current = requests.begin(firstKey)!);
+      var completed = false;
+      unawaited(next.then((_) => completed = true));
+      await previous;
+      old.finish();
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse);
+      expect(current.isCurrent, isTrue);
+      current.finish();
+      await next;
+      requests.dispose();
+    });
+  }
+
+  for (final fails in [false, true]) {
+    test('请求 helper 去重并隔离旧${fails ? '失败' : '成功'}', () async {
+      final requests = PagedRequestCoordinator();
+      final old = Completer<int>();
+      final latest = Completer<int>();
+      final applied = <int>[];
+      final errors = <Object>[];
+      final first = requests.execute(
+        key: 0,
+        load: () => old.future,
+        onSuccess: applied.add,
+        onError: errors.add,
+      );
+      var duplicateLoaded = false;
+      await requests.execute(
+        key: 0,
+        load: () async {
+          duplicateLoaded = true;
+          return 3;
+        },
+        onSuccess: applied.add,
+        onError: errors.add,
+      );
+      expect(duplicateLoaded, isFalse);
+      late Future<void> loading;
+      final refreshed = requests.refresh(() {
+        loading = requests.execute(
+          key: 0,
+          load: () => latest.future,
+          onSuccess: applied.add,
+          onError: errors.add,
+        );
+      });
+      if (fails) {
+        old.completeError(StateError('旧失败'));
+      } else {
+        old.complete(1);
+      }
+      await first;
+      expect(applied, isEmpty);
+      expect(errors, isEmpty);
+      expect(requests.begin(0), isNull);
+      latest.complete(2);
+      await loading;
+      await refreshed;
+      expect(applied, [2]);
+      requests.dispose();
+    });
+  }
+
+  test('请求 helper 销毁后不回写，当前解析失败结束刷新且允许重试', () async {
+    final requests = PagedRequestCoordinator();
+    final errors = <Object>[];
+    final refreshed = requests.refresh(() {
+      unawaited(
+        requests.execute<int>(
+          key: 0,
+          load: () async => 1,
+          onSuccess: (_) => throw const FormatException('无效响应'),
+          onError: errors.add,
+        ),
+      );
+    });
+    await refreshed;
+    expect(errors.single, isA<FormatException>());
+    final pending = Completer<int>();
+    final loading = requests.execute(
+      key: 0,
+      load: () => pending.future,
+      onSuccess: (_) => fail('销毁后不能回写'),
+      onError: errors.add,
+    );
+    requests.dispose();
+    pending.completeError(StateError('迟到失败'));
+    await loading;
+    expect(errors, hasLength(1));
+  });
+
   test('同页请求去重，筛选变化后旧请求不能回写或释放新请求', () {
     final requests = PagedRequestCoordinator();
     final old = requests.begin(0)!;

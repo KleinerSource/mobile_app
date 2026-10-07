@@ -121,11 +121,10 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     _reload();
   }
 
-  Future<void> _fetch(int offset) async {
-    final pageRequest = _requests.begin(offset);
-    if (pageRequest == null) return;
-    try {
-      final page = await ref
+  Future<void> _fetch(int offset) => _requests.execute(
+    key: offset,
+    load: () async {
+      return await ref
           .read(mappingsRepositoryProvider)
           .listPage(
             widget.type,
@@ -134,9 +133,8 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
             search: _search,
             status: _status,
           );
-      if (!pageRequest.isCurrent) return;
-      if (!mounted) return;
-
+    },
+    onSuccess: (page) {
       setState(() => _totalCount = page.totalCount);
       // 末页标记：连排列表只有最后一行需要底部圆角。
       final hasMore = applyPagedListPage(
@@ -148,14 +146,11 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         scrollController: _scrollController,
       );
       setState(() => _lastPageComplete = !hasMore);
-    } catch (error) {
-      if (!pageRequest.isCurrent) return;
-      if (!mounted) return;
+    },
+    onError: (error) {
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-    } finally {
-      pageRequest.finish();
-    }
-  }
+    },
+  );
 
   void _reload({bool preserveScroll = false}) {
     _requests.invalidate();

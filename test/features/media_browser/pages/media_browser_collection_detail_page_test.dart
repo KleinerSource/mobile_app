@@ -45,10 +45,12 @@ class _RecordingMediaBrowserRepository extends MediaBrowserMediaRepository {
 
   final List<MediaBrowserItem> items;
   media_models.MediaQuery? lastQuery;
+  Future<MediaBrowserItemPage> Function(media_models.MediaQuery)? onLoad;
 
   @override
   Future<MediaBrowserItemPage> itemPage(media_models.MediaQuery query) async {
     lastQuery = query;
+    if (onLoad != null) return onLoad!(query);
     return MediaBrowserItemPage(
       items: items,
       total: items.length,
@@ -113,11 +115,12 @@ Future<_RecordingMediaBrowserRepository> _pumpCollectionPage(
   Locale locale = const Locale('zh'),
   _RecordingNavigatorObserver? observer,
   bool openFromLibrary = false,
+  Future<MediaBrowserItemPage> Function(media_models.MediaQuery)? onLoad,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
   final collection = _collection();
-  final repository = _RecordingMediaBrowserRepository(items);
+  final repository = _RecordingMediaBrowserRepository(items)..onLoad = onLoad;
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -157,11 +160,86 @@ Future<_RecordingMediaBrowserRepository> _pumpCollectionPage(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (onLoad == null) {
+    await tester.pumpAndSettle();
+  } else {
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
   return repository;
 }
 
 void main() {
+  for (final oldFails in [false, true]) {
+    testWidgets('合集首屏加载中刷新会合并等待，旧${oldFails ? '失败' : '成功'}不能结束刷新', (
+      tester,
+    ) async {
+      final pending = <Completer<MediaBrowserItemPage>>[];
+      await _pumpCollectionPage(
+        tester,
+        config: MediaBrowserConfig.emby,
+        items: [],
+        onLoad: (query) {
+          expect(query.offset, 0);
+          final request = Completer<MediaBrowserItemPage>();
+          pending.add(request);
+          return request.future;
+        },
+      );
+      expect(pending, hasLength(1));
+      final refresh = tester
+          .widget<MovieDetailScaffold>(find.byType(MovieDetailScaffold))
+          .onRefresh!;
+      var completed = false;
+      final first = refresh().then((_) => completed = true);
+      final second = refresh();
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(pending, hasLength(2));
+      final page = MediaBrowserItemPage(
+        items: [_movie()],
+        total: 1,
+        startIndex: 0,
+        limit: 24,
+      );
+      if (oldFails) {
+        pending.first.completeError(StateError('旧响应失败'));
+      } else {
+        pending.first.complete(page);
+      }
+      await tester.pump();
+      expect(completed, isFalse);
+      expect(find.text('合集电影'), findsNothing);
+      pending.last.complete(page);
+      await tester.pumpAndSettle();
+      await Future.wait([first, second]);
+      expect(completed, isTrue);
+      expect(find.text('合集电影'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('合集刷新中退出释放等待并丢弃晚到响应', (tester) async {
+    final repo = await _pumpCollectionPage(
+      tester,
+      config: MediaBrowserConfig.emby,
+      items: [_movie()],
+    );
+    final pending = Completer<MediaBrowserItemPage>();
+    repo.onLoad = (_) => pending.future;
+    final done = tester
+        .widget<MovieDetailScaffold>(find.byType(MovieDetailScaffold))
+        .onRefresh!();
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await done;
+    pending.completeError(StateError('页面已退出'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   for (final config in [MediaBrowserConfig.emby, MediaBrowserConfig.jellyfin]) {
     testWidgets('${config.displayName} 合集详情显示 Hero 和影片列表并可点击', (tester) async {
       final observer = _RecordingNavigatorObserver();

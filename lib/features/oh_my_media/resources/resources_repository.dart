@@ -39,6 +39,30 @@ class ResourcesRepository {
   ResourcesRepository(this._source);
   final OmmMetadataOperationsSource _source;
 
+  Future<Map<String, dynamic>> checkRename(
+    ResourceKind kind,
+    int id,
+    String name,
+  ) async => unwrapStd<Map<String, dynamic>>(
+    await _source.checkResourceRename(kind.value, {
+      'item_id': id,
+      'new_name': name,
+    }),
+    (data) => Map<String, dynamic>.from(data as Map),
+  );
+
+  Future<Map<String, dynamic>> checkMerge(
+    ResourceKind kind,
+    List<int> ids,
+    String targetName,
+  ) async => unwrapStd<Map<String, dynamic>>(
+    await _source.checkResourceMerge(kind.value, {
+      'source_ids': ids,
+      'target_name': targetName,
+    }),
+    (data) => Map<String, dynamic>.from(data as Map),
+  );
+
   Future<dynamic> _list(ResourceKind k, Map<String, dynamic> q) {
     return _source.resourceList(k.value, q);
   }

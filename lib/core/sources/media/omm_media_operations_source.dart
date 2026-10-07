@@ -175,6 +175,8 @@ abstract interface class OmmMediaOperationsSource {
   Future<String?> applyDuplicateNfo(Map<String, dynamic> payload);
 
   /// 水印标记三态：null（未设置）表示保持影片现有标记，由服务端按标签推导。
+  Future<List<int>> fetchDbonlineCover(MediaRef movie);
+
   Future<String?> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,
@@ -183,6 +185,7 @@ abstract interface class OmmMediaOperationsSource {
     bool? crack,
     String? resolution,
     bool syncParts = false,
+    List<int>? coverBytes,
   });
 
   Future<List<int>> previewPosterCrop(
@@ -192,6 +195,7 @@ abstract interface class OmmMediaOperationsSource {
     bool? exsub,
     bool? crack,
     String? resolution,
+    List<int>? coverBytes,
   });
 
   /// 为单部影片生成预览视频与 Sprite/VTT 资产。

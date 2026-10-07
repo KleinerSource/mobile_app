@@ -155,7 +155,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         24 + MediaQuery.paddingOf(context).bottom,
       ),
       children: [
-        _label(
+        SettingsFieldLabel(
           l.dboEnabledLabel.toUpperCase(),
           _enabled ? l.dboEnabledHelpOn : l.dboEnabledHelpOff,
         ),
@@ -183,16 +183,16 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           ),
         ),
         const SizedBox(height: 18),
-        _label('Base URL', l.dboBaseUrlExampleHint),
+        SettingsFieldLabel('Base URL', l.dboBaseUrlExampleHint),
         _input(_baseUrl, hint: 'http://...', icon: Icons.link),
         const SizedBox(height: 18),
-        _label(
+        SettingsFieldLabel(
           'API Key',
           _hasKey ? l.dboApiKeyConfiguredHint : l.configInputPrompt,
         ),
         _passwordInput(c),
         const SizedBox(height: 18),
-        _label(l.dboResourceFilterLabel, l.dboResourceFilterHelp),
+        SettingsFieldLabel(l.dboResourceFilterLabel, l.dboResourceFilterHelp),
         Container(
           decoration: settingsCardDecoration(context),
           child: Row(
@@ -293,7 +293,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           }).toList(),
         ),
         const SizedBox(height: 18),
-        _label(l.dboStartMonthLabel, l.dboStartMonthHelp),
+        SettingsFieldLabel(l.dboStartMonthLabel, l.dboStartMonthHelp),
         Container(
           decoration: settingsCardDecoration(context),
           child: TextField(
@@ -324,22 +324,6 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         const SizedBox(height: 28),
         SettingsSaveButton(onPressed: _save, saving: _saving),
       ],
-    );
-  }
-
-  Widget _label(String label, String help) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label.toUpperCase(), style: AppText.eyebrow(context)),
-          if (help.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(help, style: AppText.meta(context).copyWith(fontSize: 10.5)),
-          ],
-        ],
-      ),
     );
   }
 

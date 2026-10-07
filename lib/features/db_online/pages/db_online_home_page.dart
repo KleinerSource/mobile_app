@@ -1,3 +1,4 @@
+import 'package:omm/features/home/home_hero_fallback.dart';
 import 'package:omm/shared/see_all_button.dart';
 import 'dart:async';
 
@@ -8,9 +9,7 @@ import 'package:omm/core/api/url_resolver.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
-import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
-import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
@@ -132,7 +131,9 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
       heroFallback: Column(
         children: [
           const HomeGreetingRow(onHero: false),
-          _DbOnlineRecommendFallback(
+          HomeHeroFallback(
+            retryLabel: AppL10n.of(context).dbOnlineRetry,
+            emptyMessage: AppL10n.of(context).dbOnlineNoData,
             value: recommend,
             height: heroMaxHeight,
             onRetry: () => ref.invalidate(dbOnlineRecommendProvider),
@@ -200,59 +201,6 @@ Future<void> _openDbOnlineLatestMovies(
       builder: (_) => DbOnlineLatestMoviesPage(sortBy: sortBy),
     ),
   );
-}
-
-class _DbOnlineRecommendFallback extends StatelessWidget {
-  const _DbOnlineRecommendFallback({
-    required this.value,
-    required this.height,
-    required this.onRetry,
-  });
-
-  final AsyncValue<List<DbOnlineMovie>> value;
-  final double height;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return SizedBox(
-      height: height,
-      child: value.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    localizedErrorMessage(AppL10n.of(context), error),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: colors.muted),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: onRetry,
-                  child: Text(AppL10n.of(context).dbOnlineRetry),
-                ),
-              ],
-            ),
-          ),
-        ),
-        data: (items) => items.isEmpty
-            ? Center(
-                child: Text(
-                  AppL10n.of(context).dbOnlineNoData,
-                  style: TextStyle(color: colors.muted),
-                ),
-              )
-            : const SizedBox.shrink(),
-      ),
-    );
-  }
 }
 
 String _dbOnlineImageUrl(

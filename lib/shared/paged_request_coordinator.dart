@@ -17,6 +17,25 @@ class PagedRequestCoordinator {
     return PagedRequest._(this, key, _generation);
   }
 
+  /// 执行一页请求并统一隔离过期响应；数据解析和分页提交由调用方负责。
+  Future<void> execute<T>({
+    required Object key,
+    required Future<T> Function() load,
+    required void Function(T result) onSuccess,
+    required void Function(Object error) onError,
+  }) async {
+    final request = begin(key);
+    if (request == null) return;
+    try {
+      final result = await load();
+      if (request.isCurrent) onSuccess(result);
+    } catch (error) {
+      if (request.isCurrent) onError(error);
+    } finally {
+      request.finish();
+    }
+  }
+
   void invalidate() {
     _generation++;
     _inFlight.clear();

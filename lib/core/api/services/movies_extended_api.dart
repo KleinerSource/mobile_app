@@ -45,12 +45,40 @@ class MoviesExtendedApi {
     return unwrapStd<Object?>(response.data, (data) => data);
   }
 
-  Future<Object?> fetchDbonlineCover(int movieId) async {
-    final response = await _dio.post<dynamic>(
+  Future<List<int>> fetchDbonlineCover(int movieId) async {
+    final response = await _dio.post<List<int>>(
       '/movies/id/$movieId/dbonline/cover',
+      options: Options(responseType: ResponseType.bytes),
     );
-    return unwrapStd<Object?>(response.data, (data) => data);
+    return response.data ?? const [];
   }
+
+  Future<Object?> applyCover(
+    int movieId,
+    Map<String, dynamic> fields,
+    List<int> bytes,
+  ) async => (await _dio.post<dynamic>(
+    '/movies/id/$movieId/poster/watermark',
+    data: _coverForm(fields, bytes),
+  )).data;
+
+  Future<List<int>> previewCover(
+    int movieId,
+    Map<String, dynamic> fields,
+    List<int> bytes,
+  ) async =>
+      (await _dio.post<List<int>>(
+        '/movies/id/$movieId/poster/watermark/preview',
+        data: _coverForm(fields, bytes),
+        options: Options(responseType: ResponseType.bytes),
+      )).data ??
+      const [];
+
+  FormData _coverForm(Map<String, dynamic> fields, List<int> bytes) =>
+      FormData.fromMap({
+        ...fields,
+        'cover_file': MultipartFile.fromBytes(bytes, filename: 'cover.jpg'),
+      });
 
   Future<Object?> getMoviePreviews(int movieId) async {
     final response = await _dio.get<dynamic>('/movies/id/$movieId/previews');

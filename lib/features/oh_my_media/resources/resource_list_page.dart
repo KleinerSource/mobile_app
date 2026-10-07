@@ -30,6 +30,7 @@ import 'entity_merge_sheet.dart';
 import 'resource_movies_page.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
+import '../configs/omm_admin_widgets.dart';
 
 String _normalizeResourceName(String value) =>
     value.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -155,11 +156,10 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _reload();
   }
 
-  Future<void> _fetch(int offset) async {
-    final pageRequest = _requests.begin(offset);
-    if (pageRequest == null) return;
-    try {
-      final page = await ref
+  Future<void> _fetch(int offset) => _requests.execute(
+    key: offset,
+    load: () async {
+      return await ref
           .read(resourcesRepositoryProvider)
           .list(
             widget.kind,
@@ -169,9 +169,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
             sortBy: _sortBy,
             sortOrder: _sortOrder,
           );
-      if (!pageRequest.isCurrent) return;
-      if (!mounted) return;
-
+    },
+    onSuccess: (page) {
       setState(() => _totalCount = page.totalCount);
       // 末页标记：连排列表只有最后一行需要底部圆角。
       final hasMore = applyPagedListPage(
@@ -183,14 +182,11 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         scrollController: _scrollController,
       );
       setState(() => _lastPageComplete = !hasMore);
-    } catch (error) {
-      if (!pageRequest.isCurrent) return;
-      if (!mounted) return;
+    },
+    onError: (error) {
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-    } finally {
-      pageRequest.finish();
-    }
-  }
+    },
+  );
 
   void _reload({bool preserveScroll = false}) {
     _requests.invalidate();
@@ -661,177 +657,259 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       }
     }
 
+    final repo = ref.read(resourcesRepositoryProvider);
+    ModalRoute<dynamic>? editorRoute;
     final result = await showGlassSheet<({String name, bool autoMapping})>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final canAutoMap = nameChanged(nameCtrl.text);
-            final mappingActive = autoMapping && canAutoMap;
+        editorRoute = ModalRoute.of(ctx);
+        return OmmAdminScope(
+          builder: (_) => StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              final canAutoMap = nameChanged(nameCtrl.text);
+              final mappingActive = autoMapping && canAutoMap;
 
-            return Padding(
-              padding: const EdgeInsets.only(
-                left: 22,
-                right: 22,
-                top: 4,
-                bottom: 22,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SheetHeader(
-                    icon: isEdit
-                        ? Icons.edit_outlined
-                        : Icons.add_circle_outline,
-                    title: isEdit
-                        ? l.resourceEditTitle(kindLabel)
-                        : l.resourceCreateTitle(kindLabel),
-                    padding: EdgeInsets.zero,
-                  ),
-                  const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            kindLabel.toUpperCase(),
-                            style: AppText.eyebrow(ctx),
+              return Padding(
+                padding: const EdgeInsets.only(
+                  left: 22,
+                  right: 22,
+                  top: 4,
+                  bottom: 22,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SheetHeader(
+                      icon: isEdit
+                          ? Icons.edit_outlined
+                          : Icons.add_circle_outline,
+                      title: isEdit
+                          ? l.resourceEditTitle(kindLabel)
+                          : l.resourceCreateTitle(kindLabel),
+                      padding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              kindLabel.toUpperCase(),
+                              style: AppText.eyebrow(ctx),
+                            ),
+                          ),
+                          _ResourceTranslateButton(
+                            loading: translating,
+                            onTap: () => translateName(ctx, setSheetState),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextField(
+                      controller: nameCtrl,
+                      autofocus: !isEdit,
+                      textAlignVertical: TextAlignVertical.center,
+                      onChanged: (_) {
+                        final changed = nameChanged(nameCtrl.text);
+                        setSheetState(() {
+                          if (!changed) autoMapping = false;
+                        });
+                      },
+                      decoration: sheetInputDecoration(
+                        ctx,
+                        hintText: l.resourceNameHint(kindLabel),
+                        prefixIcon: const Icon(Icons.drive_file_rename_outline),
+                      ),
+                      style: TextStyle(
+                        color: c.text,
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (isEdit) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: canAutoMap
+                              ? () => setSheetState(
+                                  () => autoMapping = !autoMapping,
+                                )
+                              : null,
+                          style: OutlinedButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            foregroundColor: mappingActive ? c.accent : c.text,
+                            backgroundColor: mappingActive
+                                ? c.accent.withValues(alpha: 0.1)
+                                : c.surface,
+                            side: BorderSide(
+                              color: mappingActive ? c.accent : c.cardBorder,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              IgnorePointer(
+                                child: Checkbox(
+                                  value: mappingActive,
+                                  onChanged: canAutoMap ? (_) {} : null,
+                                  activeColor: c.accent,
+                                  checkColor: c.bg,
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                l.resourceAutoMapping,
+                                style: TextStyle(
+                                  color: canAutoMap ? c.text : c.muted,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        _ResourceTranslateButton(
-                          loading: translating,
-                          onTap: () => translateName(ctx, setSheetState),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextField(
-                    controller: nameCtrl,
-                    autofocus: !isEdit,
-                    textAlignVertical: TextAlignVertical.center,
-                    onChanged: (_) {
-                      final changed = nameChanged(nameCtrl.text);
-                      setSheetState(() {
-                        if (!changed) autoMapping = false;
-                      });
-                    },
-                    decoration: sheetInputDecoration(
-                      ctx,
-                      hintText: l.resourceNameHint(kindLabel),
-                      prefixIcon: const Icon(Icons.drive_file_rename_outline),
-                    ),
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (isEdit) ...[
-                    const SizedBox(height: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: canAutoMap
-                            ? () => setSheetState(
-                                () => autoMapping = !autoMapping,
-                              )
-                            : null,
-                        style: OutlinedButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                      child: FilledButton(
+                        onPressed: () {
+                          final name = nameCtrl.text.trim();
+                          if (name.isEmpty) return;
+                          Navigator.pop(ctx, (
+                            name: name,
+                            autoMapping: autoMapping && nameChanged(name),
+                          ));
+                        },
+                        style: sheetPrimaryButtonStyle(ctx),
+                        child: Text(
+                          isEdit ? l.save : l.create,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
                           ),
-                          foregroundColor: mappingActive ? c.accent : c.text,
-                          backgroundColor: mappingActive
-                              ? c.accent.withValues(alpha: 0.1)
-                              : c.surface,
-                          side: BorderSide(
-                            color: mappingActive ? c.accent : c.cardBorder,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            IgnorePointer(
-                              child: Checkbox(
-                                value: mappingActive,
-                                onChanged: canAutoMap ? (_) {} : null,
-                                activeColor: c.accent,
-                                checkColor: c.bg,
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              l.resourceAutoMapping,
-                              style: TextStyle(
-                                color: canAutoMap ? c.text : c.muted,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        if (name.isEmpty) return;
-                        Navigator.pop(ctx, (
-                          name: name,
-                          autoMapping: autoMapping && nameChanged(name),
-                        ));
-                      },
-                      style: sheetPrimaryButtonStyle(ctx),
-                      child: Text(
-                        isEdit ? l.save : l.create,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         );
       },
     );
 
+    // pop 的 Future 早于退场动画结束；等路由卸载后再释放输入控制器。
+    await editorRoute?.completed;
     nameCtrl.dispose();
 
     if (result == null) return;
-    if (!context.mounted) return;
+    if (!context.mounted ||
+        !identical(repo, ref.read(resourcesRepositoryProvider))) {
+      return;
+    }
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final repo = ref.read(resourcesRepositoryProvider);
       String? backendMessage;
       if (isEdit) {
-        final updated = await repo.update(
-          widget.kind,
-          edit.id,
-          name: result.name,
-          autoMapping: result.autoMapping,
-        );
-        backendMessage = updated.message;
+        var merge = false;
+        Map<String, dynamic>? conflict;
+        if (nameChanged(result.name)) {
+          final check = await repo.checkRename(
+            widget.kind,
+            edit.id,
+            result.name,
+          );
+          if (!context.mounted ||
+              !identical(repo, ref.read(resourcesRepositoryProvider))) {
+            return;
+          }
+          if (check['has_conflict'] == true) {
+            conflict = check['conflict_info'] is Map
+                ? Map<String, dynamic>.from(check['conflict_info'] as Map)
+                : null;
+            final choice = await showDialog<String>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text(l.ommNameConflict),
+                content: Text(
+                  check['message']?.toString() ?? l.ommNameConflict,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(l.cancel),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'rename'),
+                    child: Text(l.ommKeepRename),
+                  ),
+                  if (check['can_auto_merge'] == true &&
+                      conflict?['existing_item_id'] is num)
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, 'merge'),
+                      child: Text(l.confirmMerge),
+                    ),
+                ],
+              ),
+            );
+            if (choice == null ||
+                !context.mounted ||
+                !identical(repo, ref.read(resourcesRepositoryProvider))) {
+              return;
+            }
+            merge = choice == 'merge';
+          }
+        }
+        if (merge) {
+          final ids = [edit.id, (conflict!['existing_item_id'] as num).toInt()];
+          final check = await repo.checkMerge(widget.kind, ids, result.name);
+          if (!context.mounted ||
+              !identical(repo, ref.read(resourcesRepositoryProvider))) {
+            return;
+          }
+          if (check['can_merge'] != true) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(
+                  check['message']?.toString() ?? l.ommMergeBlocked,
+                ),
+              ),
+            );
+            return;
+          }
+          backendMessage = await repo.merge(
+            widget.kind,
+            sourceIds: ids,
+            targetName: result.name,
+          );
+        } else {
+          final updated = await repo.update(
+            widget.kind,
+            edit.id,
+            name: result.name,
+            autoMapping: result.autoMapping,
+          );
+          backendMessage = updated.message;
+        }
       } else {
         final created = await repo.create(widget.kind, name: result.name);
         backendMessage = created.message;

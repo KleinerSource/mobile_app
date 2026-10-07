@@ -226,6 +226,10 @@ class _FakeOperations implements OmmMediaOperationsSource {
   bool? lastFavoriteOnly;
 
   @override
+  Future<List<int>> fetchDbonlineCover(source_models.MediaRef movie) async =>
+      <int>[];
+
+  @override
   Future<source_models.MediaPage<source_models.MediaSummary>> listFavorites(
     source_models.MediaQuery query,
   ) => throw UnimplementedError();
@@ -446,6 +450,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
     bool? exsub,
     bool? crack,
     String? resolution,
+    List<int>? coverBytes,
     bool syncParts = false,
   }) async {
     lastRef = movie;
@@ -461,6 +466,7 @@ class _FakeOperations implements OmmMediaOperationsSource {
     bool? exsub,
     bool? crack,
     String? resolution,
+    List<int>? coverBytes,
   }) async => [];
 }
 

@@ -2897,5 +2897,105 @@
   ,"searchHistoryClearConfirm": "确认清空？"
   ,"dbOnlineSortRelevance": "相关度"
 
-  ,"dbOnlineShareLink": "分享"
+  ,"dbOnlineShareLink": "分享",
+  "ommFetchCover": "从 DBOnline 获取封面",
+  "ommCoverPending": "封面已获取，调整裁剪后保存生效。",
+  "ommNameConflict": "名称冲突",
+  "ommKeepRename": "继续重命名（自动编号）",
+  "ommMergeBlocked": "合并目标冲突，请刷新后重试。",
+  "ommMappingCache": "映射缓存",
+  "ommMappingCacheHint": "查看、重载或使映射缓存失效",
+  "ommMaintenance": "关联记录维护",
+  "ommCleanup": "清理孤立关联",
+  "ommCleanupHint": "检查并清理已不存在影片的关联记录。",
+  "ommCleanupConfirm": "将删除没有对应影片的关联记录，是否继续？",
+  "ommCleanedCount": "已清理 {count} 条关联记录",
+  "@ommCleanedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ommCacheState": "缓存状态",
+  "ommExpired": "已过期",
+  "ommReady": "可用",
+  "ommNotLoaded": "未加载",
+  "ommCacheSize": "缓存类型数",
+  "ommCacheTypes": "映射类型",
+  "ommLastUpdated": "最后更新",
+  "ommCacheTtl": "有效期",
+  "ommOrphanCount": "孤立关联数量",
+  "ommRefreshStatus": "刷新状态",
+  "ommRefreshCache": "重载缓存",
+  "ommInvalidateCache": "使缓存失效",
+  "ommSchedule": "定时扫描",
+  "ommScheduleHint": "按服务器时区每天执行扫描，最多设置 5 个时刻。下方执行记录按本机时区显示。",
+  "ommScheduleEnabled": "启用定时扫描",
+  "ommAddTime": "添加时刻",
+  "ommNextRun": "下次执行",
+  "ommLastRun": "上次执行",
+  "ommSkipReason": "上次跳过原因",
+  "ommConfigKeys": "配置项管理",
+  "ommConfigKeysHint": "按配置键读取、新建、修改或删除服务器配置项。",
+  "ommConfigKeyRequired": "请输入配置键",
+  "ommDeleteConfigConfirm": "删除配置项“{key}”？",
+  "@ommDeleteConfigConfirm": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "ommConfigKey": "配置键",
+  "ommReadConfig": "读取配置",
+  "ommConfigValue": "配置值",
+  "ommConfigDescription": "配置说明",
+  "ommFfmpegTools": "FFmpeg 检测与安装",
+  "ommUnavailable": "不可用",
+  "ommInstallFfmpeg": "下载并安装 FFmpeg",
+  "ommInstallFfmpegConfirm": "将在服务器下载并部署 FFmpeg/FFprobe，成功后更新转码路径。是否继续？",
+  "ommInstallPreparing": "准备中",
+  "ommInstallDownloading": "下载中",
+  "ommInstallExtracting": "解压中",
+  "ommInstallDeploying": "部署中",
+  "ommInstallDone": "安装完成",
+  "ommInstallFailed": "安装失败",
+  "ommInstallIdle": "未开始安装",
+  "ommGpu": "显卡与硬件加速",
+  "ommEnvironment": "运行环境",
+  "ommInstallDirectory": "安装目录",
+  "ommInstallStatus": "安装状态",
+  "ommLibraryMaintenance": "媒体库统计与封面",
+  "ommRegenerateCover": "重建封面",
+  "ommRegenerateAll": "重建全部启用媒体库封面",
+  "ommRegenerateAllConfirm": "根据现有海报重建全部启用媒体库的封面，是否继续？",
+  "ommRegenerateCoverConfirm": "根据现有海报重建此媒体库封面，是否继续？",
+  "ommCoverResult": "封面重建：成功 {success}，失败 {failed}",
+  "@ommCoverResult": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "ommCoverRegenerated": "媒体库封面已重建",
+  "ommLibraryCounts": "{directories} 个目录 · {movies} 部影片",
+  "@ommLibraryCounts": {
+    "placeholders": {
+      "directories": {
+        "type": "int"
+      },
+      "movies": {
+        "type": "int"
+      }
+    }
+  },
+  "ommDirectoryDetails": "目录详情",
+  "ommDirectoryPath": "目录路径",
+  "ommLastScan": "最后扫描",
+  "ommActorRenameConflict": "已有同名演员，继续后服务器将自动添加编号。"
 }

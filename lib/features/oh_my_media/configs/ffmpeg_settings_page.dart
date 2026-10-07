@@ -9,6 +9,7 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'configs_providers.dart';
+import 'ffmpeg_tools_page.dart';
 
 class FfmpegSettingsPage extends ConsumerStatefulWidget {
   const FfmpegSettingsPage({super.key});
@@ -97,6 +98,18 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
             header: SettingsSubPageHeader(
               eyebrow: AppL10n.of(context).settingsGroupTools,
               title: AppL10n.of(context).ffmpegTitle,
+              trailing: IconButton(
+                tooltip: AppL10n.of(context).ommFfmpegTools,
+                icon: const Icon(Icons.build_outlined),
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FfmpegToolsPage()),
+                  );
+                  if (!mounted) return;
+                  setState(() => _loaded = false);
+                  ref.invalidate(ffmpegConfigProvider);
+                },
+              ),
             ),
             body: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),

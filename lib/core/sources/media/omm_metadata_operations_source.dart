@@ -37,6 +37,10 @@ abstract interface class OmmMetadataOperationsSource {
 
   Future<Object?> resourceMerge(String type, Map<String, dynamic> body);
 
+  Future<Object?> checkResourceRename(String type, Map<String, dynamic> body);
+
+  Future<Object?> checkResourceMerge(String type, Map<String, dynamic> body);
+
   Future<Object?> mappingList(String type, Map<String, dynamic> query);
 
   Future<Object?> mappingCreate(String type, Map<String, dynamic> body);

@@ -1,3 +1,4 @@
+import '../lists/create_list_dialog.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/header_action_button.dart';
 import 'package:omm/shared/preview/auto_preview_controller.dart';
@@ -1393,83 +1394,11 @@ class _NewListCard extends ConsumerWidget {
   }
 
   Future<void> _showCreate(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    int selectedHue = AppHues.lavender;
-
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(AppL10n.of(context).newList),
-          content: StatefulBuilder(
-            builder: (sctx, setSt) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  textAlignVertical: TextAlignVertical.center,
-                  decoration: InputDecoration(
-                    hintText: AppL10n.of(context).listNameHint,
-                    prefixIcon: const Icon(Icons.label_outline),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  children: AppHues.all.map((hue) {
-                    final on = hue == selectedHue;
-                    return GestureDetector(
-                      onTap: () => setSt(() => selectedHue = hue),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [AppHues.top(hue), AppHues.bottom(hue)],
-                          ),
-                          border: Border.all(
-                            color: on ? Colors.white : Colors.transparent,
-                            width: 2,
-                          ),
-                          boxShadow: on
-                              ? [
-                                  BoxShadow(
-                                    color: AppHues.top(
-                                      hue,
-                                    ).withValues(alpha: 0.4),
-                                    blurRadius: 8,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(AppL10n.of(context).cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: Text(AppL10n.of(context).listCreate),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (name != null && name.isNotEmpty) {
-      await ref
-          .read(listsProvider.notifier)
-          .create(name: name, hue: selectedHue);
-      AppHaptics.medium();
-    }
+    final result = await showCreateListDialog(context);
+    if (!context.mounted || result == null || result.name.isEmpty) return;
+    await ref
+        .read(listsProvider.notifier)
+        .create(name: result.name, hue: result.hue);
+    AppHaptics.medium();
   }
 }

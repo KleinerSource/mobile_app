@@ -68,11 +68,10 @@ class _FollowingPage extends ConsumerStatefulWidget {
 class _FollowingPageState extends ConsumerState<_FollowingPage> {
   static const _pageSize = 24;
   final _paging = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 1);
   final _scroll = ScrollController();
   DbOnlineFollowingFilter _filter = const DbOnlineFollowingFilter();
   int? _presetId;
-  Completer<void>? _refreshCompleter;
 
   @override
   void initState() {
@@ -82,7 +81,6 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
 
   @override
   void dispose() {
-    _completeRefresh();
     _requests.dispose();
     _paging.dispose();
     _scroll.dispose();
@@ -128,40 +126,35 @@ class _FollowingPageState extends ConsumerState<_FollowingPage> {
         _paging.error = localizedErrorMessage(l, error);
       }
     } finally {
-      if (page == 1 && request.isCurrent) _completeRefresh();
       request.finish();
     }
   }
 
   void _apply(DbOnlineFollowingFilter filter, {int? presetId}) {
     if (!_current) return;
-    _completeRefresh();
     setState(() {
       _filter = filter;
       _presetId = presetId;
     });
-    _requests.invalidate();
-    _paging.refresh();
-    if (_scroll.hasClients) _scroll.jumpTo(0);
-  }
-
-  Future<void> _refresh() {
-    _completeRefresh();
-    _refreshCompleter = Completer<void>();
-    final future = _refreshCompleter!.future;
     _requests.invalidate();
     refreshPagedController(
       controller: _paging,
       requests: _requests,
       loadPage: _fetch,
     );
-    return future;
+    if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
-  void _completeRefresh() {
-    final pending = _refreshCompleter;
-    _refreshCompleter = null;
-    if (pending != null && !pending.isCompleted) pending.complete();
+  Future<void> _refresh() {
+    // 保留连续刷新替换旧请求的语义；先释放旧刷新，再启动新一轮。
+    _requests.invalidate();
+    return _requests.refresh(() {
+      refreshPagedController(
+        controller: _paging,
+        requests: _requests,
+        loadPage: _fetch,
+      );
+    });
   }
 
   /// 任一筛选条件偏离默认值时高亮筛选按钮；排序不参与高亮。

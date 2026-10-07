@@ -9,8 +9,8 @@ import '../../models/subtitle_search.dart';
 import '../../models/watch_record.dart';
 import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';
-import '../common/source_id.dart';
 import 'media_models.dart';
+import 'omm_media_mappers.dart';
 import 'omm_audio_operations_source.dart';
 import 'omm_metadata_operations_source.dart';
 import 'omm_media_operations_source.dart';
@@ -158,6 +158,14 @@ class OmmMediaOperationsAdapter
       _call(() => client.catalog.merge(type, body));
 
   @override
+  Future<Object?> checkResourceRename(String type, Map<String, dynamic> body) =>
+      _call(() => client.catalog.checkRename(type, body));
+
+  @override
+  Future<Object?> checkResourceMerge(String type, Map<String, dynamic> body) =>
+      _call(() => client.catalog.checkMerge(type, body));
+
+  @override
   Future<Object?> mappingList(String type, Map<String, dynamic> query) =>
       _call(() => client.mappings.list(type, query));
 
@@ -268,7 +276,7 @@ class OmmMediaOperationsAdapter
         : const <String, dynamic>{};
     final stats = data['stats'];
     return MediaPage(
-      items: page.items.map(_summaryFromMovie).toList(growable: false),
+      items: page.items.map(ommMovieSummary).toList(growable: false),
       page: query.limit <= 0 ? 1 : (query.offset ~/ query.limit) + 1,
       limit: page.limit,
       total: page.totalCount,
@@ -827,6 +835,21 @@ class OmmMediaOperationsAdapter
   }
 
   @override
+  Future<List<int>> fetchDbonlineCover(MediaRef movie) async {
+    final bytes = await _call(
+      () => client.moviesExtended.fetchDbonlineCover(_ommId(movie)),
+    );
+    _throwIfBinaryError(bytes);
+    if (bytes.isEmpty) {
+      throw const SourceException(
+        AppErrorCode.ommResponseInvalid,
+        code: AppErrorCode.ommResponseInvalid,
+      );
+    }
+    return bytes;
+  }
+
+  @override
   Future<String?> applyPosterCrop(
     MediaRef movie, {
     required double cropOffset,
@@ -835,16 +858,20 @@ class OmmMediaOperationsAdapter
     bool? crack,
     String? resolution,
     bool syncParts = false,
+    List<int>? coverBytes,
   }) async {
+    final fields = <String, dynamic>{
+      if (subtitle != null) 'subtitle': subtitle,
+      if (exsub != null) 'exsub': exsub,
+      if (crack != null) 'crack': crack,
+      if (resolution != null) 'resolution': resolution,
+      'crop_offset': cropOffset,
+      'sync_parts': syncParts,
+    };
     final raw = await _call(
-      () => client.movies.updatePosterWatermark(_ommId(movie), {
-        if (subtitle != null) 'subtitle': subtitle,
-        if (exsub != null) 'exsub': exsub,
-        if (crack != null) 'crack': crack,
-        if (resolution != null) 'resolution': resolution,
-        'crop_offset': cropOffset,
-        'sync_parts': syncParts,
-      }),
+      () => coverBytes == null
+          ? client.movies.updatePosterWatermark(_ommId(movie), fields)
+          : client.moviesExtended.applyCover(_ommId(movie), fields, coverBytes),
     );
     _throwIfUnsuccessful(raw);
     return envelopeMessageOrNull(raw);
@@ -858,24 +885,35 @@ class OmmMediaOperationsAdapter
     bool? exsub,
     bool? crack,
     String? resolution,
+    List<int>? coverBytes,
   }) async {
-    final response = await _call(
-      () => client.movies.previewPosterWatermark(_ommId(movie), {
-        if (subtitle != null) 'subtitle': subtitle,
-        if (exsub != null) 'exsub': exsub,
-        if (crack != null) 'crack': crack,
-        if (resolution != null) 'resolution': resolution,
-        'crop_offset': cropOffset,
-      }),
+    final fields = <String, dynamic>{
+      if (subtitle != null) 'subtitle': subtitle,
+      if (exsub != null) 'exsub': exsub,
+      if (crack != null) 'crack': crack,
+      if (resolution != null) 'resolution': resolution,
+      'crop_offset': cropOffset,
+    };
+    final bytes = await _call(
+      () async => coverBytes == null
+          ? (await client.movies.previewPosterWatermark(
+              _ommId(movie),
+              fields,
+            )).data
+          : await client.moviesExtended.previewCover(
+              _ommId(movie),
+              fields,
+              coverBytes,
+            ),
     );
-    _throwIfBinaryError(response.data);
-    if (response.data.isEmpty) {
+    _throwIfBinaryError(bytes);
+    if (bytes.isEmpty) {
       throw const SourceException(
         AppErrorCode.ommResponseInvalid,
         code: AppErrorCode.ommResponseInvalid,
       );
     }
-    return response.data;
+    return bytes;
   }
 
   @override
@@ -1026,32 +1064,12 @@ class OmmMediaOperationsAdapter
     );
   }
 
-  MediaSummary _summaryFromMovie(MovieListItem movie) => MediaSummary(
-    ref: MediaRef(sourceId: const SourceId('omm'), value: '${movie.id}'),
-    title: movie.title,
-    code: movie.num,
-    year: movie.year,
-    rating: movie.rating,
-    duration: movie.runtime,
-    poster: movie.posterUuid,
-    thumbnail: movie.thumbUuid,
-    fanart: movie.fanartUuid,
-    canPlay: true,
-    attributes: {
-      'file_size': movie.fileSize,
-      'file_name': movie.fileName,
-      'series_name': movie.seriesName,
-      'preview_video_url': movie.previewVideoUrl,
-      'has_new_resources': movie.hasNewResources,
-      'actors': movie.actors,
-      'watch_record': movie.watchRecord,
-    },
-    payload: movie,
-  );
-
   Future<T> _call<T>(Future<T> Function() action) async {
     try {
-      return await action();
+      client.ensureActive();
+      final result = await action();
+      client.ensureActive();
+      return result;
     } on SourceException {
       rethrow;
     } catch (error) {

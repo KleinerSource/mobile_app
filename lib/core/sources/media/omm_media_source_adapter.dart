@@ -15,6 +15,7 @@ import '../common/source_id.dart';
 import 'media_capabilities.dart';
 import 'media_metadata_normalizer.dart';
 import 'media_models.dart';
+import 'omm_media_mappers.dart';
 import 'media_source.dart';
 import 'omm_audio_operations_source.dart';
 import 'omm_media_operations_adapter.dart';
@@ -103,7 +104,7 @@ class OmmMediaSourceAdapter
       );
     }
     return MediaPage(
-      items: page.items.map(_summaryFromMovie).toList(growable: false),
+      items: page.items.map(ommMovieSummary).toList(growable: false),
       page: query.limit <= 0 ? 1 : (offset ~/ query.limit) + 1,
       limit: page.limit,
       total: page.totalCount,
@@ -634,30 +635,6 @@ class OmmMediaSourceAdapter
       tasks: tasks,
     );
   }
-
-  MediaSummary _summaryFromMovie(MovieListItem movie) => MediaSummary(
-    ref: MediaRef(sourceId: _sourceId, value: '${movie.id}'),
-    title: normalizeMediaText(movie.title) ?? '',
-    code: normalizeMediaText(movie.num),
-    year: normalizeMediaYear(movie.year),
-    rating: normalizeMediaRating(movie.rating),
-    duration: normalizeMediaDurationMinutes(movie.runtime),
-    poster: movie.posterUuid,
-    thumbnail: movie.thumbUuid,
-    fanart: movie.fanartUuid,
-    canPlay: true,
-    attributes: {
-      'file_size': movie.fileSize,
-      'file_name': movie.fileName,
-      'resolution_tier': resolutionTierToApi(movie.resolutionTier),
-      'series_name': movie.seriesName,
-      'preview_video_url': movie.previewVideoUrl,
-      'has_new_resources': movie.hasNewResources,
-      'actors': movie.actors,
-      'watch_record': movie.watchRecord,
-    },
-    payload: movie,
-  );
 
   MediaDetails _detailsFromMovie(MovieDetail movie) {
     final summary = MediaSummary(

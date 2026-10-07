@@ -25,11 +25,15 @@ class OmmMovieListRow extends StatelessWidget {
     required this.movie,
     required this.urlBuilder,
     this.onTap,
+    this.leading,
+    this.titleTrailing,
   });
 
   final MovieListItem movie;
   final String Function(String uuid) urlBuilder;
   final VoidCallback? onTap;
+  final Widget? leading;
+  final Widget? titleTrailing;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +49,20 @@ class OmmMovieListRow extends StatelessWidget {
       if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
     ].join(' · ');
 
+    final title = PrivacyText(
+      movieId: movie.id,
+      text: movie.title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: c.text,
+        fontFamily: 'Inter',
+        fontWeight: FontWeight.w700,
+        fontSize: 14,
+        height: 1.25,
+      ),
+    );
+
     return MediaListRow(
       thumbnail: PrivacyMask(
         movieId: movie.id,
@@ -56,19 +74,17 @@ class OmmMovieListRow extends StatelessWidget {
           radius: 8,
         ),
       ),
-      title: PrivacyText(
-        movieId: movie.id,
-        text: movie.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: c.text,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-          height: 1.25,
-        ),
-      ),
+      leading: leading,
+      title: titleTrailing == null
+          ? title
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: title),
+                const SizedBox(width: 6),
+                titleTrailing!,
+              ],
+            ),
       meta: meta.isNotEmpty ? Text(meta, style: AppText.meta(context)) : null,
       additional: !completed && progress > 0
           ? Row(

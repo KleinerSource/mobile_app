@@ -111,11 +111,10 @@ class _MediaBrowserLibraryPageState
         (value: 'CommunityRating', label: (l) => l.sortByRating),
       ];
 
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 0);
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   late final PagedSelectionController<MediaBrowserItem> _selection;
-  Completer<void>? _refreshCompleter;
   String? _parentId;
   String? _collectionType;
   String _includeItemTypes = 'Movie';
@@ -125,7 +124,6 @@ class _MediaBrowserLibraryPageState
   String _sortBy = _kDefaultSortBy;
   String _sortOrder = _kDefaultSortOrder;
   int _requestSerial = 0;
-  bool _pageRequestTriggeredByRefresh = false;
   bool _batchBusy = false;
   late final _autoPreview = AutoPreviewController<String>(
     candidate: _nextAutoPreviewId,
@@ -190,7 +188,6 @@ class _MediaBrowserLibraryPageState
 
   @override
   void dispose() {
-    _completeRefresh();
     _autoPreview.dispose();
     _requests.dispose();
     _controller.dispose();
@@ -209,9 +206,6 @@ class _MediaBrowserLibraryPageState
     if (pageRequest == null) return;
     final requestSerial = _requestSerial;
     try {
-      if (startIndex == _controller.firstPageKey) {
-        _pageRequestTriggeredByRefresh = true;
-      }
       final result = await readMediaBrowserItemPage(
         ref,
         MediaBrowserItemPageRequest(
@@ -251,45 +245,33 @@ class _MediaBrowserLibraryPageState
         _controller.appendPage(items, startIndex + _pageSize);
       }
       _scheduleAutoPreviewUpdate();
-      if (startIndex == 0) _completeRefresh();
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-      if (startIndex == 0) _completeRefresh();
     } finally {
       pageRequest.finish();
     }
   }
 
   Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _requestSerial++;
-    _refreshController();
-    return completer.future;
+    return _requests.refresh(() {
+      _requestSerial++;
+      refreshPagedController(
+        controller: _controller,
+        requests: _requests,
+        loadPage: _fetchPage,
+      );
+    });
   }
 
   void _refreshController() {
-    _pageRequestTriggeredByRefresh = false;
     _requests.invalidate();
     refreshPagedController(
       controller: _controller,
       requests: _requests,
       loadPage: _fetchPage,
     );
-    if (!_pageRequestTriggeredByRefresh) {
-      unawaited(_fetchPage(_controller.firstPageKey));
-    }
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   void _reloadWith({

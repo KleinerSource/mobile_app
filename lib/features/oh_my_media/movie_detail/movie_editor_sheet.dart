@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ import 'package:omm/features/translation/translation_providers.dart';
 import 'entity_picker_sheet.dart';
 import 'movie_quick_flag.dart';
 import 'poster_crop_controller.dart';
+import '../configs/omm_admin_widgets.dart';
 import '../../../shared/capsule_select.dart';
 import '../../../shared/single_flight_gate.dart';
 
@@ -39,7 +41,8 @@ class MovieEditorSheet extends ConsumerStatefulWidget {
       return showGlassSheet<bool>(
         context: context,
         isScrollControlled: true,
-        builder: (_) => MovieEditorSheet(movie: movie),
+        builder: (_) =>
+            OmmAdminScope(builder: (_) => MovieEditorSheet(movie: movie)),
       );
     });
   }
@@ -71,6 +74,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   // （如影片已是破解，仅选择字幕时水印会自动带上破解）。
   double _cropOffset = 1.0; // frontend_new 默认 1
   bool _cropDirty = false;
+  Uint8List? _coverBytes;
+  bool _fetchingCover = false;
   String _subtitleMode = '';
   String _crackMode = '';
   String _resolutionMode = '';
@@ -83,7 +88,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       _resolutionMode.isNotEmpty;
 
   bool get _shouldApplyPosterCrop =>
-      _cropDirty && _fanartUrl != null && _anyFlagSelected;
+      _coverBytes != null ||
+      (_cropDirty && _fanartUrl != null && _anyFlagSelected);
 
   bool _saving = false;
   String? _error;
@@ -133,7 +139,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   }
 
   Future<void> _save() async {
-    if (_saving || _flagUpdating) return;
+    if (_saving || _flagUpdating || _fetchingCover) return;
     final body = <String, dynamic>{
       'title': _title.text.trim(),
       'original_title': _originalTitle.text.trim(),
@@ -162,6 +168,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     try {
       final repo = ref.read(mediaRepositoryProvider);
       final updateResult = await repo.updateMovie(widget.movie.id, body);
+      if (!mounted || !identical(repo, ref.read(mediaRepositoryProvider))) {
+        return;
+      }
       var backendMessage = updateResult.message;
       // 应用裁剪 · 仅在用户显式选择过任意水印标记时；未设置的参数
       // 传 null，由后端按影片现有标签推导。
@@ -170,6 +179,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
             await repo.applyPosterCrop(
               widget.movie.id,
               cropOffset: _cropOffset,
+              coverBytes: _coverBytes,
               subtitle: _subtitleMode.isEmpty ? null : _subtitleMode == 'sub',
               exsub: _subtitleMode.isEmpty ? null : _subtitleMode == 'exsub',
               crack: _crackMode.isEmpty ? null : _crackMode == 'crack',
@@ -177,6 +187,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
               syncParts: _syncParts && widget.movie.partMovies.isNotEmpty,
             ) ??
             backendMessage;
+      }
+      if (!mounted || !identical(repo, ref.read(mediaRepositoryProvider))) {
+        return;
       }
       // 触发详情 provider 刷新
       // ignore: unused_result
@@ -195,6 +208,34 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _fetchCover() async {
+    if (_fetchingCover || _saving || _flagUpdating) return;
+    final repo = ref.read(mediaRepositoryProvider);
+    setState(() {
+      _fetchingCover = true;
+      _error = null;
+    });
+    try {
+      final bytes = await repo.fetchDbonlineCover(widget.movie.id);
+      if (!mounted || !identical(repo, ref.read(mediaRepositoryProvider))) {
+        return;
+      }
+      setState(() {
+        _coverBytes = Uint8List.fromList(bytes);
+        _cropOffset = 1;
+        _cropDirty = true;
+      });
+    } catch (error) {
+      if (mounted && identical(repo, ref.read(mediaRepositoryProvider))) {
+        setState(
+          () => _error = localizedErrorMessage(AppL10n.of(context), error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _fetchingCover = false);
     }
   }
 
@@ -453,7 +494,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
             trailing: TextButton(
-              onPressed: _saving || _flagUpdating ? null : _save,
+              onPressed: _saving || _flagUpdating || _fetchingCover
+                  ? null
+                  : _save,
               child: Text(l.save),
             ),
           ),
@@ -464,8 +507,28 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  OutlinedButton.icon(
+                    onPressed:
+                        _saving ||
+                            _flagUpdating ||
+                            _fetchingCover ||
+                            (widget.movie.num?.trim().isEmpty ?? true)
+                        ? null
+                        : _fetchCover,
+                    icon: _fetchingCover
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_download_outlined),
+                    label: Text(l.ommFetchCover),
+                  ),
+                  if (_coverBytes != null)
+                    Text(l.ommCoverPending, style: AppText.meta(context)),
                   // ===== 海报裁剪 + 快捷操作 =====
                   if (_fanartUrl != null ||
+                      _coverBytes != null ||
                       widget.movie.partMovies.isNotEmpty) ...[
                     _label(
                       l.movieEditorQuickActions,
@@ -484,7 +547,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          if (_fanartUrl != null) ...[
+                          if (_fanartUrl != null || _coverBytes != null) ...[
                             CapsuleSelect(
                               label: l.movieFlagSubtitle,
                               value: _subtitleMode,
@@ -527,13 +590,15 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                         ],
                       ),
                     ),
-                    if (_fanartUrl != null && _anyFlagSelected) ...[
+                    if (_coverBytes != null ||
+                        (_fanartUrl != null && _anyFlagSelected)) ...[
                       const SizedBox(height: 12),
                       _label(l.movieEditorFanartCrop),
                       const SizedBox(height: 4),
                       PosterCropController(
                         movieId: widget.movie.id,
-                        fanartUrl: _fanartUrl!,
+                        fanartUrl: _fanartUrl ?? '',
+                        coverBytes: _coverBytes,
                         cropOffset: _cropOffset,
                         subtitle: _subtitleMode.isEmpty
                             ? null

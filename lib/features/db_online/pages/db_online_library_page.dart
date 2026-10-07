@@ -1,16 +1,13 @@
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
-import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/config/server_runtime.dart';
-import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/sources/media/dbo/db_online_movie.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -19,13 +16,12 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/media_view_mode.dart';
-import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/db_online/widgets/db_online_movie_paged_sliver.dart';
 import 'package:omm/features/db_online/widgets/db_online_filter_options.dart';
 import 'package:omm/features/db_online/widgets/db_online_list_filter_sheets.dart';
-import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
 
 /// DBO 影片库。
 ///
@@ -60,10 +56,9 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
         (value: 'updated', label: (l) => l.dbOnlineLibrarySortUpdated),
       ];
 
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 1);
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
-  Completer<void>? _refreshCompleter;
   String _resourceFilter = '';
   String _userScore = '';
   String _minScore = '';
@@ -81,7 +76,6 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
 
   @override
   void dispose() {
-    _completeRefresh();
     _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
@@ -123,12 +117,10 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
       } else {
         _controller.appendPage(items, page + 1);
       }
-      if (page == 1) _completeRefresh();
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-      if (page == 1) _completeRefresh();
     } finally {
       pageRequest.finish();
     }
@@ -141,25 +133,14 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
   }
 
   Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _requestSerial++;
-    _requests.invalidate();
-    refreshPagedController(
-      controller: _controller,
-      requests: _requests,
-      loadPage: _fetchPage,
-    );
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+    return _requests.refresh(() {
+      _requestSerial++;
+      refreshPagedController(
+        controller: _controller,
+        requests: _requests,
+        loadPage: _fetchPage,
+      );
+    });
   }
 
   void _reloadWith({
@@ -238,62 +219,11 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
     );
   }
 
-  PagedChildBuilderDelegate<DbOnlineMovie> _movieDelegate({
-    required BuildContext context,
-    required ServerConfig? config,
-    required Color progressColor,
-  }) {
-    return PagedChildBuilderDelegate<DbOnlineMovie>(
-      itemBuilder: (context, movie, index) {
-        final card = DbOnlineMovieCard(
-          key: ValueKey(_movieKey(movie)),
-          movie: movie,
-          config: config,
-          width: double.infinity,
-          landscape: _viewMode == MediaViewMode.landscape,
-          compact: _viewMode == MediaViewMode.list,
-          previewList: _viewMode == MediaViewMode.list,
-          showRating: false,
-          subscriptionActionsEnabled: true,
-          onTap: () => openDbOnlineMovieUnawaited(context, movie),
-        );
-        return _viewMode == MediaViewMode.landscape
-            ? MediaLandscapeListItem(child: card)
-            : card;
-      },
-      firstPageProgressIndicatorBuilder: (_) => Padding(
-        padding: const EdgeInsets.only(top: 56),
-        child: Center(child: CircularProgressIndicator(color: progressColor)),
-      ),
-      newPageProgressIndicatorBuilder: (_) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      firstPageErrorIndicatorBuilder: (_) => ErrorView.list(
-        retryLabel: AppL10n.of(context).dbOnlineRetry,
-        message:
-            _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
-        onRetry: _controller.retryLastFailedRequest,
-      ),
-      newPageErrorIndicatorBuilder: (_) =>
-          PaginationRetry(onRetry: _controller.retryLastFailedRequest),
-      noItemsFoundIndicatorBuilder: (_) => const _LibraryListEmpty(),
-      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     final config = ref.watch(mediaRuntimeConfigProvider);
     // 订阅全局视图模式，切换时重建列表；_viewMode 供 delegate 读取。
     final viewMode = ref.watch(mediaServerViewModeProvider);
-    final isPortrait = viewMode == MediaViewMode.portrait;
-    final delegate = _movieDelegate(
-      context: context,
-      config: config,
-      progressColor: colors.accent,
-    );
 
     return GlowBackground(
       child: SafeArea(
@@ -343,23 +273,16 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
                     slivers: [
                       SliverPadding(
                         padding: MediaListLayout.contentPadding,
-                        sliver: isPortrait
-                            ? PagedSliverGrid<int, DbOnlineMovie>(
-                                pagingController: _controller,
-                                // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
-                                showNoMoreItemsIndicatorAsGridChild: false,
-                                gridDelegate: const MediaGridDelegate(),
-                                builderDelegate: delegate,
-                              )
-                            : _viewMode == MediaViewMode.landscape
-                            ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
-                                pagingController: _controller,
-                                builderDelegate: delegate,
-                              )
-                            : PagedSliverList<int, DbOnlineMovie>(
-                                pagingController: _controller,
-                                builderDelegate: delegate,
-                              ),
+                        sliver: DbOnlineMoviePagedSliver(
+                          controller: _controller,
+                          mode: _viewMode,
+                          config: config,
+                          movieKey: _movieKey,
+                          onOpen: (movie) =>
+                              openDbOnlineMovieUnawaited(context, movie),
+                          emptyBuilder: (_) => const _LibraryListEmpty(),
+                          showRating: false,
+                        ),
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],

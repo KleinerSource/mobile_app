@@ -29,6 +29,59 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // ==================== 原 test/core/sources_test.dart ====================
 void _main_0() {
+  test('OMM 普通列表与收藏使用相同的规范化字段并保留原始影片', () async {
+    final rawMovies = [
+      {
+        'id': 1,
+        'title': '  Movie  ',
+        'num': ' ABC-001 ',
+        'year': 0,
+        'runtime': 0,
+        'rating': 12,
+        'resolution_tier': '4k',
+      },
+      {'id': 2, 'title': ' ', 'num': ' '},
+    ];
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/api'))
+      ..httpClientAdapter = _JsonAdapter(
+        (path) => {
+          'success': true,
+          'data': {
+            'items': path.endsWith('/favorites')
+                ? rawMovies.map((movie) => {'movie': movie}).toList()
+                : rawMovies,
+            'total_count': 2,
+            'limit': 24,
+            'offset': 0,
+          },
+        },
+      );
+    final source = OmmMediaSourceAdapter(ApiClient(dio));
+    addTearDown(() => dio.close(force: true));
+    final movies = await source.listMovies(const MediaQuery());
+    final favorites = await source.operations.listFavorites(const MediaQuery());
+    for (final page in [movies, favorites]) {
+      final first = page.items.first;
+      expect(first.ref.stableKey, 'omm:1');
+      expect(first.title, 'Movie');
+      expect(first.code, 'ABC-001');
+      expect(first.year, isNull);
+      expect(first.duration, isNull);
+      expect(first.rating, 10);
+      expect(first.attributes['resolution_tier'], '4k');
+      expect((first.payload as MovieListItem).title, '  Movie  ');
+      expect((first.payload as MovieListItem).rating, 12);
+      final empty = page.items.last;
+      expect(empty.title, '');
+      expect(empty.code, isNull);
+      expect(empty.year, isNull);
+      expect(empty.duration, isNull);
+      expect(empty.rating, isNull);
+      expect(empty.attributes['resolution_tier'], isNull);
+    }
+    expect(favorites.items.first.attributes, movies.items.first.attributes);
+  });
+
   test('SourceId and MediaRef keep source scope in stable keys', () {
     const ommId = SourceId('omm');
     const dboId = SourceId('dbo');

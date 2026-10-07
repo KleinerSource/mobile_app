@@ -182,6 +182,28 @@ class SettingsSwitch extends StatelessWidget {
   }
 }
 
+class SettingsFieldLabel extends StatelessWidget {
+  const SettingsFieldLabel(this.label, this.help, {super.key});
+
+  final String label;
+  final String help;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: AppText.eyebrow(context)),
+        if (help.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(help, style: AppText.meta(context).copyWith(fontSize: 10.5)),
+        ],
+      ],
+    ),
+  );
+}
+
 /// 设置页输入控件的统一外观与最小触控高度。
 InputDecoration settingsInputDecoration(
   BuildContext context, {

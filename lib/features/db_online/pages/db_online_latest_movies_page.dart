@@ -1,7 +1,5 @@
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
-import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,12 +14,11 @@ import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/media_view_mode.dart';
-import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/page_header.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
-import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_movie_paged_sliver.dart';
 
 /// dbonline 最新影片的完整列表。
 ///
@@ -41,10 +38,9 @@ class _DbOnlineLatestMoviesPageState
     extends ConsumerState<DbOnlineLatestMoviesPage> {
   static const _pageSize = 24;
 
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 1);
   final _controller = PagingController<int, DbOnlineMovie>(firstPageKey: 1);
   final _scrollController = ScrollController();
-  Completer<void>? _refreshCompleter;
 
   MediaViewMode get _viewMode => ref.read(mediaServerViewModeProvider);
 
@@ -56,7 +52,6 @@ class _DbOnlineLatestMoviesPageState
 
   @override
   void dispose() {
-    _completeRefresh();
     _requests.dispose();
     _controller.dispose();
     _scrollController.dispose();
@@ -90,11 +85,9 @@ class _DbOnlineLatestMoviesPageState
       } else {
         _controller.appendPage(items, page + 1);
       }
-      if (page == 1) _completeRefresh();
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-      if (page == 1) _completeRefresh();
     } finally {
       pageRequest.finish();
     }
@@ -107,24 +100,13 @@ class _DbOnlineLatestMoviesPageState
   }
 
   Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _requests.invalidate();
-    refreshPagedController(
-      controller: _controller,
-      requests: _requests,
-      loadPage: _fetchPage,
-    );
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+    return _requests.refresh(() {
+      refreshPagedController(
+        controller: _controller,
+        requests: _requests,
+        loadPage: _fetchPage,
+      );
+    });
   }
 
   @override
@@ -137,43 +119,6 @@ class _DbOnlineLatestMoviesPageState
     final title = widget.sortBy == 'release'
         ? l.dbOnlineLatestReleased
         : l.dbOnlineRecentUpdated;
-    final isPortrait = _viewMode == MediaViewMode.portrait;
-    final delegate = PagedChildBuilderDelegate<DbOnlineMovie>(
-      itemBuilder: (context, movie, _) {
-        final card = DbOnlineMovieCard(
-          key: ValueKey(_movieKey(movie)),
-          movie: movie,
-          config: config,
-          width: double.infinity,
-          landscape: _viewMode == MediaViewMode.landscape,
-          compact: _viewMode == MediaViewMode.list,
-          subscriptionActionsEnabled: true,
-          previewList: _viewMode == MediaViewMode.list,
-          onTap: () => openDbOnlineMovieUnawaited(context, movie),
-        );
-        return _viewMode == MediaViewMode.landscape
-            ? MediaLandscapeListItem(child: card)
-            : card;
-      },
-      firstPageProgressIndicatorBuilder: (_) => Padding(
-        padding: const EdgeInsets.only(top: 56),
-        child: Center(child: CircularProgressIndicator(color: colors.accent)),
-      ),
-      newPageProgressIndicatorBuilder: (_) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      firstPageErrorIndicatorBuilder: (context) => ErrorView.list(
-        retryLabel: AppL10n.of(context).dbOnlineRetry,
-        message:
-            _controller.error?.toString() ?? AppL10n.of(context).loadFailed,
-        onRetry: _controller.retryLastFailedRequest,
-      ),
-      newPageErrorIndicatorBuilder: (_) =>
-          PaginationRetry(onRetry: _controller.retryLastFailedRequest),
-      noItemsFoundIndicatorBuilder: (_) => const _ListEmpty(),
-      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-    );
 
     return Scaffold(
       backgroundColor: colors.bg,
@@ -201,23 +146,15 @@ class _DbOnlineLatestMoviesPageState
                     padding: MediaListLayout.contentPadding.copyWith(
                       bottom: MediaQuery.paddingOf(context).bottom,
                     ),
-                    sliver: isPortrait
-                        ? PagedSliverGrid<int, DbOnlineMovie>(
-                            pagingController: _controller,
-                            // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
-                            showNoMoreItemsIndicatorAsGridChild: false,
-                            gridDelegate: const MediaGridDelegate(),
-                            builderDelegate: delegate,
-                          )
-                        : _viewMode == MediaViewMode.landscape
-                        ? MediaLandscapePagedSliver<int, DbOnlineMovie>(
-                            pagingController: _controller,
-                            builderDelegate: delegate,
-                          )
-                        : PagedSliverList<int, DbOnlineMovie>(
-                            pagingController: _controller,
-                            builderDelegate: delegate,
-                          ),
+                    sliver: DbOnlineMoviePagedSliver(
+                      controller: _controller,
+                      mode: _viewMode,
+                      config: config,
+                      movieKey: _movieKey,
+                      onOpen: (movie) =>
+                          openDbOnlineMovieUnawaited(context, movie),
+                      emptyBuilder: (_) => const _ListEmpty(),
+                    ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],

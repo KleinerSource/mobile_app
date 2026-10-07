@@ -13,7 +13,6 @@ import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/media_list_layout.dart';
 import 'package:omm/shared/glass.dart';
-import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/empty_view.dart';
@@ -26,7 +25,6 @@ import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'package:omm/shared/pagination_footer.dart';
-import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
@@ -34,8 +32,8 @@ import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/shared/preview/preview_player.dart';
 import 'package:omm/shared/preview/preview_visibility.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
-import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
+import 'omm_movie_paged_sliver.dart';
 import 'advanced_filter_sheet.dart';
 import 'batch_duplicate_nfo_sheet.dart';
 import 'batch_edit_sheet.dart';
@@ -885,9 +883,6 @@ String _updatedLabel(AppL10n l, bool? value) => switch (value) {
   _ => l.moviesUpdatedStatus,
 };
 
-String _movieRuntimeLabel(AppL10n l, int minutes) =>
-    l.mediaDurationMinutes(minutes);
-
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.activeCount, required this.onTap});
   final int activeCount;
@@ -1055,27 +1050,9 @@ class _ListRow extends ConsumerWidget {
         (statuses) => statuses[movie.id] ?? movie.isFavorited,
       ),
     );
-    final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
-    final completed = movie.watchRecord?.completed ?? false;
-    final hasRating = movie.rating != null && movie.rating! > 0;
-    final meta = <String>[
-      if (movie.year != null) '${movie.year}',
-      if (movie.runtime != null && movie.runtime! > 0)
-        _movieRuntimeLabel(l, movie.runtime!),
-      if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
-    ].join(' · ');
-
-    final row = MediaListRow(
-      thumbnail: PrivacyMask(
-        movieId: movie.id,
-        radius: 8,
-        child: Poster(
-          url: movie.posterUuid != null ? urlBuilder(movie.posterUuid!) : null,
-          title: movie.title,
-          year: movie.year,
-          radius: 8,
-        ),
-      ),
+    final row = OmmMovieListRow(
+      movie: movie,
+      urlBuilder: urlBuilder,
       leading: selectionMode
           ? Icon(
               selected
@@ -1085,78 +1062,9 @@ class _ListRow extends ConsumerWidget {
               size: 22,
             )
           : null,
-      title: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: PrivacyText(
-              movieId: movie.id,
-              text: movie.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                height: 1.25,
-              ),
-            ),
-          ),
-          if (!selectionMode && movie.hasNewResources) ...[
-            const SizedBox(width: 6),
-            const NewResourcesIcon(),
-          ],
-        ],
-      ),
-      meta: meta.isNotEmpty ? Text(meta, style: AppText.meta(context)) : null,
-      additional: !completed && progress > 0
-          ? Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 3,
-                      backgroundColor: c.chipBg,
-                      valueColor: AlwaysStoppedAnimation(c.accent),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${(progress * 100).round()}%',
-                  style: TextStyle(
-                    color: c.muted,
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            )
+      titleTrailing: !selectionMode && movie.hasNewResources
+          ? const NewResourcesIcon()
           : null,
-      trailing: completed
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: c.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: Text(
-                AppL10n.of(context).watchedDone,
-                style: TextStyle(
-                  color: c.accent,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.5,
-                ),
-              ),
-            )
-          : Icon(Icons.chevron_right, color: c.muted, size: 20),
-      privacyId: movie.id,
-      privacyAwareTap: true,
       onTap: selectionMode ? onSelectionTap : onMovieTap,
     );
 

@@ -10,7 +10,6 @@ import '../../core/models/paged_result.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/movie_card.dart';
-import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
@@ -20,13 +19,13 @@ import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import '../player/video/video_player_page.dart';
 import '../privacy/privacy_mask.dart';
+import 'continue_watching_section.dart';
 import 'hero_backdrop.dart';
 import 'home_movie_section.dart';
 import 'home_providers.dart';
 import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
 
-const _homeSectionTitleGap = 14.0;
 const _homeSectionGap = 24.0;
 
 /// omm 首页 · 现代化半屏 hero 设计:
@@ -316,232 +315,52 @@ class _ContinueWatchingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth =
-        (MediaQuery.sizeOf(context).width * 0.7)
-            .clamp(260.0, 520.0)
-            .toDouble() *
-        0.72;
-    final coverHeight = cardWidth / (16 / 10);
-    const titleAreaHeight = 60.0;
-
-    return Padding(
-      // 顶部间距与全出血 hero 衔接
-      padding: const EdgeInsets.only(top: 26),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Text(
-              AppL10n.of(context).homePickupTitle,
-              style: AppText.sectionTitle(context),
-            ),
-          ),
-          const SizedBox(height: _homeSectionTitleGap),
-          SizedBox(
-            height: coverHeight + 8 + titleAreaHeight,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, index) => SizedBox(
-                width: cardWidth,
-                child: _ContinueWatchingCard(
-                  key: ValueKey(items[index].id),
-                  movie: items[index],
-                  urlBuilder: urlBuilder,
-                  onMovieReturned: onMovieReturned,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ContinueWatchingCard extends StatelessWidget {
-  const _ContinueWatchingCard({
-    super.key,
-    required this.movie,
-    required this.urlBuilder,
-    required this.onMovieReturned,
-  });
-
-  final MovieListItem movie;
-  final String Function(String) urlBuilder;
-  final ValueChanged<MovieDataChanges> onMovieReturned;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
     final l = AppL10n.of(context);
-    final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
-    final minutesLeft = movie.runtime != null
-        ? (movie.runtime! * (1 - progress)).round()
-        : null;
-
-    return PrivacyAwareInkWell(
-      movieId: movie.id,
-      borderRadius: 22,
-      onTap: () async {
-        final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
-        );
-        if (context.mounted) onMovieReturned(changesBeforeVisit);
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: AspectRatio(
-              aspectRatio: 16 / 10,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PrivacyMask(
-                    movieId: movie.id,
-                    radius: 0,
-                    child: Poster(
-                      url: _movieCoverUrl(movie, urlBuilder),
-                      title: movie.title,
-                      year: movie.year,
-                      aspectRatio: 16 / 10,
-                      radius: 0,
-                      imageAlignment: Alignment.centerRight,
-                    ),
+    return ContinueWatchingSection(
+      entries: items
+          .map((movie) {
+            final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(
+              0.0,
+              1.0,
+            );
+            return ContinueWatchingEntry(
+              privacyId: movie.id,
+              title: movie.title,
+              year: movie.year,
+              coverUrl: _movieCoverUrl(movie, urlBuilder),
+              progress: progress,
+              showEmptyProgress: true,
+              minutesLeft: movie.runtime == null
+                  ? null
+                  : (movie.runtime! * (1 - progress)).round(),
+              meta: movie.year == null && movie.runtime == null
+                  ? null
+                  : [
+                      if (movie.year != null) '${movie.year}',
+                      if (movie.runtime != null && movie.runtime! > 0)
+                        l.mediaDurationMinutes(movie.runtime!),
+                    ].join(' · '),
+              onOpen: () async {
+                final changes = MovieDataChanges.snapshot(movieId: movie.id);
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MovieDetailPage(movieId: movie.id),
                   ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.7),
-                          ],
-                          stops: const [0.4, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 22,
-                    right: 22,
-                    bottom: 16,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Semantics(
-                                button: true,
-                                label: AppL10n.of(context).homeResume,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () async {
-                                    final changesBeforeVisit =
-                                        MovieDataChanges.snapshot(
-                                          movieId: movie.id,
-                                        );
-                                    await VideoPlayerPage.open(
-                                      context,
-                                      movieId: movie.id,
-                                      title: movie.title,
-                                    );
-                                    // 播放器确实上报过进度时刷新继续观看区块。
-                                    onMovieReturned(changesBeforeVisit);
-                                  },
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(2),
-                                    child: Icon(
-                                      Icons.play_arrow_rounded,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (minutesLeft != null) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  AppL10n.of(
-                                    context,
-                                  ).homeMinutesLeft(minutesLeft),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 4,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.18,
-                              ),
-                              valueColor: AlwaysStoppedAnimation(c.accent),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          PrivacyText(
-            movieId: movie.id,
-            text: movie.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: c.text,
-              fontFamily: 'Inter',
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-          ),
-          if (movie.year != null || movie.runtime != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                [
-                  if (movie.year != null) '${movie.year}',
-                  if (movie.runtime != null && movie.runtime! > 0)
-                    l.mediaDurationMinutes(movie.runtime!),
-                ].join(' · '),
-                style: TextStyle(
-                  color: c.muted,
-                  fontFamily: 'Inter',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
-      ),
+                );
+                if (context.mounted) onMovieReturned(changes);
+              },
+              onResume: () async {
+                final changes = MovieDataChanges.snapshot(movieId: movie.id);
+                await VideoPlayerPage.open(
+                  context,
+                  movieId: movie.id,
+                  title: movie.title,
+                );
+                onMovieReturned(changes);
+              },
+            );
+          })
+          .toList(growable: false),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'create_list_dialog.dart';
 import 'lists_providers.dart';
 
 /// 弹出底部 sheet 让用户把 movieId 加入/移出 多个 list
@@ -187,11 +188,9 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: c.chipBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
+            Material(
+              color: c.chipBg,
+              borderRadius: BorderRadius.circular(12),
               child: ListTile(
                 leading: Icon(Icons.add, color: c.accent),
                 title: Text(
@@ -213,88 +212,22 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
   }
 
   Future<void> _createDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    int selectedHue = AppHues.lavender;
-
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(AppL10n.of(ctx).newList),
-          content: StatefulBuilder(
-            builder: (sctx, setSt) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  textAlignVertical: TextAlignVertical.center,
-                  decoration: sheetInputDecoration(
-                    ctx,
-                    hintText: AppL10n.of(ctx).listNameHint,
-                    prefixIcon: const Icon(Icons.label_outline),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  children: AppHues.all.map((hue) {
-                    final on = hue == selectedHue;
-                    return GestureDetector(
-                      onTap: () => setSt(() => selectedHue = hue),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [AppHues.top(hue), AppHues.bottom(hue)],
-                          ),
-                          border: Border.all(
-                            color: on ? Colors.white : Colors.transparent,
-                            width: 2,
-                          ),
-                          boxShadow: on
-                              ? [
-                                  BoxShadow(
-                                    color: AppHues.top(
-                                      hue,
-                                    ).withValues(alpha: 0.4),
-                                    blurRadius: 8,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(AppL10n.of(ctx).cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: Text(AppL10n.of(ctx).listCreate),
-            ),
-          ],
-        );
-      },
+    final result = await showCreateListDialog(
+      context,
+      inputDecoration: sheetInputDecoration(
+        context,
+        hintText: AppL10n.of(context).listNameHint,
+        prefixIcon: const Icon(Icons.label_outline),
+      ),
     );
-
-    if (name != null && name.isNotEmpty) {
-      final created = await ref
+    if (!mounted || result == null || result.name.isEmpty) return;
+    final created = await ref
+        .read(listsProvider.notifier)
+        .create(name: result.name, hue: result.hue);
+    if (created != null) {
+      await ref
           .read(listsProvider.notifier)
-          .create(name: name, hue: selectedHue);
-      if (created != null) {
-        await ref
-            .read(listsProvider.notifier)
-            .addMovie(created.id, widget.movieId);
-      }
+          .addMovie(created.id, widget.movieId);
     }
   }
 }

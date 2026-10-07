@@ -18,7 +18,6 @@ import 'package:omm/features/media_browser/navigation/media_browser_navigation.d
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
-import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/media_list_layout.dart';
@@ -27,13 +26,11 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/media_list_row.dart';
 import 'package:omm/shared/library_sort_buttons.dart';
 import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
-import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -91,14 +88,13 @@ class _MediaBrowserFavoritesPageState
         ),
       ];
 
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 0);
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   String _includeItemTypes = _typeOptions.first.value;
   int _sortIndex = 0;
   int _totalCount = 0;
   int _requestSerial = 0;
-  Completer<void>? _refreshCompleter;
   late final PagedSelectionController<MediaBrowserItem> _selection;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   bool _removing = false;
@@ -178,38 +174,25 @@ class _MediaBrowserFavoritesPageState
         items: items,
         totalCount: result.total,
       );
-      if (startIndex == 0) _completeRefresh();
       if (mounted) setState(() {});
     } catch (error) {
       if (!pageRequest.isCurrent) return;
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-      if (startIndex == 0) _completeRefresh();
     } finally {
       pageRequest.finish();
     }
   }
 
   Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _requestSerial++;
-    _requests.invalidate();
-    refreshPagedController(
-      controller: _controller,
-      requests: _requests,
-      loadPage: _fetchPage,
-    );
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+    return _requests.refresh(() {
+      _requestSerial++;
+      refreshPagedController(
+        controller: _controller,
+        requests: _requests,
+        loadPage: _fetchPage,
+      );
+    });
   }
 
   void _reloadWith({String? includeItemTypes, int? sortIndex}) {
@@ -859,61 +842,16 @@ class _ListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final row = MediaListRow(
-      thumbnail: PrivacyMask(
-        movieId: item.id,
-        radius: 8,
-        child: Poster(
-          url: item.primaryImageTag == null
-              ? null
-              : urls.poster(item.id, tag: item.primaryImageTag),
-          title: item.name,
-          year: item.productionYear,
-          radius: 8,
-          httpHeaders: urls.imageHeaders,
-        ),
-      ),
-      leading: selecting
-          ? Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? colors.accent : Colors.transparent,
-                border: Border.all(
-                  color: selected ? colors.accent : colors.muted2,
-                  width: 1.5,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: selected
-                  ? const Icon(Icons.check, color: Colors.white, size: 14)
-                  : null,
-            )
-          : null,
-      title: PrivacyText(
-        movieId: item.id,
-        text: item.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: colors.text,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-          height: 1.2,
-        ),
-      ),
-      meta: Text(
-        mediaBrowserItemMetaText(context, item),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppText.meta(context),
-      ),
+    final row = MediaBrowserListRowContent(
+      item: item,
+      posterUrl: item.primaryImageTag == null
+          ? null
+          : urls.poster(item.id, tag: item.primaryImageTag),
+      imageHeaders: urls.imageHeaders,
+      selected: selected,
+      selecting: selecting,
       onTap: onTap,
       borderRadius: 12,
-      privacyId: item.id,
-      privacyAwareTap: !selecting,
     );
 
     if (selecting) {

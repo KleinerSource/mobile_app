@@ -153,7 +153,6 @@ void _main_0() {
         sharedPrefsProvider.overrideWithValue(prefs),
         serverLineProbeCoordinatorProvider.overrideWithValue(
           ServerLineProbeCoordinator(
-            fallbackDelay: Duration.zero,
             probe: (line) async {
               probes.add(line.id);
               if (line.id == 'remote-lan') {
@@ -234,7 +233,6 @@ void _main_0() {
         sharedPrefsProvider.overrideWithValue(prefs),
         serverLineProbeCoordinatorProvider.overrideWithValue(
           ServerLineProbeCoordinator(
-            fallbackDelay: Duration.zero,
             probe: (line) async {
               probes.add(line.id);
               return ServerLineProbeResult.failure(line, '线路不可达');

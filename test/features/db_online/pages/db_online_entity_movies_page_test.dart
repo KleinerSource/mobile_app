@@ -14,6 +14,96 @@ import 'package:omm/features/db_online/settings/db_online_backend_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('实体页刷新未完成时切换筛选，旧响应不能覆盖新筛选结果', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final pending =
+        <({RequestOptions options, RequestInterceptorHandler handler})>[];
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    addTearDown(() => dio.close(force: true));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (!options.path.contains('/makers/mk-1/movies')) {
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                data: {'success': true, 'data': <String, dynamic>{}},
+              ),
+            );
+            return;
+          }
+          pending.add((options: options, handler: handler));
+        },
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+          sharedPrefsProvider.overrideWithValue(prefs),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: DbOnlineEntityMoviesPage(
+            kind: 'maker',
+            id: 'mk-1',
+            title: '片商',
+          ),
+        ),
+      ),
+    );
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(pending, hasLength(1));
+    final refresh = tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh;
+    final done = refresh();
+    expect(identical(done, refresh()), isTrue);
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('字幕').first);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    final filtered = pending
+        .where((r) => r.options.uri.queryParameters['filter'] == 'c')
+        .toList();
+    expect(filtered, hasLength(1));
+    expect(filtered.single.options.uri.queryParameters['page'], '1');
+    for (final request in pending.reversed) {
+      final isFiltered = identical(request.handler, filtered.single.handler);
+      request.handler.resolve(
+        Response<dynamic>(
+          requestOptions: request.options,
+          data: {
+            'success': true,
+            'data': {
+              'movies': [
+                {
+                  'id': isFiltered ? 'new' : 'old',
+                  'title': isFiltered ? '筛选后影片' : '旧影片',
+                },
+              ],
+              'current_page': 1,
+            },
+          },
+        ),
+      );
+    }
+    await tester.pumpAndSettle();
+    await done;
+    expect(find.text('筛选后影片'), findsOneWidget);
+    expect(find.text('旧影片'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('实体影片页按实体端点加载并渲染影片卡片', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();

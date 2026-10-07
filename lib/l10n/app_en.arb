@@ -2897,5 +2897,105 @@
   ,"searchHistoryClearConfirm": "Tap to confirm"
   ,"dbOnlineSortRelevance": "Relevance"
 
-  ,"dbOnlineShareLink": "Share"
+  ,"dbOnlineShareLink": "Share",
+  "ommFetchCover": "Fetch cover from DBOnline",
+  "ommCoverPending": "Cover fetched. Adjust the crop and save to apply.",
+  "ommNameConflict": "Name conflict",
+  "ommKeepRename": "Rename with a unique suffix",
+  "ommMergeBlocked": "Merge target conflicts. Refresh and try again.",
+  "ommMappingCache": "Mapping cache",
+  "ommMappingCacheHint": "Inspect, reload or invalidate mapping cache",
+  "ommMaintenance": "Association maintenance",
+  "ommCleanup": "Clean orphaned associations",
+  "ommCleanupHint": "Inspect and remove associations to movies that no longer exist.",
+  "ommCleanupConfirm": "Remove associations whose movies no longer exist?",
+  "ommCleanedCount": "Removed {count} associations",
+  "@ommCleanedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ommCacheState": "Cache status",
+  "ommExpired": "Expired",
+  "ommReady": "Ready",
+  "ommNotLoaded": "Not loaded",
+  "ommCacheSize": "Cached type count",
+  "ommCacheTypes": "Mapping types",
+  "ommLastUpdated": "Last updated",
+  "ommCacheTtl": "Cache lifetime",
+  "ommOrphanCount": "Orphaned association count",
+  "ommRefreshStatus": "Refresh status",
+  "ommRefreshCache": "Reload cache",
+  "ommInvalidateCache": "Invalidate cache",
+  "ommSchedule": "Scheduled scans",
+  "ommScheduleHint": "Run daily in the server time zone, at up to 5 times. Execution timestamps below use your device time zone.",
+  "ommScheduleEnabled": "Enable scheduled scans",
+  "ommAddTime": "Add time",
+  "ommNextRun": "Next run",
+  "ommLastRun": "Last run",
+  "ommSkipReason": "Last skipped reason",
+  "ommConfigKeys": "Configuration keys",
+  "ommConfigKeysHint": "Read, create, edit or delete server configuration entries by key.",
+  "ommConfigKeyRequired": "Enter a configuration key",
+  "ommDeleteConfigConfirm": "Delete configuration entry “{key}”?",
+  "@ommDeleteConfigConfirm": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "ommConfigKey": "Configuration key",
+  "ommReadConfig": "Read configuration",
+  "ommConfigValue": "Value",
+  "ommConfigDescription": "Description",
+  "ommFfmpegTools": "FFmpeg diagnostics and installation",
+  "ommUnavailable": "Unavailable",
+  "ommInstallFfmpeg": "Download and install FFmpeg",
+  "ommInstallFfmpegConfirm": "Download and deploy FFmpeg/FFprobe on the server and update transcoding paths on success?",
+  "ommInstallPreparing": "Preparing",
+  "ommInstallDownloading": "Downloading",
+  "ommInstallExtracting": "Extracting",
+  "ommInstallDeploying": "Deploying",
+  "ommInstallDone": "Installed",
+  "ommInstallFailed": "Installation failed",
+  "ommInstallIdle": "Not started",
+  "ommGpu": "GPU and hardware acceleration",
+  "ommEnvironment": "Runtime environment",
+  "ommInstallDirectory": "Install directory",
+  "ommInstallStatus": "Installation status",
+  "ommLibraryMaintenance": "Library statistics and covers",
+  "ommRegenerateCover": "Rebuild cover",
+  "ommRegenerateAll": "Rebuild all enabled library covers",
+  "ommRegenerateAllConfirm": "Rebuild covers for all enabled libraries from existing posters?",
+  "ommRegenerateCoverConfirm": "Rebuild this library cover from existing posters?",
+  "ommCoverResult": "Covers rebuilt: {success} succeeded, {failed} failed",
+  "@ommCoverResult": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "ommCoverRegenerated": "Library cover rebuilt",
+  "ommLibraryCounts": "{directories} directories · {movies} movies",
+  "@ommLibraryCounts": {
+    "placeholders": {
+      "directories": {
+        "type": "int"
+      },
+      "movies": {
+        "type": "int"
+      }
+    }
+  },
+  "ommDirectoryDetails": "Directory details",
+  "ommDirectoryPath": "Directory path",
+  "ommLastScan": "Last scan",
+  "ommActorRenameConflict": "An actor with this name exists. Continuing adds a unique suffix on the server."
 }

@@ -104,10 +104,9 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
-  Future<void> _fetch(int offset) async {
-    final pageRequest = _requests.begin(offset);
-    if (pageRequest == null) return;
-    try {
+  Future<void> _fetch(int offset) => _requests.execute(
+    key: offset,
+    load: () async {
       final query = <String, dynamic>{
         'limit': _pageSize,
         'offset': offset,
@@ -118,11 +117,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         if (_search != null) 'search': _search,
       };
 
-      final raw = await ref
+      return await ref
           .read(ommMediaSourceProvider)
           ?.metadataOperations
           .listActors(query);
-      if (!pageRequest.isCurrent) return;
+    },
+    onSuccess: (raw) {
       if (raw == null) {
         throw const SourceException(
           AppErrorCode.ommSourceIdInvalid,
@@ -130,7 +130,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         );
       }
       final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
-      if (!mounted) return;
 
       final rows = ActorRow.parseRows(raw, page.items);
       setState(() {
@@ -147,14 +146,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         scrollController: _scrollController,
       );
       setState(() => _lastPageComplete = !hasMore);
-    } catch (error) {
-      if (!pageRequest.isCurrent) return;
-      if (!mounted) return;
+    },
+    onError: (error) {
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
-    } finally {
-      pageRequest.finish();
-    }
-  }
+    },
+  );
 
   void _reload({bool preserveScroll = false}) {
     _requests.invalidate();
@@ -410,11 +406,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                           ),
                           if (_searchController.text.isNotEmpty)
                             IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: c.muted,
-                              ),
+                              icon: Icon(Icons.close, size: 16, color: c.muted),
                               onPressed: () {
                                 _searchController.clear();
                                 _onSearchChanged('');
@@ -430,10 +422,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 22),
                       child: SortOptionChipRow(
                         options: [
-                          (
-                            value: 'movie_count',
-                            label: l.actorSortMovieCount,
-                          ),
+                          (value: 'movie_count', label: l.actorSortMovieCount),
                           (value: 'name', label: l.actorSortName),
                           (value: 'created_at', label: l.actorSortCreatedAt),
                         ],
@@ -602,6 +591,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   Future<void> _showEditor(BuildContext context, {ActorItem? actor}) async {
+    final source = ref.read(ommMediaSourceProvider);
     final associationData = actor == null
         ? const _ActorAssociationData.empty()
         : await _loadActorAssociation(actor.name);
@@ -617,10 +607,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     );
     final isEdit = actor != null;
 
+    ModalRoute<dynamic>? editorRoute;
     final draft = await showGlassSheet<_ActorDraft>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) {
+        editorRoute = ModalRoute.of(sheetContext);
         return Padding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
           child: SingleChildScrollView(
@@ -709,6 +701,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       },
     );
 
+    await editorRoute?.completed;
     nameController.dispose();
     biographyController.dispose();
     associationController.dispose();
@@ -716,12 +709,50 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     if (draft == null || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final source = ref.read(ommMediaSourceProvider);
+      if (!identical(source, ref.read(ommMediaSourceProvider))) return;
       if (source == null) {
         throw const SourceException(
           AppErrorCode.ommSourceIdInvalid,
           code: AppErrorCode.ommSourceIdInvalid,
         );
+      }
+      if (isEdit &&
+          _normalizeActorName(actor.name) != _normalizeActorName(draft.name)) {
+        final check = unwrapStd<Map<String, dynamic>>(
+          await source.metadataOperations.checkResourceRename('actors', {
+            'item_id': actor.id,
+            'new_name': draft.name,
+          }),
+          (data) => Map<String, dynamic>.from(data as Map),
+        );
+        if (!context.mounted ||
+            !identical(source, ref.read(ommMediaSourceProvider))) {
+          return;
+        }
+        if (check['has_conflict'] == true) {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(l.ommNameConflict),
+              content: Text(l.ommActorRenameConflict),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(l.cancel),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(l.ommKeepRename),
+                ),
+              ],
+            ),
+          );
+          if (confirmed != true ||
+              !context.mounted ||
+              !identical(source, ref.read(ommMediaSourceProvider))) {
+            return;
+          }
+        }
       }
       final body = <String, dynamic>{'name': draft.name};
       if (isEdit) {
@@ -736,6 +767,10 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         raw,
         (data) => ActorItem.fromJson(Map<String, dynamic>.from(data as Map)),
       );
+      if (!context.mounted ||
+          !identical(source, ref.read(ommMediaSourceProvider))) {
+        return;
+      }
       final message = envelopeMessageOrNull(raw);
 
       if (associationData.loaded &&

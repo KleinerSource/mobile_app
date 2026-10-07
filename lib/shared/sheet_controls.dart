@@ -99,12 +99,9 @@ class SheetHeader extends StatelessWidget {
 
 /// 底部操作区只负责留白与布局，不再绘制不透明背景或标题式分割线。
 class SheetActionBar extends StatelessWidget {
-  const SheetActionBar({
-    super.key,
-    required this.child,
-    this.padding,
-  }) : buttons = null,
-       spacing = 10;
+  const SheetActionBar({super.key, required this.child, this.padding})
+    : buttons = null,
+      spacing = 10;
 
   /// 按钮组构造：统一底部按钮排布规则——单个按钮占满整行；多个按钮
   /// 左右排布，末位视为确认类主操作并加宽（flex 2），
@@ -169,46 +166,6 @@ class SheetSwitch extends StatelessWidget {
       inactiveThumbColor: c.muted,
       inactiveTrackColor: c.muted2.withValues(alpha: 0.32),
       trackOutlineColor: WidgetStatePropertyAll(c.cardBorder),
-    );
-  }
-}
-
-class SheetSwitchTile extends StatelessWidget {
-  const SheetSwitchTile({
-    super.key,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    this.subtitle,
-  });
-
-  final String title;
-  final String? subtitle;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(title, style: AppText.body(context)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: AppText.meta(context)),
-                ],
-              ],
-            ),
-          ),
-          SheetSwitch(value: value, onChanged: onChanged),
-        ],
-      ),
     );
   }
 }

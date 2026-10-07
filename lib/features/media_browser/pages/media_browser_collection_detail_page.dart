@@ -22,6 +22,7 @@ import 'package:omm/shared/media_view_mode.dart';
 import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/movie_detail_components.dart';
 import 'package:omm/shared/paged_request_coordinator.dart';
+import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
 
 /// MediaBrowser 合集详情页：合集信息 + 合集内影片列表。
@@ -47,9 +48,8 @@ class _MediaBrowserCollectionDetailPageState
 
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPosition = ValueNotifier(0.0);
-  final _requests = PagedRequestCoordinator();
+  final _requests = PagedRequestCoordinator(firstPageKey: 0);
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
-  Completer<void>? _refreshCompleter;
 
   MediaViewMode get _viewMode => ref.read(mediaServerViewModeProvider);
 
@@ -65,13 +65,13 @@ class _MediaBrowserCollectionDetailPageState
   void didUpdateWidget(covariant MediaBrowserCollectionDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.collectionId != widget.collectionId) {
-      _controller.refresh();
+      _requests.invalidate();
+      unawaited(_refresh());
     }
   }
 
   @override
   void dispose() {
-    _completeRefresh();
     _requests.dispose();
     _controller.dispose();
     _heroArts.dispose();
@@ -134,28 +134,17 @@ class _MediaBrowserCollectionDetailPageState
       _controller.error = localizedErrorMessage(AppL10n.of(context), error);
     } finally {
       pageRequest.finish();
-      if (startIndex == _controller.firstPageKey) _completeRefresh();
     }
   }
 
   Future<void> _refresh() {
-    final pending = _refreshCompleter;
-    if (pending != null) return pending.future;
-
-    final completer = Completer<void>();
-    _refreshCompleter = completer;
-    _requests.invalidate();
-    _controller.refresh();
-    // PagingController 通常会触发监听器；这里补发首屏请求以覆盖首屏尚未
-    // 建立监听的情况，PagedRequestCoordinator 会去重同一页请求。
-    unawaited(_fetchPage(_controller.firstPageKey));
-    return completer.future;
-  }
-
-  void _completeRefresh() {
-    final completer = _refreshCompleter;
-    _refreshCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
+    return _requests.refresh(() {
+      refreshPagedController(
+        controller: _controller,
+        requests: _requests,
+        loadPage: _fetchPage,
+      );
+    });
   }
 
   Future<void> _refreshAll() async {
