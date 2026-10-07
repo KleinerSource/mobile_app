@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
@@ -17,6 +19,83 @@ FileEntry _entry() => const FileEntry(
 );
 
 void main() {
+  for (final size in [const Size(512, 256), const Size(256, 512)]) {
+    testWidgets('图片 $size 加载前后保持占位轮廓，解码不拉伸', (tester) async {
+      final loader = FileThumbnailLoader();
+      addTearDown(loader.dispose);
+      final download = Completer<Stream<List<int>>>();
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: FileImageThumbnail(
+                entry: _entry(),
+                loader: loader,
+                download: (_) => download.future,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        await precacheImage(
+          const AssetImage('assets/file_icons/image_placeholder.png'),
+          tester.element(find.byType(FileImageThumbnail)),
+        );
+      });
+      await tester.pumpAndSettle();
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      expect(boundary.size, const Size(64, 36));
+      final before = await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 3);
+        final data = await image.toByteData();
+        image.dispose();
+        return data!;
+      });
+      await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(
+          size.width.toInt(),
+          size.height.toInt(),
+        );
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        image.dispose();
+        picture.dispose();
+        download.complete(Stream.value(bytes!.buffer.asUint8List()));
+      });
+      await tester.pumpAndSettle();
+      final provider = tester.widget<Image>(find.byType(Image)).image;
+      await tester.runAsync(() async {
+        await precacheImage(provider, tester.element(find.byType(Image)));
+      });
+      await tester.pumpAndSettle();
+      final decoded = tester.widget<RawImage>(find.byType(RawImage)).image!;
+      expect(decoded.width / decoded.height, closeTo(size.aspectRatio, 0.02));
+      final after = await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 3);
+        final data = await image.toByteData();
+        image.dispose();
+        return data!;
+      });
+      var changedPixels = 0;
+      for (var i = 3; i < before!.lengthInBytes; i += 4) {
+        if ((before.getUint8(i) >= 128) != (after!.getUint8(i) >= 128)) {
+          changedPixels++;
+        }
+      }
+      // 允许资源抗锯齿与圆角裁切在边缘有少量像素差异。
+      expect(changedPixels / (before.lengthInBytes / 4), lessThan(0.02));
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('缩略图按像素比解码，同一文件重建不下载，卸载移除字节缓存键', (tester) async {
     final loader = FileThumbnailLoader();
     addTearDown(loader.dispose);
