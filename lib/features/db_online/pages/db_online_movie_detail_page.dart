@@ -659,6 +659,7 @@ class _RelatedMovieSection extends StatelessWidget {
                 canPlay: movie.canPlay,
               ),
               config: config,
+              subscriptionActionsEnabled: true,
               codeOnly: true,
               onTap:
                   movie.number.trim().isEmpty && relatedVideoId.isEmpty

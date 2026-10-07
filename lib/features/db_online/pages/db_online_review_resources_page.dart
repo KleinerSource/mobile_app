@@ -328,6 +328,7 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
                 movie: item.movie,
                 config: ref.watch(mediaRuntimeConfigProvider),
                 compact: true,
+                subscriptionActionsEnabled: true,
                 listTitleMaxLines: 3,
                 showRating: false,
                 width: double.infinity,

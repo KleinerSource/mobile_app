@@ -147,6 +147,7 @@ class _DbOnlineLatestMoviesPageState
           width: double.infinity,
           landscape: _viewMode == MediaViewMode.landscape,
           compact: _viewMode == MediaViewMode.list,
+          subscriptionActionsEnabled: true,
           previewList: _viewMode == MediaViewMode.list,
           onTap: () => openDbOnlineMovieUnawaited(context, movie),
         );
