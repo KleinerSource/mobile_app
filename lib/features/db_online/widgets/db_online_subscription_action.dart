@@ -422,7 +422,9 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     final actions = <(String, String, IconData)>[];
     if (kind == 'video') {
       final currentStatus = state!.status.isEmpty ? 'pending' : state.status;
-      if (currentStatus == 'pending' || currentStatus == 'skipped') {
+      if (currentStatus == 'pending' ||
+          currentStatus == 'skipped' ||
+          state.overdue) {
         actions.add((
           'complete',
           l.dbOnlineSubscriptionCompleteAction,

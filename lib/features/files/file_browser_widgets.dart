@@ -15,8 +15,20 @@ class _FileOperationOverlay extends StatelessWidget {
     final mediaQuery = MediaQuery.of(context);
     final availableWidth =
         mediaQuery.size.width - mediaQuery.padding.horizontal - 48;
-    final width = availableWidth < 360 ? availableWidth : 360.0;
+    final width = availableWidth < 340 ? availableWidth : 340.0;
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.padding.vertical;
+    final height = availableHeight < 128 ? availableHeight : 128.0;
     final ratio = _operationProgress(operation);
+    final l = AppL10n.of(context);
+    final progressText = progress != null
+        ? _progressText(progress)
+        : operation.totalItems == null
+        ? null
+        : l.fileOperationItemsProgress(
+            operation.completedItems ?? 0,
+            operation.totalItems!,
+          );
     return Stack(
       children: [
         ModalBarrier(
@@ -28,12 +40,9 @@ class _FileOperationOverlay extends StatelessWidget {
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: width,
-                  maxWidth: 360,
-                  maxHeight: mediaQuery.size.height * 0.8,
-                ),
+              child: SizedBox(
+                width: width,
+                height: height,
                 child: Semantics(
                   liveRegion: true,
                   child: Material(
@@ -47,78 +56,108 @@ class _FileOperationOverlay extends StatelessWidget {
                     elevation: 12,
                     borderRadius: BorderRadius.circular(8),
                     clipBehavior: Clip.antiAlias,
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 24,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox.square(
-                              dimension: 56,
-                              child: isRunning
-                                  ? Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        SizedBox.square(
-                                          dimension: 56,
-                                          child: CircularProgressIndicator(
-                                            value: ratio,
-                                            strokeWidth: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            child: Row(
+                              children: [
+                                SizedBox.square(
+                                  dimension: 20,
+                                  child: Center(
+                                    child: isRunning
+                                        ? const SizedBox.square(
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.8,
+                                            ),
+                                          )
+                                        : Icon(
+                                            _operationStatusIcon(
+                                              operation.status,
+                                            ),
+                                            size: 16,
+                                            color:
+                                                operation.status ==
+                                                    FileOperationStatus
+                                                        .completed
+                                                ? colorScheme.primary
+                                                : colorScheme.error,
                                           ),
-                                        ),
-                                        if (ratio != null)
-                                          Text('${(ratio * 100).round()}%'),
-                                      ],
-                                    )
-                                  : Icon(
-                                      _operationStatusIcon(operation.status),
-                                      size: 48,
-                                      color:
-                                          operation.status ==
-                                              FileOperationStatus.completed
-                                          ? colorScheme.primary
-                                          : colorScheme.error,
-                                    ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _operationTitle(operation, AppL10n.of(context)),
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            if (progress != null) ...[
-                              const SizedBox(height: 8),
-                              Text(_progressText(progress)),
-                            ],
-                            if (progress == null &&
-                                operation.totalItems != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                AppL10n.of(context).fileOperationItemsProgress(
-                                  operation.completedItems ?? 0,
-                                  operation.totalItems!,
+                                  ),
                                 ),
-                              ),
-                            ],
-                            if (!isRunning && operation.message != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                operation.message!,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                            if (isRunning && onCancel != null) ...[
-                              const SizedBox(height: 16),
-                              TextButton(
-                                onPressed: onCancel,
-                                child: Text(AppL10n.of(context).cancel),
-                              ),
-                            ],
-                          ],
-                        ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _operationTitle(operation, l),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleSmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          LinearProgressIndicator(
+                            value: isRunning
+                                ? ratio
+                                : operation.status ==
+                                      FileOperationStatus.completed
+                                ? 1
+                                : ratio ?? 0,
+                            minHeight: 4,
+                            color:
+                                operation.status ==
+                                    FileOperationStatus.completed
+                                ? colorScheme.primary
+                                : isRunning
+                                ? null
+                                : colorScheme.error,
+                          ),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            height: 18,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    progressText ?? '',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ),
+                                if (ratio != null) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${(ratio * 100).round()}%',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+                          SizedBox(
+                            height: 40,
+                            child: isRunning && onCancel != null
+                                ? Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: onCancel,
+                                      child: Text(l.cancel),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
                       ),
                     ),
                   ),
