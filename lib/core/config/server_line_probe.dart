@@ -97,17 +97,10 @@ class ServerLineSelection {
 }
 
 class ServerLineProbeCoordinator {
-  ServerLineProbeCoordinator({
-    ServerLineProbe? probe,
-    @Deprecated('线路探测已改为立即并发，此参数仅为兼容保留') this.fallbackDelay = Duration.zero,
-  }) : _probeOverride = probe;
+  ServerLineProbeCoordinator({ServerLineProbe? probe}) : _probeOverride = probe;
 
   /// 测试或特殊调用方注入的探测器；默认探测必须保留已知项目上下文。
   final ServerLineProbe? _probeOverride;
-
-  /// 兼容旧调用方；线路切换不再等待优先窗口，所有线路会立即并发探测。
-  @Deprecated('线路探测已改为立即并发，此参数不再生效')
-  final Duration fallbackDelay;
 
   /// 探测单条线路，供添加服务器等需要在保存前验证的流程复用统一逻辑。
   Future<ServerLineProbeResult> probe(
