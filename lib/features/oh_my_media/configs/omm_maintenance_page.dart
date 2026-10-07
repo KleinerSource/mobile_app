@@ -6,22 +6,16 @@ import 'omm_admin_repository.dart';
 import 'omm_admin_widgets.dart';
 
 class OmmMaintenancePage extends StatelessWidget {
-  const OmmMaintenancePage({super.key, this.mappingCache = false});
-  final bool mappingCache;
+  const OmmMaintenancePage({super.key});
   @override
   Widget build(BuildContext context) => OmmAdminScope(
-    builder: (repository) =>
-        _MaintenanceView(repository: repository, mappingCache: mappingCache),
+    builder: (repository) => _MaintenanceView(repository: repository),
   );
 }
 
 class _MaintenanceView extends StatefulWidget {
-  const _MaintenanceView({
-    required this.repository,
-    required this.mappingCache,
-  });
+  const _MaintenanceView({required this.repository});
   final OmmAdminRepository repository;
-  final bool mappingCache;
   @override
   State<_MaintenanceView> createState() => _MaintenanceViewState();
 }
@@ -45,9 +39,7 @@ class _MaintenanceViewState extends State<_MaintenanceView> {
       _error = null;
     });
     try {
-      final data = widget.mappingCache
-          ? await widget.repository.cacheInfo()
-          : await widget.repository.orphanedCount();
+      final data = await widget.repository.orphanedCount();
       if (_active) setState(() => _data = data);
     } catch (error) {
       if (_active) {
@@ -60,36 +52,24 @@ class _MaintenanceViewState extends State<_MaintenanceView> {
     }
   }
 
-  Future<void> _change({bool invalidate = false}) async {
+  Future<void> _change() async {
     if (_busy || !_active) return;
     final l = AppL10n.of(context);
     setState(() => _busy = true);
     try {
-      if (!widget.mappingCache &&
-          !await confirmOmmAction(context, l.ommCleanup, l.ommCleanupConfirm)) {
+      if (!await confirmOmmAction(context, l.ommCleanup, l.ommCleanupConfirm)) {
         return;
       }
       if (!_active) return;
-      if (widget.mappingCache) {
-        if (invalidate) {
-          await widget.repository.invalidateCache();
-        } else {
-          await widget.repository.refreshCache();
-        }
-      } else {
-        final removed = await widget.repository.cleanupOrphans();
-        if (!_active) return;
-        _result = l.ommCleanedCount(
-          removed.values.whereType<num>().fold<int>(
-            0,
-            (sum, count) => sum + count.toInt(),
-          ),
-        );
-      }
+      final removed = await widget.repository.cleanupOrphans();
       if (!_active) return;
-      final data = widget.mappingCache
-          ? await widget.repository.cacheInfo()
-          : await widget.repository.orphanedCount();
+      _result = l.ommCleanedCount(
+        removed.values.whereType<num>().fold<int>(
+          0,
+          (sum, count) => sum + count.toInt(),
+        ),
+      );
+      final data = await widget.repository.orphanedCount();
       if (_active) {
         setState(() {
           _data = data;
@@ -108,30 +88,12 @@ class _MaintenanceViewState extends State<_MaintenanceView> {
     final l = AppL10n.of(context);
     final data = _data;
     return OmmAdminScaffold(
-      title: widget.mappingCache ? l.ommMappingCache : l.ommMaintenance,
+      title: l.ommMaintenance,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
         children: [
           if (_busy) const LinearProgressIndicator(),
-          if (data != null && widget.mappingCache) ...[
-            OmmInfoRow(
-              l.ommCacheState,
-              data['loaded'] == true
-                  ? (data['expired'] == true ? l.ommExpired : l.ommReady)
-                  : l.ommNotLoaded,
-            ),
-            OmmInfoRow(l.ommCacheSize, '${data['cache_size'] ?? 0}'),
-            OmmInfoRow(
-              l.ommCacheTypes,
-              (data['types'] as List? ?? []).join(', '),
-            ),
-            OmmInfoRow(
-              l.ommLastUpdated,
-              data['last_updated']?.toString() ?? '',
-            ),
-            OmmInfoRow(l.ommCacheTtl, '${data['ttl_seconds'] ?? 0} s'),
-          ],
-          if (data != null && !widget.mappingCache) ...[
+          if (data != null) ...[
             Text(l.ommCleanupHint, style: AppText.body(context)),
             OmmInfoRow(
               l.ommOrphanCount,
@@ -147,16 +109,9 @@ class _MaintenanceViewState extends State<_MaintenanceView> {
             child: Text(l.ommRefreshStatus),
           ),
           FilledButton(
-            onPressed: _busy || data == null ? null : () => _change(),
-            child: Text(widget.mappingCache ? l.ommRefreshCache : l.ommCleanup),
+            onPressed: _busy || data == null ? null : _change,
+            child: Text(l.ommCleanup),
           ),
-          if (widget.mappingCache)
-            OutlinedButton(
-              onPressed: _busy || data == null
-                  ? null
-                  : () => _change(invalidate: true),
-              child: Text(l.ommInvalidateCache),
-            ),
         ],
       ),
     );

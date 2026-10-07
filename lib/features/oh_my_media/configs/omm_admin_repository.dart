@@ -43,14 +43,6 @@ class OmmAdminRepository {
           times: times,
         ),
       );
-  Future<Map<String, dynamic>> cacheInfo() =>
-      _map(_client.mappingsExtended.cacheInfo);
-  Future<Map<String, dynamic>> refreshCache() =>
-      _map(_client.mappingsExtended.refreshCache);
-  Future<void> invalidateCache() async {
-    await _map(_client.mappingsExtended.invalidateCache);
-  }
-
   Future<Map<String, dynamic>> orphanedCount() =>
       _call(_client.systemExtended.orphanedCount);
   Future<Map<String, dynamic>> cleanupOrphans() =>
@@ -66,49 +58,10 @@ class OmmAdminRepository {
   Future<Map<String, dynamic>> ffmpegInstallStatus() =>
       _call(_client.systemExtended.ffmpegInstallStatus);
 
-  Future<List<Map<String, dynamic>>> libraryStats() => _call(
-    () async => unwrapStd<List<Map<String, dynamic>>>(
-      await _client.librariesExtended.stats(),
-      (data) => (data as List)
-          .map((row) => Map<String, dynamic>.from(row as Map))
-          .toList(),
-    ),
-  );
-  Future<Map<String, dynamic>> regenerateCovers([int? id]) => _map(
-    () => id == null
-        ? _client.librariesExtended.regenerateAllCovers()
-        : _client.librariesExtended.regenerateCover(id),
-  );
   Future<Map<String, dynamic>> directoryDetail(
     int libraryId,
     int directoryId,
   ) => _map(
     () => _client.librariesExtended.directoryDetail(libraryId, directoryId),
   );
-
-  Future<Map<String, dynamic>> config(String key) =>
-      _map(() => _client.configsExtended.getByKey(key));
-  Future<Map<String, dynamic>> createConfig(
-    String key,
-    String value,
-    String description,
-  ) => _map(
-    () => _client.configsExtended.create({
-      'config_key': key,
-      'config_value': value,
-      'description': description,
-    }),
-  );
-  Future<Map<String, dynamic>> updateConfig(
-    String key,
-    String value,
-    String description,
-  ) => _map(
-    () => _client.configsExtended.updateByKey(key, {
-      'config_value': value,
-      'description': description,
-    }),
-  );
-  Future<void> deleteConfig(String key) =>
-      _call(() => _client.configsExtended.deleteByKey(key));
 }

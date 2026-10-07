@@ -16,12 +16,10 @@ import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/core/sources/media/omm_media_operations_adapter.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/common/source_id.dart';
-import 'package:omm/features/oh_my_media/configs/config_key_page.dart';
 import 'package:omm/features/oh_my_media/configs/ffmpeg_tools_page.dart';
 import 'package:omm/features/oh_my_media/configs/omm_admin_repository.dart';
 import 'package:omm/features/oh_my_media/configs/omm_maintenance_page.dart';
 import 'package:omm/features/oh_my_media/configs/schedule_settings_page.dart';
-import 'package:omm/features/oh_my_media/libraries/library_maintenance_page.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_editor_sheet.dart';
 import 'package:omm/features/oh_my_media/movie_detail/poster_crop_controller.dart';
 import 'package:omm/features/oh_my_media/resources/entity_merge_sheet.dart';
@@ -44,14 +42,6 @@ class _Backend implements HttpClientAdapter {
       'enabled': true,
       'times': ['03:00', '12:30'],
     },
-    '/mappings/cache/info': {
-      'loaded': true,
-      'expired': false,
-      'cache_size': 2,
-      'types': ['tags', 'genres'],
-      'ttl_seconds': 300,
-    },
-    '/mappings/cache/refresh': {'loaded': true},
     '/maintenance/orphaned-count': {
       'movie_tags_count': 2,
       'movie_actors_count': 1,
@@ -59,20 +49,6 @@ class _Backend implements HttpClientAdapter {
     '/maintenance/cleanup-orphans': {
       'movie_tags_deleted': 2,
       'movie_actors_deleted': 1,
-    },
-    '/libraries/stats': [
-      {
-        'id': 7,
-        'name': '库 A',
-        'enabled': true,
-        'dir_count': 2,
-        'movie_count': 18,
-      },
-    ],
-    '/libraries/covers/regenerate': {
-      'success_count': 2,
-      'failed_count': 1,
-      'total_count': 3,
     },
     '/ffmpeg/status': {'ffmpeg_ok': false, 'ffprobe_ok': false},
     '/ffmpeg/env': {
@@ -268,37 +244,16 @@ void main() {
     expect(backend.requests, hasLength(1));
   });
 
-  test('按键配置使用编码路径，删除业务失败向上传播', () async {
-    final backend = _Backend()
-      ..respond = (r) => r.method == 'DELETE'
-          ? _error('不能删除')
-          : {'config_key': 'a ?#中', 'config_value': '旧'};
-    final repo = OmmAdminRepository(backend.client());
-    await repo.config('a ?#中');
-    await repo.updateConfig('a ?#中', '新', '说明');
-    await expectLater(repo.deleteConfig('a ?#中'), throwsA(anything));
-    expect(
-      backend.requests.every(
-        (r) => r.path == '/configs/key/a%20%3F%23%E4%B8%AD',
-      ),
-      isTrue,
-    );
-    expect(backend.requests[1].data, {
-      'config_value': '新',
-      'description': '说明',
-    });
-  });
-
   test('旧管理连接晚到结果丢弃，关闭后不再写入', () async {
     final pending = Completer<Object?>();
     final backend = _Backend()..respond = (_) => pending.future;
     final repo = OmmAdminRepository(backend.client());
-    final request = repo.cacheInfo();
+    final request = repo.orphanedCount();
     final rejected = expectLater(request, throwsA(anything));
     repo.close();
-    pending.complete({'loaded': true});
+    pending.complete({'movie_tags_count': 1});
     await rejected;
-    await expectLater(repo.refreshCache(), throwsA(anything));
+    await expectLater(repo.cleanupOrphans(), throwsA(anything));
     expect(backend.requests, hasLength(1));
   });
 
@@ -325,21 +280,6 @@ void main() {
       if (!canMerge) expect(find.text('目标冲突'), findsOneWidget);
     });
   }
-
-  testWidgets('映射缓存读取、重载和失效都接入', (tester) async {
-    final backend = _Backend();
-    await _pump(
-      tester,
-      const OmmMaintenancePage(mappingCache: true),
-      backend.client(),
-    );
-    expect(find.text('tags, genres'), findsOneWidget);
-    await _tap(tester, '重载缓存');
-    await _tap(tester, '使缓存失效');
-    expect(backend.count('/mappings/cache/refresh'), 1);
-    expect(backend.count('/mappings/cache/invalidate'), 1);
-    expect(backend.count('/mappings/cache/info'), 3);
-  });
 
   testWidgets('清理取消不请求，确认后显示数量并刷新', (tester) async {
     final backend = _Backend();
@@ -373,47 +313,86 @@ void main() {
     });
   });
 
-  testWidgets('配置项读取、修改、新建与取消删除', (tester) async {
+  testWidgets('FFmpeg 已可用但没有安装任务记录时显示可用并禁用重复安装', (tester) async {
     final backend = _Backend();
-    backend.respond = (r) => r.method == 'GET'
-        ? {'config_value': '旧值', 'description': '说明'}
-        : r.data;
-    await _pump(tester, const ConfigKeyPage(), backend.client());
-    await tester.enterText(find.byType(TextField).at(0), 'alpha');
-    await _tap(tester, '读取配置');
-    expect(find.text('旧值'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).at(1), '新值');
-    await _tap(tester, '保存');
-    expect(backend.requests.singleWhere((r) => r.method == 'PATCH').data, {
-      'config_value': '新值',
-      'description': '说明',
-    });
-    await _tap(tester, '删除');
-    await _tap(tester, '取消');
-    expect(backend.count('/configs/key/alpha', 'DELETE'), 0);
-    await _tap(tester, '删除');
-    await _tap(tester, '确定');
-    expect(backend.count('/configs/key/alpha', 'DELETE'), 1);
-    await tester.enterText(find.byType(TextField).at(0), 'beta');
-    await tester.enterText(find.byType(TextField).at(1), '值');
-    await _tap(tester, '创建');
-    expect(backend.requests.singleWhere((r) => r.path == '/configs').data, {
-      'config_key': 'beta',
-      'config_value': '值',
-      'description': '',
-    });
+    backend.fixtures['/ffmpeg/status'] = {
+      'ffmpeg_ok': true,
+      'ffprobe_ok': true,
+      'ffmpeg_path': '/usr/bin/ffmpeg',
+      'ffprobe_path': '/usr/bin/ffprobe',
+    };
+    await _pump(tester, const FfmpegToolsPage(), backend.client());
+    expect(find.text('可用'), findsOneWidget);
+    expect(find.text('未开始安装'), findsNothing);
+    expect(find.text('可用\n/usr/bin/ffmpeg'), findsOneWidget);
+    expect(find.text('可用\n/usr/bin/ffprobe'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, '下载并安装 FFmpeg'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(backend.count('/ffmpeg/install'), 0);
   });
 
-  testWidgets('媒体库显示真实统计，分别重建单库和全部并显示部分失败', (tester) async {
+  for (final availability in [(false, false), (true, false), (false, true)]) {
+    testWidgets('FFmpeg 检测缺少工具 $availability 时仍允许安装', (tester) async {
+      final backend = _Backend();
+      backend.fixtures['/ffmpeg/status'] = {
+        'ffmpeg_ok': availability.$1,
+        'ffprobe_ok': availability.$2,
+      };
+      await _pump(tester, const FfmpegToolsPage(), backend.client());
+      expect(find.text('未开始安装'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, '下载并安装 FFmpeg'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    });
+  }
+
+  testWidgets('FFmpeg 检测已可用时仍保留正在运行及失败的安装任务状态', (tester) async {
     final backend = _Backend();
-    await _pump(tester, const LibraryMaintenancePage(), backend.client());
-    expect(find.text('2 个目录 · 18 部影片'), findsOneWidget);
-    await _tap(tester, '重建封面');
-    await _tap(tester, '确定');
-    expect(backend.count('/libraries/covers/regenerate/7'), 1);
-    await _tap(tester, '重建全部启用媒体库封面');
-    await _tap(tester, '确定');
-    expect(find.text('封面重建：成功 2，失败 1'), findsOneWidget);
+    await _pump(tester, const FfmpegToolsPage(), backend.client());
+    backend.fixtures['/ffmpeg/status'] = {
+      'ffmpeg_ok': true,
+      'ffprobe_ok': true,
+    };
+    backend.fixtures['/ffmpeg/install/status'] = {
+      'running': true,
+      'done': false,
+      'stage': 'downloading',
+    };
+    await _tap(tester, '刷新状态');
+    expect(find.text('下载中'), findsOneWidget);
+    expect(find.text('未开始安装'), findsNothing);
+    backend.fixtures['/ffmpeg/install/status'] = {
+      'running': false,
+      'done': true,
+      'stage': 'failed',
+      'error': '下载失败',
+    };
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('安装失败'), findsOneWidget);
+    expect(find.text('下载失败'), findsOneWidget);
+
+    // 服务器重启后没有任务历史，仍应以现有可执行文件的检测结果为准。
+    backend.fixtures['/ffmpeg/install/status'] = {
+      'running': false,
+      'done': false,
+    };
+    await _tap(tester, '刷新状态');
+    expect(find.text('可用'), findsOneWidget);
+    expect(find.text('安装失败'), findsNothing);
+    expect(find.text('未开始安装'), findsNothing);
+    expect(backend.count('/ffmpeg/install'), 0);
   });
 
   testWidgets('FFmpeg 不支持环境禁用安装；退出后停止轮询', (tester) async {
@@ -562,34 +541,33 @@ void main() {
     });
   }
 
-  testWidgets('缓存加载失败可重试，维护提交中防止重复点击', (tester) async {
+  testWidgets('维护加载失败可重试，确认清理后防止重复提交', (tester) async {
     final pending = Completer<Object?>();
     final backend = _Backend();
     var fail = true;
     backend.respond = (r) {
-      if (r.path == '/mappings/cache/info' && fail) return _error('缓存不可用');
-      if (r.path == '/mappings/cache/refresh') return pending.future;
+      if (r.path == '/maintenance/orphaned-count' && fail) {
+        return _error('统计不可用');
+      }
+      if (r.path == '/maintenance/cleanup-orphans') return pending.future;
       return backend.fixtures[r.path];
     };
-    await _pump(
-      tester,
-      const OmmMaintenancePage(mappingCache: true),
-      backend.client(),
-    );
-    expect(find.text('缓存不可用'), findsOneWidget);
+    await _pump(tester, const OmmMaintenancePage(), backend.client());
+    expect(find.text('统计不可用'), findsOneWidget);
     fail = false;
     await _tap(tester, '刷新状态');
-    await _tap(tester, '重载缓存');
+    await _tap(tester, '清理孤立关联');
+    await _tap(tester, '确定');
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '重载缓存'))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '清理孤立关联'))
           .onPressed,
       isNull,
     );
-    expect(backend.count('/mappings/cache/refresh'), 1);
-    pending.complete({'loaded': true});
+    expect(backend.count('/maintenance/cleanup-orphans'), 1);
+    pending.complete({'movie_tags_count': 1});
     await tester.pumpAndSettle();
-    expect(find.text('缓存不可用'), findsNothing);
+    expect(find.text('统计不可用'), findsNothing);
   });
 
   testWidgets('FFmpeg 运行期间退出会取消轮询', (tester) async {
@@ -633,20 +611,6 @@ void main() {
     expect(find.text('/original'), findsOneWidget);
   });
 
-  testWidgets('删除配置业务失败保留值和删除入口', (tester) async {
-    final backend = _Backend()
-      ..respond = (r) => r.method == 'DELETE'
-          ? _error('删除失败，请重试')
-          : {'config_value': '保留值', 'description': ''};
-    await _pump(tester, const ConfigKeyPage(), backend.client());
-    await tester.enterText(find.byType(TextField).first, 'alpha');
-    await _tap(tester, '读取配置');
-    await _tap(tester, '删除');
-    await _tap(tester, '确定');
-    expect(find.text('删除失败，请重试'), findsOneWidget);
-    expect(find.text('保留值'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, '删除'), findsOneWidget);
-  });
   testWidgets('FFmpeg 手动刷新后旧轮询晚到不能覆盖终态', (tester) async {
     final backend = _Backend();
     final pending = Completer<Object?>();

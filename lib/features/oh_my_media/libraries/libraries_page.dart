@@ -14,7 +14,6 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/tasks/task_model.dart';
 import 'libraries_providers.dart';
 import 'library_editor_page.dart';
-import 'library_maintenance_page.dart';
 import 'scan_progress_sheet.dart';
 import 'scan_tasks_provider.dart';
 
@@ -111,20 +110,6 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                 child: CustomScrollView(
                   primary: true,
                   slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.image_outlined),
-                          label: Text(l.ommLibraryMaintenance),
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LibraryMaintenancePage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                     async.when(
                       loading: () => const SliverFillRemaining(
                         hasScrollBody: false,

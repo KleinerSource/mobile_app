@@ -27,7 +27,6 @@ import 'package:omm/core/sources/media/dbo/db_online_api.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_api.dart';
 import 'package:omm/core/sources/media/media_browser/media_browser_config.dart';
 import 'package:omm/core/sources/media/stash/stash_api.dart';
-import 'services/mappings_extended_api.dart';
 import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';
 import 'services/system_api.dart';
@@ -62,7 +61,6 @@ class ApiClient {
        translation = TranslationApi(dio),
        modalTranscription = ModalTranscriptionApi(dio),
        mappings = MappingsApi(dio),
-       mappingsExtended = MappingsExtendedApi(dio),
        configs = ConfigsApi(dio),
        configsExtended = ConfigsExtendedApi(dio),
        dbOnline = DbOnlineApi(dio),
@@ -130,7 +128,6 @@ class ApiClient {
   final TranslationApi translation;
   final ModalTranscriptionApi modalTranscription;
   final MappingsApi mappings;
-  final MappingsExtendedApi mappingsExtended;
   final ConfigsApi configs;
   final ConfigsExtendedApi configsExtended;
   final DbOnlineApi dbOnline;

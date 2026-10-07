@@ -2903,8 +2903,6 @@
   "ommNameConflict": "Name conflict",
   "ommKeepRename": "Rename with a unique suffix",
   "ommMergeBlocked": "Merge target conflicts. Refresh and try again.",
-  "ommMappingCache": "Mapping cache",
-  "ommMappingCacheHint": "Inspect, reload or invalidate mapping cache",
   "ommMaintenance": "Association maintenance",
   "ommCleanup": "Clean orphaned associations",
   "ommCleanupHint": "Inspect and remove associations to movies that no longer exist.",
@@ -2917,18 +2915,9 @@
       }
     }
   },
-  "ommCacheState": "Cache status",
-  "ommExpired": "Expired",
   "ommReady": "Ready",
-  "ommNotLoaded": "Not loaded",
-  "ommCacheSize": "Cached type count",
-  "ommCacheTypes": "Mapping types",
-  "ommLastUpdated": "Last updated",
-  "ommCacheTtl": "Cache lifetime",
   "ommOrphanCount": "Orphaned association count",
   "ommRefreshStatus": "Refresh status",
-  "ommRefreshCache": "Reload cache",
-  "ommInvalidateCache": "Invalidate cache",
   "ommSchedule": "Scheduled scans",
   "ommScheduleHint": "Run daily in the server time zone, at up to 5 times. Execution timestamps below use your device time zone.",
   "ommScheduleEnabled": "Enable scheduled scans",
@@ -2936,21 +2925,6 @@
   "ommNextRun": "Next run",
   "ommLastRun": "Last run",
   "ommSkipReason": "Last skipped reason",
-  "ommConfigKeys": "Configuration keys",
-  "ommConfigKeysHint": "Read, create, edit or delete server configuration entries by key.",
-  "ommConfigKeyRequired": "Enter a configuration key",
-  "ommDeleteConfigConfirm": "Delete configuration entry “{key}”?",
-  "@ommDeleteConfigConfirm": {
-    "placeholders": {
-      "key": {
-        "type": "String"
-      }
-    }
-  },
-  "ommConfigKey": "Configuration key",
-  "ommReadConfig": "Read configuration",
-  "ommConfigValue": "Value",
-  "ommConfigDescription": "Description",
   "ommFfmpegTools": "FFmpeg diagnostics and installation",
   "ommUnavailable": "Unavailable",
   "ommInstallFfmpeg": "Download and install FFmpeg",
@@ -2966,34 +2940,6 @@
   "ommEnvironment": "Runtime environment",
   "ommInstallDirectory": "Install directory",
   "ommInstallStatus": "Installation status",
-  "ommLibraryMaintenance": "Library statistics and covers",
-  "ommRegenerateCover": "Rebuild cover",
-  "ommRegenerateAll": "Rebuild all enabled library covers",
-  "ommRegenerateAllConfirm": "Rebuild covers for all enabled libraries from existing posters?",
-  "ommRegenerateCoverConfirm": "Rebuild this library cover from existing posters?",
-  "ommCoverResult": "Covers rebuilt: {success} succeeded, {failed} failed",
-  "@ommCoverResult": {
-    "placeholders": {
-      "success": {
-        "type": "int"
-      },
-      "failed": {
-        "type": "int"
-      }
-    }
-  },
-  "ommCoverRegenerated": "Library cover rebuilt",
-  "ommLibraryCounts": "{directories} directories · {movies} movies",
-  "@ommLibraryCounts": {
-    "placeholders": {
-      "directories": {
-        "type": "int"
-      },
-      "movies": {
-        "type": "int"
-      }
-    }
-  },
   "ommDirectoryDetails": "Directory details",
   "ommDirectoryPath": "Directory path",
   "ommLastScan": "Last scan",

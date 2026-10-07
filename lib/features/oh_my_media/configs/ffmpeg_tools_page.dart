@@ -32,6 +32,8 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
   Timer? _poll;
   int _requestGeneration = 0;
   bool get _active => mounted && widget.repository.isActive;
+  bool get _toolsAvailable =>
+      _status?['ffmpeg_ok'] == true && _status?['ffprobe_ok'] == true;
   @override
   void initState() {
     super.initState();
@@ -114,6 +116,7 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
   Future<void> _startInstall() async {
     if (_busy ||
         !_active ||
+        _toolsAvailable ||
         _install?['running'] == true ||
         _environment?['supported'] != true) {
       return;
@@ -157,7 +160,8 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
       'deploying' => l.ommInstallDeploying,
       'done' => l.ommInstallDone,
       'failed' => l.ommInstallFailed,
-      _ => l.ommInstallIdle,
+      // 安装器只记录本次进程的任务；没有任务记录不代表工具未安装。
+      _ => _toolsAvailable ? l.ommReady : l.ommInstallIdle,
     };
     return OmmAdminScaffold(
       title: l.ommFfmpegTools,
@@ -209,6 +213,7 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
           FilledButton(
             onPressed:
                 _busy ||
+                    _toolsAvailable ||
                     _install?['running'] == true ||
                     _environment?['supported'] != true
                 ? null

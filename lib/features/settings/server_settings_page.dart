@@ -26,7 +26,6 @@ import '../translation/modal_transcription_settings_page.dart';
 import 'access_control_page.dart';
 import 'settings_common.dart';
 import '../oh_my_media/configs/omm_maintenance_page.dart';
-import '../oh_my_media/configs/config_key_page.dart';
 import '../oh_my_media/configs/schedule_settings_page.dart';
 
 /// 服务器设置子页 · 依赖服务端 API 的配置按业务职责分组。
@@ -159,16 +158,6 @@ class ServerSettingsPage extends ConsumerWidget {
                         ),
                       ),
                       SettingsTile(
-                        title: l.ommConfigKeys,
-                        subtitle: l.ommConfigKeysHint,
-                        leadingIcon: Icons.tune,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ConfigKeyPage(),
-                          ),
-                        ),
-                      ),
-                      SettingsTile(
                         title: l.settingsExtensions,
                         subtitle: l.settingsExtensionsSub,
                         leadingIcon: Icons.movie_filter_outlined,
@@ -265,17 +254,6 @@ class ServerSettingsPage extends ConsumerWidget {
                   SettingsGroup(
                     title: l.settingsGroupMappings,
                     items: [
-                      SettingsTile(
-                        title: l.ommMappingCache,
-                        subtitle: l.ommMappingCacheHint,
-                        leadingIcon: Icons.cached,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const OmmMaintenancePage(mappingCache: true),
-                          ),
-                        ),
-                      ),
                       SettingsTile(
                         title: l.settingsMappingTags,
                         subtitle: l.settingsMappingSub,
