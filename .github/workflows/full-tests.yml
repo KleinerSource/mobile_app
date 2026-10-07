@@ -18,7 +18,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
@@ -36,6 +36,10 @@ jobs:
       - name: build_runner
         timeout-minutes: 10
         run: dart run build_runner build
+
+      - name: analyze
+        timeout-minutes: 8
+        run: flutter analyze --no-pub
 
       - name: full tests
         timeout-minutes: 15
@@ -62,3 +66,20 @@ jobs:
             test/**/failures/
           if-no-files-found: ignore
           retention-days: 7
+
+  header-visual-tests:
+    uses: ./.github/workflows/header-visual-tests.yml
+
+  # 同一提交的静态分析、完整回归和 Windows 截图检查全部成功后才构建。
+  android-build:
+    needs: [test, header-visual-tests]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/android-build.yml
+    secrets: inherit
+
+  ios-build:
+    needs: [test, header-visual-tests]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/ios-build.yml

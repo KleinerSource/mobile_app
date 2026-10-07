@@ -1,17 +1,7 @@
 name: Android Build
 
 on:
-  push:
-    paths-ignore:
-      - '.github/workflows/ios-build.yml'
-  pull_request:
-    paths-ignore:
-      - '.github/workflows/ios-build.yml'
-  workflow_dispatch:
-
-concurrency:
-  group: android-build-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 env:
   CI: "true"
@@ -153,14 +143,6 @@ jobs:
       - name: build_runner
         timeout-minutes: 10
         run: dart run build_runner build
-
-      - name: analyze
-        timeout-minutes: 8
-        run: flutter analyze
-
-      - name: fast tests
-        timeout-minutes: 10
-        run: dart tool/run_fast_tests.dart
 
       - name: build android apk
         timeout-minutes: 25
