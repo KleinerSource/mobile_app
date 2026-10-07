@@ -21,14 +21,14 @@ class _FileOperationOverlay extends StatelessWidget {
     final height = availableHeight < 128 ? availableHeight : 128.0;
     final ratio = _operationProgress(operation);
     final l = AppL10n.of(context);
-    final progressText = progress != null
-        ? _progressText(progress)
-        : operation.totalItems == null
-        ? null
-        : l.fileOperationItemsProgress(
+    final progressText = operation.totalItems != null
+        ? l.fileOperationItemsProgress(
             operation.completedItems ?? 0,
             operation.totalItems!,
-          );
+          )
+        : progress != null
+        ? _progressText(progress)
+        : null;
     return Stack(
       children: [
         ModalBarrier(
@@ -117,9 +117,15 @@ class _FileOperationOverlay extends StatelessWidget {
                                 operation.status ==
                                     FileOperationStatus.completed
                                 ? colorScheme.primary
-                                : isRunning
-                                ? null
-                                : colorScheme.error,
+                                : operation.status ==
+                                          FileOperationStatus.failed ||
+                                      operation.status ==
+                                          FileOperationStatus.canceled
+                                ? colorScheme.error
+                                : colorScheme.primary,
+                            backgroundColor: colorScheme.onSurface.withValues(
+                              alpha: 0.12,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           SizedBox(
@@ -196,11 +202,11 @@ String _operationTitle(FileOperation operation, AppL10n l) {
 }
 
 double? _operationProgress(FileOperation operation) {
-  final transferProgress = operation.progress?.ratio;
-  if (transferProgress != null) return transferProgress;
   final totalItems = operation.totalItems;
-  if (totalItems == null || totalItems <= 0) return null;
-  return ((operation.completedItems ?? 0) / totalItems).clamp(0.0, 1.0);
+  if (totalItems != null && totalItems > 0) {
+    return ((operation.completedItems ?? 0) / totalItems).clamp(0.0, 1.0);
+  }
+  return operation.progress?.ratio;
 }
 
 String _progressText(FileTransferProgress progress) {
