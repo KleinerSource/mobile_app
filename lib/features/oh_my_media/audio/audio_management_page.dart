@@ -724,6 +724,38 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     }
   }
 
+  Widget _buildExtractionTaskRow(
+    TaskItem task, {
+    required BorderRadius borderRadius,
+    required bool showDivider,
+  }) {
+    final c = appColors(context);
+    final busy = _busyTaskIds.contains(task.id);
+    return Column(
+      key: ValueKey<String>('audio-extraction-row-${task.id}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SwipeActionCell(
+          key: ValueKey('audio-task-${task.id}'),
+          actionBorderRadius: borderRadius,
+          group: _openSwipe,
+          cellKey: 'task:${task.id}',
+          enabled: !_selectionMode && !busy,
+          actions: [
+            SwipeActionData(
+              icon: Icons.stop_rounded,
+              label: AppL10n.of(context).audioActionCancelExtraction,
+              color: c.danger,
+              onPressed: () => _cancelExtraction(task),
+            ),
+          ],
+          child: _ExtractionTaskCard(task: task, borderRadius: borderRadius),
+        ),
+        if (showDivider) Divider(height: 1, color: c.divider),
+      ],
+    );
+  }
+
   void _openMovieDetail(AudioAsset asset) {
     if (asset.movieId <= 0) return;
     Navigator.of(context).push(
@@ -821,8 +853,17 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     final c = appColors(context);
     final l = AppL10n.of(context);
     final tasks = ref.watch(taskCenterProvider);
+    final extractionSearch = _search?.trim().toLowerCase();
     final extractionTasks = tasks
-        .where((task) => task.taskType == 'audio_extract' && task.isActive)
+        .where(
+          (task) =>
+              task.taskType == 'audio_extract' &&
+              task.isActive &&
+              (extractionSearch == null ||
+                  '${task.movieTitle} ${task.movieFileName} ${task.fileName} ${task.movieId}'
+                      .toLowerCase()
+                      .contains(extractionSearch)),
+        )
         .toList();
     final activeMovies = {
       for (final task in tasks)
@@ -875,14 +916,11 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                       ),
                       // 搜索栏固定在头部，不随列表滚动。
                       Padding(
-                        // 提取任务区出现/消失时切换块间距与列表间距。
-                        padding: EdgeInsets.fromLTRB(
+                        padding: const EdgeInsets.fromLTRB(
                           22,
                           0,
                           22,
-                          extractionTasks.isNotEmpty
-                              ? PageHeader.toolbarTopGap
-                              : PageHeader.aboveListGap,
+                          PageHeader.aboveListGap,
                         ),
                         child: _SearchField(
                           controller: _searchController,
@@ -908,90 +946,20 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                         primary: false,
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
-                          if (extractionTasks.isNotEmpty) ...[
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  22,
-                                  0,
-                                  22,
-                                  8,
-                                ),
-                                child: Text(
-                                  '${l.audioExtractingSection}  ·  ${extractionTasks.length}',
-                                  style: AppText.eyebrow(context),
-                                ),
-                              ),
-                            ),
-                            // 提取任务少且有界：合并为设置页式分组卡，行间细分隔线。
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  22,
-                                  0,
-                                  22,
-                                  PageHeader.aboveListGap,
-                                ),
-                                child: Container(
-                                  decoration: settingsCardDecoration(context),
-                                  child: Column(
-                                    children: [
-                                      for (
-                                        var i = 0;
-                                        i < extractionTasks.length;
-                                        i++
-                                      ) ...[
-                                        if (i > 0)
-                                          Divider(height: 1, color: c.divider),
-                                        SwipeActionCell(
-                                          key: ValueKey(
-                                            'audio-task-${extractionTasks[i].id}',
-                                          ),
-                                          group: _openSwipe,
-                                          cellKey:
-                                              'task:${extractionTasks[i].id}',
-                                          enabled:
-                                              !_selectionMode &&
-                                              !_busyTaskIds.contains(
-                                                extractionTasks[i].id,
-                                              ),
-                                          actions: [
-                                            SwipeActionData(
-                                              icon: Icons.stop_rounded,
-                                              label:
-                                                  l.audioActionCancelExtraction,
-                                              color: c.danger,
-                                              onPressed: () =>
-                                                  _cancelExtraction(
-                                                    extractionTasks[i],
-                                                  ),
-                                            ),
-                                          ],
-                                          child: _ExtractionTaskCard(
-                                            task: extractionTasks[i],
-                                            busy: _busyTaskIds.contains(
-                                              extractionTasks[i].id,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
                           ValueListenableBuilder<PagingState<int, AudioAsset>>(
                             valueListenable: _controller,
                             builder: (context, paging, _) {
                               final items = paging.itemList;
+                              final assets = items ?? const <AudioAsset>[];
+                              final extractionCount = extractionTasks.length;
+                              final rowCount = extractionCount + assets.length;
                               final padding = EdgeInsets.fromLTRB(
                                 22,
                                 MediaListLayout.contentTopInset,
                                 22,
                                 _selectionMode ? 136 : 80,
                               );
-                              if (items == null) {
+                              if (rowCount == 0 && items == null) {
                                 return SliverPadding(
                                   padding: padding,
                                   sliver: SliverToBoxAdapter(
@@ -1013,7 +981,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                   ),
                                 );
                               }
-                              if (items.isEmpty) {
+                              if (rowCount == 0) {
                                 return SliverPadding(
                                   padding: padding,
                                   sliver: SliverToBoxAdapter(
@@ -1032,110 +1000,165 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                 );
                               }
 
+                              final childIndices = <Key, int>{
+                                for (var i = 0; i < extractionCount; i++)
+                                  ValueKey<String>(
+                                    'audio-extraction-row-${extractionTasks[i].id}',
+                                  ): i,
+                                for (var i = 0; i < assets.length; i++)
+                                  ValueKey<String>(
+                                    'audio-asset-row-${assets[i].id}',
+                                  ): extractionCount + i,
+                              };
+
                               return SliverPadding(
                                 padding: padding,
                                 sliver: SliverList(
-                                  delegate: SliverChildBuilderDelegate((
-                                    context,
-                                    index,
-                                  ) {
-                                    if (index == items.length) {
-                                      if (paging.nextPageKey == null) {
-                                        return const NoMoreContent();
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                      if (index == rowCount) {
+                                        if (items == null) {
+                                          return paging.error == null
+                                              ? const Padding(
+                                                  padding: EdgeInsets.all(20),
+                                                  child: Center(
+                                                    child:
+                                                        CupertinoActivityIndicator(),
+                                                  ),
+                                                )
+                                              : ErrorView(
+                                                  message:
+                                                      localizedErrorMessage(
+                                                        l,
+                                                        paging.error,
+                                                      ),
+                                                  onRetry: _reload,
+                                                );
+                                        }
+                                        if (assets.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        if (paging.nextPageKey == null) {
+                                          return const NoMoreContent();
+                                        }
+                                        if (paging.error != null) {
+                                          return PaginationRetry(
+                                            onRetry: _retryNextPage,
+                                          );
+                                        }
+                                        return _loadingPageSerial ==
+                                                _requestSerial
+                                            ? const Padding(
+                                                padding: EdgeInsets.all(20),
+                                                child: Center(
+                                                  child:
+                                                      CupertinoActivityIndicator(),
+                                                ),
+                                              )
+                                            : const SizedBox.shrink();
                                       }
-                                      if (paging.error != null) {
-                                        return PaginationRetry(
-                                          onRetry: _retryNextPage,
+
+                                      final rowRadius = BorderRadius.vertical(
+                                        top: index == 0
+                                            ? const Radius.circular(16)
+                                            : Radius.zero,
+                                        bottom:
+                                            _lastPageComplete &&
+                                                index == rowCount - 1
+                                            ? const Radius.circular(16)
+                                            : Radius.zero,
+                                      );
+                                      if (index < extractionCount) {
+                                        final task = extractionTasks[index];
+                                        return _buildExtractionTaskRow(
+                                          task,
+                                          borderRadius: rowRadius,
+                                          showDivider: index < rowCount - 1,
                                         );
                                       }
-                                      return _loadingPageSerial ==
-                                              _requestSerial
-                                          ? const Padding(
-                                              padding: EdgeInsets.all(20),
-                                              child: Center(
-                                                child:
-                                                    CupertinoActivityIndicator(),
-                                              ),
-                                            )
-                                          : const SizedBox.shrink();
-                                    }
 
-                                    final asset = items[index];
-                                    final locked = _isAssetLocked(
-                                      asset,
-                                      activeMovies,
-                                    );
-                                    final rowRadius = BorderRadius.vertical(
-                                      top: index == 0
-                                          ? const Radius.circular(16)
-                                          : Radius.zero,
-                                      bottom:
-                                          _lastPageComplete &&
-                                              index == items.length - 1
-                                          ? const Radius.circular(16)
-                                          : Radius.zero,
-                                    );
-                                    return Column(
-                                      key: ValueKey(asset.id),
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SwipeActionCell(
-                                          key: ValueKey(
-                                            'audio-asset-${asset.id}',
-                                          ),
-                                          actionBorderRadius: rowRadius,
-                                          group: _openSwipe,
-                                          cellKey: asset.id,
-                                          enabled:
-                                              !_selectionMode &&
-                                              !_busyAssetIds.contains(asset.id),
-                                          actions: _assetSwipeActions(
-                                            c,
-                                            asset,
-                                            transcriptionEnabled,
-                                            locked,
-                                          ),
-                                          child: DragSelectionTarget<int>(
-                                            id: asset.id,
-                                            selectionIndex: index,
-                                            selectionHandleAlignment:
-                                                Alignment.centerLeft,
-                                            child:
-                                                ValueListenableBuilder<
-                                                  Set<Object>
-                                                >(
-                                                  valueListenable: _selection
-                                                      .selectedListenable,
-                                                  builder:
-                                                      (
-                                                        context,
-                                                        selected,
-                                                        _,
-                                                      ) => _AssetCard(
-                                                        asset: asset,
-                                                        selected: selected
-                                                            .contains(asset.id),
-                                                        selecting:
-                                                            _selectionMode,
-                                                        locked: locked,
-                                                        borderRadius: rowRadius,
-                                                        onToggleSelect: () =>
-                                                            _toggleSelect(
-                                                              asset.id,
-                                                            ),
-                                                        onOpenMovie: () =>
-                                                            _openMovieDetail(
-                                                              asset,
-                                                            ),
-                                                      ),
-                                                ),
-                                          ),
+                                      final assetIndex =
+                                          index - extractionCount;
+                                      final asset = assets[assetIndex];
+                                      final locked = _isAssetLocked(
+                                        asset,
+                                        activeMovies,
+                                      );
+                                      return Column(
+                                        key: ValueKey<String>(
+                                          'audio-asset-row-${asset.id}',
                                         ),
-                                        if (index < items.length - 1)
-                                          Divider(height: 1, color: c.divider),
-                                      ],
-                                    );
-                                  }, childCount: items.length + 1),
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SwipeActionCell(
+                                            key: ValueKey(
+                                              'audio-asset-${asset.id}',
+                                            ),
+                                            actionBorderRadius: rowRadius,
+                                            group: _openSwipe,
+                                            cellKey: asset.id,
+                                            enabled:
+                                                !_selectionMode &&
+                                                !_busyAssetIds.contains(
+                                                  asset.id,
+                                                ),
+                                            actions: _assetSwipeActions(
+                                              c,
+                                              asset,
+                                              transcriptionEnabled,
+                                              locked,
+                                            ),
+                                            child: DragSelectionTarget<int>(
+                                              id: asset.id,
+                                              selectionIndex: assetIndex,
+                                              selectionHandleAlignment:
+                                                  Alignment.centerLeft,
+                                              child:
+                                                  ValueListenableBuilder<
+                                                    Set<Object>
+                                                  >(
+                                                    valueListenable: _selection
+                                                        .selectedListenable,
+                                                    builder:
+                                                        (
+                                                          context,
+                                                          selected,
+                                                          _,
+                                                        ) => _AssetCard(
+                                                          asset: asset,
+                                                          selected: selected
+                                                              .contains(
+                                                                asset.id,
+                                                              ),
+                                                          selecting:
+                                                              _selectionMode,
+                                                          locked: locked,
+                                                          borderRadius:
+                                                              rowRadius,
+                                                          onToggleSelect: () =>
+                                                              _toggleSelect(
+                                                                asset.id,
+                                                              ),
+                                                          onOpenMovie: () =>
+                                                              _openMovieDetail(
+                                                                asset,
+                                                              ),
+                                                        ),
+                                                  ),
+                                            ),
+                                          ),
+                                          if (index < rowCount - 1)
+                                            Divider(
+                                              height: 1,
+                                              color: c.divider,
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                    childCount: rowCount + 1,
+                                    findChildIndexCallback: (key) =>
+                                        childIndices[key],
+                                  ),
                                 ),
                               );
                             },
@@ -1245,10 +1268,10 @@ class _SearchField extends StatelessWidget {
 
 // ============ 提取中任务卡 ============
 class _ExtractionTaskCard extends StatelessWidget {
-  const _ExtractionTaskCard({required this.task, this.busy = false});
+  const _ExtractionTaskCard({required this.task, required this.borderRadius});
 
   final TaskItem task;
-  final bool busy;
+  final BorderRadius borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -1259,7 +1282,8 @@ class _ExtractionTaskCard extends StatelessWidget {
     final percent = task.progress.clampedPercent / 100;
     final title = task.movieTitle;
 
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(color: c.surface, borderRadius: borderRadius),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
