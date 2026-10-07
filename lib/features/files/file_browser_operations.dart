@@ -498,7 +498,7 @@ extension _FileBrowserOperations on _FileBrowserPageState {
     if (operation.status == FileOperationStatus.running) return;
 
     final operationId = operation.id;
-    _operationDismissTimer = Timer(const Duration(seconds: 2), () {
+    _operationDismissTimer = Timer(const Duration(seconds: 1), () {
       if (!mounted || _operation?.id != operationId) return;
       _operationOverlay?.remove();
       _operationOverlay?.dispose();

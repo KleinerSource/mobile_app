@@ -10,7 +10,12 @@ class _FileOperationOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = operation.progress;
     final isRunning = operation.status == FileOperationStatus.running;
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final mediaQuery = MediaQuery.of(context);
+    final availableWidth =
+        mediaQuery.size.width - mediaQuery.padding.horizontal - 48;
+    final width = availableWidth < 360 ? availableWidth : 360.0;
     final ratio = _operationProgress(operation);
     return Stack(
       children: [
@@ -25,14 +30,20 @@ class _FileOperationOverlay extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: 320,
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+                  minWidth: width,
+                  maxWidth: 360,
+                  maxHeight: mediaQuery.size.height * 0.8,
                 ),
                 child: Semantics(
                   liveRegion: true,
                   child: Material(
                     key: const ValueKey('file-operation-dialog'),
-                    color: colorScheme.surface,
+                    color:
+                        theme.dialogTheme.backgroundColor ??
+                        colorScheme.surface,
+                    surfaceTintColor:
+                        theme.dialogTheme.surfaceTintColor ??
+                        Colors.transparent,
                     elevation: 12,
                     borderRadius: BorderRadius.circular(8),
                     clipBehavior: Clip.antiAlias,
