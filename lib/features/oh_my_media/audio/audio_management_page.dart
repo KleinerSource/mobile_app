@@ -8,6 +8,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
@@ -653,11 +654,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         title: Text(single ? l.audioDeleteTitle : l.audioDeleteBatchTitle),
         content: Text(
           single
-              ? l.audioDeleteMessageSingle(
-                  assets.first.fileName.isEmpty
-                      ? l.audioDeleteFileFallback
-                      : assets.first.fileName,
-                )
+              ? l.audioDeleteMessageSingle(assets.first.displayTitle)
               : l.audioDeleteMessageBatch(assets.length),
         ),
         actions: [
@@ -744,84 +741,72 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }) {
     var overwrite = false;
     final c = appColors(context);
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: c.sheetBackground,
-      barrierColor: c.sheetBarrier,
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (sheetContext, setSheetState) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 12, 22, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SheetHeader(
-                    icon: Icons.subtitles_outlined,
-                    title: title,
-                    padding: EdgeInsets.zero,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(message, style: AppText.meta(sheetContext)),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: settingsCardDecoration(sheetContext),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            AppL10n.of(
-                              sheetContext,
-                            ).audioOverwriteExistingSubtitle,
-                            style: TextStyle(
-                              color: c.text,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13.5,
-                            ),
-                          ),
-                        ),
-                        SettingsSwitch(
-                          value: overwrite,
-                          onChanged: (value) =>
-                              setSheetState(() => overwrite = value),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
+          builder: (sheetContext, setSheetState) => Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SheetHeader(
+                  icon: Icons.subtitles_outlined,
+                  title: title,
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 14),
+                Text(message, style: AppText.meta(sheetContext)),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: settingsCardDecoration(sheetContext),
+                  child: Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(sheetContext),
-                          style: sheetSecondaryButtonStyle(sheetContext),
-                          child: Text(AppL10n.of(sheetContext).cancel),
+                        child: Text(
+                          AppL10n.of(
+                            sheetContext,
+                          ).audioOverwriteExistingSubtitle,
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: FilledButton(
-                          onPressed: () =>
-                              Navigator.pop(sheetContext, overwrite),
-                          style: sheetPrimaryButtonStyle(sheetContext),
-                          child: Text(confirmLabel),
-                        ),
+                      SettingsSwitch(
+                        value: overwrite,
+                        onChanged: (value) =>
+                            setSheetState(() => overwrite = value),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        style: sheetSecondaryButtonStyle(sheetContext),
+                        child: Text(AppL10n.of(sheetContext).cancel),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(sheetContext, overwrite),
+                        style: sheetPrimaryButtonStyle(sheetContext),
+                        child: Text(confirmLabel),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         );
@@ -1272,11 +1257,7 @@ class _ExtractionTaskCard extends StatelessWidget {
     final color = AppHues.top(AppHues.lavender);
     final tint = AppHues.chipBg(AppHues.lavender, brightness);
     final percent = task.progress.clampedPercent / 100;
-    final title = task.movieTitle.isNotEmpty
-        ? task.movieTitle
-        : task.movieFileName.isNotEmpty
-        ? task.movieFileName
-        : task.fileName;
+    final title = task.movieTitle;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -1377,7 +1358,6 @@ class _AssetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final textScaler = MediaQuery.textScalerOf(context);
     final transcription = asset.transcriptionView;
     final status = _statusInfo(context, c);
     final extracting = asset.isTranscriptionActive;
@@ -1393,27 +1373,14 @@ class _AssetCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(c, status),
-          const SizedBox(height: 6),
-          Text(
-            asset.fileName.isEmpty ? '-' : asset.fileName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.mono(context, size: 10.5, color: c.muted),
-          ),
           const SizedBox(height: 8),
           _buildSpecs(context, c),
-          SizedBox(
-            height: textScaler.scale(42),
-            child: Padding(
-              padding: EdgeInsets.only(top: textScaler.scale(10)),
-              child:
-                  extracting ||
-                      transcription.isFailed ||
-                      transcription.isCanceled
-                  ? _buildTranscriptionSection(context, c, transcription)
-                  : null,
-            ),
-          ),
+          if (extracting ||
+              transcription.isFailed ||
+              transcription.isCanceled) ...[
+            const SizedBox(height: 10),
+            _buildTranscriptionSection(context, c, transcription),
+          ],
         ],
       ),
     );
@@ -1455,44 +1422,25 @@ class _AssetCard extends StatelessWidget {
   }
 
   Widget _buildTitle(AppColors c) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                asset.displayTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: c.text,
-                  fontFamily: 'Inter',
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  height: 1.2,
-                ),
-              ),
-            ),
-            if (asset.movieId > 0 && !selecting)
-              Icon(Icons.chevron_right_rounded, size: 16, color: c.muted2),
-          ],
-        ),
-        if (asset.movieFileName.isNotEmpty && asset.movieTitle.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            asset.movieFileName,
+        Expanded(
+          child: Text(
+            asset.displayTitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: c.muted,
+              color: c.text,
               fontFamily: 'Inter',
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+              height: 1.2,
             ),
           ),
-        ],
+        ),
+        if (asset.movieId > 0 && !selecting)
+          Icon(Icons.chevron_right_rounded, size: 16, color: c.muted2),
       ],
     );
   }
@@ -1626,8 +1574,6 @@ class _AssetCard extends StatelessWidget {
     if (t.isCanceled) {
       return Text(
         AppL10n.of(context).audioTranscriptionCanceledHint,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: c.muted,
           fontSize: 11,

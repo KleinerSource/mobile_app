@@ -114,9 +114,7 @@ class AudioAsset {
   bool get isTranscriptionActive => transcriptionView.isActive;
 
   /// 标题兜底保持语言中立（#id），本地化文案由展示层补充。
-  String get displayTitle => movieTitle.isNotEmpty
-      ? movieTitle
-      : (movieFileName.isNotEmpty ? movieFileName : '#$movieId');
+  String get displayTitle => movieTitle.isNotEmpty ? movieTitle : '#$movieId';
 
   String get formatLabel {
     final value = format.trim();
