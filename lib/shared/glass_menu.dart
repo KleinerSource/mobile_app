@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -32,31 +33,36 @@ class GlassMenuPanel extends StatelessWidget {
   }
 
   static double widthForLabels(BuildContext context, Iterable<String> labels) {
+    final rowTextStyle = DefaultTextStyle.of(context).style.merge(
+      const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
+    );
     final painter = TextPainter(
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     );
     var longestLabel = 0.0;
     for (final label in labels) {
-      painter.text = TextSpan(
-        text: label,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-      );
+      painter.text = TextSpan(text: label, style: rowTextStyle);
       painter.layout();
       if (painter.width > longestLabel) longestLabel = painter.width;
     }
     painter.dispose();
     if (longestLabel == 0) return defaultWidth;
 
-    // Icon + gaps + the row's inner and outer horizontal padding.
-    const rowChromeWidth = 65.0;
-    final availableWidth = (MediaQuery.sizeOf(context).width - 24)
-        .clamp(1.0, double.infinity)
-        .toDouble();
+    // Leading icon, gaps, row padding, and a small allowance for text metrics.
+    const rowChromeWidth = 72.0;
+    final safePadding = MediaQuery.viewPaddingOf(context);
+    final availableWidth =
+        (MediaQuery.sizeOf(context).width -
+                safePadding.left -
+                safePadding.right -
+                24)
+            .clamp(1.0, double.infinity)
+            .toDouble();
     return (longestLabel + rowChromeWidth)
         .clamp(1.0, availableWidth)
         .toDouble();
@@ -326,35 +332,53 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     final overlayTopLeft = overlayObject.localToGlobal(Offset.zero);
     final overlaySize = overlayObject.size;
     final overlayRect = overlayTopLeft & overlaySize;
+    final mediaQuery = MediaQuery.of(overlay.context);
+    final viewPadding = mediaQuery.viewPadding;
+    final viewInsets = mediaQuery.viewInsets;
+    final safeRect = Rect.fromLTRB(
+      overlayRect.left + math.max(viewPadding.left, viewInsets.left),
+      overlayRect.top + math.max(viewPadding.top, viewInsets.top),
+      overlayRect.right - math.max(viewPadding.right, viewInsets.right),
+      overlayRect.bottom - math.max(viewPadding.bottom, viewInsets.bottom),
+    );
     final menuHeight =
         GlassMenuPanel.verticalPadding * 2 +
         entries.fold<double>(0, (total, entry) => total + entry.height);
-
-    final rawLeft = switch (widget.alignment) {
-      GlassMenuAlignment.start =>
-        (anchorPosition?.dx ?? anchorRect.left) + widget.offset.dx,
-      GlassMenuAlignment.center =>
-        (anchorPosition?.dx ?? anchorRect.center.dx) -
-            width / 2 +
-            widget.offset.dx,
-      GlassMenuAlignment.end =>
-        anchorPosition == null
-            ? anchorRect.right - width + widget.offset.dx
-            : anchorPosition.dx - width / 2 + widget.offset.dx,
-    };
     const horizontalInset = 12.0;
-    final minLeft = overlayRect.left + horizontalInset;
-    final maxLeft = (overlayRect.right - width - horizontalInset).clamp(
+    const verticalInset = 12.0;
+    const gap = 8.0;
+    final menuWidth = width
+        .clamp(1.0, math.max(1.0, safeRect.width - horizontalInset * 2))
+        .toDouble();
+
+    final rawLeft = anchorPosition == null
+        ? switch (widget.alignment) {
+            GlassMenuAlignment.start => anchorRect.left + widget.offset.dx,
+            GlassMenuAlignment.center =>
+              anchorRect.center.dx - menuWidth / 2 + widget.offset.dx,
+            GlassMenuAlignment.end =>
+              anchorRect.right - menuWidth + widget.offset.dx,
+          }
+        : _positionOnAxis(
+            position: anchorPosition.dx,
+            extent: menuWidth,
+            start: safeRect.left,
+            end: safeRect.right,
+            gap: gap,
+            inset: horizontalInset,
+            offset: widget.offset.dx,
+          );
+    final minLeft = safeRect.left + horizontalInset;
+    final maxLeft = math.max(
       minLeft,
-      double.infinity,
+      safeRect.right - menuWidth - horizontalInset,
     );
     final left = rawLeft.clamp(minLeft, maxLeft).toDouble();
 
-    const verticalInset = 12.0;
-    final minTop = overlayRect.top + verticalInset;
-    final maxTop = (overlayRect.bottom - menuHeight - verticalInset).clamp(
+    final minTop = safeRect.top + verticalInset;
+    final maxTop = math.max(
       minTop,
-      double.infinity,
+      safeRect.bottom - menuHeight - verticalInset,
     );
     final rawTop = anchorPosition == null
         ? switch (widget.placement) {
@@ -362,21 +386,38 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
               anchorRect.top - menuHeight - widget.offset.dy,
             GlassMenuPlacement.below => anchorRect.bottom + widget.offset.dy,
           }
-        : _topForLongPress(anchorPosition, menuHeight, minTop, maxTop);
+        : _positionOnAxis(
+            position: anchorPosition.dy,
+            extent: menuHeight,
+            start: safeRect.top,
+            end: safeRect.bottom,
+            gap: gap,
+            inset: verticalInset,
+            offset: widget.offset.dy,
+          );
     final top = rawTop.clamp(minTop, maxTop).toDouble();
-    return Rect.fromLTWH(left, top, width, menuHeight);
+    return Rect.fromLTWH(left, top, menuWidth, menuHeight);
   }
 
-  double _topForLongPress(
-    Offset position,
-    double menuHeight,
-    double minTop,
-    double maxTop,
-  ) {
-    const gap = 8.0;
-    final below = position.dy + gap + widget.offset.dy;
-    if (below <= maxTop) return below;
-    return position.dy - menuHeight - gap + widget.offset.dy;
+  double _positionOnAxis({
+    required double position,
+    required double extent,
+    required double start,
+    required double end,
+    required double gap,
+    required double inset,
+    required double offset,
+  }) {
+    final adjustedPosition = position + offset;
+    final afterSpace = end - adjustedPosition;
+    final beforeSpace = adjustedPosition - start;
+    final requiredSpace = extent + gap + inset;
+    final placeAfter =
+        afterSpace >= requiredSpace ||
+        (beforeSpace < requiredSpace && afterSpace >= beforeSpace);
+    return placeAfter
+        ? adjustedPosition + gap
+        : adjustedPosition - extent - gap;
   }
 
   T? _valueAt(Offset globalPosition) {
