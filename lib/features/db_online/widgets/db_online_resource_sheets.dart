@@ -484,6 +484,7 @@ class DbOnlineResourceRow extends StatelessWidget {
     required this.name,
     required this.value,
     required this.onCopy,
+    this.titleMaxLines = 2,
     this.sizeMb,
     this.fileCount,
     this.date,
@@ -498,6 +499,7 @@ class DbOnlineResourceRow extends StatelessWidget {
   final String name;
   final String value;
   final VoidCallback onCopy;
+  final int titleMaxLines;
   final double? sizeMb;
   final int? fileCount;
   final String? date;
@@ -543,6 +545,7 @@ class DbOnlineResourceRow extends StatelessWidget {
     ];
     return ResourcePanelRow(
       title: name.trim().isEmpty ? value : name,
+      titleMaxLines: titleMaxLines,
       metadata: metadata.isEmpty
           ? null
           : Wrap(spacing: 8, runSpacing: 4, children: metadata),

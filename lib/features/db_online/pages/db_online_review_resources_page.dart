@@ -6,10 +6,10 @@ import 'package:omm/shared/media_list_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/config/server_runtime.dart';
 import 'package:omm/core/sources/media/dbo/db_online_following.dart';
 import 'package:omm/core/sources/media/dbo/db_online_resource_merge.dart';
+import 'package:omm/core/sources/media/media_metadata_normalizer.dart';
 import 'package:omm/features/db_online/navigation/db_online_movie_navigation.dart';
 import 'package:omm/features/db_online/providers/db_online_following_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -23,6 +23,7 @@ import 'package:omm/shared/empty_view.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/localized_error_message.dart';
+import 'package:omm/shared/media_metadata_widgets.dart';
 import 'package:omm/shared/pagination_footer.dart';
 
 class DbOnlineReviewResourcesPage extends ConsumerStatefulWidget {
@@ -331,37 +332,46 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
                 subscriptionActionsEnabled: true,
                 listTitleMaxLines: 3,
                 showRating: false,
+                meta: formatMediaCardMeta(
+                  l,
+                  date:
+                      [
+                            formatMediaYear(
+                              normalizeMediaYear(item.movie.releaseDate),
+                            ),
+                            formatDbOnlineFollowingDate(item.createdAt),
+                          ]
+                          .whereType<String>()
+                          .where((text) => text.isNotEmpty)
+                          .join(' · '),
+                  duration: dboDurationToMinutes(item.movie.duration),
+                  emptyText: l.dbOnlineNoMeta,
+                ),
                 width: double.infinity,
                 onTap: () => openDbOnlineMovieUnawaited(context, item.movie),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
-                child: Row(
-                  children: [
-                    Text(
-                      formatDbOnlineFollowingDate(item.createdAt),
-                      style: AppText.meta(context),
-                    ),
-                    const Spacer(),
-                    if (_metadataLoading.contains(item.reviewId))
-                      Tooltip(
-                        message: l.dbOnlineFollowingMetadataLoading,
-                        child: const SizedBox.square(
-                          dimension: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        ),
+              if (_metadataLoading.contains(item.reviewId))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Tooltip(
+                      message: l.dbOnlineFollowingMetadataLoading,
+                      child: const SizedBox.square(
+                        dimension: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
                       ),
-                  ],
+                    ),
+                  ),
                 ),
-              ),
               for (final magnet in item.magnets)
                 DbOnlineResourceRow(
                   name: magnet.name,
+                  titleMaxLines: 1,
                   value: magnet.magnet,
                   tags: magnet.tags,
                   sizeMb: magnet.sizeMb,
                   fileCount: magnet.fileCount,
-                  date: magnet.date,
                   site: magnet.site,
                   downloadedAt:
                       history?.magnets[dbOnlineMagnetHash(magnet.magnet)],
@@ -381,10 +391,10 @@ class _ReviewResourcesState extends ConsumerState<DbOnlineReviewResourcesPage> {
               for (final ed2k in item.ed2ks)
                 DbOnlineResourceRow(
                   name: ed2k.name,
+                  titleMaxLines: 1,
                   value: ed2k.ed2k,
                   tags: ed2k.tags,
                   sizeMb: ed2k.sizeMb,
-                  date: ed2k.date,
                   site: ed2k.site,
                   downloadedAt: history?.ed2ks[dbOnlineEd2kHash(ed2k.ed2k)],
                   pushing: _pushing == ed2k.ed2k,

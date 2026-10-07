@@ -37,6 +37,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
     this.listTitleMaxLines = 1,
     this.showRating = true,
     this.fullReleaseDate = false,
+    this.meta,
     this.subscriptionActionsEnabled = false,
   });
 
@@ -59,12 +60,17 @@ class DbOnlineMovieCard extends ConsumerWidget {
   /// 需要精确日期的场景开启。
   final bool fullReleaseDate;
 
+  /// 覆盖默认元信息，供评论列表组合影片年份与资源日期。
+  final String? meta;
+
   /// 在指定影片列表中通过长按打开订阅操作菜单。
   final bool subscriptionActionsEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppL10n.of(context);
+    final displayMeta =
+        meta ?? _metaText(context, movie, fullDate: fullReleaseDate);
     final imageValue = landscape
         ? movie.coverUrl ?? movie.thumbUrl
         : movie.thumbUrl ?? movie.coverUrl;
@@ -183,7 +189,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
           coverUrl: imageUrl,
           previewUrls: _previewUrls(movie, config),
           fallbackPreviewUrl: _fallbackPreviewUrl(movie, config),
-          meta: _metaText(context, movie, fullDate: fullReleaseDate),
+          meta: displayMeta,
           badges: [
             if (!subscriptionCompleted && subscriptionBadge != null)
               subscriptionBadge,
@@ -214,7 +220,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
           code: movie.number,
           imageUrl: imageUrl,
           imageHeaders: null,
-          meta: _metaText(context, movie, fullDate: fullReleaseDate),
+          meta: displayMeta,
           width: width,
           privacyId: privacyId,
           additional: _compactBadges(
@@ -239,7 +245,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
             : movie.title,
         code: movie.number,
         imageUrl: imageUrl,
-        meta: _metaText(context, movie, fullDate: fullReleaseDate),
+        meta: displayMeta,
         width: width,
         rating: showRating ? normalizeMediaRating(movie.score) : null,
         canPlay: movie.canPlay,

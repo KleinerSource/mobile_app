@@ -9,12 +9,14 @@ class ResourcePanelRow extends StatelessWidget {
     super.key,
     required this.title,
     required this.trailing,
+    this.titleMaxLines = 2,
     this.metadata,
     this.tags = const <String>[],
     this.downloadedTooltip,
   });
 
   final String title;
+  final int titleMaxLines;
   final Widget? metadata;
   final List<String> tags;
   final Widget trailing;
@@ -35,7 +37,7 @@ class ResourcePanelRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  maxLines: 2,
+                  maxLines: titleMaxLines,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colors.text,
