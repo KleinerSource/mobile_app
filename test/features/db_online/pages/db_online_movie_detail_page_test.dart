@@ -14,6 +14,7 @@ import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo_media_source_adapter.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
+import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
@@ -121,6 +122,7 @@ void main() {
     WidgetTester tester, {
     String? videoId,
     Map<String, dynamic> Function()? detailData,
+    Brightness brightness = Brightness.light,
   }) async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
@@ -169,6 +171,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          theme: ThemeData(brightness: brightness),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           locale: const Locale('zh'),
@@ -310,6 +313,114 @@ void main() {
     await pumpDetail(tester, hasCnsub: false);
 
     expect(find.byIcon(Icons.closed_caption_rounded), findsNothing);
+  });
+
+  testWidgets('已入库徽标按媒体库来源显示名称和配色', (tester) async {
+    const cases = <({String source, Color color, Color ink})>[
+      (source: 'Emby', color: Color(0xFF48C97D), ink: Color(0xFF1F7A4B)),
+      (source: 'Jellyfin', color: Color(0xFF9B6FFF), ink: Color(0xFF6D28D9)),
+      (source: 'FNOS', color: Color(0xFF4A9EFF), ink: Color(0xFF1F5FA8)),
+    ];
+
+    for (final item in cases) {
+      await pumpDetailUris(
+        tester,
+        detailData: () => {
+          'code': 'ABC-001',
+          'title': '已入库配色测试',
+          'library': {'in_library': true, 'source': item.source},
+          'magnets': [],
+          'ed2ks': [],
+        },
+      );
+
+      final label = '已入库 (${item.source})';
+      expect(find.text(label), findsOneWidget);
+      final badgeFinder = find.ancestor(
+        of: find.text(label),
+        matching: find.byType(CoverBadgePill),
+      );
+      final badge = tester.widget<CoverBadgePill>(badgeFinder);
+      expect(badge.color, item.color);
+      expect(badge.backgroundColor, item.color.withValues(alpha: 0.18));
+      expect(badge.foregroundColor, item.ink);
+      expect(badge.borderColor, item.color.withValues(alpha: 0.4));
+      expect(badge.shadowColor, item.color.withValues(alpha: 0.24));
+    }
+  });
+
+  testWidgets('已入库徽标深色主题按媒体库来源使用浅色文字', (tester) async {
+    const cases = <({String source, Color ink})>[
+      (source: 'Emby', ink: Color(0xFF76E3A5)),
+      (source: 'Jellyfin', ink: Color(0xFFC9ADFF)),
+      (source: 'FNOS', ink: Color(0xFF8BC3FF)),
+    ];
+
+    for (final item in cases) {
+      await pumpDetailUris(
+        tester,
+        brightness: Brightness.dark,
+        detailData: () => {
+          'code': 'ABC-001',
+          'title': '深色主题配色测试',
+          'library': {'in_library': true, 'source': item.source},
+          'magnets': [],
+          'ed2ks': [],
+        },
+      );
+
+      final label = find.text('已入库 (${item.source})');
+      final badgeFinder = find.ancestor(
+        of: label,
+        matching: find.byType(CoverBadgePill),
+      );
+      expect(
+        tester.widget<CoverBadgePill>(badgeFinder).foregroundColor,
+        item.ink,
+      );
+    }
+  });
+
+  testWidgets('缺失或未知媒体库来源回退到媒体库文案和 Emby 绿', (tester) async {
+    for (final source in <String?>[null, 'Other Server']) {
+      await pumpDetailUris(
+        tester,
+        detailData: () => {
+          'code': 'ABC-001',
+          'title': '默认配色测试',
+          'library': {'in_library': true, if (source != null) 'source': source},
+          'magnets': [],
+          'ed2ks': [],
+        },
+      );
+
+      final label = source == null ? '已入库 (媒体库)' : '已入库 (Other Server)';
+      expect(find.text(label), findsOneWidget);
+      final badgeFinder = find.ancestor(
+        of: find.text(label),
+        matching: find.byType(CoverBadgePill),
+      );
+      expect(
+        tester.widget<CoverBadgePill>(badgeFinder).color,
+        const Color(0xFF48C97D),
+      );
+    }
+  });
+
+  testWidgets('已入库标识只由 library.in_library 控制', (tester) async {
+    await pumpDetailUris(
+      tester,
+      detailData: () => {
+        'code': 'ABC-001',
+        'title': '未入库测试',
+        'can_play': true,
+        'library': {'in_library': false, 'source': 'Jellyfin'},
+        'magnets': [],
+        'ed2ks': [],
+      },
+    );
+
+    expect(find.text('已入库 (Jellyfin)'), findsNothing);
   });
 
   testWidgets('详情导演/片商/发行商/演员/系列/类型点击进入实体列表页', (tester) async {

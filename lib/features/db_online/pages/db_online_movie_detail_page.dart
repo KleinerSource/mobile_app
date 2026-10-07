@@ -65,6 +65,39 @@ String? _personExternalId(DbOnlinePerson person) {
   return id == null || id.isEmpty ? null : id;
 }
 
+({Color color, Color darkInk, Color lightInk}) _dbOnlineLibraryPalette(
+  String? source,
+) {
+  final normalized = (source ?? '').trim().toLowerCase().replaceAll(
+    RegExp(r'[\s_-]+'),
+    '',
+  );
+  return switch (normalized) {
+    'jellyfin' => (
+      color: const Color(0xFF9B6FFF),
+      darkInk: const Color(0xFFC9ADFF),
+      lightInk: const Color(0xFF6D28D9),
+    ),
+    'fn' ||
+    'fnmedia' ||
+    'fnos' ||
+    'feiniu' ||
+    '飞牛' ||
+    '飞牛影视' ||
+    '飛牛' ||
+    '飛牛影視' => (
+      color: const Color(0xFF4A9EFF),
+      darkInk: const Color(0xFF8BC3FF),
+      lightInk: const Color(0xFF1F5FA8),
+    ),
+    _ => (
+      color: const Color(0xFF48C97D),
+      darkInk: const Color(0xFF76E3A5),
+      lightInk: const Color(0xFF1F7A4B),
+    ),
+  };
+}
+
 class DbOnlineMovieDetailPage extends ConsumerWidget {
   const DbOnlineMovieDetailPage({super.key, required this.detailKey});
 
@@ -217,6 +250,8 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
         );
     final isDatabaseSource = movie.source == 'database';
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final librarySource = movie.library?.source?.trim() ?? '';
+    final libraryPalette = _dbOnlineLibraryPalette(librarySource);
     final sourceBadgeColor = isDatabaseSource
         ? (isDark ? const Color(0xFF00FF80) : const Color(0xFF059669))
         : (isDark ? const Color(0xFFFF3232) : const Color(0xFFDC2626));
@@ -228,6 +263,20 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
             : l.dbOnlineSourceOnline,
         color: sourceBadgeColor,
       ),
+      if (movie.library?.inLibrary == true)
+        CoverBadgePill(
+          icon: Icons.check_circle_rounded,
+          label: l.dbOnlineLibraryInLibraryAt(
+            librarySource.isEmpty ? l.dbOnlineLibrarySection : librarySource,
+          ),
+          color: libraryPalette.color,
+          backgroundColor: libraryPalette.color.withValues(alpha: 0.18),
+          foregroundColor: isDark
+              ? libraryPalette.darkInk
+              : libraryPalette.lightInk,
+          borderColor: libraryPalette.color.withValues(alpha: 0.4),
+          shadowColor: libraryPalette.color.withValues(alpha: 0.24),
+        ),
       if (movie.hasCnsub &&
           posterBadgeVisibility.isEnabled(PosterBadgeKind.subtitle))
         CoverBadgePill(

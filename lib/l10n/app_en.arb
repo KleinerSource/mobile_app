@@ -2684,6 +2684,8 @@
   ,"dbOnlineLibrarySubtitle": "Subtitles"
   ,"dbOnlineLibraryNoResources": "No resources"
   ,"dbOnlineLibraryInLibrary": "In library"
+  ,"dbOnlineLibraryInLibraryAt": "In library ({source})"
+  ,"@dbOnlineLibraryInLibraryAt": {"placeholders":{"source":{"type":"String"}}}
   ,"dbOnlineLibraryUserRating": "Rating"
   ,"dbOnlineLibraryCommunityRating": "Community rating"
   ,"dbOnlineLibraryUnrated": "Unrated"

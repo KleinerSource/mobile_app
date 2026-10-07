@@ -2684,6 +2684,8 @@
   ,"dbOnlineLibrarySubtitle": "字幕"
   ,"dbOnlineLibraryNoResources": "无资源"
   ,"dbOnlineLibraryInLibrary": "已入库"
+  ,"dbOnlineLibraryInLibraryAt": "已入库 ({source})"
+  ,"@dbOnlineLibraryInLibraryAt": {"placeholders":{"source":{"type":"String"}}}
   ,"dbOnlineLibraryUserRating": "评分"
   ,"dbOnlineLibraryCommunityRating": "众评"
   ,"dbOnlineLibraryUnrated": "无评分"

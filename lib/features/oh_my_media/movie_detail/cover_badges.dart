@@ -306,6 +306,10 @@ class CoverBadgePill extends StatelessWidget {
     required this.label,
     required this.color,
     this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.borderColor,
+    this.shadowColor,
   });
 
   static const contentPadding = EdgeInsets.symmetric(
@@ -328,6 +332,10 @@ class CoverBadgePill extends StatelessWidget {
   final String label;
   final Color color;
   final String? tooltip;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final Color? borderColor;
+  final Color? shadowColor;
 
   @override
   Widget build(BuildContext context) {
@@ -336,15 +344,15 @@ class CoverBadgePill extends StatelessWidget {
       child: Container(
         padding: contentPadding,
         decoration: BoxDecoration(
-          color: color,
+          color: backgroundColor ?? color,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.24),
+            color: borderColor ?? Colors.white.withValues(alpha: 0.24),
             width: borderWidth,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
+              color: shadowColor ?? Colors.black.withValues(alpha: 0.22),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -353,9 +361,9 @@ class CoverBadgePill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: iconSize),
+            Icon(icon, color: foregroundColor ?? Colors.white, size: iconSize),
             const SizedBox(width: iconSpacing),
-            Text(label, style: labelStyle),
+            Text(label, style: labelStyle.copyWith(color: foregroundColor)),
           ],
         ),
       ),
