@@ -854,49 +854,57 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
         ? _filePlaybackProgress.load(entry.name)
         : null;
+    final hasImagePreview =
+        imagePreviewEnabled && !entry.isDirectory && _isImageEntry(entry);
+    final previewFrame = imagePreviewEnabled;
+    final entryIcon = FileEntryIconBadge(
+      entry: entry,
+      isFavorite: isFavorite,
+      width: previewFrame ? fileEntryPreviewIconWidth : 44,
+      height: previewFrame ? fileEntryPreviewIconHeight : 44,
+      child: hasImagePreview
+          ? FileImageThumbnail(
+              loader: _thumbnailLoader,
+              download: (cancellation) async {
+                final repository = await _repository();
+                return repository.download(
+                  entry.path,
+                  options: FileTransferOptions(cancellation: cancellation),
+                );
+              },
+              entry: entry,
+            )
+          : previewFrame
+          ? FileEntryIconPlaceholder(entry: entry)
+          : FileEntryIconAsset(
+              assetPath: fileIconAssetWhenPreviewDisabledFor(entry),
+            ),
+    );
     final Widget leading;
     if (_selectionMode) {
       final selected = _selection.contains(entry.stableKey);
       final c = appColors(context);
-      leading = SizedBox(
-        width: 40,
-        child: Center(
-          child: Icon(
-            selected
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked,
-            size: 20,
-            color: selected ? c.accent : c.muted,
+      leading = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 24,
+            child: Center(
+              child: Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 20,
+                color: selected ? c.accent : c.muted,
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          entryIcon,
+        ],
       );
     } else {
-      final hasImagePreview =
-          imagePreviewEnabled && !entry.isDirectory && _isImageEntry(entry);
-      final previewFrame = imagePreviewEnabled;
-      leading = FileEntryIconBadge(
-        entry: entry,
-        isFavorite: isFavorite,
-        width: previewFrame ? fileEntryPreviewIconWidth : 44,
-        height: previewFrame ? fileEntryPreviewIconHeight : 44,
-        child: hasImagePreview
-            ? FileImageThumbnail(
-                loader: _thumbnailLoader,
-                download: (cancellation) async {
-                  final repository = await _repository();
-                  return repository.download(
-                    entry.path,
-                    options: FileTransferOptions(cancellation: cancellation),
-                  );
-                },
-                entry: entry,
-              )
-            : previewFrame
-            ? FileEntryIconPlaceholder(entry: entry)
-            : FileEntryIconAsset(
-                assetPath: fileIconAssetWhenPreviewDisabledFor(entry),
-              ),
-      );
+      leading = entryIcon;
     }
     return SwipeActionCell(
       group: _openSwipe,
