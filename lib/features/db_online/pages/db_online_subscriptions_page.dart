@@ -1145,6 +1145,7 @@ class _DbOnlineSubscriptionsPageState
     if (entries.isEmpty) return card;
     return GlassMenuAnchor<String>(
       width: GlassMenuPanel.defaultWidth,
+      widthForEntries: GlassMenuPanel.widthForEntries,
       entries: entries,
       onSelected: (action) => _handleItemAction(action, item, l),
       onAnchorTap: _section == 'actor' || _section == 'series'
@@ -1216,6 +1217,7 @@ class _DbOnlineSubscriptionsPageState
         if (entries.isEmpty) return card;
         return GlassMenuAnchor<String>(
           width: GlassMenuPanel.defaultWidth,
+          widthForEntries: GlassMenuPanel.widthForEntries,
           entries: entries,
           onSelected: (action) => _handleItemAction(action, item, l),
           onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),
@@ -2486,6 +2488,7 @@ GlassMenuEntry<String> _subscriptionMenuEntry(
   Color? color,
 }) => GlassMenuEntry<String>.action(
   value: value,
+  label: label,
   builder: (context, selected, onTap) => GlassMenuRow(
     icon: icon,
     label: label,

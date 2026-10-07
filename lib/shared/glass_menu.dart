@@ -31,6 +31,49 @@ class GlassMenuPanel extends StatelessWidget {
     return verticalPadding * 2 + rows * rowHeight + dividers * dividerHeight;
   }
 
+  static double widthForLabels(BuildContext context, Iterable<String> labels) {
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    var longestLabel = 0.0;
+    for (final label in labels) {
+      painter.text = TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+      painter.layout();
+      if (painter.width > longestLabel) longestLabel = painter.width;
+    }
+    painter.dispose();
+    if (longestLabel == 0) return defaultWidth;
+
+    // Icon + gaps + the row's inner and outer horizontal padding.
+    const rowChromeWidth = 65.0;
+    final availableWidth = (MediaQuery.sizeOf(context).width - 24)
+        .clamp(1.0, double.infinity)
+        .toDouble();
+    return (longestLabel + rowChromeWidth)
+        .clamp(1.0, availableWidth)
+        .toDouble();
+  }
+
+  static double widthForEntries<T>(
+    BuildContext context,
+    Iterable<GlassMenuEntry<T>> entries,
+  ) {
+    final labels = entries
+        .where((entry) => !entry.isDivider)
+        .map((entry) => entry.label)
+        .whereType<String>()
+        .where((label) => label.isNotEmpty);
+    return widthForLabels(context, labels);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
@@ -179,6 +222,7 @@ class GlassMenuEntry<T> {
   const GlassMenuEntry.action({
     required this.value,
     required this.builder,
+    this.label,
     this.height = GlassMenuPanel.rowHeight,
   }) : isDivider = false,
        dividerColor = null;
@@ -186,11 +230,13 @@ class GlassMenuEntry<T> {
   const GlassMenuEntry.divider({this.dividerColor})
     : value = null,
       builder = null,
+      label = null,
       height = GlassMenuPanel.dividerHeight,
       isDivider = true;
 
   final T? value;
   final GlassMenuItemBuilder<T>? builder;
+  final String? label;
   final double height;
   final bool isDivider;
   final Color? dividerColor;
@@ -212,6 +258,7 @@ class GlassMenuAnchor<T> extends StatefulWidget {
     required this.entries,
     required this.onSelected,
     required this.width,
+    this.widthForEntries,
     this.initialSelection,
     this.placement = GlassMenuPlacement.below,
     this.alignment = GlassMenuAlignment.end,
@@ -233,6 +280,8 @@ class GlassMenuAnchor<T> extends StatefulWidget {
   final List<GlassMenuEntry<T>> entries;
   final ValueChanged<T> onSelected;
   final double width;
+  final double Function(BuildContext context, List<GlassMenuEntry<T>> entries)?
+  widthForEntries;
   final T? initialSelection;
   final GlassMenuPlacement placement;
   final GlassMenuAlignment alignment;
@@ -258,8 +307,13 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
   bool _preparingLongPress = false;
   bool _longPressReleased = false;
   Offset? _longPressPosition;
+  Offset? _longPressOrigin;
 
-  Rect? _geometry(List<GlassMenuEntry<T>> entries) {
+  Rect? _geometry(
+    List<GlassMenuEntry<T>> entries, {
+    required double width,
+    Offset? anchorPosition,
+  }) {
     final anchorObject = context.findRenderObject();
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayObject = overlay.context.findRenderObject();
@@ -277,33 +331,52 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
         entries.fold<double>(0, (total, entry) => total + entry.height);
 
     final rawLeft = switch (widget.alignment) {
-      GlassMenuAlignment.start => anchorRect.left + widget.offset.dx,
+      GlassMenuAlignment.start =>
+        (anchorPosition?.dx ?? anchorRect.left) + widget.offset.dx,
       GlassMenuAlignment.center =>
-        anchorRect.center.dx - widget.width / 2 + widget.offset.dx,
+        (anchorPosition?.dx ?? anchorRect.center.dx) -
+            width / 2 +
+            widget.offset.dx,
       GlassMenuAlignment.end =>
-        anchorRect.right - widget.width + widget.offset.dx,
+        anchorPosition == null
+            ? anchorRect.right - width + widget.offset.dx
+            : anchorPosition.dx - width / 2 + widget.offset.dx,
     };
     const horizontalInset = 12.0;
     final minLeft = overlayRect.left + horizontalInset;
-    final maxLeft = (overlayRect.right - widget.width - horizontalInset).clamp(
+    final maxLeft = (overlayRect.right - width - horizontalInset).clamp(
       minLeft,
       double.infinity,
     );
     final left = rawLeft.clamp(minLeft, maxLeft).toDouble();
 
-    final rawTop = switch (widget.placement) {
-      GlassMenuPlacement.above =>
-        anchorRect.top - menuHeight - widget.offset.dy,
-      GlassMenuPlacement.below => anchorRect.bottom + widget.offset.dy,
-    };
     const verticalInset = 12.0;
     final minTop = overlayRect.top + verticalInset;
     final maxTop = (overlayRect.bottom - menuHeight - verticalInset).clamp(
       minTop,
       double.infinity,
     );
+    final rawTop = anchorPosition == null
+        ? switch (widget.placement) {
+            GlassMenuPlacement.above =>
+              anchorRect.top - menuHeight - widget.offset.dy,
+            GlassMenuPlacement.below => anchorRect.bottom + widget.offset.dy,
+          }
+        : _topForLongPress(anchorPosition, menuHeight, minTop, maxTop);
     final top = rawTop.clamp(minTop, maxTop).toDouble();
-    return Rect.fromLTWH(left, top, widget.width, menuHeight);
+    return Rect.fromLTWH(left, top, width, menuHeight);
+  }
+
+  double _topForLongPress(
+    Offset position,
+    double menuHeight,
+    double minTop,
+    double maxTop,
+  ) {
+    const gap = 8.0;
+    final below = position.dy + gap + widget.offset.dy;
+    if (below <= maxTop) return below;
+    return position.dy - menuHeight - gap + widget.offset.dy;
   }
 
   T? _valueAt(Offset globalPosition) {
@@ -326,13 +399,20 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
   void _open({
     required bool interactive,
     Offset? initialPosition,
+    Offset? anchorPosition,
     List<GlassMenuEntry<T>>? entries,
   }) {
     final openEntries = entries ?? widget.entries;
     if (!widget.enabled || _overlayEntry != null || openEntries.isEmpty) {
       return;
     }
-    final rect = _geometry(openEntries);
+    final width =
+        widget.widthForEntries?.call(context, openEntries) ?? widget.width;
+    final rect = _geometry(
+      openEntries,
+      width: width,
+      anchorPosition: anchorPosition,
+    );
     if (rect == null) return;
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayObject = overlay.context.findRenderObject();
@@ -359,7 +439,7 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
             Positioned(
               left: localTopLeft.dx,
               top: localTopLeft.dy,
-              width: widget.width,
+              width: rect.width,
               height: rect.height,
               child: ValueListenableBuilder<T?>(
                 valueListenable: selection,
@@ -367,7 +447,7 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
                   final panel = _GlassMenuContent<T>(
                     entries: _openEntries!,
                     selected: selected,
-                    width: widget.width,
+                    width: rect.width,
                     onSelect: _select,
                   );
                   return _interactive ? panel : IgnorePointer(child: panel);
@@ -404,9 +484,14 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     AppHaptics.medium();
     _longPressReleased = false;
     _longPressPosition = details.globalPosition;
+    _longPressOrigin = details.globalPosition;
     final loadEntries = widget.onLongPressEntries;
     if (loadEntries == null) {
-      _open(interactive: false, initialPosition: details.globalPosition);
+      _open(
+        interactive: false,
+        initialPosition: details.globalPosition,
+        anchorPosition: details.globalPosition,
+      );
       return;
     }
     _preparingLongPress = true;
@@ -425,6 +510,7 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
       _open(
         interactive: released,
         initialPosition: released ? null : _longPressPosition,
+        anchorPosition: _longPressOrigin,
         entries: entries,
       );
     } catch (error, stackTrace) {
@@ -483,6 +569,7 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     _preparingLongPress = false;
     _longPressReleased = false;
     _longPressPosition = null;
+    _longPressOrigin = null;
     final entry = _overlayEntry;
     _overlayEntry = null;
     _menuRect = null;

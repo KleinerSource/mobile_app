@@ -355,6 +355,7 @@ class _DbOnlineSubscriptionVideosSheetState
     final card = LayoutBuilder(
       builder: (context, constraints) => GlassMenuAnchor<String>(
         width: GlassMenuPanel.defaultWidth,
+        widthForEntries: GlassMenuPanel.widthForEntries,
         entries: hidden ? const [] : menuEntries,
         onSelected: (status) => _updateStatus(item, status, l),
         onAnchorTap: () => _openSubscriptionMovieDetail(context, ref, item),

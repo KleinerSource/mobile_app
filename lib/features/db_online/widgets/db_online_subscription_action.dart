@@ -86,6 +86,7 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           for (final action in actions)
             GlassMenuEntry<String>.action(
               value: action.$1,
+              label: action.$2,
               builder: (context, selected, onTap) => GlassMenuRow(
                 label: action.$2,
                 icon: action.$3,
