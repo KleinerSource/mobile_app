@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/localized_error_message.dart';
 import 'configs_providers.dart';
@@ -206,11 +207,13 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
           if (_error != null)
             Text(_error!, style: TextStyle(color: appColors(context).danger)),
           const SizedBox(height: 16),
-          OutlinedButton(
+          SettingsSaveButton(
             onPressed: _busy ? null : _load,
-            child: Text(l.ommRefreshStatus),
+            label: l.ommRefreshStatus,
+            icon: Icons.refresh_rounded,
           ),
-          FilledButton(
+          const SizedBox(height: 12),
+          SettingsSaveButton(
             onPressed:
                 _busy ||
                     _toolsAvailable ||
@@ -218,7 +221,8 @@ class _FfmpegToolsViewState extends ConsumerState<_FfmpegToolsView> {
                     _environment?['supported'] != true
                 ? null
                 : _startInstall,
-            child: Text(l.ommInstallFfmpeg),
+            label: l.ommInstallFfmpeg,
+            icon: Icons.download_rounded,
           ),
         ],
       ),

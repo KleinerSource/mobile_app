@@ -271,11 +271,13 @@ class SettingsSaveButton extends StatelessWidget {
     required this.onPressed,
     this.saving = false,
     this.label,
+    this.icon = Icons.save_outlined,
   });
 
   final VoidCallback? onPressed;
   final bool saving;
   final String? label;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -302,7 +304,7 @@ class SettingsSaveButton extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2, color: c.bg),
               )
-            : const Icon(Icons.save_outlined, size: 18),
+            : Icon(icon, size: 18),
         label: Text(
           saving ? l.commonSaving : (label ?? l.commonSaveSettings),
           style: const TextStyle(
