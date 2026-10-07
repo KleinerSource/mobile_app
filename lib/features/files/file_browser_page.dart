@@ -856,28 +856,17 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         : null;
     final Widget leading;
     if (_selectionMode) {
+      final selected = _selection.contains(entry.stableKey);
+      final c = appColors(context);
       leading = SizedBox(
         width: 40,
         child: Center(
-          child: Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: _selectedKeys.contains(entry.stableKey)
-                  ? colors.primary
-                  : colors.surfaceContainerHighest,
-              border: Border.all(
-                color: _selectedKeys.contains(entry.stableKey)
-                    ? colors.primary
-                    : colors.outline,
-                width: 1.5,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: _selectedKeys.contains(entry.stableKey)
-                ? const Icon(Icons.check, color: Colors.white, size: 15)
-                : null,
+          child: Icon(
+            selected
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked,
+            size: 20,
+            color: selected ? c.accent : c.muted,
           ),
         ),
       );

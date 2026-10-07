@@ -666,7 +666,7 @@ void _expectSelectedEntries(WidgetTester tester, Set<String> selectedNames) {
     final tile = tester.widget<ListTile>(_fileEntryTile(name));
     final checkmark = find.descendant(
       of: find.byWidget(tile.leading!),
-      matching: find.byIcon(Icons.check),
+      matching: find.byIcon(Icons.check_circle_rounded),
     );
     expect(
       checkmark,
