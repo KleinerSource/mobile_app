@@ -422,6 +422,13 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
     final actions = <(String, String, IconData)>[];
     if (kind == 'video') {
       final currentStatus = state!.status.isEmpty ? 'pending' : state.status;
+      if (currentStatus == 'pending') {
+        actions.add((
+          'complete',
+          l.dbOnlineSubscriptionCompleteAction,
+          Icons.done_all_rounded,
+        ));
+      }
       if (state.overdue ||
           currentStatus == 'skipped' ||
           currentStatus == 'completed') {
@@ -438,13 +445,6 @@ class DbOnlineSubscriptionAction extends ConsumerWidget {
           'skip',
           l.dbOnlineSubscriptionSkipAction,
           Icons.skip_next_rounded,
-        ));
-      }
-      if (currentStatus == 'pending') {
-        actions.add((
-          'complete',
-          l.dbOnlineSubscriptionCompleteAction,
-          Icons.done_all_rounded,
         ));
       }
     }
