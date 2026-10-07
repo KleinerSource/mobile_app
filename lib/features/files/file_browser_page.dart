@@ -752,7 +752,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             child: DragSelectionScope<String>(
               scrollController: _scrollController,
               selectionLayout: DragSelectionLayout.list,
-              isSelected: _selectedKeys.contains,
+              isSelected: _selection.contains,
               onSelectionStart: _startSelectionSweep,
               onSelectionChanged: _applySelectionSweep,
               onSelectionEnd: _finishSelectionSweep,

@@ -65,6 +65,88 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('文件管理器首次长按下拉选择后回拖撤销超出范围的勾选', (tester) async {
+    await _pumpShell(tester);
+
+    final first = _fileEntryTile('目录 A');
+    final second = _fileEntryTile('未知文件.bin');
+    final last = _fileEntryTile('根目录文件.txt');
+    final gesture = await tester.startGesture(tester.getCenter(first));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+
+    await gesture.moveTo(tester.getCenter(last));
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '根目录文件.txt', '未知文件.bin'});
+
+    await gesture.moveTo(tester.getCenter(second));
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '未知文件.bin'});
+
+    await gesture.moveTo(tester.getCenter(first));
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A'});
+
+    await gesture.moveTo(tester.getCenter(last));
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '根目录文件.txt', '未知文件.bin'});
+    await gesture.moveTo(tester.getCenter(first));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A'});
+  });
+
+  testWidgets('文件管理器复选框回拖保留拖动前已选的文件', (tester) async {
+    await _pumpShell(tester);
+    await tester.longPress(find.text('根目录文件.txt'));
+    await tester.pumpAndSettle();
+    _expectSelectedEntries(tester, {'根目录文件.txt'});
+
+    final first = _fileEntryTile('目录 A');
+    final rect = tester.getRect(first);
+    final gesture = await tester.startGesture(
+      Offset(rect.left + 36, rect.center.dy),
+    );
+    await gesture.moveTo(
+      Offset(rect.left + 36, tester.getCenter(_fileEntryTile('根目录文件.txt')).dy),
+    );
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '根目录文件.txt', '未知文件.bin'});
+
+    await gesture.moveTo(Offset(rect.left + 36, rect.center.dy));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '根目录文件.txt'});
+  });
+
+  testWidgets('文件管理器取消拖选回拖恢复范围外原有勾选', (tester) async {
+    await _pumpShell(tester);
+    await tester.longPress(find.text('目录 A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('根目录文件.txt'));
+    await tester.tap(find.text('未知文件.bin'));
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '根目录文件.txt', '未知文件.bin'});
+
+    final second = _fileEntryTile('未知文件.bin');
+    final rect = tester.getRect(second);
+    final gesture = await tester.startGesture(
+      Offset(rect.left + 36, rect.center.dy),
+    );
+    await gesture.moveTo(
+      Offset(rect.left + 36, tester.getCenter(_fileEntryTile('根目录文件.txt')).dy),
+    );
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A'});
+
+    await gesture.moveTo(Offset(rect.left + 36, rect.center.dy));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    _expectSelectedEntries(tester, {'目录 A', '根目录文件.txt'});
+  });
+
   testWidgets('收藏 Tab 展示独立收藏列表并可取消收藏', (tester) async {
     await _pumpShell(
       tester,
@@ -574,6 +656,24 @@ Future<void> _pumpShell(
       .read(serverRuntimeProvider.notifier)
       .commit(ServerRuntimeLane.files, serverId);
   await tester.pumpAndSettle();
+}
+
+Finder _fileEntryTile(String name) =>
+    find.ancestor(of: find.text(name), matching: find.byType(ListTile));
+
+void _expectSelectedEntries(WidgetTester tester, Set<String> selectedNames) {
+  for (final name in ['目录 A', '根目录文件.txt', '未知文件.bin']) {
+    final tile = tester.widget<ListTile>(_fileEntryTile(name));
+    final checkmark = find.descendant(
+      of: find.byWidget(tile.leading!),
+      matching: find.byIcon(Icons.check),
+    );
+    expect(
+      checkmark,
+      selectedNames.contains(name) ? findsOneWidget : findsNothing,
+      reason: name,
+    );
+  }
 }
 
 Future<void> _startBatchDelete(WidgetTester tester) async {

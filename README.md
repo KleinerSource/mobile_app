@@ -46,18 +46,22 @@ flutter build ios --release --no-codesign --no-pub
 依赖准备和代码生成完成后，在项目根目录运行：
 
 ```sh
-# 打包前快速检查：固定 12 个文件，覆盖认证、配置、API、分页、预览和构建工具。
+# 本地快速反馈：固定名单，覆盖认证、配置、API、分页、预览和构建工具。
 dart tool/run_fast_tests.dart
 
-# 完整回归：包括页面交互、播放器、文件操作及截图测试。
+# 静态分析与完整回归：包括页面交互、播放器、文件操作及布局测试。
+flutter analyze --no-pub
 flutter test --no-pub
+
+# Windows 页头截图回归：比较固定平台的截图基线。
+flutter test --no-pub --dart-define=HEADER_GOLDENS=true test/shared/header_visual_test.dart --reporter expanded
 ```
 
-Android/iOS 构建继续执行静态分析，但打包前只等待快速集（当前 214 项）；任一快速测试失败仍会阻止打包。入口透传 Flutter 输出和退出码，Windows、Linux、macOS 使用同一命令。
+`Full Tests` 是 push、PR 和手动运行的统一入口：先执行静态分析、完整 Flutter 回归和 Windows 页头截图回归，全部成功后才并行启动 Android/iOS 构建。任何前置检查失败、取消或未执行，都会阻止两平台构建及发布。
 
-`Full Tests` 工作流在 push、PR 和手动触发时独立运行完整回归，同分支新运行会取消旧运行。失败保持红色状态，测试结果、耗时和截图失败文件保存在 `full-test-results` artifact 中，保留 7 天。完整回归不阻塞 Android/iOS 构建或现有发布流程，**产物发布不代表完整回归已经通过**。
+Android/iOS 与页头截图工作流仅由 `Full Tests` 调用，使用同一次运行的提交；两平台不再重复执行静态分析或快速测试。签名、版本号、产物上传和发布条件沿用现有规则。手动构建时选择 `Full Tests` 的 Run workflow。
 
-快速集名单维护在 `tool/run_fast_tests.dart`；新增测试默认进入完整回归，不自动扩大打包前检查。CI 测试阶段目标为 2 分钟以内，需以 GitHub Actions 实际耗时验证，不能用本机耗时替代。
+同分支的新运行会取消旧的整条流水线。完整测试结果与耗时保存在 `full-test-results`，截图失败差异保存在 `header-visual-differences`，均保留 7 天。`tool/run_fast_tests.dart` 保留用于本地快速反馈；新增测试默认进入 CI 完整回归。
 
 ## 结构与代码生成
 
