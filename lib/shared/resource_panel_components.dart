@@ -119,7 +119,7 @@ class ResourcePanelShell extends StatelessWidget {
                   onTabSelected: onTabSelected,
                 ),
               if (contentTopSpacing > 0) SizedBox(height: contentTopSpacing),
-              child,
+              Flexible(fit: FlexFit.loose, child: child),
             ],
           ),
         ),

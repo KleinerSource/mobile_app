@@ -293,11 +293,11 @@ void main() {
     );
     await tester.tapAt(tester.getRect(menu).topLeft + const Offset(2, 2));
     await tester.pumpAndSettle();
-    expect(find.text('获取资源'), findsOneWidget);
+    expect(find.text('在线资源'), findsOneWidget);
     expect(find.text('获取字幕'), findsOneWidget);
     await tester.tapAt(const Offset(10, 200));
     await tester.pumpAndSettle();
-    expect(find.text('获取资源'), findsNothing);
+    expect(find.text('在线资源'), findsNothing);
     expect(find.byType(DbOnlineMovieDetailPage), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
