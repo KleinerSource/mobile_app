@@ -301,8 +301,8 @@ const _documentFileIconAsset = 'assets/file_icons/document_file_icon.png';
 const _audioFileIconAsset = 'assets/file_icons/audio_file_icon.png';
 const _codeFileIconAsset = 'assets/file_icons/code_file_icon.png';
 
-const fileEntryPreviewIconWidth = 64.0;
-const fileEntryPreviewIconHeight = 36.0;
+const fileEntryPreviewIconWidth = 96.0;
+const fileEntryPreviewIconHeight = 54.0;
 
 FileTypeIcon fileTypeIconFor(FileEntry entry) {
   final mime = entry.mimeType?.trim().toLowerCase() ?? '';

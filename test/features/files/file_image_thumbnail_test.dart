@@ -31,8 +31,8 @@ void main() {
             child: RepaintBoundary(
               key: boundaryKey,
               child: SizedBox(
-                width: 64,
-                height: 36,
+                width: fileEntryPreviewIconWidth,
+                height: fileEntryPreviewIconHeight,
                 child: FileEntryIconPlaceholder(entry: _entry('video.mp4')),
               ),
             ),
@@ -79,7 +79,7 @@ void main() {
       final boundary =
           boundaryKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
-      expect(boundary.size, const Size(64, 36));
+      expect(boundary.size, const Size(96, 54));
       final before = await tester.runAsync(() async {
         final image = await boundary.toImage(pixelRatio: 3);
         final data = await image.toByteData();
