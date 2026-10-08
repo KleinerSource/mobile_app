@@ -419,17 +419,50 @@ class FileEntryIconBadge extends StatelessWidget {
 }
 
 class FileEntryIconAsset extends StatelessWidget {
-  const FileEntryIconAsset({super.key, required this.assetPath});
+  const FileEntryIconAsset({
+    super.key,
+    required this.assetPath,
+    this.fit = BoxFit.contain,
+  });
 
   final String assetPath;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
     return Image.asset(
       assetPath,
-      fit: BoxFit.contain,
+      fit: fit,
       filterQuality: FilterQuality.medium,
       excludeFromSemantics: true,
+    );
+  }
+}
+
+/// 图片与视频共用预览尺寸和圆角，按视频占位资源的可见轮廓绘制。
+class FileEntryMediaPreviewFrame extends StatelessWidget {
+  const FileEntryMediaPreviewFrame({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // video_placeholder.png 为 393×256，圆角约 36px。
+    return SizedBox(
+      width: fileEntryPreviewIconWidth,
+      height: fileEntryPreviewIconHeight,
+      child: Center(
+        child: SizedBox(
+          width: fileEntryPreviewIconHeight * 393 / 256,
+          height: fileEntryPreviewIconHeight,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(
+              fileEntryPreviewIconHeight * 36 / 256,
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -445,7 +478,14 @@ class FileEntryIconPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FileEntryIconAsset(assetPath: fileIconPlaceholderAssetFor(entry));
+    final assetPath = fileIconPlaceholderAssetFor(entry);
+    if (assetPath == _imagePlaceholderAsset ||
+        assetPath == _videoPlaceholderAsset) {
+      return FileEntryMediaPreviewFrame(
+        child: FileEntryIconAsset(assetPath: assetPath, fit: BoxFit.cover),
+      );
+    }
+    return FileEntryIconAsset(assetPath: assetPath);
   }
 }
 

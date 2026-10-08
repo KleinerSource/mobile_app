@@ -11,20 +11,50 @@ import 'package:omm/features/files/file_entry_icons.dart';
 import 'package:omm/features/files/file_image_thumbnail.dart';
 import 'package:omm/features/files/file_thumbnail_loader.dart';
 
-FileEntry _entry() => const FileEntry(
-  path: FilePath(sourceId: SourceId('files-1'), value: 'photo.png'),
-  name: 'photo.png',
+FileEntry _entry([String name = 'photo.png']) => FileEntry(
+  path: FilePath(sourceId: const SourceId('files-1'), value: name),
+  name: name,
   type: FileEntryType.file,
   size: 68,
 );
 
 void main() {
   for (final size in [const Size(512, 256), const Size(256, 512)]) {
-    testWidgets('图片 $size 加载前后保持占位轮廓，解码不拉伸', (tester) async {
+    testWidgets('图片 $size 加载前后与视频占位轮廓一致，解码不拉伸', (tester) async {
       final loader = FileThumbnailLoader();
       addTearDown(loader.dispose);
       final download = Completer<Stream<List<int>>>();
       final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: SizedBox(
+                width: 64,
+                height: 36,
+                child: FileEntryIconPlaceholder(entry: _entry('video.mp4')),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        await precacheImage(
+          const AssetImage('assets/file_icons/video_placeholder.png'),
+          tester.element(find.byType(FileEntryIconPlaceholder)),
+        );
+      });
+      await tester.pumpAndSettle();
+      final video = await tester.runAsync(() async {
+        final boundary =
+            boundaryKey.currentContext!.findRenderObject()
+                as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 3);
+        final data = await image.toByteData();
+        image.dispose();
+        return data!;
+      });
       await tester.pumpWidget(
         MaterialApp(
           home: Center(
@@ -83,14 +113,16 @@ void main() {
         image.dispose();
         return data!;
       });
-      var changedPixels = 0;
-      for (var i = 3; i < before!.lengthInBytes; i += 4) {
-        if ((before.getUint8(i) >= 128) != (after!.getUint8(i) >= 128)) {
-          changedPixels++;
+      for (final actual in [before!, after!]) {
+        var changedPixels = 0;
+        for (var i = 3; i < video!.lengthInBytes; i += 4) {
+          if ((video.getUint8(i) >= 128) != (actual.getUint8(i) >= 128)) {
+            changedPixels++;
+          }
         }
+        // 允许资源抗锯齿与圆角裁切在边缘有少量像素差异。
+        expect(changedPixels / (video.lengthInBytes / 4), lessThan(0.02));
       }
-      // 允许资源抗锯齿与圆角裁切在边缘有少量像素差异。
-      expect(changedPixels / (before.lengthInBytes / 4), lessThan(0.02));
       await tester.pumpWidget(const SizedBox());
       expect(tester.takeException(), isNull);
     });

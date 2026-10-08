@@ -62,54 +62,38 @@ class _FileImageThumbnailState extends State<FileImageThumbnail> {
   @override
   Widget build(BuildContext context) {
     final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    // 与 image_placeholder.png 的 351×256 画布、约 44px 圆角保持一致。
-    const previewWidth = fileEntryPreviewIconHeight * 351 / 256;
-    return SizedBox(
-      width: fileEntryPreviewIconWidth,
-      height: fileEntryPreviewIconHeight,
-      child: Center(
-        child: SizedBox(
-          width: previewWidth,
-          height: fileEntryPreviewIconHeight,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(
-              fileEntryPreviewIconHeight * 44 / 256,
-            ),
-            child: FutureBuilder<Uint8List?>(
-              key: ObjectKey(_request),
-              future: _request.bytes,
-              builder: (context, snapshot) {
-                final data = snapshot.connectionState == ConnectionState.done
-                    ? snapshot.data
-                    : null;
-                if (data == null || data.isEmpty) {
-                  return FileEntryIconPlaceholder(entry: widget.entry);
-                }
-                final image = ResizeImage(
-                  MemoryImage(data),
-                  width: (fileEntryPreviewIconWidth * pixelRatio).ceil(),
-                  height: (fileEntryPreviewIconHeight * pixelRatio).ceil(),
-                  policy: ResizeImagePolicy.fit,
-                );
-                if (_image != image) {
-                  final previous = _image;
-                  _image = image;
-                  if (previous != null) unawaited(previous.evict());
-                }
-                return Image(
-                  image: image,
-                  width: previewWidth,
-                  height: fileEntryPreviewIconHeight,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.medium,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, __, ___) =>
-                      FileEntryIconPlaceholder(entry: widget.entry),
-                );
-              },
-            ),
-          ),
-        ),
+    final placeholder = FileEntryIconAsset(
+      assetPath: fileIconPlaceholderAssetFor(widget.entry),
+      fit: BoxFit.cover,
+    );
+    return FileEntryMediaPreviewFrame(
+      child: FutureBuilder<Uint8List?>(
+        key: ObjectKey(_request),
+        future: _request.bytes,
+        builder: (context, snapshot) {
+          final data = snapshot.connectionState == ConnectionState.done
+              ? snapshot.data
+              : null;
+          if (data == null || data.isEmpty) return placeholder;
+          final image = ResizeImage(
+            MemoryImage(data),
+            width: (fileEntryPreviewIconWidth * pixelRatio).ceil(),
+            height: (fileEntryPreviewIconHeight * pixelRatio).ceil(),
+            policy: ResizeImagePolicy.fit,
+          );
+          if (_image != image) {
+            final previous = _image;
+            _image = image;
+            if (previous != null) unawaited(previous.evict());
+          }
+          return Image(
+            image: image,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.medium,
+            gaplessPlayback: true,
+            errorBuilder: (_, __, ___) => placeholder,
+          );
+        },
       ),
     );
   }
