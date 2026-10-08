@@ -233,6 +233,8 @@ void main() {
     );
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
+    expect(find.text('大小排序'), findsNothing);
+    await _toggle(tester, '排序');
     await tester.tap(
       find.ancestor(
         of: find.text('大小排序'),
@@ -247,6 +249,23 @@ void main() {
       lessThan(tester.getTopLeft(find.text('A.mp4')).dy),
     );
     expect(find.text('音乐.flac'), findsNothing);
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    expect(find.text('大小排序 ↑'), findsNothing);
+    await _toggle(tester, '排序');
+    await tester.tap(
+      find.ancestor(
+        of: find.text('大小排序 ↑'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is CheckedPopupMenuItem,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('A.mp4')).dy,
+      lessThan(tester.getTopLeft(find.text('B.mkv')).dy),
+    );
     await tester.longPress(find.text('A.mp4'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('批量操作'));
@@ -282,6 +301,7 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     expect(_checked(tester, '显示隐藏文件'), isTrue);
+    await _toggle(tester, '排序');
     await tester.ensureVisible(find.text('类别排序'));
     await tester.tap(
       find.ancestor(

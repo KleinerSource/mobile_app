@@ -267,6 +267,7 @@
   "fileFilterOther": "Other",
   "fileFilterEmpty": "No files match the selected filters",
   "fileSortName": "Name",
+  "fileSort": "Sort",
   "fileSortDate": "Date",
   "fileSortSize": "Size",
   "fileSortCategory": "Type",

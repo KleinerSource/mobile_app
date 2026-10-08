@@ -267,6 +267,7 @@
   "fileFilterOther": "其他",
   "fileFilterEmpty": "没有符合筛选条件的文件",
   "fileSortName": "名称",
+  "fileSort": "排序",
   "fileSortDate": "日期",
   "fileSortSize": "大小",
   "fileSortCategory": "类别",

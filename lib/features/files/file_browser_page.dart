@@ -318,59 +318,72 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                               Icons.checklist_outlined,
                               l.fileSelect,
                             ),
-                            _FileTypeFilterMenu(
-                              serverId: widget.serverId,
-                              onChanged: () {
-                                _openSwipe.value = null;
-                                if (_selectionMode) _exitSelection();
-                              },
-                            ),
-                            CheckedPopupMenuItem<_BrowserMenuAction>(
-                              value: _BrowserMenuAction.sortName,
-                              checked:
-                                  browserPreferences.sortField ==
-                                  FileBrowserSortField.name,
-                              child: Text(
-                                _sortMenuLabel(
-                                  l.fileSortName,
-                                  FileBrowserSortField.name,
-                                ),
+                            _FileBrowserExpandableMenu(
+                              title: l.fileTypeFilter,
+                              icon: Icons.filter_list,
+                              child: _FileTypeFilterOptions(
+                                serverId: widget.serverId,
+                                onChanged: () {
+                                  _openSwipe.value = null;
+                                  if (_selectionMode) _exitSelection();
+                                },
                               ),
                             ),
-                            CheckedPopupMenuItem<_BrowserMenuAction>(
-                              value: _BrowserMenuAction.sortDate,
-                              checked:
-                                  browserPreferences.sortField ==
-                                  FileBrowserSortField.date,
-                              child: Text(
-                                _sortMenuLabel(
-                                  l.fileSortDate,
-                                  FileBrowserSortField.date,
-                                ),
-                              ),
-                            ),
-                            CheckedPopupMenuItem<_BrowserMenuAction>(
-                              value: _BrowserMenuAction.sortSize,
-                              checked:
-                                  browserPreferences.sortField ==
-                                  FileBrowserSortField.size,
-                              child: Text(
-                                _sortMenuLabel(
-                                  l.fileSortSize,
-                                  FileBrowserSortField.size,
-                                ),
-                              ),
-                            ),
-                            CheckedPopupMenuItem<_BrowserMenuAction>(
-                              value: _BrowserMenuAction.sortCategory,
-                              checked:
-                                  browserPreferences.sortField ==
-                                  FileBrowserSortField.category,
-                              child: Text(
-                                _sortMenuLabel(
-                                  l.fileSortCategory,
-                                  FileBrowserSortField.category,
-                                ),
+                            _FileBrowserExpandableMenu(
+                              title: l.fileSort,
+                              icon: Icons.sort,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                                    value: _BrowserMenuAction.sortName,
+                                    checked:
+                                        browserPreferences.sortField ==
+                                        FileBrowserSortField.name,
+                                    child: Text(
+                                      _sortMenuLabel(
+                                        l.fileSortName,
+                                        FileBrowserSortField.name,
+                                      ),
+                                    ),
+                                  ),
+                                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                                    value: _BrowserMenuAction.sortDate,
+                                    checked:
+                                        browserPreferences.sortField ==
+                                        FileBrowserSortField.date,
+                                    child: Text(
+                                      _sortMenuLabel(
+                                        l.fileSortDate,
+                                        FileBrowserSortField.date,
+                                      ),
+                                    ),
+                                  ),
+                                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                                    value: _BrowserMenuAction.sortSize,
+                                    checked:
+                                        browserPreferences.sortField ==
+                                        FileBrowserSortField.size,
+                                    child: Text(
+                                      _sortMenuLabel(
+                                        l.fileSortSize,
+                                        FileBrowserSortField.size,
+                                      ),
+                                    ),
+                                  ),
+                                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                                    value: _BrowserMenuAction.sortCategory,
+                                    checked:
+                                        browserPreferences.sortField ==
+                                        FileBrowserSortField.category,
+                                    child: Text(
+                                      _sortMenuLabel(
+                                        l.fileSortCategory,
+                                        FileBrowserSortField.category,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

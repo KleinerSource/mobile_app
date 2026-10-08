@@ -446,10 +446,18 @@ void main() {
     expect(find.text('选择'), findsOneWidget);
     expect(find.text('类型筛选'), findsOneWidget);
     expect(find.text('显示隐藏文件'), findsNothing);
+    expect(find.text('排序'), findsOneWidget);
+    expect(find.text('名称排序 ↑'), findsNothing);
+    await tester.tap(find.text('排序'));
+    await tester.pumpAndSettle();
     expect(find.text('名称排序 ↑'), findsOneWidget);
     expect(find.text('日期排序'), findsOneWidget);
     expect(find.text('大小排序'), findsOneWidget);
     expect(find.text('类别排序'), findsOneWidget);
+
+    await tester.tap(find.text('排序'));
+    await tester.pumpAndSettle();
+    expect(find.text('名称排序 ↑'), findsNothing);
 
     await tester.tap(find.text('类型筛选'));
     await tester.pumpAndSettle();
