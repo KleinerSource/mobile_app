@@ -207,6 +207,7 @@ class DbOnlineDownloadRecordCard extends StatelessWidget {
             MediaListRow(
               thumbnailWidth: 60,
               padding: const EdgeInsets.symmetric(vertical: 8),
+              showDivider: expanded,
               privacyId: privacyKey,
               privacyAwareTap: true,
               onTap: onOpen,
@@ -224,11 +225,30 @@ class DbOnlineDownloadRecordCard extends StatelessWidget {
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    record.videoCode.isEmpty
-                        ? l.dbOnlineDownloadRecordsUnknownVideo
-                        : record.videoCode,
-                    style: AppText.mono(context, color: colors.accent),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          record.videoCode.isEmpty
+                              ? l.dbOnlineDownloadRecordsUnknownVideo
+                              : record.videoCode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.mono(context, color: colors.accent),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          formatted.isEmpty ? '--' : formatted,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: AppText.meta(context),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 3),
                   PrivacyText(
@@ -240,16 +260,7 @@ class DbOnlineDownloadRecordCard extends StatelessWidget {
                   ),
                 ],
               ),
-              meta: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    formatted.isEmpty ? '--' : formatted,
-                    style: AppText.meta(context),
-                  ),
-                  Text(downloaderLabel, style: AppText.meta(context)),
-                ],
-              ),
+              meta: Text(downloaderLabel, style: AppText.meta(context)),
               additional: ResourceTagBadges(
                 tags: record.resourceTypes,
                 showNormal: record.resourceTypes.contains('normal'),

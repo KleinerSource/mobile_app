@@ -24,6 +24,7 @@ class MediaListRow extends StatelessWidget {
     this.trailing,
     this.trailingGap = 8,
     this.padding = const EdgeInsets.symmetric(vertical: 10),
+    this.showDivider = true,
     this.onTap,
     this.onLongPress,
     this.borderRadius,
@@ -45,6 +46,7 @@ class MediaListRow extends StatelessWidget {
   final Widget? trailing;
   final double trailingGap;
   final EdgeInsetsGeometry padding;
+  final bool showDivider;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final double? borderRadius;
@@ -55,9 +57,11 @@ class MediaListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final content = Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.divider)),
-      ),
+      decoration: showDivider
+          ? BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.divider)),
+            )
+          : null,
       padding: padding,
       child: Row(
         children: [

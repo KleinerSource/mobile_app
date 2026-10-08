@@ -86,15 +86,6 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
               child: Row(
                 children: [
                   CompactSortButton(
-                    label: l.dbOnlineRecentUpdated,
-                    active: _filter.sortBy == 'update',
-                    ascending: false,
-                    onTap: () => _change(
-                      _filter.copyWith(sortBy: 'update', orderBy: 'desc'),
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  CompactSortButton(
                     label: l.dbOnlineDetailDate,
                     active: _filter.sortBy == 'release',
                     ascending: _filter.orderBy == 'asc',
@@ -107,6 +98,15 @@ class _FilterSheetState extends ConsumerState<DbOnlineFollowingFilterSheet> {
                             ? 'asc'
                             : 'desc',
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  CompactSortButton(
+                    label: l.dbOnlineRecentUpdated,
+                    active: _filter.sortBy == 'update',
+                    ascending: false,
+                    onTap: () => _change(
+                      _filter.copyWith(sortBy: 'update', orderBy: 'desc'),
                     ),
                   ),
                 ],

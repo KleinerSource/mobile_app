@@ -330,6 +330,11 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
                 children: [
                   if (movie.canPlay)
                     Expanded(
+                      key: ValueKey((
+                        'play',
+                        config?.activeServerId ?? '',
+                        movie.code,
+                      )),
                       flex: 2,
                       child: _PlayButton(
                         movie: movie,
@@ -340,6 +345,12 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
                     const SizedBox(width: 10),
                   if (subscriptionAvailable)
                     Expanded(
+                      // 在线刷新增减播放按钮时保留订阅入口及其异步操作。
+                      key: ValueKey((
+                        'subscription',
+                        config?.activeServerId ?? '',
+                        movie.code,
+                      )),
                       child: DbOnlineSubscriptionAction(
                         kind: 'video',
                         id: movie.code,

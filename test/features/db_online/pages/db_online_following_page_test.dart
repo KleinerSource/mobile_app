@@ -9,6 +9,7 @@ import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_subscription_repository.dart';
 import 'package:omm/features/db_online/widgets/db_online_movie_card.dart';
+import 'package:omm/features/db_online/widgets/db_online_following_filter_sheet.dart';
 import 'package:omm/features/main/media_manager_shell.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/shared/floating_tab_bar.dart';
@@ -71,7 +72,7 @@ void main() {
       'filter_by': '0:t:m::::',
       'page': 1,
       'limit': 24,
-      'sort_by': 'update',
+      'sort_by': 'release',
       'order_by': 'desc',
     });
     expect(find.byType(DbOnlineMovieCard), findsOneWidget);
@@ -84,7 +85,7 @@ void main() {
       'filter_by': '1:t:m::::',
       'page': 1,
       'limit': 24,
-      'sort_by': 'update',
+      'sort_by': 'release',
       'order_by': 'desc',
     });
     await tester.tap(find.text('字幕'));
@@ -95,8 +96,6 @@ void main() {
     );
     await tester.tap(find.text('发布日期'));
     await pumpFollowingFrames(tester);
-    await tester.tap(find.text('发布日期'));
-    await pumpFollowingFrames(tester);
     expect(backend.to('/subs/tags').last.queryParameters['order_by'], 'asc');
     await tester.tap(find.text('最近更新'));
     await pumpFollowingFrames(tester);
@@ -105,6 +104,49 @@ void main() {
     await pumpFollowingFrames(tester);
     expect(find.byType(DbOnlineMovieCard), findsOneWidget);
     expect(find.text('关注影片'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重新进入关注列表恢复默认筛选和发布日期降序，不保存设置', (tester) async {
+    final backend = FollowingTestBackend();
+    var generation = 0;
+    late StateSetter rebuild;
+    final container = await pumpFollowingTest(
+      tester,
+      backend,
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return DbOnlineFollowingPage(key: ValueKey(generation));
+        },
+      ),
+    );
+    final preferenceKeys = container.read(sharedPrefsProvider).getKeys();
+    await tester.tap(find.byTooltip('筛选'));
+    await pumpFollowingFrames(tester);
+    await tester.tap(find.text('无码'));
+    await pumpFollowingFrames(tester);
+    await tester.tap(find.text('最近更新'));
+    await pumpFollowingFrames(tester);
+    expect(
+      backend.to('/subs/tags').last.queryParameters['filter_by'],
+      '1:t:m::::',
+    );
+    expect(backend.to('/subs/tags').last.queryParameters['sort_by'], 'update');
+    Navigator.of(
+      tester.element(find.byType(DbOnlineFollowingFilterSheet)),
+    ).pop();
+    await pumpFollowingFrames(tester);
+    rebuild(() => generation++);
+    await pumpFollowingFrames(tester);
+    expect(backend.to('/subs/tags').last.queryParameters, {
+      'filter_by': '0:t:m::::',
+      'page': 1,
+      'limit': 24,
+      'sort_by': 'release',
+      'order_by': 'desc',
+    });
+    expect(container.read(sharedPrefsProvider).getKeys(), preferenceKeys);
     expect(tester.takeException(), isNull);
   });
 
@@ -156,6 +198,23 @@ void main() {
     expect(
       backend.to('/subs/tags').last.queryParameters['filter_by'],
       '3:t:m::::',
+    );
+    (container.read(serverConfigProvider.notifier) as FollowingTestServerState)
+        .select('a');
+    await pumpFollowingFrames(tester);
+    expect(find.text('资源条件'), findsNothing);
+    expect(backend.to('/subs/tags').last.uri.host, 'a.test');
+    expect(
+      backend.to('/subs/tags').last.queryParameters['filter_by'],
+      '0:t:m::::',
+    );
+    (container.read(serverConfigProvider.notifier) as FollowingTestServerState)
+        .select('b');
+    await pumpFollowingFrames(tester);
+    expect(backend.to('/subs/tags').last.uri.host, 'b.test');
+    expect(
+      backend.to('/subs/tags').last.queryParameters['filter_by'],
+      '0:t:m::::',
     );
     expect(tester.takeException(), isNull);
   });
@@ -364,7 +423,9 @@ void main() {
     );
     // 列表模式渲染预览条目：左封面 + 右预览图翻页。
     expect(
-      tester.widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard)).previewList,
+      tester
+          .widget<DbOnlineMovieCard>(find.byType(DbOnlineMovieCard))
+          .previewList,
       isTrue,
     );
     expect(find.byType(PageView), findsOneWidget);

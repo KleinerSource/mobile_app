@@ -18,7 +18,7 @@ class DbOnlineFollowingFilter {
     this.styles = const [],
     this.year = '',
     this.month = '',
-    this.sortBy = 'update',
+    this.sortBy = 'release',
     this.orderBy = 'desc',
   });
 

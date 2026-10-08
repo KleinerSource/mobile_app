@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,12 +16,97 @@ import 'package:omm/core/sources/media/dbo/db_online_subscription.dart';
 import 'package:omm/core/sources/media/dbo_media_source_adapter.dart';
 import 'package:omm/features/db_online/pages/db_online_entity_movies_page.dart';
 import 'package:omm/features/db_online/pages/db_online_movie_detail_page.dart';
+import 'package:omm/features/db_online/pages/db_online_subscriptions_page.dart';
+import 'package:omm/features/db_online/widgets/db_online_subscription_action.dart';
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_subscription_providers.dart';
 import 'package:omm/features/db_online/repositories/dbo_media_repository.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/following_test_support.dart';
+
+class _SubscriptionDetailBackend extends FollowingTestBackend {
+  _SubscriptionDetailBackend({
+    bool playable = false,
+    bool delayPreset = false,
+  }) {
+    if (!delayPreset) preset.complete(_presetPayload);
+    respond = (request) {
+      if (request.path.startsWith('/video/')) {
+        return request.queryParameters['refresh'] == true
+            ? online.future
+            : _detailPayload(playable: playable, source: 'database');
+      }
+      if (request.path == '/subs/preset') return preset.future;
+      if (request.path == '/subs' && request.method == 'POST') {
+        subscribed = true;
+        return {'success': true, 'data': <String, dynamic>{}};
+      }
+      return null;
+    };
+  }
+
+  final online = Completer<Object?>();
+  final preset = Completer<Object?>();
+
+  static const _presetPayload = {
+    'success': true,
+    'data': {
+      'preset': {'enabled': true, 'require_sub': true, 'overdue_days': 7},
+    },
+  };
+
+  static Map<String, dynamic> _detailPayload({
+    required bool playable,
+    required String source,
+  }) => {
+    'success': true,
+    'source': source,
+    'data': {
+      'code': 'ABC-001',
+      'video_id': 'movie-1',
+      'title': source == 'database' ? '数据库详情' : '在线详情',
+      'can_play': playable,
+      'magnets': [],
+      'ed2ks': [],
+    },
+  };
+
+  Future<void> refresh(WidgetTester tester, {bool playable = true}) async {
+    online.complete(_detailPayload(playable: playable, source: 'api'));
+    await pumpFollowingFrames(tester);
+    expect(find.text('在线详情'), findsWidgets);
+  }
+
+  List<RequestOptions> get creates =>
+      to('/subs').where((request) => request.method == 'POST').toList();
+}
+
+Future<ProviderContainer> _pumpSubscriptionDetail(
+  WidgetTester tester,
+  _SubscriptionDetailBackend backend,
+) => pumpFollowingTest(
+  tester,
+  backend,
+  const DbOnlineMovieDetailPage(detailKey: 'ABC-001'),
+);
+
+Future<void> _openSubscription(WidgetTester tester) async {
+  await _scrollToAndTap(
+    tester,
+    find.descendant(
+      of: find.byType(DbOnlineSubscriptionAction),
+      matching: find.byType(OutlinedButton),
+    ),
+  );
+}
+
+Future<void> _saveSubscription(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(FilledButton, '保存'));
+  await pumpFollowingFrames(tester);
+}
 
 void _popTopRoute(WidgetTester tester) =>
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
@@ -54,6 +141,114 @@ void main() {
     baseUrl: 'https://example.test',
     activeServerId: 'server-1',
   );
+
+  for (final (before, after, change) in [
+    (false, true, '新增播放按钮'),
+    (true, false, '移除播放按钮'),
+    (false, false, '仅更新元数据'),
+  ]) {
+    testWidgets('订阅弹窗打开后在线刷新$change仍可提交', (tester) async {
+      final backend = _SubscriptionDetailBackend(playable: before);
+      await _pumpSubscriptionDetail(tester, backend);
+      await _openSubscription(tester);
+      expect(find.byType(DbOnlineSubscriptionEditor), findsOneWidget);
+      final overdue = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '超期天数',
+      );
+      expect(tester.widget<TextField>(overdue).controller!.text, '7');
+      await tester.ensureVisible(overdue);
+      await tester.enterText(overdue, '17');
+      tester.testTextInput.hide();
+
+      await backend.refresh(tester, playable: after);
+      expect(find.byType(DbOnlineSubscriptionEditor), findsOneWidget);
+      expect(tester.widget<TextField>(overdue).controller!.text, '17');
+      await _saveSubscription(tester);
+
+      expect(backend.creates, hasLength(1));
+      expect(backend.creates.single.uri.host, 'a.test');
+      expect(
+        backend.creates.single.data,
+        containsPair('video_code', 'ABC-001'),
+      );
+      expect(backend.creates.single.data, containsPair('video_id', 'movie-1'));
+      expect(backend.creates.single.data, containsPair('overdue_days', 17));
+      expect(backend.creates.single.data, containsPair('require_sub', true));
+      expect(find.byType(DbOnlineSubscriptionEditor), findsNothing);
+      expect(find.text('订阅中'), findsOneWidget);
+      expect(find.text('操作已完成'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('订阅预设加载期间在线刷新仍打开弹窗并可提交', (tester) async {
+    final backend = _SubscriptionDetailBackend(delayPreset: true);
+    await _pumpSubscriptionDetail(tester, backend);
+    await _openSubscription(tester);
+    expect(backend.to('/subs/preset'), hasLength(1));
+    expect(find.byType(DbOnlineSubscriptionEditor), findsNothing);
+
+    await backend.refresh(tester);
+    backend.preset.complete(_SubscriptionDetailBackend._presetPayload);
+    await pumpFollowingFrames(tester);
+    expect(find.byType(DbOnlineSubscriptionEditor), findsOneWidget);
+    await _saveSubscription(tester);
+
+    expect(backend.creates, hasLength(1));
+    expect(backend.creates.single.data, containsPair('require_sub', true));
+    expect(find.text('订阅中'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('在线刷新后取消并重新打开订阅弹窗可提交', (tester) async {
+    final backend = _SubscriptionDetailBackend();
+    await _pumpSubscriptionDetail(tester, backend);
+    await _openSubscription(tester);
+    await backend.refresh(tester);
+    await tester.tap(find.widgetWithText(OutlinedButton, '取消'));
+    await pumpFollowingFrames(tester);
+    expect(backend.creates, isEmpty);
+
+    await _openSubscription(tester);
+    expect(find.byType(DbOnlineSubscriptionEditor), findsOneWidget);
+    await _saveSubscription(tester);
+
+    expect(backend.creates, hasLength(1));
+    expect(backend.creates.single.data, containsPair('video_title', '在线详情'));
+    expect(find.text('订阅中'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('在线刷新后取消订阅弹窗不创建订阅', (tester) async {
+    final backend = _SubscriptionDetailBackend();
+    await _pumpSubscriptionDetail(tester, backend);
+    await _openSubscription(tester);
+    await backend.refresh(tester);
+    await tester.tap(find.widgetWithText(OutlinedButton, '取消'));
+    await pumpFollowingFrames(tester);
+
+    expect(backend.creates, isEmpty);
+    expect(find.byType(DbOnlineSubscriptionEditor), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('在线刷新后切换服务器丢弃旧订阅弹窗提交', (tester) async {
+    final backend = _SubscriptionDetailBackend();
+    final container = await _pumpSubscriptionDetail(tester, backend);
+    await _openSubscription(tester);
+    await backend.refresh(tester);
+    (container.read(serverConfigProvider.notifier) as FollowingTestServerState)
+        .select('b');
+    await pumpFollowingFrames(tester);
+    expect(find.byType(DbOnlineSubscriptionEditor), findsOneWidget);
+    await _saveSubscription(tester);
+
+    expect(backend.creates, isEmpty);
+    expect(find.byType(DbOnlineSubscriptionEditor), findsNothing);
+    expect(find.text('操作已完成'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   Future<List<String>> pumpDetail(
     WidgetTester tester, {
