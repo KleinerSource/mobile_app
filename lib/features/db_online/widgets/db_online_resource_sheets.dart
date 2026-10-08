@@ -84,6 +84,7 @@ class _DbOnlineResourcesSheetState
     super.initState();
     _javdbMagnets = widget.movie.magnets;
     _javdbEd2ks = widget.movie.ed2ks;
+    _selectDefaultTab();
     unawaited(_loadExternalSource('custom'));
     unawaited(_loadExternalSource('nyaa'));
     unawaited(_loadDownloadHistory());
@@ -108,11 +109,14 @@ class _DbOnlineResourcesSheetState
     try {
       final movie = await ref
           .read(dboMediaRepositoryProvider)
-          .getMovieDetail(dbOnlineDetailKey(widget.movie.videoId, widget.movie.code));
+          .getMovieDetail(
+            dbOnlineDetailKey(widget.movie.videoId, widget.movie.code),
+          );
       if (!mounted) return;
       setState(() {
         _javdbMagnets = movie.magnets;
         _javdbEd2ks = movie.ed2ks;
+        _selectDefaultTab();
         _sourceErrors.remove('detail');
       });
     } catch (error) {
@@ -223,6 +227,7 @@ class _DbOnlineResourcesSheetState
             ..addAll(result.magnets);
         }
         _sourceErrors.remove(source);
+        _selectDefaultTab();
       });
     } catch (error) {
       if (!mounted) return;
@@ -251,6 +256,14 @@ class _DbOnlineResourcesSheetState
     );
   }
 
+  void _selectDefaultTab() {
+    if (_magnets.isEmpty && _ed2ks.isNotEmpty) {
+      _tab = _ResourceTab.ed2k;
+    } else if (_ed2ks.isEmpty) {
+      _tab = _ResourceTab.magnet;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -259,6 +272,7 @@ class _DbOnlineResourcesSheetState
     final magnetItems = _magnets;
     final ed2kItems = _ed2ks;
     final count = isMagnet ? magnetItems.length : ed2kItems.length;
+    final showTabs = magnetItems.isNotEmpty && ed2kItems.isNotEmpty;
     return SafeArea(
       top: false,
       bottom: false,
@@ -266,145 +280,161 @@ class _DbOnlineResourcesSheetState
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * 0.88,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SheetHeader(
-              icon: Icons.cloud_download_outlined,
-              title: l.detailFetchResources,
-              subtitle: widget.movie.code,
-              trailing: IconButton(
-                tooltip: l.actionRefresh,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                onPressed: _loadingResources ? null : _loadResources,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: colors.chipBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ResourcePanelTabButton(
-                        label: l.resourceMagnetCount(magnetItems.length),
-                        active: isMagnet,
-                        onTap: () => setState(() => _tab = _ResourceTab.magnet),
-                      ),
-                    ),
-                    Expanded(
-                      child: ResourcePanelTabButton(
-                        label: l.resourceEd2kCount(ed2kItems.length),
-                        active: !isMagnet,
-                        onTap: () => setState(() => _tab = _ResourceTab.ed2k),
-                      ),
-                    ),
-                  ],
+        child: ResourcePanelSwipeArea(
+          onSwipeLeft: showTabs
+              ? () => setState(() => _tab = _ResourceTab.ed2k)
+              : null,
+          onSwipeRight: showTabs
+              ? () => setState(() => _tab = _ResourceTab.magnet)
+              : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.cloud_download_outlined,
+                title: l.resourceOnline,
+                subtitle: widget.movie.code,
+                trailing: IconButton(
+                  tooltip: l.actionRefresh,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  onPressed: _loadingResources ? null : _loadResources,
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            if (_loadingResources)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colors.accent,
-                      ),
+              if (showTabs)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: colors.chipBg,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 8),
-                    Text(l.resourceLoadingOnline, style: AppText.meta(context)),
-                  ],
-                ),
-              ),
-            if (_sourceErrors.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _sourceErrors.values.join('\n'),
-                    style: AppText.meta(context).copyWith(color: colors.danger),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ResourcePanelTabButton(
+                            label: l.resourceMagnetCount(magnetItems.length),
+                            active: isMagnet,
+                            onTap: () =>
+                                setState(() => _tab = _ResourceTab.magnet),
+                          ),
+                        ),
+                        Expanded(
+                          child: ResourcePanelTabButton(
+                            label: l.resourceEd2kCount(ed2kItems.length),
+                            active: !isMagnet,
+                            onTap: () =>
+                                setState(() => _tab = _ResourceTab.ed2k),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            if (count == 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
-                child: Text(
-                  _loadingResources
-                      ? l.resourceWaitingSources
-                      : isMagnet
-                      ? l.resourceNoMagnet
-                      : l.resourceNoEd2k,
-                  textAlign: TextAlign.center,
-                  style: AppText.body(context),
-                ),
-              )
-            else
-              Flexible(
-                fit: FlexFit.loose,
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
-                  itemCount: count,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: colors.divider),
-                  itemBuilder: (context, index) => isMagnet
-                      ? _MagnetRow(
-                          item: magnetItems[index],
-                          pushing: _pushingKey == magnetItems[index].magnet,
-                          pushDisabled:
-                              _pushingKey != null ||
-                              _downloadersLoading ||
-                              _activeDownloaders.isEmpty,
-                          downloadedAt: _downloadedAt(
-                            _downloadedMagnets,
-                            dbOnlineMagnetHash(magnetItems[index].magnet),
-                          ),
-                          onPush: () => _onPush(
-                            url: magnetItems[index].magnet,
-                            protocol: 'magnet',
-                            name: magnetItems[index].name,
-                            site: magnetItems[index].site,
-                            date: magnetItems[index].date,
-                            tags: magnetItems[index].tags,
-                          ),
-                          onCopy: () => _copy(magnetItems[index].magnet),
-                        )
-                      : _Ed2kRow(
-                          item: ed2kItems[index],
-                          pushing: _pushingKey == ed2kItems[index].ed2k,
-                          pushDisabled:
-                              _pushingKey != null ||
-                              _downloadersLoading ||
-                              _activeDownloaders.isEmpty,
-                          downloadedAt: _downloadedAt(
-                            _downloadedEd2ks,
-                            dbOnlineEd2kHash(ed2kItems[index].ed2k),
-                          ),
-                          onPush: () => _onPush(
-                            url: ed2kItems[index].ed2k,
-                            protocol: 'ed2k',
-                            name: ed2kItems[index].name,
-                            site: ed2kItems[index].site,
-                            date: ed2kItems[index].date,
-                            tags: ed2kItems[index].tags,
-                          ),
-                          onCopy: () => _copy(ed2kItems[index].ed2k),
+              const SizedBox(height: 10),
+              if (_loadingResources)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.accent,
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l.resourceLoadingOnline,
+                        style: AppText.meta(context),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-          ],
+              if (_sourceErrors.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _sourceErrors.values.join('\n'),
+                      style: AppText.meta(
+                        context,
+                      ).copyWith(color: colors.danger),
+                    ),
+                  ),
+                ),
+              if (count == 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
+                  child: Text(
+                    _loadingResources
+                        ? l.resourceWaitingSources
+                        : isMagnet
+                        ? l.resourceNoMagnet
+                        : l.resourceNoEd2k,
+                    textAlign: TextAlign.center,
+                    style: AppText.body(context),
+                  ),
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
+                    itemCount: count,
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: colors.divider),
+                    itemBuilder: (context, index) => isMagnet
+                        ? _MagnetRow(
+                            item: magnetItems[index],
+                            pushing: _pushingKey == magnetItems[index].magnet,
+                            pushDisabled:
+                                _pushingKey != null ||
+                                _downloadersLoading ||
+                                _activeDownloaders.isEmpty,
+                            downloadedAt: _downloadedAt(
+                              _downloadedMagnets,
+                              dbOnlineMagnetHash(magnetItems[index].magnet),
+                            ),
+                            onPush: () => _onPush(
+                              url: magnetItems[index].magnet,
+                              protocol: 'magnet',
+                              name: magnetItems[index].name,
+                              site: magnetItems[index].site,
+                              date: magnetItems[index].date,
+                              tags: magnetItems[index].tags,
+                            ),
+                            onCopy: () => _copy(magnetItems[index].magnet),
+                          )
+                        : _Ed2kRow(
+                            item: ed2kItems[index],
+                            pushing: _pushingKey == ed2kItems[index].ed2k,
+                            pushDisabled:
+                                _pushingKey != null ||
+                                _downloadersLoading ||
+                                _activeDownloaders.isEmpty,
+                            downloadedAt: _downloadedAt(
+                              _downloadedEd2ks,
+                              dbOnlineEd2kHash(ed2kItems[index].ed2k),
+                            ),
+                            onPush: () => _onPush(
+                              url: ed2kItems[index].ed2k,
+                              protocol: 'ed2k',
+                              name: ed2kItems[index].name,
+                              site: ed2kItems[index].site,
+                              date: ed2kItems[index].date,
+                              tags: ed2kItems[index].tags,
+                            ),
+                            onCopy: () => _copy(ed2kItems[index].ed2k),
+                          ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

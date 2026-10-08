@@ -1336,7 +1336,7 @@ class _MoreMenuButtonState extends ConsumerState<_MoreMenuButton> {
       value: 'resources',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.link,
-        label: l.detailFetchResources,
+        label: l.resourceOnline,
         selected: selected,
         onTap: onTap,
       ),

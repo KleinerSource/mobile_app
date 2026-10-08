@@ -558,7 +558,7 @@ class _DbOnlineDetailMoreButton extends StatelessWidget {
           value: 'resources',
           builder: (context, selected, onTap) => GlassMenuRow(
             icon: Icons.link_rounded,
-            label: l.detailFetchResources,
+            label: l.resourceOnline,
             selected: selected,
             onTap: onTap,
           ),

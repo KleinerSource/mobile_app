@@ -3,6 +3,55 @@ import 'package:flutter/material.dart';
 import '../core/platform/app_theme.dart';
 import '../l10n/generated/app_localizations.dart';
 
+/// 横向滑动切换资源类型，保留内容的自适应高度和纵向滚动。
+class ResourcePanelSwipeArea extends StatefulWidget {
+  const ResourcePanelSwipeArea({
+    super.key,
+    required this.child,
+    this.onSwipeLeft,
+    this.onSwipeRight,
+  });
+
+  final Widget child;
+  final VoidCallback? onSwipeLeft;
+  final VoidCallback? onSwipeRight;
+
+  @override
+  State<ResourcePanelSwipeArea> createState() => _ResourcePanelSwipeAreaState();
+}
+
+class _ResourcePanelSwipeAreaState extends State<ResourcePanelSwipeArea> {
+  double _dragDistance = 0;
+
+  void _onDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final direction = velocity.abs() >= 300 ? velocity : _dragDistance;
+    if (velocity.abs() >= 300 || _dragDistance.abs() >= 48) {
+      if (direction < 0) {
+        widget.onSwipeLeft?.call();
+      } else if (direction > 0) {
+        widget.onSwipeRight?.call();
+      }
+    }
+    _dragDistance = 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onSwipeLeft != null || widget.onSwipeRight != null;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: enabled ? (_) => _dragDistance = 0 : null,
+      onHorizontalDragUpdate: enabled
+          ? (details) => _dragDistance += details.primaryDelta ?? 0
+          : null,
+      onHorizontalDragEnd: enabled ? _onDragEnd : null,
+      onHorizontalDragCancel: enabled ? () => _dragDistance = 0 : null,
+      child: widget.child,
+    );
+  }
+}
+
 /// OMM and DBO resource-list row presentation.
 class ResourcePanelRow extends StatelessWidget {
   const ResourcePanelRow({

@@ -163,7 +163,6 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   Set<String> _pendingSources = {..._kResourceSources};
   final Map<String, String> _sourceErrors = {};
   int _loadGeneration = 0;
-  bool _tabPicked = false;
 
   int get _movieId => widget.movie.id;
   String get _movieTitle => widget.movie.title;
@@ -196,7 +195,6 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       _pendingSources = {..._kResourceSources};
       _sourceErrors.clear();
       _tab = _ResTab.magnet;
-      _tabPicked = false;
     });
     final repo = ref.read(mediaRepositoryProvider);
     for (final source in _kResourceSources) {
@@ -272,11 +270,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       mounted && generation == _loadGeneration;
 
   void _selectDefaultTab() {
-    if (_tabPicked) return;
-    if (_magnets.isNotEmpty) {
-      _tab = _ResTab.magnet;
-    } else if (_ed2ks.isNotEmpty) {
+    if (_magnets.isEmpty && _ed2ks.isNotEmpty) {
       _tab = _ResTab.ed2k;
+    } else if (_ed2ks.isEmpty) {
+      _tab = _ResTab.magnet;
     }
   }
 
@@ -454,171 +451,174 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     final c = appColors(context);
     final l = AppL10n.of(context);
     final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+    final showTabs = _magnets.isNotEmpty && _ed2ks.isNotEmpty;
     return SafeArea(
       top: false,
       bottom: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SheetHeader(
-              icon: Icons.cloud_download_outlined,
-              title: l.resourceOnline,
-              subtitle: _movieTitle,
-              trailing: IconButton(
-                tooltip: l.actionRefresh,
-                icon: const Icon(Icons.refresh, size: 18),
-                onPressed: _loadingResources ? null : _load,
-              ),
-            ),
-            // ===== Tab 切换 =====
-            if (_error == null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: c.chipBg,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ResourcePanelTabButton(
-                          label: l.resourceMagnetCount(_magnets.length),
-                          active: _tab == _ResTab.magnet,
-                          onTap: () => setState(() {
-                            _tab = _ResTab.magnet;
-                            _tabPicked = true;
-                          }),
-                        ),
-                      ),
-                      Expanded(
-                        child: ResourcePanelTabButton(
-                          label: l.resourceEd2kCount(_ed2ks.length),
-                          active: _tab == _ResTab.ed2k,
-                          onTap: () => setState(() {
-                            _tab = _ResTab.ed2k;
-                            _tabPicked = true;
-                          }),
-                        ),
-                      ),
-                    ],
-                  ),
+        child: ResourcePanelSwipeArea(
+          onSwipeLeft: showTabs
+              ? () => setState(() => _tab = _ResTab.ed2k)
+              : null,
+          onSwipeRight: showTabs
+              ? () => setState(() => _tab = _ResTab.magnet)
+              : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.cloud_download_outlined,
+                title: l.resourceOnline,
+                subtitle: _movieTitle,
+                trailing: IconButton(
+                  tooltip: l.actionRefresh,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  onPressed: _loadingResources ? null : _load,
                 ),
               ),
-            const SizedBox(height: 12),
-            // ===== Warnings =====
-            if (_warnings.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: c.warning.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 14, color: c.warning),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _warnings.first,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.warning,
-                            fontFamily: 'Inter',
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
+              // ===== Tab 切换 =====
+              if (showTabs)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: c.chipBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ResourcePanelTabButton(
+                            label: l.resourceMagnetCount(_magnets.length),
+                            active: _tab == _ResTab.magnet,
+                            onTap: () => setState(() => _tab = _ResTab.magnet),
                           ),
                         ),
-                      ),
-                    ],
+                        Expanded(
+                          child: ResourcePanelTabButton(
+                            label: l.resourceEd2kCount(_ed2ks.length),
+                            active: _tab == _ResTab.ed2k,
+                            onTap: () => setState(() => _tab = _ResTab.ed2k),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            // ===== 内容 =====
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.all(22),
-                child: Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: c.danger,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              )
-            else ...[
-              if (_loadingResources)
+              const SizedBox(height: 12),
+              // ===== Warnings =====
+              if (_warnings.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: c.accent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: c.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 14, color: c.warning),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _warnings.first,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: c.warning,
+                              fontFamily: 'Inter',
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        l.resourceLoadingOnline,
-                        style: AppText.meta(context),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              if (_activeList.isEmpty)
+              // ===== 内容 =====
+              if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
+                  padding: const EdgeInsets.all(22),
                   child: Text(
-                    _loadingResources
-                        ? l.resourceWaitingSources
-                        : _tab == _ResTab.magnet
-                        ? l.resourceNoMagnet
-                        : l.resourceNoEd2k,
+                    _error!,
                     textAlign: TextAlign.center,
-                    style: AppText.body(context),
+                    style: TextStyle(
+                      color: c.danger,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 )
-              else
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    itemCount: _activeList.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, color: c.divider),
-                    itemBuilder: (ctx, i) {
-                      final r = _activeList[i];
-                      final url = _pickUrl(r);
-                      final downloadedAt = _getDownloadedAt(r);
-                      return _ResourceTile(
-                        item: r,
-                        url: url,
-                        downloadedAt: downloadedAt,
-                        pushing: _pushingKey == url,
-                        pushDisabled:
-                            _pushingKey != null || _activeDownloaders.isEmpty,
-                        onPush: () => _onPush(r),
-                      );
-                    },
+              else ...[
+                if (_loadingResources)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: c.accent,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          l.resourceLoadingOnline,
+                          style: AppText.meta(context),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                if (_activeList.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
+                    child: Text(
+                      _loadingResources
+                          ? l.resourceWaitingSources
+                          : _tab == _ResTab.magnet
+                          ? l.resourceNoMagnet
+                          : l.resourceNoEd2k,
+                      textAlign: TextAlign.center,
+                      style: AppText.body(context),
+                    ),
+                  )
+                else
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      itemCount: _activeList.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 1, color: c.divider),
+                      itemBuilder: (ctx, i) {
+                        final r = _activeList[i];
+                        final url = _pickUrl(r);
+                        final downloadedAt = _getDownloadedAt(r);
+                        return _ResourceTile(
+                          item: r,
+                          url: url,
+                          downloadedAt: downloadedAt,
+                          pushing: _pushingKey == url,
+                          pushDisabled:
+                              _pushingKey != null || _activeDownloaders.isEmpty,
+                          onPush: () => _onPush(r),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
