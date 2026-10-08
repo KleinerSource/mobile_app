@@ -906,8 +906,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final entryIcon = FileEntryIconBadge(
       entry: entry,
       isFavorite: isFavorite,
-      width: previewFrame ? fileEntryPreviewIconWidth : 44,
-      height: previewFrame ? fileEntryPreviewIconHeight : 44,
+      width: previewFrame ? fileEntryPreviewIconWidth : fileEntryIconSize,
+      height: previewFrame ? fileEntryPreviewIconHeight : fileEntryIconSize,
       child: hasVideoPreview
           ? FileVideoThumbnail(
               key: ValueKey(entry.stableKey),

@@ -303,6 +303,7 @@ const _codeFileIconAsset = 'assets/file_icons/code_file_icon.png';
 
 const fileEntryPreviewIconWidth = 96.0;
 const fileEntryPreviewIconHeight = 54.0;
+const fileEntryIconSize = 52.0;
 
 FileTypeIcon fileTypeIconFor(FileEntry entry) {
   final mime = entry.mimeType?.trim().toLowerCase() ?? '';
@@ -380,8 +381,8 @@ class FileEntryIconBadge extends StatelessWidget {
     required this.entry,
     required this.child,
     this.isFavorite = false,
-    this.width = 44,
-    this.height = 44,
+    this.width = fileEntryIconSize,
+    this.height = fileEntryIconSize,
   });
 
   final FileEntry entry;
