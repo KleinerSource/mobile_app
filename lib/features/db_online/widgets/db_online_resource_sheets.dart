@@ -618,11 +618,24 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
   List<DbOnlineSubtitleCandidate> _thunderItems = const [];
   final Set<String> _busyKeys = <String>{};
 
+  bool get _loadingSubtitles => _localLoading || _thunderLoading;
+
   @override
   void initState() {
     super.initState();
-    _loadLocal();
-    _loadThunder();
+    _load();
+  }
+
+  Future<void> _load() async {
+    await Future.wait([_loadLocal(), _loadThunder()]);
+  }
+
+  void _selectDefaultTab() {
+    if (_localFiles.isEmpty && _thunderItems.isNotEmpty) {
+      _tab = _SubtitleTab.thunder;
+    } else if (_thunderItems.isEmpty) {
+      _tab = _SubtitleTab.local;
+    }
   }
 
   Future<void> _loadLocal() async {
@@ -634,7 +647,12 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
       final result = await ref
           .read(dboMediaRepositoryProvider)
           .findSubtitles(widget.code);
-      if (mounted) setState(() => _localFiles = result);
+      if (mounted) {
+        setState(() {
+          _localFiles = result;
+          _selectDefaultTab();
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(
@@ -659,7 +677,10 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
         final sorted = [
           ...result,
         ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-        setState(() => _thunderItems = sorted);
+        setState(() {
+          _thunderItems = sorted;
+          _selectDefaultTab();
+        });
       }
     } catch (error) {
       if (mounted) {
@@ -802,24 +823,37 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
     final colors = appColors(context);
     final l = AppL10n.of(context);
     final isLocal = _tab == _SubtitleTab.local;
-    final loading = isLocal ? _localLoading : _thunderLoading;
-    final error = isLocal ? _localError : _thunderError;
     final count = isLocal ? _localFiles.length : _thunderItems.length;
+    final loading = count == 0
+        ? _loadingSubtitles
+        : isLocal
+        ? _localLoading
+        : _thunderLoading;
+    final error = count == 0
+        ? _localError ?? _thunderError
+        : isLocal
+        ? _localError
+        : _thunderError;
+    final showTabs = _localFiles.isNotEmpty && _thunderItems.isNotEmpty;
     return ResourcePanelShell(
       icon: Icons.subtitles_outlined,
       title: l.subtitleSearchTitle,
       subtitle: widget.code,
       trailing: IconButton(
-        tooltip: l.dbOnlineRetry,
+        tooltip: l.actionRefresh,
         icon: Icon(Icons.refresh_rounded, color: colors.muted, size: 20),
-        onPressed: loading ? null : (isLocal ? _loadLocal : _loadThunder),
+        onPressed: _loadingSubtitles ? null : _load,
       ),
-      tabs: [
-        ResourcePanelTab(label: l.dbOnlineLocalSubtitles(_localFiles.length)),
-        ResourcePanelTab(
-          label: l.dbOnlineThunderSubtitles(_thunderItems.length),
-        ),
-      ],
+      tabs: showTabs
+          ? [
+              ResourcePanelTab(
+                label: l.dbOnlineLocalSubtitles(_localFiles.length),
+              ),
+              ResourcePanelTab(
+                label: l.dbOnlineThunderSubtitles(_thunderItems.length),
+              ),
+            ]
+          : const [],
       selectedTabIndex: isLocal ? 0 : 1,
       onTabSelected: (index) => setState(
         () => _tab = index == 0 ? _SubtitleTab.local : _SubtitleTab.thunder,
@@ -846,20 +880,20 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
                     style: AppText.meta(context),
                   ),
                   const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: isLocal ? _loadLocal : _loadThunder,
-                    child: Text(l.dbOnlineRetry),
-                  ),
+                  TextButton(onPressed: _load, child: Text(l.dbOnlineRetry)),
                 ],
               ),
             )
           else if (count == 0)
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
-              child: Text(
-                l.subtitleNoMatch,
-                textAlign: TextAlign.center,
-                style: AppText.body(context),
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.subtitles_off, size: 36, color: colors.muted),
+                  const SizedBox(height: 12),
+                  Text(l.subtitleNoMatch, style: AppText.meta(context)),
+                ],
               ),
             )
           else

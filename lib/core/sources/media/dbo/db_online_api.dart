@@ -116,16 +116,8 @@ class DbOnlineApi {
         : await _dio.get<dynamic>(path);
     final raw = response.data;
     // 字幕管理接口沿用 code / msg，其余媒体库接口使用 success / error。
-    final envelope =
-        path.startsWith('/subtitle/') &&
-            raw is Map &&
-            !raw.containsKey('success') &&
-            raw.containsKey('code')
-        ? {
-            ...raw,
-            'success': raw['code'] == 0,
-            if (raw['code'] != 0) 'error': raw['msg'],
-          }
+    final envelope = path.startsWith('/subtitle/')
+        ? _subtitleEnvelope(raw)
         : raw;
     return unwrapStd<Map<String, dynamic>>(
       envelope,
@@ -735,15 +727,18 @@ class DbOnlineApi {
     final response = await _dio.get<dynamic>(
       '/subtitle/find/${Uri.encodeComponent(code.trim())}',
     );
-    return unwrapStd<List<DbOnlineSubtitleFile>>(response.data, (data) {
-      if (data is! Map || data['files'] is! List) {
-        return const <DbOnlineSubtitleFile>[];
-      }
-      return (data['files'] as List)
-          .map(DbOnlineSubtitleFile.fromJson)
-          .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
-          .toList(growable: false);
-    });
+    return unwrapStd<List<DbOnlineSubtitleFile>>(
+      _subtitleEnvelope(response.data),
+      (data) {
+        if (data is! Map || data['files'] is! List) {
+          return const <DbOnlineSubtitleFile>[];
+        }
+        return (data['files'] as List)
+            .map(DbOnlineSubtitleFile.fromJson)
+            .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
+            .toList(growable: false);
+      },
+    );
   }
 
   Future<List<DbOnlineSubtitleCandidate>> searchExternalSubtitles(
@@ -752,15 +747,18 @@ class DbOnlineApi {
     final response = await _dio.get<dynamic>(
       '/subtitle/external/search/${Uri.encodeComponent(code.trim())}',
     );
-    return unwrapStd<List<DbOnlineSubtitleCandidate>>(response.data, (data) {
-      if (data is! Map || data['items'] is! List) {
-        return const <DbOnlineSubtitleCandidate>[];
-      }
-      return (data['items'] as List)
-          .map(DbOnlineSubtitleCandidate.fromJson)
-          .where((item) => item.name.isNotEmpty && item.url.isNotEmpty)
-          .toList(growable: false);
-    });
+    return unwrapStd<List<DbOnlineSubtitleCandidate>>(
+      _subtitleEnvelope(response.data),
+      (data) {
+        if (data is! Map || data['items'] is! List) {
+          return const <DbOnlineSubtitleCandidate>[];
+        }
+        return (data['items'] as List)
+            .map(DbOnlineSubtitleCandidate.fromJson)
+            .where((item) => item.name.isNotEmpty && item.url.isNotEmpty)
+            .toList(growable: false);
+      },
+    );
   }
 
   Future<DbOnlineSubtitlePreview> previewLocalSubtitle(String id) async {
@@ -769,7 +767,7 @@ class DbOnlineApi {
       queryParameters: {'id': id},
     );
     return unwrapStd<DbOnlineSubtitlePreview>(
-      response.data,
+      _subtitleEnvelope(response.data),
       DbOnlineSubtitlePreview.fromJson,
     );
   }
@@ -780,7 +778,7 @@ class DbOnlineApi {
       queryParameters: {'url': url},
     );
     return unwrapStd<DbOnlineSubtitlePreview>(
-      response.data,
+      _subtitleEnvelope(response.data),
       DbOnlineSubtitlePreview.fromJson,
     );
   }
@@ -908,6 +906,17 @@ class DbOnlineApi {
       );
     });
   }
+}
+
+Object? _subtitleEnvelope(Object? raw) {
+  if (raw is! Map || raw.containsKey('success') || !raw.containsKey('code')) {
+    return raw;
+  }
+  return {
+    ...raw,
+    'success': raw['code'] == 0,
+    if (raw['code'] != 0) 'error': raw['msg'],
+  };
 }
 
 int? _intValue(Object? value) {
