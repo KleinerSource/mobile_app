@@ -259,7 +259,6 @@ class _FloatingTabItem<T> extends StatelessWidget {
 
   /// 中间主入口：仅激活时使用强调色圆底与光晕，未激活保持中性外观。
   Widget _centerCircle(BuildContext context, AppColors c) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: 46,
@@ -279,13 +278,7 @@ class _FloatingTabItem<T> extends StatelessWidget {
             : null,
       ),
       child: Center(
-        child: Icon(
-          spec.icon,
-          size: 23,
-          color: active
-              ? (isDark ? const Color(0xFF1A1A22) : Colors.white)
-              : c.text,
-        ),
+        child: Icon(spec.icon, size: 23, color: active ? Colors.white : c.text),
       ),
     );
   }

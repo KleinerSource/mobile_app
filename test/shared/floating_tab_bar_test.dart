@@ -17,7 +17,8 @@ void main() {
       FloatingTabSpec<int>(label: labels[i], icon: icons[i]),
   ];
 
-  Widget host(Widget child) => MaterialApp(
+  Widget host(Widget child, {ThemeData? theme}) => MaterialApp(
+    theme: theme,
     home: Scaffold(body: const SizedBox.expand(), bottomNavigationBar: child),
   );
 
@@ -78,6 +79,27 @@ void main() {
     expect(
       (circleOf(tester).decoration as BoxDecoration).color,
       AppColors.light.accent,
+    );
+  });
+
+  testWidgets('暗色模式中间影片库按钮保持绿色背景并使用白色图标', (tester) async {
+    const labels = ['首页', '排行榜', '影片库', '搜索', '订阅管理'];
+
+    await tester.pumpWidget(
+      host(
+        FloatingTabBar<int>(tabs: specs(labels), active: 2, onTap: (_) {}),
+        theme: ThemeData(brightness: Brightness.dark),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      (circleOf(tester).decoration as BoxDecoration).color,
+      AppColors.dark.accent,
+    );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.video_library_rounded)).color,
+      Colors.white,
     );
   });
 
