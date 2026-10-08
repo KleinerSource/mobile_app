@@ -77,6 +77,47 @@ void main() {
     expect(source.downloadCount, 1);
   });
 
+  test('同一来源切换服务器地址不会复用旧音乐文件', () async {
+    final root = await Directory.systemTemp.createTemp('music-endpoint-');
+    addTearDown(() => root.delete(recursive: true));
+    final service = MusicCacheService(rootDirectory: root);
+    const sourceId = SourceId('same-source');
+    const path = FilePath(sourceId: sourceId, value: 'song.mp3');
+    final firstSource = _MemoryFileSource(
+      sourceId,
+      files: {
+        'song.mp3': [1, 2],
+      },
+      endpoint: 'smb://old/music',
+    );
+    final first = service.acquire(
+      repository: FileSourceRepository(firstSource),
+      path: path,
+      size: 2,
+      pathExtension: 'mp3',
+    );
+    final firstFile = await first.file;
+    first.release();
+    final nextSource = _MemoryFileSource(
+      sourceId,
+      files: {
+        'song.mp3': [3, 4],
+      },
+      endpoint: 'smb://new/music',
+    );
+    final next = service.acquire(
+      repository: FileSourceRepository(nextSource),
+      path: path,
+      size: 2,
+      pathExtension: 'mp3',
+    );
+    final nextFile = await next.file;
+    expect(nextFile.path, isNot(firstFile.path));
+    expect(await nextFile.readAsBytes(), [3, 4]);
+    next.release();
+    expect(nextSource.downloadCount, 1);
+  });
+
   test('下载失败会删除未完成的 part 文件', () async {
     final root = await Directory.systemTemp.createTemp('omm-music-cache-');
     addTearDown(() => root.delete(recursive: true));
@@ -110,6 +151,42 @@ void main() {
     );
   });
 
+  test('未知大小音乐的空缓存会重建，空响应不保留为有效缓存', () async {
+    final root = await Directory.systemTemp.createTemp('empty-music-cache-');
+    addTearDown(() => root.delete(recursive: true));
+    final source = _MemoryFileSource(
+      const SourceId('empty-source'),
+      files: {
+        'song.mp3': [1, 2],
+      },
+    );
+    final service = MusicCacheService(rootDirectory: root);
+    final repository = FileSourceRepository(source);
+    const path = FilePath(
+      sourceId: SourceId('empty-source'),
+      value: 'song.mp3',
+    );
+    MusicCacheLease acquire() => service.acquire(
+      repository: repository,
+      path: path,
+      pathExtension: 'mp3',
+    );
+    final first = acquire();
+    final file = await first.file;
+    first.release();
+    await file.writeAsBytes([]);
+    final rebuilt = acquire();
+    expect(await (await rebuilt.file).readAsBytes(), [1, 2]);
+    rebuilt.release();
+    expect(source.downloadCount, 2);
+    await file.delete();
+    source.files['song.mp3'] = [];
+    final empty = acquire();
+    await expectLater(empty.file, throwsA(isA<StateError>()));
+    empty.release();
+    expect(await service.usage(), 0);
+  });
+
   test('清理时保护仍被使用的音乐缓存', () async {
     final root = await Directory.systemTemp.createTemp('omm-music-cache-');
     addTearDown(() => root.delete(recursive: true));
@@ -133,7 +210,8 @@ void main() {
     await service.clear();
     expect(await file.exists(), isTrue);
     lease.release();
-    await service.clear();
+    // 一次手动清理后，正在播放的文件应在释放时自动删除。
+    await service.usage();
     expect(await file.exists(), isFalse);
   });
 }
@@ -143,16 +221,22 @@ class _MemoryFileSource implements FileSource, FileTransferCapability {
     this.sourceId, {
     required this.files,
     this.failAfterFirstChunk = false,
+    this.endpoint,
   });
 
   final SourceId sourceId;
   final Map<String, List<int>> files;
   final bool failAfterFirstChunk;
+  final String? endpoint;
   var downloadCount = 0;
 
   @override
-  SourceDescriptor get descriptor =>
-      SourceDescriptor(id: sourceId, kind: SourceKind.smb, name: '测试音乐来源');
+  SourceDescriptor get descriptor => SourceDescriptor(
+    id: sourceId,
+    kind: SourceKind.smb,
+    name: '测试音乐来源',
+    endpoint: endpoint,
+  );
 
   @override
   Set<FileCapability> get capabilities => const {FileCapability.transfer};

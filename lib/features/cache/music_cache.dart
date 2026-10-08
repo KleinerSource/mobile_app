@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'temporary_cache.dart';
 
 import '../../core/api/error_codes.dart';
 import '../../core/platform/app_log_store.dart';
@@ -29,14 +30,24 @@ class MusicCacheLease {
 }
 
 class MusicCacheService {
-  MusicCacheService({Directory? rootDirectory}) : _rootOverride = rootDirectory;
+  MusicCacheService({
+    Directory? rootDirectory,
+    TemporaryCacheService? temporaryCache,
+  }) : _rootOverride = rootDirectory,
+       _temporaryCache =
+           temporaryCache ??
+           (rootDirectory == null
+               ? TemporaryCacheService.instance
+               : TemporaryCacheService(rootDirectory: rootDirectory));
 
   static const _rootName = 'omm_music_cache';
   static const _filePrefix = 'music_';
 
   final Directory? _rootOverride;
+  final TemporaryCacheService _temporaryCache;
   final Map<String, _MusicCacheTask> _tasks = {};
   final Map<String, int> _protectedPaths = {};
+  final Set<String> _deleteOnRelease = {};
   Future<void> _operationQueue = Future<void>.value();
 
   /// Acquires a shared cache download for one exact source version.
@@ -86,6 +97,7 @@ class MusicCacheService {
   }
 
   Future<int> usage() async {
+    await _operationQueue;
     final directory = await _cacheDirectory();
     if (!await directory.exists()) return 0;
     var total = 0;
@@ -93,9 +105,15 @@ class MusicCacheService {
       recursive: true,
       followLinks: false,
     )) {
-      if (entity is File) total += await entity.length();
+      if (entity is File) {
+        try {
+          total += await entity.length();
+        } on PathNotFoundException {
+          // 下载失败或播放结束可能已删除文件。
+        }
+      }
     }
-    return total;
+    return total + await _temporaryCache.usage(TemporaryCacheKind.music);
   }
 
   /// Cleans partial files left by a process that exited during a download.
@@ -125,17 +143,28 @@ class MusicCacheService {
   /// Removes completed music cache files, but never removes a file currently
   /// held by a player or metadata reader.
   Future<void> clear() {
+    for (final task in _tasks.values) {
+      task.deleteOnRelease = true;
+    }
+    _deleteOnRelease.addAll(_protectedPaths.keys);
     return _enqueue(() async {
+      await _temporaryCache.clear(TemporaryCacheKind.music);
       final directory = await _cacheDirectory();
       if (!await directory.exists()) return;
       await for (final entity in directory.list(
         recursive: true,
         followLinks: false,
       )) {
-        if (entity is! File || _protectedPaths.containsKey(entity.path)) {
-          continue;
+        if (entity is! File) continue;
+        if (_protectedPaths.containsKey(entity.path)) {
+          _deleteOnRelease.add(entity.path);
+        } else {
+          try {
+            await entity.delete();
+          } on PathNotFoundException {
+            // 在途失败下载可能已自行删除。
+          }
         }
-        await _deleteQuietly(entity);
       }
     });
   }
@@ -159,11 +188,17 @@ class MusicCacheService {
     task.partialPath = partialFile.path;
     _protect(finalFile.path);
     _protect(partialFile.path);
+    if (task.deleteOnRelease) {
+      _deleteOnRelease.addAll([finalFile.path, partialFile.path]);
+    }
 
     IOSink? sink;
     try {
-      if (await finalFile.exists() &&
-          (expectedSize == null || await finalFile.length() == expectedSize)) {
+      final cachedSize = await finalFile.exists()
+          ? await finalFile.length()
+          : 0;
+      if (cachedSize > 0 &&
+          (expectedSize == null || cachedSize == expectedSize)) {
         _log('音乐缓存命中: ${path.stableKey}');
         return finalFile;
       }
@@ -182,7 +217,9 @@ class MusicCacheService {
       if (task.cancellation.isCancelled) {
         throw StateError(AppErrorCode.fileTransferCanceled);
       }
-      if (expectedSize != null && await partialFile.length() != expectedSize) {
+      final downloadedSize = await partialFile.length();
+      if (downloadedSize == 0 ||
+          (expectedSize != null && downloadedSize != expectedSize)) {
         throw StateError(AppErrorCode.responseDataMissing);
       }
       await partialFile.rename(finalFile.path);
@@ -228,6 +265,8 @@ class MusicCacheService {
     return [
       source.kind.name,
       source.id.value,
+      source.serverId ?? '',
+      source.endpoint ?? '',
       path.stableKey,
       size?.toString() ?? '',
       modified,
@@ -272,6 +311,15 @@ class MusicCacheService {
     final count = _protectedPaths[path];
     if (count == null || count <= 1) {
       _protectedPaths.remove(path);
+      if (_deleteOnRelease.contains(path)) {
+        unawaited(
+          _enqueue(() async {
+            if (_protectedPaths.containsKey(path)) return;
+            _deleteOnRelease.remove(path);
+            await _deleteQuietly(File(path));
+          }),
+        );
+      }
     } else {
       _protectedPaths[path] = count - 1;
     }
@@ -303,6 +351,7 @@ class _MusicCacheTask {
   var started = false;
   var completed = false;
   var users = 0;
+  var deleteOnRelease = false;
 }
 
 final musicCacheServiceProvider = Provider<MusicCacheService>(

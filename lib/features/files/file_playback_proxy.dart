@@ -9,6 +9,7 @@ import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_source_repository.dart';
 import '../cache/music_cache.dart';
+import '../cache/temporary_cache.dart';
 
 const _operationTimeout = Duration(seconds: 30);
 const _metadataTimeout = Duration(seconds: 2);
@@ -553,6 +554,7 @@ class FilePlaybackProxy {
     final file = File(
       '${directory.path}${Platform.pathSeparator}omm-playback-$_token.tmp',
     );
+    TemporaryCacheService.instance.retain(file);
     final output = file.openWrite();
     try {
       _log('开始完整落盘: ${path.stableKey}');
@@ -620,6 +622,7 @@ class FilePlaybackProxy {
     try {
       if (await file.exists()) await file.delete();
     } catch (_) {}
+    await TemporaryCacheService.instance.release(file);
   }
 
   void _logError(HttpRequest request, Object error, StackTrace stackTrace) {

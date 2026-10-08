@@ -9,11 +9,19 @@ import '../cache/disk_cache.dart';
 import '../cache/music_cache.dart';
 import 'settings_common.dart';
 
-class CacheManagementPage extends ConsumerWidget {
+class CacheManagementPage extends ConsumerStatefulWidget {
   const CacheManagementPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CacheManagementPage> createState() =>
+      _CacheManagementPageState();
+}
+
+class _CacheManagementPageState extends ConsumerState<CacheManagementPage> {
+  bool _clearing = false;
+
+  @override
+  Widget build(BuildContext context) {
     final usage = ref.watch(cacheUsageProvider);
     final musicUsage = ref.watch(musicCacheUsageProvider);
     final l = AppL10n.of(context);
@@ -37,14 +45,21 @@ class CacheManagementPage extends ConsumerWidget {
                     _CacheTile(
                       category: CacheCategory.image,
                       usage: usage,
-                      ref: ref,
+                      onClear: _clearing
+                          ? null
+                          : () => _clear(category: CacheCategory.image),
                     ),
                     _CacheTile(
                       category: CacheCategory.other,
                       usage: usage,
-                      ref: ref,
+                      onClear: _clearing
+                          ? null
+                          : () => _clear(category: CacheCategory.other),
                     ),
-                    _MusicCacheTile(usage: musicUsage, ref: ref),
+                    _MusicCacheTile(
+                      usage: musicUsage,
+                      onClear: _clearing ? null : () => _clear(music: true),
+                    ),
                     _CacheSectionLabel(title: l.settingsCacheTotal),
                     SettingsTile(
                       title: l.settingsCacheTotalSize,
@@ -56,7 +71,7 @@ class CacheManagementPage extends ConsumerWidget {
                       child: SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: () => _clearAll(context, ref),
+                          onPressed: _clearing ? null : () => _clear(),
                           icon: const Icon(
                             Icons.delete_sweep_outlined,
                             size: 18,
@@ -80,40 +95,64 @@ class CacheManagementPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _clearAll(BuildContext context, WidgetRef ref) async {
+  Future<void> _clear({CacheCategory? category, bool music = false}) async {
+    if (_clearing) return;
+    setState(() => _clearing = true);
     final l = AppL10n.of(context);
-    final confirmed = await _confirmCacheClear(
-      context,
-      title: l.settingsCacheClearAllTitle,
-      message: l.settingsCacheClearAllBody,
-      actionLabel: l.settingsCacheCleanAll,
-    );
-    if (!confirmed || !context.mounted) return;
-
-    AppHaptics.medium();
+    final label = category?.label(l);
     try {
-      await Future.wait([
-        ref.read(diskCacheServiceProvider).clearAll(),
-        ref.read(musicCacheServiceProvider).clear(),
-      ]);
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(context).settingsCacheClearFailed(error.toString()),
-            ),
-          ),
-        );
-      }
-      return;
-    }
-    ref.invalidate(cacheUsageProvider);
-    ref.invalidate(musicCacheUsageProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).settingsCacheCleared)),
+      final confirmed = await _confirmCacheClear(
+        context,
+        title: label != null
+            ? l.settingsCacheClearCategoryTitle(label)
+            : music
+            ? l.settingsCacheClearMusicTitle
+            : l.settingsCacheClearAllTitle,
+        message: label != null
+            ? l.settingsCacheClearCategoryBody(label)
+            : music
+            ? l.settingsCacheClearMusicBody
+            : l.settingsCacheClearAllBody,
+        actionLabel: category != null || music
+            ? l.settingsCacheClear
+            : l.settingsCacheCleanAll,
       );
+      if (!confirmed || !mounted) return;
+      AppHaptics.medium();
+      Object? failure;
+      try {
+        if (category != null) {
+          await ref.read(diskCacheServiceProvider).clear(category);
+        } else if (music) {
+          await ref.read(musicCacheServiceProvider).clear();
+        } else {
+          await Future.wait([
+            ref.read(diskCacheServiceProvider).clearAll(),
+            ref.read(musicCacheServiceProvider).clear(),
+          ]);
+        }
+      } catch (error) {
+        failure = error;
+      }
+      if (!mounted) return;
+      // 部分清理成功后另一项可能失败，两种情况都重新统计。
+      ref.invalidate(cacheUsageProvider);
+      ref.invalidate(musicCacheUsageProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failure != null
+                ? l.settingsCacheClearFailed(failure.toString())
+                : label != null
+                ? l.settingsCacheCategoryCleared(label)
+                : music
+                ? l.settingsCacheMusicCleared
+                : l.settingsCacheCleared,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _clearing = false);
     }
   }
 }
@@ -173,12 +212,12 @@ class _CacheTile extends StatelessWidget {
   const _CacheTile({
     required this.category,
     required this.usage,
-    required this.ref,
+    required this.onClear,
   });
 
   final CacheCategory category;
   final AsyncValue<CacheUsage> usage;
-  final WidgetRef ref;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -196,57 +235,19 @@ class _CacheTile extends StatelessWidget {
         CacheCategory.other => Icons.folder_open_outlined,
       },
       trailing: TextButton.icon(
-        onPressed: () => _clear(context),
+        onPressed: onClear,
         icon: const Icon(Icons.delete_outline, size: 16),
         label: Text(l.settingsCacheClear),
       ),
     );
   }
-
-  Future<void> _clear(BuildContext context) async {
-    final l = AppL10n.of(context);
-    final categoryLabel = category.label(l);
-    final confirmed = await _confirmCacheClear(
-      context,
-      title: l.settingsCacheClearCategoryTitle(categoryLabel),
-      message: l.settingsCacheClearCategoryBody(categoryLabel),
-      actionLabel: l.settingsCacheClear,
-    );
-    if (!confirmed || !context.mounted) return;
-
-    AppHaptics.medium();
-    try {
-      await ref.read(diskCacheServiceProvider).clear(category);
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(context).settingsCacheClearFailed(error.toString()),
-            ),
-          ),
-        );
-      }
-      return;
-    }
-    ref.invalidate(cacheUsageProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppL10n.of(context).settingsCacheCategoryCleared(categoryLabel),
-          ),
-        ),
-      );
-    }
-  }
 }
 
 class _MusicCacheTile extends StatelessWidget {
-  const _MusicCacheTile({required this.usage, required this.ref});
+  const _MusicCacheTile({required this.usage, required this.onClear});
 
   final AsyncValue<int> usage;
-  final WidgetRef ref;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -260,44 +261,11 @@ class _MusicCacheTile extends StatelessWidget {
       ),
       leadingIcon: Icons.music_note_outlined,
       trailing: TextButton.icon(
-        onPressed: () => _clear(context),
+        onPressed: onClear,
         icon: const Icon(Icons.delete_outline, size: 16),
         label: Text(l.settingsCacheClear),
       ),
     );
-  }
-
-  Future<void> _clear(BuildContext context) async {
-    final l = AppL10n.of(context);
-    final confirmed = await _confirmCacheClear(
-      context,
-      title: l.settingsCacheClearMusicTitle,
-      message: l.settingsCacheClearMusicBody,
-      actionLabel: l.settingsCacheClear,
-    );
-    if (!confirmed || !context.mounted) return;
-
-    AppHaptics.medium();
-    try {
-      await ref.read(musicCacheServiceProvider).clear();
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppL10n.of(context).settingsCacheClearFailed(error.toString()),
-            ),
-          ),
-        );
-      }
-      return;
-    }
-    ref.invalidate(musicCacheUsageProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).settingsCacheMusicCleared)),
-      );
-    }
   }
 }
 

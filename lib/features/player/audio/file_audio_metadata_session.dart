@@ -13,6 +13,7 @@ import '../../../core/platform/app_log_store.dart';
 import '../../../core/sources/files/file_entry.dart';
 import '../../../core/sources/files/file_source_repository.dart';
 import '../../cache/music_cache.dart';
+import '../../cache/temporary_cache.dart';
 import 'audio_metadata.dart';
 import 'lrc_parser.dart';
 import '../common/player_queue.dart';
@@ -52,6 +53,7 @@ class FileAudioMetadataSession {
       final cutoff = DateTime.now().subtract(maxAge);
       await for (final entity in directory.list()) {
         if (entity is! File ||
+            TemporaryCacheService.instance.isRetained(entity.path) ||
             !entity.path
                 .split(Platform.pathSeparator)
                 .last
@@ -267,9 +269,10 @@ class FileAudioMetadataSession {
   }) async {
     final directory = await _metadataDirectory();
     final file = File(
-      '${directory.path}/omm_audio_${prefix}_${_digest(entry.stableKey)}.${_extension(entry.name)}',
+      '${directory.path}/omm_audio_${prefix}_${identityHashCode(this)}_${_digest(entry.stableKey)}.${_extension(entry.name)}',
     );
     _ownedFiles.add(file);
+    TemporaryCacheService.instance.retain(file);
     final sink = file.openWrite();
     try {
       await for (final chunk in _repository.download(
@@ -295,10 +298,11 @@ class FileAudioMetadataSession {
   }) async {
     final directory = await _metadataDirectory();
     final file = File(
-      '${directory.path}/omm_audio_art_${_digest(source.stableKey)}.$suffix',
+      '${directory.path}/omm_audio_art_${identityHashCode(this)}_${_digest(source.stableKey)}.$suffix',
     );
-    await file.writeAsBytes(bytes, flush: true);
     _ownedFiles.add(file);
+    TemporaryCacheService.instance.retain(file);
+    await file.writeAsBytes(bytes, flush: true);
     return file;
   }
 
@@ -432,4 +436,5 @@ Future<void> _deleteQuietly(File file) async {
   try {
     if (await file.exists()) await file.delete();
   } catch (_) {}
+  await TemporaryCacheService.instance.release(file);
 }

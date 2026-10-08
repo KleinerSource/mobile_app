@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../features/cache/temporary_cache.dart';
 
 import '../api/app_request_headers.dart';
 import '../api/error_codes.dart';
@@ -190,9 +191,10 @@ class GitHubUpdateService {
     final file = File(
       '${directory.path}${Platform.pathSeparator}omm_update_$fileName',
     );
-    if (await file.exists()) await file.delete();
+    TemporaryCacheService.instance.retain(file);
     final expectedTotal = asset.size > 0 ? asset.size : null;
     try {
+      if (await file.exists()) await file.delete();
       await _dio.download(
         asset.downloadUrl,
         file.path,
@@ -206,12 +208,18 @@ class GitHubUpdateService {
           headers: const {'Accept': 'application/octet-stream'},
         ),
       );
+      // 清理已请求删除此包时，不再把即将删除的文件交给外部安装器。
+      if (TemporaryCacheService.instance.isPendingDeletion(file.path)) {
+        throw const UpdateException();
+      }
       return file;
     } on DioException {
       if (await file.exists()) await file.delete();
+      await TemporaryCacheService.instance.release(file);
       throw const UpdateException();
     } catch (_) {
       if (await file.exists()) await file.delete();
+      await TemporaryCacheService.instance.release(file);
       throw const UpdateException();
     }
   }

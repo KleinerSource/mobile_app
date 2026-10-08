@@ -1,9 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' as io;
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+// CacheStore 没有公开导出；锁定版本的自定义 store 用于修复未等待入库的竞态。
+// ignore: implementation_imports
+import 'package:flutter_cache_manager/src/cache_store.dart';
 
 import '../../core/api/app_request_headers.dart';
 
@@ -12,6 +19,17 @@ class AppImageFileService extends FileService {
     : _delegate = delegate ?? HttpFileService();
 
   final FileService _delegate;
+  final _active = <Completer<void>>{};
+  bool _paused = false;
+
+  void pause() {
+    _paused = true;
+    for (final request in _active.toList()) {
+      if (!request.isCompleted) request.complete();
+    }
+  }
+
+  void resume() => _paused = false;
 
   @override
   int get concurrentFetches => _delegate.concurrentFetches;
@@ -24,8 +42,104 @@ class AppImageFileService extends FileService {
     String url, {
     Map<String, String>? headers,
   }) async {
-    return _delegate.get(url, headers: await mergeAppRequestHeaders(headers));
+    if (_paused) throw StateError('图片缓存正在清理');
+    final cancellation = Completer<void>();
+    _active.add(cancellation);
+    try {
+      final requestHeaders = await mergeAppRequestHeaders(headers);
+      if (_paused || cancellation.isCompleted) throw StateError('图片缓存正在清理');
+      final response = await Future.any([
+        _delegate
+            .get(url, headers: requestHeaders)
+            .then((response) async {
+              if (cancellation.isCompleted) {
+                await response.content.listen((_) {}).cancel();
+                throw StateError('图片请求已取消');
+              }
+              return response;
+            })
+            .timeout(const Duration(seconds: 30)),
+        cancellation.future.then<FileServiceResponse>(
+          (_) => throw StateError('图片请求已取消'),
+        ),
+      ]);
+      if (response.statusCode != 200 && response.statusCode != 202) {
+        _active.remove(cancellation);
+        await response.content.listen((_) {}).cancel();
+      }
+      return _TimedImageResponse(
+        response,
+        cancellation.future,
+        () => _active.remove(cancellation),
+      );
+    } catch (_) {
+      if (!cancellation.isCompleted) cancellation.complete();
+      _active.remove(cancellation);
+      rethrow;
+    }
   }
+}
+
+class _TimedImageResponse implements FileServiceResponse {
+  _TimedImageResponse(this.response, this.cancellation, this.onFinished);
+  final FileServiceResponse response;
+  final Future<void> cancellation;
+  final VoidCallback onFinished;
+  @override
+  Stream<List<int>> get content {
+    StreamSubscription<List<int>>? source;
+    var finished = false;
+    late final StreamController<List<int>> controller;
+    void finish() {
+      if (finished) return;
+      finished = true;
+      onFinished();
+      unawaited(controller.close());
+    }
+
+    controller = StreamController<List<int>>(
+      onListen: () {
+        source = response.content
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: (sink) {
+                sink.addError(TimeoutException('图片下载超时'));
+                sink.close();
+              },
+            )
+            .listen(
+              controller.add,
+              onError: controller.addError,
+              onDone: finish,
+            );
+        unawaited(
+          cancellation.then((_) async {
+            if (finished) return;
+            await source?.cancel();
+            if (finished) return;
+            controller.addError(StateError('图片请求已取消'));
+            finish();
+          }),
+        );
+      },
+      onCancel: () async {
+        await source?.cancel();
+        finish();
+      },
+    );
+    return controller.stream;
+  }
+
+  @override
+  int? get contentLength => response.contentLength;
+  @override
+  String? get eTag => response.eTag;
+  @override
+  String get fileExtension => response.fileExtension;
+  @override
+  int get statusCode => response.statusCode;
+  @override
+  DateTime get validTill => response.validTill;
 }
 
 /// 应用图片专用 CacheManager。
@@ -52,7 +166,7 @@ class AppImageFileService extends FileService {
 /// [trimToMaxBytes] 补上按 key 精确清理和按体积兜底清理。
 class AppImageCacheManager extends CacheManager with ImageCacheManager {
   AppImageCacheManager._()
-    : super(
+    : this._withConfig(
         Config(
           DefaultCacheManager.key,
           stalePeriod: appImageCacheStalePeriod,
@@ -64,8 +178,14 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
   static final AppImageCacheManager instance = AppImageCacheManager._();
 
   @visibleForTesting
-  AppImageCacheManager.forTesting(super.config);
+  AppImageCacheManager.forTesting(Config config) : this._withConfig(config);
 
+  // 上游公开此构造器用于自定义 CacheStore，索引写入必须与清理串行。
+  AppImageCacheManager._withConfig(super.config)
+    // ignore: invalid_use_of_visible_for_testing_member
+    : super.custom(cacheStore: _ImageCacheStore(config));
+
+  final SharedFileResponseLoads _fileLoads = SharedFileResponseLoads();
   final SharedFileResponseLoads _resizedLoads = SharedFileResponseLoads();
   Future<void> _maintenanceQueue = Future<void>.value();
   final generatedImageEpoch = ValueNotifier<int>(0);
@@ -103,12 +223,39 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
   @override
   Future<void> emptyCache() {
     _clearCount++;
+    final service = config.fileService;
+    if (service is AppImageFileService) service.pause();
     generatedImageEpoch.value++;
     return _enqueueMaintenance(() async {
       try {
+        // 上游下载和缩放会在取消订阅后继续落盘；先等待它们及索引写入。
+        await _fileLoads.idle;
+        await _resizedLoads.idle;
         await super.emptyCache();
+        // 索引清理不会删除网络失败/进程异常留下的未入库文件。
+        if (config.fileSystem is IOFileSystem) {
+          final root = io.Directory(
+            (await config.fileSystem.createFile('')).path,
+          );
+          if (await root.exists()) {
+            await for (final entry in root.list(followLinks: false)) {
+              if (entry is io.File) {
+                try {
+                  await entry.delete();
+                } on io.PathNotFoundException {
+                  // 自动淘汰可能已删除该文件。
+                }
+              }
+            }
+          }
+        }
+        store.emptyMemoryCache();
+        PaintingBinding.instance.imageCache
+          ..clear()
+          ..clearLiveImages();
       } finally {
         _clearCount--;
+        if (!isClearing && service is AppImageFileService) service.resume();
       }
     });
   }
@@ -179,6 +326,51 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
   }
 
   @override
+  Future<FileInfo> downloadFile(
+    String url, {
+    String? key,
+    Map<String, String>? authHeaders,
+    bool force = false,
+  }) async {
+    if (isClearing) throw StateError('图片缓存正在清理');
+    return await _fileLoads
+            .share(
+              'download:${key ?? url}:$force',
+              () => Stream<FileResponse>.fromFuture(
+                super.downloadFile(
+                  url,
+                  key: key,
+                  authHeaders: authHeaders,
+                  force: force,
+                ),
+              ),
+            )
+            .firstWhere((event) => event is FileInfo)
+        as FileInfo;
+  }
+
+  @override
+  Stream<FileResponse> getFileStream(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool withProgress = false,
+  }) {
+    if (isClearing) return Stream.error(StateError('图片缓存正在清理'));
+    // 只共享带进度的底层流，按订阅者要求筛选，不丢失后加入者的文件。
+    final stream = _fileLoads.share(
+      key ?? url,
+      () => super.getFileStream(
+        url,
+        key: key,
+        headers: headers,
+        withProgress: true,
+      ),
+    );
+    return withProgress ? stream : stream.where((event) => event is FileInfo);
+  }
+
+  @override
   Stream<FileResponse> getImageFile(
     String url, {
     String? key,
@@ -187,6 +379,7 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
     int? maxHeight,
     int? maxWidth,
   }) {
+    if (isClearing) return Stream.error(StateError('图片缓存正在清理'));
     if (maxHeight == null && maxWidth == null) {
       return super.getImageFile(
         url,
@@ -201,7 +394,7 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
         maxWidth: maxWidth,
         maxHeight: maxHeight,
       ),
-      () => super.getImageFile(
+      () => _loadResizedImage(
         url,
         key: key,
         headers: headers,
@@ -210,6 +403,136 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
         maxWidth: maxWidth,
       ),
     );
+  }
+
+  // 上游 _runningResizes 在源流报错时不会移除 key，清理取消后同图永远
+  // 只能订阅已结束的流；本类的共享队列在成功、失败路径都会释放 key。
+  Stream<FileResponse> _loadResizedImage(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    required bool withProgress,
+    int? maxHeight,
+    int? maxWidth,
+  }) async* {
+    final epoch = generatedImageEpoch.value;
+    final resizedKey = resizedImageCacheKey(
+      key ?? url,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+    );
+    final cached = await getFileFromCache(resizedKey);
+    if (cached != null) {
+      yield cached;
+      if (cached.validTill.isAfter(DateTime.now())) return;
+      withProgress = false;
+    }
+    await for (final response in getFileStream(
+      url,
+      key: key,
+      headers: headers,
+      withProgress: withProgress,
+    )) {
+      if (response is! FileInfo) {
+        yield response;
+        continue;
+      }
+      if (epoch != generatedImageEpoch.value || isClearing) {
+        throw StateError('图片请求已取消');
+      }
+      final extension = response.file.path.split('.').last.toLowerCase();
+      if (!const {
+        'jpg',
+        'jpeg',
+        'png',
+        'tga',
+        'cur',
+        'ico',
+      }.contains(extension)) {
+        yield response;
+        continue;
+      }
+      final bytes = await response.file.readAsBytes();
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final ui.ImageDescriptor descriptor;
+      try {
+        descriptor = await ui.ImageDescriptor.encoded(buffer);
+      } catch (_) {
+        buffer.dispose();
+        rethrow;
+      }
+      int width;
+      int height;
+      try {
+        final factor = math.min(
+          1.0,
+          math.min(
+            maxWidth == null ? 1.0 : maxWidth / descriptor.width,
+            maxHeight == null ? 1.0 : maxHeight / descriptor.height,
+          ),
+        );
+        width = math.max(1, (descriptor.width * factor).round());
+        height = math.max(1, (descriptor.height * factor).round());
+        if (factor >= 1) {
+          yield response;
+          continue;
+        }
+      } finally {
+        descriptor.dispose();
+        buffer.dispose();
+      }
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: width,
+        targetHeight: height,
+      );
+      ui.Image? image;
+      Uint8List resized;
+      try {
+        image = (await codec.getNextFrame()).image;
+        resized = (await image.toByteData(
+          format: ui.ImageByteFormat.png,
+        ))!.buffer.asUint8List();
+      } finally {
+        image?.dispose();
+        codec.dispose();
+      }
+      if (epoch != generatedImageEpoch.value || isClearing) {
+        throw StateError('图片请求已取消');
+      }
+      final file = await putFile(
+        url,
+        resized,
+        key: resizedKey,
+        maxAge: response.validTill.difference(DateTime.now()),
+        fileExtension: 'png',
+      );
+      yield FileInfo(
+        file,
+        response.source,
+        response.validTill,
+        response.originalUrl,
+      );
+    }
+  }
+}
+
+/// 上游下载和缩放不 await 索引入库，防止清理先于最后一次入库完成。
+class _ImageCacheStore extends CacheStore {
+  _ImageCacheStore(super.config);
+  Future<void> _writes = Future<void>.value();
+
+  @override
+  Future<void> putFile(CacheObject object) {
+    final result = _writes.then((_) => super.putFile(object));
+    _writes = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return result;
+  }
+
+  @override
+  Future<void> emptyCache() async {
+    await _writes;
+    await super.emptyCache();
   }
 }
 
@@ -287,6 +610,9 @@ class SharedFileResponseLoads {
 
   bool isLoading(String key) => _loads.containsKey(key);
 
+  Future<void> get idle =>
+      Future.wait(_loads.values.map((load) => load.done.future));
+
   Stream<FileResponse> share(
     String key,
     Stream<FileResponse> Function() start,
@@ -318,6 +644,7 @@ class _SharedFileResponseLoad {
   StreamSubscription<FileResponse>? _source;
   FileInfo? _latestFile;
   bool _finished = false;
+  final done = Completer<void>();
 
   Stream<FileResponse> subscribe() {
     late final StreamController<FileResponse> controller;
@@ -369,6 +696,7 @@ class _SharedFileResponseLoad {
 
   void _finish() {
     _finished = true;
+    done.complete();
     unawaited(_source?.cancel());
     _source = null;
     onFinished();

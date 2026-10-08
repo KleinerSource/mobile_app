@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../../cache/temporary_cache.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -608,7 +609,13 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
         '${DateTime.now().microsecondsSinceEpoch}-'
         '${_subtitleFileSeq++}.vtt';
     final file = File('${directory.path}${Platform.pathSeparator}$name');
-    await file.writeAsString(content, flush: true);
+    TemporaryCacheService.instance.retain(file);
+    try {
+      await file.writeAsString(content, flush: true);
+    } catch (_) {
+      await _deleteQuietly(file);
+      rethrow;
+    }
     return file;
   }
 
@@ -618,6 +625,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     } catch (_) {
       // mpv 可能仍持有句柄，留给系统临时目录清理。
     }
+    await TemporaryCacheService.instance.release(file);
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../features/cache/temporary_cache.dart';
 
 import 'update_installer.dart';
 import 'update_models.dart';
@@ -50,11 +51,13 @@ class AppUpdateCoordinator {
         asset,
         onReceiveProgress: onReceiveProgress,
       );
-      final installed = await AndroidUpdateInstaller.install(file);
-      if (!installed) {
-        throw const UpdateException();
+      try {
+        final installed = await AndroidUpdateInstaller.install(file);
+        if (!installed) throw const UpdateException();
+        return UpdateInstallAction.androidInstallerOpened;
+      } finally {
+        await TemporaryCacheService.instance.release(file);
       }
-      return UpdateInstallAction.androidInstallerOpened;
     }
 
     throw const UpdateException();

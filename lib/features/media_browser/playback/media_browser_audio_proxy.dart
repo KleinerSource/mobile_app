@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../cache/temporary_cache.dart';
 
 import 'package:omm/core/api/app_request_headers.dart';
 import 'package:omm/core/api/error_codes.dart';
@@ -283,6 +284,7 @@ class MediaBrowserAudioProxy {
           teeClaim.future.ignore();
           track.download = teeClaim.future;
         } catch (_) {
+          if (teeFile != null) await _deleteQuietly(teeFile);
           teeFile = null;
           teeSink = null;
         }
@@ -323,7 +325,7 @@ class MediaBrowserAudioProxy {
           await teeSink.close();
           teeSink = null;
           track.download = null;
-          if (written == teeExpected && written > 0) {
+          if (!_closed && written == teeExpected && written > 0) {
             track.file = teeFile;
             teeClaim!.complete(teeFile);
             appLog('[MbAudioProxy] 流式缓存完成: ${track.track.name} size=$written');
@@ -368,10 +370,12 @@ class MediaBrowserAudioProxy {
     } catch (_) {
       directory = Directory.systemTemp;
     }
-    return File(
+    final file = File(
       '${directory.path}${Platform.pathSeparator}'
-      'mb_audio_${_digest(track.track.id)}.media',
+      'mb_audio_${identityHashCode(this)}_${_digest(track.track.id)}.media',
     );
+    TemporaryCacheService.instance.retain(file);
+    return file;
   }
 
   Future<File> _downloadTrack(_ProxiedTrack track) async {
@@ -389,7 +393,7 @@ class MediaBrowserAudioProxy {
           headers: {...mediaHeaders, 'Accept-Encoding': 'identity'},
         ),
       );
-      if (await file.length() == 0) {
+      if (_closed || await file.length() == 0) {
         throw StateError(AppErrorCode.responseDataMissing);
       }
       track.file = file;
@@ -577,4 +581,5 @@ Future<void> _deleteQuietly(File file) async {
   try {
     if (await file.exists()) await file.delete();
   } catch (_) {}
+  await TemporaryCacheService.instance.release(file);
 }

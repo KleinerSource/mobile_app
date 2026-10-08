@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
+import 'temporary_cache.dart';
 
 enum CacheCategory { image, other }
 
@@ -50,12 +51,25 @@ String formatCacheBytes(int bytes) {
 }
 
 class DiskCacheService {
-  DiskCacheService({Directory? rootDirectory}) : _rootOverride = rootDirectory;
+  DiskCacheService({
+    Directory? rootDirectory,
+    AppImageCacheManager? imageCache,
+    TemporaryCacheService? temporaryCache,
+  }) : _rootOverride = rootDirectory,
+       _imageCacheOverride = imageCache,
+       _temporaryCache =
+           temporaryCache ??
+           (rootDirectory == null
+               ? TemporaryCacheService.instance
+               : TemporaryCacheService(rootDirectory: rootDirectory));
 
   static const _rootName = 'omm_cache';
-  static const _otherDirName = 'other';
 
   final Directory? _rootOverride;
+  final AppImageCacheManager? _imageCacheOverride;
+  AppImageCacheManager get _imageCache =>
+      _imageCacheOverride ?? AppImageCacheManager.instance;
+  final TemporaryCacheService _temporaryCache;
   Directory? _root;
   Future<void> _operationQueue = Future<void>.value();
 
@@ -78,14 +92,8 @@ class DiskCacheService {
         : Future.value(override);
   }
 
-  Future<Directory> _categoryDirectory(String name) async {
-    final root = await _rootDirectory();
-    final directory = Directory('${root.path}${Platform.pathSeparator}$name');
-    await directory.create(recursive: true);
-    return directory;
-  }
-
   Future<CacheUsage> usage() async {
+    await _operationQueue;
     final root = await _rootDirectory();
     // 图片缓存(AppImageCacheManager)复用 DefaultCacheManager 的目录与
     // 索引，统计路径不变。
@@ -94,28 +102,35 @@ class DiskCacheService {
       '${imageBase.path}${Platform.pathSeparator}${DefaultCacheManager.key}',
     );
     return CacheUsage(
-      imageBytes: await _directorySize(image),
-      otherBytes: await _directorySize(
-        Directory('${root.path}${Platform.pathSeparator}$_otherDirName'),
-      ),
+      imageBytes:
+          await _directorySize(image) +
+          await _temporaryCache.usage(TemporaryCacheKind.image),
+      // 包含旧版本遗留的视频目录，统计与一键清理范围一致。
+      otherBytes:
+          await _directorySize(root) +
+          await _temporaryCache.usage(TemporaryCacheKind.other),
     );
   }
 
   Future<void> clear(CacheCategory category) {
     return _enqueue(() async {
       if (category == CacheCategory.image) {
-        await AppImageCacheManager.instance.emptyCache();
+        await _imageCache.emptyCache();
+        await _temporaryCache.clear(TemporaryCacheKind.image);
         return;
       }
-      final directory = await _categoryDirectory(_otherDirName);
+      final directory = await _rootDirectory();
       if (await directory.exists()) await directory.delete(recursive: true);
       await directory.create(recursive: true);
+      await _temporaryCache.clear(TemporaryCacheKind.other);
     });
   }
 
   Future<void> clearAll() {
     return _enqueue(() async {
-      await AppImageCacheManager.instance.emptyCache();
+      await _imageCache.emptyCache();
+      await _temporaryCache.clear(TemporaryCacheKind.image);
+      await _temporaryCache.clear(TemporaryCacheKind.other);
       // 整棵删除可以顺带清掉旧版本持久化视频缓存留下的文件。
       final root = await _rootDirectory();
       if (await root.exists()) await root.delete(recursive: true);
@@ -139,7 +154,13 @@ class DiskCacheService {
       recursive: true,
       followLinks: false,
     )) {
-      if (entity is File) total += await entity.length();
+      if (entity is File) {
+        try {
+          total += await entity.length();
+        } on PathNotFoundException {
+          // 图片自动淘汰或播放会话释放与统计并发。
+        }
+      }
     }
     return total;
   }

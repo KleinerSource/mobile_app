@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../cache/temporary_cache.dart';
 
 import 'package:omm/core/api/app_request_headers.dart';
 import 'package:omm/core/api/server_connection.dart';
@@ -118,9 +119,7 @@ Future<void> _openMediaBrowserAudioPlayback(
     if (error is! ServerConnectionClosedException &&
         connectionLease?.isActive != false &&
         context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(localizedErrorMessage(AppL10n.of(context), error)),
         ),
@@ -365,14 +364,18 @@ class MediaBrowserAudioQueueSession {
   }
 
   Future<String?> _downloadArtwork(String imageItemId) async {
+    File? ownedFile;
     try {
       if (_disposed || connectionLease?.isActive == false) return null;
       final directory = await _artworkDirectory();
       if (_disposed || connectionLease?.isActive == false) return null;
       final file = File(
         '${directory.path}${Platform.pathSeparator}'
-        'mb_audio_${_digest(imageItemId)}.jpg',
+        'mb_audio_${identityHashCode(this)}_${_digest(imageItemId)}.jpg',
       );
+      ownedFile = file;
+      _ownedFiles.add(file);
+      TemporaryCacheService.instance.retain(file);
       if (!await file.exists()) {
         // 下载器是无鉴权裸 Dio，这里必须带 token 兜底；产物是临时文件
         // 不进图片缓存，token 变化不影响缓存 key。
@@ -387,9 +390,12 @@ class MediaBrowserAudioQueueSession {
           return null;
         }
       }
-      _ownedFiles.add(file);
       return file.path;
     } catch (_) {
+      if (ownedFile != null) {
+        _ownedFiles.remove(ownedFile);
+        await _deleteQuietly(ownedFile);
+      }
       return null;
     }
   }
@@ -454,6 +460,7 @@ Future<void> _deleteQuietly(File file) async {
   try {
     if (await file.exists()) await file.delete();
   } catch (_) {}
+  await TemporaryCacheService.instance.release(file);
 }
 
 String _digest(String value) =>
