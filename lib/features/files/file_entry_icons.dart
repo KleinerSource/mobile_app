@@ -18,6 +18,23 @@ enum FileTypeIcon {
   other,
 }
 
+enum FileFilterType { video, music, image, subtitle, other }
+
+FileFilterType fileFilterTypeFor(FileEntry entry) {
+  final icon = fileTypeIconFor(entry);
+  if (icon == FileTypeIcon.text &&
+      (_isSubtitleMimeType(entry.mimeType?.trim().toLowerCase() ?? '') ||
+          _subtitleFileExtensions.contains(fileExtensionFor(entry.name)))) {
+    return FileFilterType.subtitle;
+  }
+  return switch (icon) {
+    FileTypeIcon.video => FileFilterType.video,
+    FileTypeIcon.audio => FileFilterType.music,
+    FileTypeIcon.image => FileFilterType.image,
+    _ => FileFilterType.other,
+  };
+}
+
 const _videoFileExtensions = <String>{
   'mp4',
   'mkv',

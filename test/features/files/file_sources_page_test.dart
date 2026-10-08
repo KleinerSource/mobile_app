@@ -444,15 +444,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('新建文件夹'), findsOneWidget);
     expect(find.text('选择'), findsOneWidget);
-    expect(find.text('显示隐藏文件'), findsOneWidget);
+    expect(find.text('类型筛选'), findsOneWidget);
+    expect(find.text('显示隐藏文件'), findsNothing);
     expect(find.text('名称排序 ↑'), findsOneWidget);
     expect(find.text('日期排序'), findsOneWidget);
     expect(find.text('大小排序'), findsOneWidget);
     expect(find.text('类别排序'), findsOneWidget);
 
-    await tester.tap(find.text('显示隐藏文件'), warnIfMissed: false);
+    await tester.tap(find.text('类型筛选'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('显示隐藏文件'));
+    await tester.tap(find.text('显示隐藏文件'));
     await tester.pumpAndSettle();
     expect(find.text('.隐藏文件'), findsOneWidget);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
 
     await tester.longPress(find.text('影片.mkv'));
     await tester.pumpAndSettle();

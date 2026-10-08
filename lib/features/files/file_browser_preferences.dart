@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/error_codes.dart';
 import '../../core/config/server_config_provider.dart';
+import 'file_entry_icons.dart';
 
 enum FileBrowserSortField { name, date, size, category }
 
@@ -16,21 +17,35 @@ class FileBrowserPreferences {
     this.sortField = FileBrowserSortField.name,
     this.sortAscending = true,
     this.showHiddenFiles = false,
+    this.selectedTypes = allTypes,
   });
+
+  static const allTypes = <FileFilterType>{
+    FileFilterType.video,
+    FileFilterType.music,
+    FileFilterType.image,
+    FileFilterType.subtitle,
+    FileFilterType.other,
+  };
 
   final FileBrowserSortField sortField;
   final bool sortAscending;
   final bool showHiddenFiles;
+  final Set<FileFilterType> selectedTypes;
 
   FileBrowserPreferences copyWith({
     FileBrowserSortField? sortField,
     bool? sortAscending,
     bool? showHiddenFiles,
+    Set<FileFilterType>? selectedTypes,
   }) {
     return FileBrowserPreferences(
       sortField: sortField ?? this.sortField,
       sortAscending: sortAscending ?? this.sortAscending,
       showHiddenFiles: showHiddenFiles ?? this.showHiddenFiles,
+      selectedTypes: selectedTypes == null
+          ? this.selectedTypes
+          : Set.unmodifiable(selectedTypes),
     );
   }
 }
@@ -58,6 +73,7 @@ class FileBrowserPreferencesRepository {
         showHiddenFiles: decoded['show_hidden_files'] is bool
             ? decoded['show_hidden_files'] as bool
             : false,
+        selectedTypes: _selectedTypes(decoded['selected_types']),
       );
     } on FormatException {
       return const FileBrowserPreferences();
@@ -72,6 +88,10 @@ class FileBrowserPreferencesRepository {
           'sort_field': preferences.sortField.name,
           'sort_ascending': preferences.sortAscending,
           'show_hidden_files': preferences.showHiddenFiles,
+          'selected_types': [
+            for (final type in FileFilterType.values)
+              if (preferences.selectedTypes.contains(type)) type.name,
+          ],
         }),
       );
     });
@@ -81,6 +101,17 @@ class FileBrowserPreferencesRepository {
 
   /// 等待已经排队的偏好写入完成。
   Future<void> flush() => _writeQueue;
+
+  Set<FileFilterType> _selectedTypes(Object? value) {
+    if (value is! List) return FileBrowserPreferences.allTypes;
+    final types = FileFilterType.values
+        .where((type) => value.contains(type.name))
+        .toSet();
+    if (value.isNotEmpty && types.isEmpty) {
+      return FileBrowserPreferences.allTypes;
+    }
+    return Set.unmodifiable(types);
+  }
 
   FileBrowserSortField _sortField(Object? value) {
     for (final field in FileBrowserSortField.values) {
@@ -124,6 +155,12 @@ class FileBrowserPreferencesNotifier extends Notifier<FileBrowserPreferences> {
 
   void toggleHiddenFiles() {
     _update(state.copyWith(showHiddenFiles: !state.showHiddenFiles));
+  }
+
+  void toggleType(FileFilterType type) {
+    final types = {...state.selectedTypes};
+    if (!types.remove(type)) types.add(type);
+    _update(state.copyWith(selectedTypes: types));
   }
 
   void setSort(FileBrowserSortField field) {

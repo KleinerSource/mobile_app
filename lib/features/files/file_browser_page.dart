@@ -62,6 +62,7 @@ import 'file_playback_queue_builder.dart';
 part 'file_batch_rename_sheet.dart';
 
 part 'file_browser_widgets.dart';
+part 'file_browser_filter_menu.dart';
 part 'file_move_destination_page.dart';
 
 part 'file_browser_operations.dart';
@@ -75,7 +76,6 @@ enum _BrowserMenuAction {
   createDirectory,
   upload,
   enterSelection,
-  toggleHidden,
   sortName,
   sortDate,
   sortSize,
@@ -318,10 +318,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                               Icons.checklist_outlined,
                               l.fileSelect,
                             ),
-                            CheckedPopupMenuItem<_BrowserMenuAction>(
-                              value: _BrowserMenuAction.toggleHidden,
-                              checked: browserPreferences.showHiddenFiles,
-                              child: Text(l.fileShowHidden),
+                            _FileTypeFilterMenu(
+                              serverId: widget.serverId,
+                              onChanged: () {
+                                _openSwipe.value = null;
+                                if (_selectionMode) _exitSelection();
+                              },
                             ),
                             CheckedPopupMenuItem<_BrowserMenuAction>(
                               value: _BrowserMenuAction.sortName,
@@ -614,11 +616,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         await _upload(currentPath);
       case _BrowserMenuAction.enterSelection:
         _enterSelectionMode();
-      case _BrowserMenuAction.toggleHidden:
-        if (_selectionMode) _exitSelection();
-        ref
-            .read(fileBrowserPreferencesProvider(widget.serverId).notifier)
-            .toggleHiddenFiles();
       case _BrowserMenuAction.sortName:
         _setSort(FileBrowserSortField.name);
       case _BrowserMenuAction.sortDate:
@@ -645,6 +642,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   List<FileEntry> _visibleEntries(DirectoryListing listing) {
     final entries = listing.entries
         .where((entry) => _showHiddenFiles || !_isHiddenEntry(entry))
+        .where(
+          (entry) =>
+              widget.directoryPicker ||
+              entry.isDirectory ||
+              _browserPreferences.selectedTypes.contains(
+                fileFilterTypeFor(entry),
+              ),
+        )
         .toList();
     entries.sort(_compareEntries);
     return entries;
@@ -695,6 +700,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   ) {
     _scheduleAutoOpenOnce(listing);
     final entries = _visibleEntries(listing);
+    final filteredEmpty =
+        entries.isEmpty &&
+        !widget.directoryPicker &&
+        listing.entries.any(
+          (entry) => _showHiddenFiles || !_isHiddenEntry(entry),
+        );
     final favoriteKeys = favorites
         .map((favorite) => favorite.stableKey)
         .toSet();
@@ -767,7 +778,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       ),
                       children: [
                         const SizedBox(height: 140),
-                        Center(child: Text(_l10n.fileEmptyDirectory)),
+                        Center(
+                          child: Text(
+                            filteredEmpty
+                                ? _l10n.fileFilterEmpty
+                                : _l10n.fileEmptyDirectory,
+                          ),
+                        ),
                       ],
                     )
                   : ListView.separated(
