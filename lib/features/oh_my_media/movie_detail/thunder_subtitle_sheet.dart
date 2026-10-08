@@ -223,7 +223,9 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
       return true;
     }
     return exception.status == 409 ||
-        exception.message.trim().toLowerCase().contains('subtitle already exists');
+        exception.message.trim().toLowerCase().contains(
+          'subtitle already exists',
+        );
   }
 
   int? _resolveDurationMs(SubtitleSearchItem item) {
@@ -235,27 +237,27 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SheetHeader(
-          icon: Icons.subtitles_outlined,
-          title: l.subtitleSearchTitle,
-          subtitle: _keyword.isEmpty ? null : l.subtitleSearchKeyword(_keyword),
-          trailing: IconButton(
-            tooltip: l.actionRefresh,
-            icon: Icon(Icons.refresh, color: c.muted, size: 20),
-            onPressed: _loading ? null : _load,
-          ),
-        ),
-        if (_loading)
-          const SizedBox(
-            height: 96,
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else
-          _buildBody(c),
-      ],
+    return ResourcePanelShell(
+      icon: Icons.subtitles_outlined,
+      title: l.subtitleSearchTitle,
+      subtitle: _keyword.isEmpty ? null : l.subtitleSearchKeyword(_keyword),
+      trailing: IconButton(
+        tooltip: l.actionRefresh,
+        icon: Icon(Icons.refresh, color: c.muted, size: 20),
+        onPressed: _loading ? null : _load,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_loading)
+            const SizedBox(
+              height: 96,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            _buildBody(c),
+        ],
+      ),
     );
   }
 
@@ -298,22 +300,17 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
         ),
       );
     }
-    return Flexible(
-      fit: FlexFit.loose,
-      child: ListView.separated(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        itemCount: _items.length,
-        separatorBuilder: (_, __) => Divider(height: 1, color: c.divider),
-        itemBuilder: (ctx, i) => _SubtitleRow(
-          index: i,
-          item: _items[i],
-          durationMs: _resolveDurationMs(_items[i]),
-          previewing: _previewingIndex == i,
-          downloading: _downloadingIndex == i,
-          onPreview: () => _openPreview(i, _items[i]),
-          onDownload: () => _download(i, _items[i]),
-        ),
+    return ResourcePanelList(
+      itemCount: _items.length,
+      dividerColor: c.divider,
+      itemBuilder: (ctx, i) => _SubtitleRow(
+        index: i,
+        item: _items[i],
+        durationMs: _resolveDurationMs(_items[i]),
+        previewing: _previewingIndex == i,
+        downloading: _downloadingIndex == i,
+        onPreview: () => _openPreview(i, _items[i]),
+        onDownload: () => _download(i, _items[i]),
       ),
     );
   }

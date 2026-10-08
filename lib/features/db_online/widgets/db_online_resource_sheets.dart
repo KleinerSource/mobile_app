@@ -273,169 +273,123 @@ class _DbOnlineResourcesSheetState
     final ed2kItems = _ed2ks;
     final count = isMagnet ? magnetItems.length : ed2kItems.length;
     final showTabs = magnetItems.isNotEmpty && ed2kItems.isNotEmpty;
-    return SafeArea(
-      top: false,
-      bottom: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
-        ),
-        child: ResourcePanelSwipeArea(
-          onSwipeLeft: showTabs
-              ? () => setState(() => _tab = _ResourceTab.ed2k)
-              : null,
-          onSwipeRight: showTabs
-              ? () => setState(() => _tab = _ResourceTab.magnet)
-              : null,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SheetHeader(
-                icon: Icons.cloud_download_outlined,
-                title: l.resourceOnline,
-                subtitle: widget.movie.code,
-                trailing: IconButton(
-                  tooltip: l.actionRefresh,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  onPressed: _loadingResources ? null : _loadResources,
+    return ResourcePanelShell(
+      icon: Icons.cloud_download_outlined,
+      title: l.resourceOnline,
+      subtitle: widget.movie.code,
+      trailing: IconButton(
+        tooltip: l.actionRefresh,
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        onPressed: _loadingResources ? null : _loadResources,
+      ),
+      tabs: showTabs
+          ? [
+              ResourcePanelTab(
+                label: l.resourceMagnetCount(magnetItems.length),
+              ),
+              ResourcePanelTab(label: l.resourceEd2kCount(ed2kItems.length)),
+            ]
+          : const [],
+      selectedTabIndex: isMagnet ? 0 : 1,
+      onTabSelected: (index) => setState(
+        () => _tab = index == 0 ? _ResourceTab.magnet : _ResourceTab.ed2k,
+      ),
+      contentTopSpacing: 10,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_loadingResources)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(l.resourceLoadingOnline, style: AppText.meta(context)),
+                ],
+              ),
+            ),
+          if (_sourceErrors.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _sourceErrors.values.join('\n'),
+                  style: AppText.meta(context).copyWith(color: colors.danger),
                 ),
               ),
-              if (showTabs)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: colors.chipBg,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ResourcePanelTabButton(
-                            label: l.resourceMagnetCount(magnetItems.length),
-                            active: isMagnet,
-                            onTap: () =>
-                                setState(() => _tab = _ResourceTab.magnet),
-                          ),
-                        ),
-                        Expanded(
-                          child: ResourcePanelTabButton(
-                            label: l.resourceEd2kCount(ed2kItems.length),
-                            active: !isMagnet,
-                            onTap: () =>
-                                setState(() => _tab = _ResourceTab.ed2k),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 10),
-              if (_loadingResources)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colors.accent,
-                        ),
+            ),
+          if (count == 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
+              child: Text(
+                _loadingResources
+                    ? l.resourceWaitingSources
+                    : isMagnet
+                    ? l.resourceNoMagnet
+                    : l.resourceNoEd2k,
+                textAlign: TextAlign.center,
+                style: AppText.body(context),
+              ),
+            )
+          else
+            ResourcePanelList(
+              itemCount: count,
+              dividerColor: colors.divider,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
+              itemBuilder: (context, index) => isMagnet
+                  ? _MagnetRow(
+                      item: magnetItems[index],
+                      pushing: _pushingKey == magnetItems[index].magnet,
+                      pushDisabled:
+                          _pushingKey != null ||
+                          _downloadersLoading ||
+                          _activeDownloaders.isEmpty,
+                      downloadedAt: _downloadedAt(
+                        _downloadedMagnets,
+                        dbOnlineMagnetHash(magnetItems[index].magnet),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        l.resourceLoadingOnline,
-                        style: AppText.meta(context),
+                      onPush: () => _onPush(
+                        url: magnetItems[index].magnet,
+                        protocol: 'magnet',
+                        name: magnetItems[index].name,
+                        site: magnetItems[index].site,
+                        date: magnetItems[index].date,
+                        tags: magnetItems[index].tags,
                       ),
-                    ],
-                  ),
-                ),
-              if (_sourceErrors.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _sourceErrors.values.join('\n'),
-                      style: AppText.meta(
-                        context,
-                      ).copyWith(color: colors.danger),
+                      onCopy: () => _copy(magnetItems[index].magnet),
+                    )
+                  : _Ed2kRow(
+                      item: ed2kItems[index],
+                      pushing: _pushingKey == ed2kItems[index].ed2k,
+                      pushDisabled:
+                          _pushingKey != null ||
+                          _downloadersLoading ||
+                          _activeDownloaders.isEmpty,
+                      downloadedAt: _downloadedAt(
+                        _downloadedEd2ks,
+                        dbOnlineEd2kHash(ed2kItems[index].ed2k),
+                      ),
+                      onPush: () => _onPush(
+                        url: ed2kItems[index].ed2k,
+                        protocol: 'ed2k',
+                        name: ed2kItems[index].name,
+                        site: ed2kItems[index].site,
+                        date: ed2kItems[index].date,
+                        tags: ed2kItems[index].tags,
+                      ),
+                      onCopy: () => _copy(ed2kItems[index].ed2k),
                     ),
-                  ),
-                ),
-              if (count == 0)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
-                  child: Text(
-                    _loadingResources
-                        ? l.resourceWaitingSources
-                        : isMagnet
-                        ? l.resourceNoMagnet
-                        : l.resourceNoEd2k,
-                    textAlign: TextAlign.center,
-                    style: AppText.body(context),
-                  ),
-                )
-              else
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
-                    itemCount: count,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, color: colors.divider),
-                    itemBuilder: (context, index) => isMagnet
-                        ? _MagnetRow(
-                            item: magnetItems[index],
-                            pushing: _pushingKey == magnetItems[index].magnet,
-                            pushDisabled:
-                                _pushingKey != null ||
-                                _downloadersLoading ||
-                                _activeDownloaders.isEmpty,
-                            downloadedAt: _downloadedAt(
-                              _downloadedMagnets,
-                              dbOnlineMagnetHash(magnetItems[index].magnet),
-                            ),
-                            onPush: () => _onPush(
-                              url: magnetItems[index].magnet,
-                              protocol: 'magnet',
-                              name: magnetItems[index].name,
-                              site: magnetItems[index].site,
-                              date: magnetItems[index].date,
-                              tags: magnetItems[index].tags,
-                            ),
-                            onCopy: () => _copy(magnetItems[index].magnet),
-                          )
-                        : _Ed2kRow(
-                            item: ed2kItems[index],
-                            pushing: _pushingKey == ed2kItems[index].ed2k,
-                            pushDisabled:
-                                _pushingKey != null ||
-                                _downloadersLoading ||
-                                _activeDownloaders.isEmpty,
-                            downloadedAt: _downloadedAt(
-                              _downloadedEd2ks,
-                              dbOnlineEd2kHash(ed2kItems[index].ed2k),
-                            ),
-                            onPush: () => _onPush(
-                              url: ed2kItems[index].ed2k,
-                              protocol: 'ed2k',
-                              name: ed2kItems[index].name,
-                              site: ed2kItems[index].site,
-                              date: ed2kItems[index].date,
-                              tags: ed2kItems[index].tags,
-                            ),
-                            onCopy: () => _copy(ed2kItems[index].ed2k),
-                          ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -851,134 +805,93 @@ class _DbOnlineSubtitleSheetState extends ConsumerState<DbOnlineSubtitleSheet> {
     final loading = isLocal ? _localLoading : _thunderLoading;
     final error = isLocal ? _localError : _thunderError;
     final count = isLocal ? _localFiles.length : _thunderItems.length;
-    return SafeArea(
-      top: false,
-      bottom: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+    return ResourcePanelShell(
+      icon: Icons.subtitles_outlined,
+      title: l.subtitleSearchTitle,
+      subtitle: widget.code,
+      trailing: IconButton(
+        tooltip: l.dbOnlineRetry,
+        icon: Icon(Icons.refresh_rounded, color: colors.muted, size: 20),
+        onPressed: loading ? null : (isLocal ? _loadLocal : _loadThunder),
+      ),
+      tabs: [
+        ResourcePanelTab(label: l.dbOnlineLocalSubtitles(_localFiles.length)),
+        ResourcePanelTab(
+          label: l.dbOnlineThunderSubtitles(_thunderItems.length),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SheetHeader(
-              icon: Icons.subtitles_outlined,
-              title: l.subtitleSearchTitle,
-              subtitle: widget.code,
-              trailing: IconButton(
-                tooltip: l.dbOnlineRetry,
-                icon: Icon(
-                  Icons.refresh_rounded,
-                  color: colors.muted,
-                  size: 20,
-                ),
-                onPressed: loading
-                    ? null
-                    : (isLocal ? _loadLocal : _loadThunder),
-              ),
-            ),
+      ],
+      selectedTabIndex: isLocal ? 0 : 1,
+      onTabSelected: (index) => setState(
+        () => _tab = index == 0 ? _SubtitleTab.local : _SubtitleTab.thunder,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loading)
+            const SizedBox(
+              height: 112,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: colors.chipBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ResourcePanelTabButton(
-                        label: l.dbOnlineLocalSubtitles(_localFiles.length),
-                        active: isLocal,
-                        onTap: () => setState(() => _tab = _SubtitleTab.local),
-                      ),
-                    ),
-                    Expanded(
-                      child: ResourcePanelTabButton(
-                        label: l.dbOnlineThunderSubtitles(_thunderItems.length),
-                        active: !isLocal,
-                        onTap: () =>
-                            setState(() => _tab = _SubtitleTab.thunder),
-                      ),
-                    ),
-                  ],
-                ),
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, size: 30, color: colors.danger),
+                  const SizedBox(height: 9),
+                  Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: AppText.meta(context),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: isLocal ? _loadLocal : _loadThunder,
+                    child: Text(l.dbOnlineRetry),
+                  ),
+                ],
               ),
+            )
+          else if (count == 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
+              child: Text(
+                l.subtitleNoMatch,
+                textAlign: TextAlign.center,
+                style: AppText.body(context),
+              ),
+            )
+          else
+            ResourcePanelList(
+              itemCount: count,
+              dividerColor: colors.divider,
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
+              itemBuilder: (context, index) => isLocal
+                  ? _LocalSubtitleRow(
+                      item: _localFiles[index],
+                      previewing: _busyKeys.contains(
+                        'local-preview:${_localFiles[index].id}',
+                      ),
+                      downloading: _busyKeys.contains(
+                        'local-download:${_localFiles[index].id}',
+                      ),
+                      onPreview: () => _previewLocal(_localFiles[index]),
+                      onDownload: () => _downloadLocal(_localFiles[index]),
+                    )
+                  : _ThunderSubtitleRow(
+                      item: _thunderItems[index],
+                      previewing: _busyKeys.contains(
+                        'thunder-preview:${_thunderItems[index].url}',
+                      ),
+                      downloading: _busyKeys.contains(
+                        'thunder-download:${_thunderItems[index].url}',
+                      ),
+                      onPreview: () => _previewThunder(_thunderItems[index]),
+                      onDownload: () => _downloadThunder(_thunderItems[index]),
+                    ),
             ),
-            if (loading)
-              const SizedBox(
-                height: 112,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (error != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, size: 30, color: colors.danger),
-                    const SizedBox(height: 9),
-                    Text(
-                      error,
-                      textAlign: TextAlign.center,
-                      style: AppText.meta(context),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: isLocal ? _loadLocal : _loadThunder,
-                      child: Text(l.dbOnlineRetry),
-                    ),
-                  ],
-                ),
-              )
-            else if (count == 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
-                child: Text(
-                  l.subtitleNoMatch,
-                  textAlign: TextAlign.center,
-                  style: AppText.body(context),
-                ),
-              )
-            else
-              Flexible(
-                fit: FlexFit.loose,
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
-                  itemCount: count,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: colors.divider),
-                  itemBuilder: (context, index) => isLocal
-                      ? _LocalSubtitleRow(
-                          item: _localFiles[index],
-                          previewing: _busyKeys.contains(
-                            'local-preview:${_localFiles[index].id}',
-                          ),
-                          downloading: _busyKeys.contains(
-                            'local-download:${_localFiles[index].id}',
-                          ),
-                          onPreview: () => _previewLocal(_localFiles[index]),
-                          onDownload: () => _downloadLocal(_localFiles[index]),
-                        )
-                      : _ThunderSubtitleRow(
-                          item: _thunderItems[index],
-                          previewing: _busyKeys.contains(
-                            'thunder-preview:${_thunderItems[index].url}',
-                          ),
-                          downloading: _busyKeys.contains(
-                            'thunder-download:${_thunderItems[index].url}',
-                          ),
-                          onPreview: () =>
-                              _previewThunder(_thunderItems[index]),
-                          onDownload: () =>
-                              _downloadThunder(_thunderItems[index]),
-                        ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

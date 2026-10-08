@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'sheet_controls.dart';
 
 /// 横向滑动切换资源类型，保留内容的自适应高度和纵向滚动。
 class ResourcePanelSwipeArea extends StatefulWidget {
@@ -50,6 +51,148 @@ class _ResourcePanelSwipeAreaState extends State<ResourcePanelSwipeArea> {
       child: widget.child,
     );
   }
+}
+
+@immutable
+class ResourcePanelTab {
+  const ResourcePanelTab({required this.label});
+
+  final String label;
+}
+
+/// Shared sheet structure for OMM and DBO online resource and subtitle panels.
+class ResourcePanelShell extends StatelessWidget {
+  const ResourcePanelShell({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.trailing,
+    this.tabs = const <ResourcePanelTab>[],
+    this.selectedTabIndex = 0,
+    this.onTabSelected,
+    this.contentTopSpacing = 0,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final List<ResourcePanelTab> tabs;
+  final int selectedTabIndex;
+  final ValueChanged<int>? onTabSelected;
+  final double contentTopSpacing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTabs = tabs.length > 1;
+    final canChangeTab = hasTabs && onTabSelected != null;
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        child: ResourcePanelSwipeArea(
+          onSwipeLeft: canChangeTab && selectedTabIndex < tabs.length - 1
+              ? () => onTabSelected!(selectedTabIndex + 1)
+              : null,
+          onSwipeRight: canChangeTab && selectedTabIndex > 0
+              ? () => onTabSelected!(selectedTabIndex - 1)
+              : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: icon,
+                title: title,
+                subtitle: subtitle,
+                trailing: trailing,
+              ),
+              if (hasTabs)
+                _ResourcePanelTabs(
+                  tabs: tabs,
+                  selectedTabIndex: selectedTabIndex,
+                  onTabSelected: onTabSelected,
+                ),
+              if (contentTopSpacing > 0) SizedBox(height: contentTopSpacing),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResourcePanelTabs extends StatelessWidget {
+  const _ResourcePanelTabs({
+    required this.tabs,
+    required this.selectedTabIndex,
+    required this.onTabSelected,
+  });
+
+  final List<ResourcePanelTab> tabs;
+  final int selectedTabIndex;
+  final ValueChanged<int>? onTabSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: colors.chipBg,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            for (var index = 0; index < tabs.length; index++)
+              Expanded(
+                child: ResourcePanelTabButton(
+                  label: tabs[index].label,
+                  active: index == selectedTabIndex,
+                  onTap: () => onTabSelected?.call(index),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Self-sizing, vertically scrollable list used by resource and subtitle sheets.
+class ResourcePanelList extends StatelessWidget {
+  const ResourcePanelList({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.dividerColor,
+    this.padding = const EdgeInsets.symmetric(horizontal: 22),
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final Color dividerColor;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) => Flexible(
+    fit: FlexFit.loose,
+    child: ListView.separated(
+      shrinkWrap: true,
+      padding: padding,
+      itemCount: itemCount,
+      separatorBuilder: (_, __) => Divider(height: 1, color: dividerColor),
+      itemBuilder: itemBuilder,
+    ),
+  );
 }
 
 /// OMM and DBO resource-list row presentation.
