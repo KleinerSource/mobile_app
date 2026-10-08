@@ -1,4 +1,6 @@
 import 'file_image_thumbnail.dart';
+import 'file_video_thumbnail.dart';
+import 'file_video_preview_settings.dart';
 import 'file_thumbnail_loader.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -142,6 +144,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   final ScrollController _scrollController = ScrollController();
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   FileThumbnailLoader _thumbnailLoader = FileThumbnailLoader();
+  final Set<String> _videoThumbnailFailures = {};
+  int _videoThumbnailGeneration = 0;
   StreamSubscription<FileOperation>? _operationSubscription;
   Timer? _operationDismissTimer;
   OverlayEntry? _operationOverlay;
@@ -219,6 +223,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       fileBrowserPreferencesProvider(widget.serverId),
     );
     final imagePreviewEnabled = ref.watch(fileImagePreviewProvider);
+    final videoPreviewEnabled = ref.watch(fileVideoPreviewProvider);
     final favorites = ref.watch(fileFavoritesProvider(widget.serverId));
     final currentDirectoryPath = listing.hasValue
         ? listing.requireValue.currentPath
@@ -410,8 +415,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 },
               ),
               body: listing.when(
-                data: (value) =>
-                    _buildListing(value, imagePreviewEnabled, favorites),
+                data: (value) => _buildListing(
+                  value,
+                  imagePreviewEnabled,
+                  videoPreviewEnabled &&
+                      (descriptor?.kind == SourceKind.webDav ||
+                          descriptor?.kind == SourceKind.smb),
+                  favorites,
+                ),
                 loading: () => Padding(
                   padding: EdgeInsets.only(
                     bottom: floatingTabBarContentBottomInset(context),
@@ -709,6 +720,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Widget _buildListing(
     DirectoryListing listing,
     bool imagePreviewEnabled,
+    bool videoPreviewEnabled,
     List<FileFavorite> favorites,
   ) {
     _scheduleAutoOpenOnce(listing);
@@ -814,6 +826,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                               entries[index],
                               index,
                               imagePreviewEnabled,
+                              videoPreviewEnabled,
                               favoriteKeys,
                             ),
                           ),
@@ -874,6 +887,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     FileEntry entry,
     int index,
     bool imagePreviewEnabled,
+    bool videoPreviewEnabled,
     Set<String> favoriteKeys,
   ) {
     final theme = Theme.of(context);
@@ -886,13 +900,24 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         : null;
     final hasImagePreview =
         imagePreviewEnabled && !entry.isDirectory && _isImageEntry(entry);
-    final previewFrame = imagePreviewEnabled;
+    final hasVideoPreview =
+        videoPreviewEnabled && entry.isFile && _isVideoEntry(entry);
+    final previewFrame = imagePreviewEnabled || hasVideoPreview;
     final entryIcon = FileEntryIconBadge(
       entry: entry,
       isFavorite: isFavorite,
       width: previewFrame ? fileEntryPreviewIconWidth : 44,
       height: previewFrame ? fileEntryPreviewIconHeight : 44,
-      child: hasImagePreview
+      child: hasVideoPreview
+          ? FileVideoThumbnail(
+              key: ValueKey(entry.stableKey),
+              entry: entry,
+              refreshGeneration: _videoThumbnailGeneration,
+              failures: _videoThumbnailFailures,
+              scrollController: _scrollController,
+              enabled: !_busy,
+            )
+          : hasImagePreview
           ? FileImageThumbnail(
               loader: _thumbnailLoader,
               download: (cancellation) async {
@@ -1122,6 +1147,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   /// （右上角菜单「强制刷新」）额外置位来源级标志，让 OpenList 等带服务端
   /// 目录缓存的来源绕过缓存重读后端存储。
   Future<void> _refresh({bool force = false}) async {
+    _videoThumbnailFailures.clear();
+    setState(() => _videoThumbnailGeneration++);
     _thumbnailLoader.dispose();
     _thumbnailLoader = FileThumbnailLoader();
     if (force) {

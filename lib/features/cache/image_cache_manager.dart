@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
@@ -61,8 +63,55 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
 
   static final AppImageCacheManager instance = AppImageCacheManager._();
 
+  @visibleForTesting
+  AppImageCacheManager.forTesting(super.config);
+
   final SharedFileResponseLoads _resizedLoads = SharedFileResponseLoads();
   Future<void> _maintenanceQueue = Future<void>.value();
+  final generatedImageEpoch = ValueNotifier<int>(0);
+  int _clearCount = 0;
+  bool get isClearing => _clearCount > 0;
+
+  /// 生成图写入与清理串行，清理开始便使旧任务失效。
+  Future<void> putGeneratedImage(
+    String key,
+    Uint8List bytes, {
+    required int epoch,
+    required bool Function() isCurrent,
+  }) => _enqueueMaintenance(() async {
+    bool valid() =>
+        !isClearing && generatedImageEpoch.value == epoch && isCurrent();
+    if (!valid()) return;
+    final existing = await store.retrieveCacheData(key);
+    final object =
+        (existing ??
+                CacheObject(
+                  key,
+                  key: key,
+                  relativePath:
+                      'generated-${sha256.convert(utf8.encode(key))}.jpg',
+                  validTill: DateTime.now().add(appImageCacheStalePeriod),
+                ))
+            .copyWith(validTill: DateTime.now().add(appImageCacheStalePeriod));
+    final file = await config.fileSystem.createFile(object.relativePath);
+    // CacheManager.putFile 不等待索引入库；生成图必须等文件和索引同时完成。
+    await file.writeAsBytes(bytes);
+    await store.putFile(object);
+    if (!valid()) await removeFile(key);
+  });
+
+  @override
+  Future<void> emptyCache() {
+    _clearCount++;
+    generatedImageEpoch.value++;
+    return _enqueueMaintenance(() async {
+      try {
+        await super.emptyCache();
+      } finally {
+        _clearCount--;
+      }
+    });
+  }
 
   /// 删除 key 满足 [test] 的全部条目（含磁盘文件），返回删除条数。
   Future<int> removeEntriesWhere(bool Function(String key) test) {
@@ -103,8 +152,12 @@ class AppImageCacheManager extends CacheManager with ImageCacheManager {
     final repo = config.repo;
     // 索引打开失败时 open() 的后续调用会一直挂起，超时避免堵死维护队列。
     await repo.open().timeout(const Duration(seconds: 10));
-    final objects = await repo.getAllObjects();
-    return objects.where((object) => object.id != null).toList();
+    try {
+      final objects = await repo.getAllObjects();
+      return objects.where((object) => object.id != null).toList();
+    } finally {
+      await repo.close();
+    }
   }
 
   Future<int> _fileLength(CacheObject object) async {

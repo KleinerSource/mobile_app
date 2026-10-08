@@ -162,7 +162,7 @@ void main() {
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
     expect(find.text('类型筛选'), findsOneWidget);
-    expect(find.text('显示隐藏文件'), findsNothing);
+    expect(find.text('隐藏文件'), findsNothing);
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.text('全选'), findsNothing);
     await _toggle(tester, '类型筛选');
@@ -170,7 +170,7 @@ void main() {
     for (final label in _labels) {
       expect(_checked(tester, label), isTrue);
     }
-    expect(_checked(tester, '显示隐藏文件'), isFalse);
+    expect(_checked(tester, '隐藏文件'), isFalse);
 
     await _toggle(tester, '视频');
     await _toggle(tester, '字幕');
@@ -179,7 +179,7 @@ void main() {
     expect(find.text('字幕.srt'), findsNothing);
     expect(find.text('音乐.flac'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNWidgets(6));
-    await _toggle(tester, '显示隐藏文件');
+    await _toggle(tester, '隐藏文件');
     expect(find.text('.隐藏目录'), findsOneWidget);
     expect(find.text('.隐藏.mp4'), findsNothing);
     expect(requests, 1);
@@ -194,7 +194,7 @@ void main() {
     expect(find.byType(CheckboxListTile), findsNothing);
     await _toggle(tester, '类型筛选');
     expect(_checked(tester, '字幕'), isFalse);
-    expect(_checked(tester, '显示隐藏文件'), isTrue);
+    expect(_checked(tester, '隐藏文件'), isTrue);
   });
 
   testWidgets('全部取消只保留目录，进入子目录与返回共享筛选', (tester) async {
@@ -296,11 +296,11 @@ void main() {
   testWidgets('窄屏大字体展开后可滚动到全部子项与原排序项', (tester) async {
     await _pumpBrowser(tester, size: const Size(320, 568), textScale: 2);
     await _openFilter(tester);
-    for (final label in [..._labels, '显示隐藏文件']) {
+    for (final label in [..._labels, '隐藏文件']) {
       await _toggle(tester, label);
       expect(tester.takeException(), isNull);
     }
-    expect(_checked(tester, '显示隐藏文件'), isTrue);
+    expect(_checked(tester, '隐藏文件'), isTrue);
     await _toggle(tester, '排序');
     await tester.ensureVisible(find.text('类别排序'));
     await tester.tap(

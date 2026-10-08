@@ -445,7 +445,7 @@ void main() {
     expect(find.text('新建文件夹'), findsOneWidget);
     expect(find.text('选择'), findsOneWidget);
     expect(find.text('类型筛选'), findsOneWidget);
-    expect(find.text('显示隐藏文件'), findsNothing);
+    expect(find.text('隐藏文件'), findsNothing);
     expect(find.text('排序'), findsOneWidget);
     expect(find.text('名称排序 ↑'), findsNothing);
     await tester.tap(find.text('排序'));
@@ -461,8 +461,8 @@ void main() {
 
     await tester.tap(find.text('类型筛选'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('显示隐藏文件'));
-    await tester.tap(find.text('显示隐藏文件'));
+    await tester.ensureVisible(find.text('隐藏文件'));
+    await tester.tap(find.text('隐藏文件'));
     await tester.pumpAndSettle();
     expect(find.text('.隐藏文件'), findsOneWidget);
     await tester.tapAt(const Offset(8, 8));

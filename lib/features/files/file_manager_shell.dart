@@ -145,7 +145,7 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
         body: IndexedStack(
           index: _index,
           children: [
-            fileNavigator,
+            TickerMode(enabled: _index == 0, child: fileNavigator),
             FileFavoritesPage(onOpenFavorite: _openFavorite),
             const SettingsPage(forFileManager: true, showBackButton: false),
           ],

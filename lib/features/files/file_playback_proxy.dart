@@ -14,6 +14,13 @@ const _operationTimeout = Duration(seconds: 30);
 const _metadataTimeout = Duration(seconds: 2);
 const _sizeProbeTimeout = Duration(seconds: 5);
 
+/// 缩略图只允许有限的随机读取，绝不落盘完整视频。
+class FileThumbnailReadPolicy {
+  const FileThumbnailReadPolicy({this.maxBytes = 64 * 1024 * 1024});
+
+  final int maxBytes;
+}
+
 /// 将不具备可直接访问 URL 的文件流（当前主要是 SMB）暴露为播放器
 /// 可读取的本机 HTTP 地址。WebDAV/OpenList 播放应直接使用其
 /// HTTP(S) URL。
@@ -30,6 +37,7 @@ class FilePlaybackProxy {
     this.cacheBeforePlayback = false,
     this.musicCache,
     this.modifiedAt,
+    this.thumbnailPolicy,
     String? pathExtension,
   }) : _pathExtension = _normalizePathExtension(pathExtension);
 
@@ -40,6 +48,8 @@ class FilePlaybackProxy {
   final bool cacheBeforePlayback;
   final MusicCacheService? musicCache;
   final DateTime? modifiedAt;
+  final FileThumbnailReadPolicy? thumbnailPolicy;
+  int _thumbnailBytesReserved = 0;
   final String? _pathExtension;
   final String _token =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
@@ -62,6 +72,7 @@ class FilePlaybackProxy {
     bool cacheBeforePlayback = false,
     MusicCacheService? musicCache,
     DateTime? modifiedAt,
+    FileThumbnailReadPolicy? thumbnailPolicy,
   }) async {
     final proxy = FilePlaybackProxy._(
       repository: repository,
@@ -72,6 +83,7 @@ class FilePlaybackProxy {
       musicCache: musicCache,
       modifiedAt: modifiedAt,
       pathExtension: pathExtension,
+      thumbnailPolicy: thumbnailPolicy,
     );
     try {
       proxy._server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -152,6 +164,11 @@ class FilePlaybackProxy {
       if (request.method != 'GET' && request.method != 'HEAD') {
         response.statusCode = HttpStatus.methodNotAllowed;
         response.headers.set(HttpHeaders.allowHeader, 'GET, HEAD');
+        return;
+      }
+
+      if (thumbnailPolicy != null) {
+        await _handleThumbnail(request);
         return;
       }
 
@@ -301,6 +318,114 @@ class FilePlaybackProxy {
       try {
         await response.close();
       } catch (_) {}
+    }
+  }
+
+  Future<void> _handleThumbnail(HttpRequest request) async {
+    final response = request.response;
+    final cancellation = FileCancellationToken();
+    unawaited(_cancellation.whenCancelled.then(cancellation.cancel));
+    var started = false;
+    try {
+      if (!repository.supportsRange) {
+        throw UnsupportedError(AppErrorCode.fileRangeUnsupported);
+      }
+      final total =
+          size ?? (await repository.stat(path).timeout(_sizeProbeTimeout)).size;
+      if (total == null || total <= 0) {
+        throw UnsupportedError(AppErrorCode.responseDataMissing);
+      }
+      final range = _parseRange(
+        request.headers.value(HttpHeaders.rangeHeader),
+        total,
+      );
+      if (range?.invalid == true) {
+        response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+        response.headers.set('content-range', 'bytes */$total');
+        return;
+      }
+      _setHeaders(
+        response,
+        total: total,
+        range: range,
+        effectiveMimeType: mimeType ?? _mimeTypeForExtension(_pathExtension),
+      );
+      if (request.method == 'HEAD') return;
+      started = true;
+      await response.addStream(
+        _thumbnailRange(
+          range?.start ?? 0,
+          range?.length ?? total,
+          cancellation,
+        ),
+      );
+    } catch (error) {
+      if (!started) {
+        response.statusCode = _statusCode(error);
+      } else {
+        // 已发送长度头后不能正常结束短响应；断开使解码器识别读取失败。
+        try {
+          (await response.detachSocket(writeHeaders: false)).destroy();
+        } catch (_) {}
+      }
+    } finally {
+      cancellation.cancel();
+    }
+  }
+
+  Stream<List<int>> _thumbnailRange(
+    int offset,
+    int length,
+    FileCancellationToken cancellation,
+  ) async* {
+    var remaining = length;
+    try {
+      while (remaining > 0) {
+        if (_closed || cancellation.isCancelled || _cancellation.isCancelled) {
+          throw StateError(AppErrorCode.connectionClosed);
+        }
+        final allowance = thumbnailPolicy!.maxBytes - _thumbnailBytesReserved;
+        if (allowance <= 0) {
+          _cancellation.cancel();
+          throw StateError(AppErrorCode.fileTransferCanceled);
+        }
+        final count = remaining.clamp(0, 1024 * 1024).clamp(0, allowance);
+        // 在 await 前预留额度，多条并行 HTTP 连接也不能突破整个任务上限。
+        _thumbnailBytesReserved += count;
+        final stream = await repository
+            .openRange(
+              path,
+              offset: offset,
+              length: count,
+              options: FileTransferOptions(cancellation: cancellation),
+            )
+            .timeout(_operationTimeout);
+        final iterator = StreamIterator(stream);
+        var received = 0;
+        try {
+          while (!cancellation.isCancelled &&
+              !_closed &&
+              await iterator.moveNext()) {
+            if (cancellation.isCancelled || _closed) break;
+            received += iterator.current.length;
+            if (received > count) {
+              throw StateError(AppErrorCode.responseDataMissing);
+            }
+            yield iterator.current;
+          }
+        } finally {
+          await iterator.cancel();
+        }
+        if (received != count) {
+          throw StateError(AppErrorCode.responseDataMissing);
+        }
+        offset += count;
+        remaining -= count;
+      }
+    } catch (_) {
+      // HTTP 客户端取消 addStream 后，上游异步读取仍可能刚好完成并报错。
+      if (_closed || cancellation.isCancelled) return;
+      rethrow;
     }
   }
 

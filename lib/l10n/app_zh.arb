@@ -417,6 +417,8 @@
   "settingsHapticCurrent": "当前：{label}",
   "@settingsHapticCurrent": { "placeholders": { "label": { "type": "String" } } },
   "settingsImagePreview": "图片预览",
+  "settingsVideoPreview": "视频预览",
+  "settingsVideoPreviewSub": "为 WebDAV 和 SMB 视频生成并缓存 10% 位置的缩略图",
   "settingsImagePreviewSub": "在文件列表中显示图片缩略图",
   "settingsMoveStartLocation": "移动文件起始位置",
   "settingsMoveStartCurrentRoot": "当前：根目录",

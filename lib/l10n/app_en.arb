@@ -417,6 +417,8 @@
   "settingsHapticCurrent": "Current: {label}",
   "@settingsHapticCurrent": { "placeholders": { "label": { "type": "String" } } },
   "settingsImagePreview": "Image thumbnails",
+  "settingsVideoPreview": "Video thumbnails",
+  "settingsVideoPreviewSub": "Generate and cache thumbnails at 10% for WebDAV and SMB videos",
   "settingsImagePreviewSub": "Show image thumbnails in the file list",
   "settingsMoveStartLocation": "Move start location",
   "settingsMoveStartCurrentRoot": "Current: Root",

@@ -14,6 +14,7 @@ import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
 import '../security/security_settings_page.dart';
 import '../files/file_image_preview_settings.dart';
+import '../files/file_video_preview_settings.dart';
 import '../files/file_move_start_settings.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
@@ -94,7 +95,11 @@ class AppSettingsPage extends ConsumerWidget {
                 ),
                 SettingsGroup(
                   title: l.settingsGroupFileManager,
-                  items: const [_FileImagePreviewTile(), _FileMoveStartTile()],
+                  items: const [
+                    _FileImagePreviewTile(),
+                    _FileVideoPreviewTile(),
+                    _FileMoveStartTile(),
+                  ],
                 ),
                 SettingsGroup(
                   title: l.settingsGroupPlayer,
@@ -399,6 +404,25 @@ class _ServerSelectionShowAvatarTile extends ConsumerWidget {
         onChanged: (value) => ref
             .read(serverSelectionShowAvatarProvider.notifier)
             .setEnabled(value),
+      ),
+    );
+  }
+}
+
+class _FileVideoPreviewTile extends ConsumerWidget {
+  const _FileVideoPreviewTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    return SettingsTile(
+      title: l.settingsVideoPreview,
+      subtitle: l.settingsVideoPreviewSub,
+      leadingIcon: Icons.video_library_outlined,
+      trailing: SettingsSwitch(
+        value: ref.watch(fileVideoPreviewProvider),
+        onChanged: (value) =>
+            ref.read(fileVideoPreviewProvider.notifier).setEnabled(value),
       ),
     );
   }
