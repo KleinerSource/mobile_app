@@ -254,7 +254,12 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
 
   Widget _bottomBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        14 + MediaQuery.viewPaddingOf(context).bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

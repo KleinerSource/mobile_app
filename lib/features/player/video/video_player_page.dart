@@ -2005,6 +2005,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
+          top: true,
+          bottom: false,
           child: Stack(children: [Positioned.fill(child: _body())]),
         ),
       ),
