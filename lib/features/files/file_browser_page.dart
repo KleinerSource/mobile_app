@@ -725,6 +725,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   ) {
     _scheduleAutoOpenOnce(listing);
     final entries = _visibleEntries(listing);
+    final entryIndices = {
+      for (var i = 0; i < entries.length; i++)
+        ValueKey(entries[i].stableKey): i,
+    };
     final filteredEmpty =
         entries.isEmpty &&
         !widget.directoryPicker &&
@@ -819,8 +823,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                         bottom: floatingTabBarContentBottomInset(context),
                       ),
                       itemCount: entries.length,
+                      findItemIndexCallback: (key) => entryIndices[key],
                       itemBuilder: (context, index) =>
                           ValueListenableBuilder<Set<String>>(
+                            key: ValueKey(entries[index].stableKey),
                             valueListenable: _selection.selectedListenable,
                             builder: (_, __, ___) => _entryTile(
                               entries[index],
@@ -935,13 +941,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               assetPath: fileIconAssetWhenPreviewDisabledFor(entry),
             ),
     );
-    final Widget leading;
-    if (_selectionMode) {
-      final selected = _selection.contains(entry.stableKey);
-      final c = appColors(context);
-      leading = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    final selected = _selection.contains(entry.stableKey);
+    final c = appColors(context);
+    final leading = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_selectionMode) ...[
           SizedBox(
             width: 24,
             child: Center(
@@ -955,12 +960,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             ),
           ),
           const SizedBox(width: 8),
-          entryIcon,
         ],
-      );
-    } else {
-      leading = entryIcon;
-    }
+        entryIcon,
+      ],
+    );
     return SwipeActionCell(
       group: _openSwipe,
       cellKey: entry.stableKey,

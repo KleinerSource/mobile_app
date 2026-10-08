@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/sources/files/file_entry.dart';
 import 'file_entry_icons.dart';
 import 'file_thumbnail_loader.dart';
+import 'file_thumbnail_image.dart';
 
 class FileImageThumbnail extends StatefulWidget {
   const FileImageThumbnail({
@@ -86,13 +87,7 @@ class _FileImageThumbnailState extends State<FileImageThumbnail> {
             _image = image;
             if (previous != null) unawaited(previous.evict());
           }
-          return Image(
-            image: image,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.medium,
-            gaplessPlayback: true,
-            errorBuilder: (_, __, ___) => placeholder,
-          );
+          return FileThumbnailImage(image: _image!, placeholder: placeholder);
         },
       ),
     );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/sources/files/file_entry.dart';
 import 'file_entry_icons.dart';
+import 'file_thumbnail_image.dart';
 import 'file_video_thumbnail_providers.dart';
 import 'file_video_thumbnail_service.dart';
 
@@ -39,6 +41,7 @@ class _FileVideoThumbnailState extends ConsumerState<FileVideoThumbnail>
   bool _eligible = false;
   bool _foreground = true;
   bool _scheduled = false;
+  late final ValueListenable<int> _cacheEpoch;
 
   @override
   void initState() {
@@ -48,6 +51,15 @@ class _FileVideoThumbnailState extends ConsumerState<FileVideoThumbnail>
         WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     widget.scrollController.addListener(_onScroll);
+    _cacheEpoch = ref.read(fileVideoThumbnailServiceProvider).cache.epoch;
+    _cacheEpoch.addListener(_onCacheCleared);
+  }
+
+  void _onCacheCleared() {
+    _cancel();
+    _evict();
+    widget.failures.remove(_key);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -200,19 +212,13 @@ class _FileVideoThumbnailState extends ConsumerState<FileVideoThumbnail>
       fit: BoxFit.cover,
     );
     return FileEntryMediaPreviewFrame(
-      child: _image == null
-          ? placeholder
-          : Image(
-              image: _image!,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (_, __, ___) => placeholder,
-            ),
+      child: FileThumbnailImage(image: _image, placeholder: placeholder),
     );
   }
 
   @override
   void dispose() {
+    _cacheEpoch.removeListener(_onCacheCleared);
     widget.scrollController.removeListener(_onScroll);
     WidgetsBinding.instance.removeObserver(this);
     _cancel();

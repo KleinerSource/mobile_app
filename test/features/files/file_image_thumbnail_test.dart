@@ -100,9 +100,12 @@ void main() {
         download.complete(Stream.value(bytes!.buffer.asUint8List()));
       });
       await tester.pumpAndSettle();
-      final provider = tester.widget<Image>(find.byType(Image)).image;
+      final previewImage = find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is ResizeImage,
+      );
+      final provider = tester.widget<Image>(previewImage).image;
       await tester.runAsync(() async {
-        await precacheImage(provider, tester.element(find.byType(Image)));
+        await precacheImage(provider, tester.element(previewImage));
       });
       await tester.pumpAndSettle();
       final decoded = tester.widget<RawImage>(find.byType(RawImage)).image!;
@@ -153,7 +156,14 @@ void main() {
     await pump();
     await tester.pumpAndSettle();
     final provider =
-        tester.widget<Image>(find.byType(Image)).image as ResizeImage;
+        tester
+                .widget<Image>(
+                  find.byWidgetPredicate(
+                    (widget) => widget is Image && widget.image is ResizeImage,
+                  ),
+                )
+                .image
+            as ResizeImage;
     expect(provider.width, (fileEntryPreviewIconWidth * 2).ceil());
     expect(provider.height, (fileEntryPreviewIconHeight * 2).ceil());
     await pump();

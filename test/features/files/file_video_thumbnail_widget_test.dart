@@ -12,6 +12,8 @@ import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/core/sources/files/file_source_repository.dart';
 import 'package:omm/features/files/file_image_preview_settings.dart';
+import 'package:omm/features/files/file_image_thumbnail.dart';
+import 'package:omm/features/files/file_favorites.dart';
 import 'package:omm/features/files/file_browser_page.dart';
 import 'package:omm/features/files/file_browser_preferences.dart';
 import 'package:omm/features/files/file_entry_icons.dart';
@@ -23,6 +25,141 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
+  for (final action in ['选择模式', '类型过滤', '排序', '收藏']) {
+    testWidgets('$action 保留已显示图片和视频，不重读预览', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'file.image_preview_enabled': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final fixture = _Fixture(cached: true);
+      addTearDown(fixture.dispose);
+      final source = _ImageSource();
+      final entries = [
+        for (final name in ['a.txt', 'b.jpg', 'c.mp4'])
+          FileEntry(
+            path: FilePath(sourceId: const SourceId('nas'), value: name),
+            name: name,
+            type: FileEntryType.file,
+          ),
+      ];
+      final container = ProviderContainer(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider('nas').overrideWith((ref) async => source),
+          fileDirectoryProvider(
+            const FileDirectoryRequest(
+              serverId: 'server',
+              sourceId: SourceId('nas'),
+            ),
+          ).overrideWith(
+            (ref) async => DirectoryListing(
+              currentPath: const FilePath(sourceId: SourceId('nas'), value: ''),
+              entries: entries,
+            ),
+          ),
+          fileVideoThumbnailServiceProvider.overrideWithValue(fixture.service),
+          fileVideoThumbnailSourceProvider('nas').overrideWith(
+            (ref) async => FileVideoThumbnailSource(
+              FileSourceRepository(source),
+              fixture.lease,
+              'source',
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            locale: Locale('zh'),
+            localizationsDelegates: AppL10n.localizationsDelegates,
+            supportedLocales: AppL10n.supportedLocales,
+            home: FileBrowserPage(
+              serverId: 'server',
+              sourceId: SourceId('nas'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump();
+      for (final element
+          in find
+              .byWidgetPredicate(
+                (widget) => widget is Image && widget.image is ResizeImage,
+              )
+              .evaluate()
+              .toList()) {
+        await tester.runAsync(
+          () => precacheImage((element.widget as Image).image, element),
+        );
+      }
+      await tester.pumpAndSettle();
+      final imageFinder = find.byType(FileImageThumbnail);
+      final videoFinder = find.byType(FileVideoThumbnail);
+      final imageState = tester.state(imageFinder);
+      final videoState = tester.state(videoFinder);
+      ImageProvider preview(Finder finder) => tester
+          .widget<Image>(
+            find.descendant(
+              of: finder,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is Image && widget.image is ResizeImage,
+              ),
+            ),
+          )
+          .image;
+      final image = preview(imageFinder);
+      final video = preview(videoFinder);
+      final cache = fixture.service.cache as _Cache;
+      final reads = cache.reads.length;
+      void expectRetained() {
+        expect(tester.state(imageFinder), same(imageState));
+        expect(tester.state(videoFinder), same(videoState));
+        expect(preview(imageFinder), same(image));
+        expect(preview(videoFinder), same(video));
+        expect(source.downloads, 1);
+        expect(cache.reads.length, reads);
+      }
+
+      final preferences = container.read(
+        fileBrowserPreferencesProvider('server').notifier,
+      );
+      switch (action) {
+        case '选择模式':
+          await tester.longPress(find.text('b.jpg'));
+          await tester.pump();
+          expectRetained();
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('批量操作'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('全选').last);
+          await tester.pump();
+          expectRetained();
+          await tester.tap(find.byIcon(Icons.close).first);
+        case '类型过滤':
+          preferences.toggleType(FileFilterType.other);
+        case '排序':
+          preferences.setSort(FileBrowserSortField.name);
+        case '收藏':
+          for (final entry in entries.skip(1)) {
+            container
+                .read(fileFavoritesProvider('server').notifier)
+                .toggle(entry);
+          }
+      }
+      await tester.pump();
+      expectRetained();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
+      expectRetained();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets('文件页刷新保留缓存图、只重试未获取视频，筛选和图片开关独立', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -109,7 +246,9 @@ void main() {
     );
     final cachedImageFinder = find.descendant(
       of: cachedThumbnail,
-      matching: find.byType(Image),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is ResizeImage,
+      ),
     );
     final cachedImage = tester.widget<Image>(cachedImageFinder).image;
     expect(cachedImage, isA<ResizeImage>());
@@ -291,6 +430,40 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
   });
+
+  testWidgets('手动清理使已显示的视频预览失效，恢复可见后重新取图', (tester) async {
+    final fixture = _Fixture(cached: true);
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(fixture.widget(count: 1));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    final finder = find
+        .descendant(
+          of: find.byType(FileVideoThumbnail),
+          matching: find.byType(Image),
+        )
+        .first;
+    final before = tester.widget<Image>(finder).image;
+    expect(before, isA<ResizeImage>());
+    fixture.active.value = false;
+    await tester.pump();
+    final cache = fixture.service.cache as _Cache;
+    final reads = cache.reads.length;
+    cache.epoch.value++;
+    await tester.pump();
+    expect(tester.widget<Image>(finder).image, isNot(isA<ResizeImage>()));
+    expect(cache.reads.length, reads);
+    fixture.active.value = true;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    expect(cache.reads.length, greaterThan(reads));
+    expect(tester.widget<Image>(finder).image, isA<ResizeImage>());
+    expect(tester.widget<Image>(finder).image, isNot(same(before)));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
 }
 
 class _Fixture {
@@ -387,6 +560,18 @@ class _Source implements FileSource {
   );
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ImageSource extends _Source implements FileTransferCapability {
+  int downloads = 0;
+  @override
+  Stream<List<int>> download(
+    FilePath path, {
+    FileTransferOptions options = const FileTransferOptions(),
+  }) {
+    downloads++;
+    return Stream.value(img.encodeJpg(img.Image(width: 160, height: 100)));
+  }
 }
 
 class _Cache implements FileVideoThumbnailCache {

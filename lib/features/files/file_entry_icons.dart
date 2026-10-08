@@ -398,39 +398,38 @@ class FileEntryIconBadge extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final badge = SizedBox(width: width, height: height, child: child);
 
-    if (!isFavorite) return badge;
-
     final starColor = AppHues.chipText(AppHues.solar, theme.brightness);
     final starSurface = isDark ? const Color(0xFF2C293A) : Colors.white;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         badge,
-        Positioned(
-          left: -5,
-          top: -5,
-          child: Container(
-            width: 21,
-            height: 21,
-            decoration: BoxDecoration(
-              color: starSurface,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: c.bg.withValues(alpha: isDark ? 0.9 : 0.75),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.34 : 0.14),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+        if (isFavorite)
+          Positioned(
+            left: -5,
+            top: -5,
+            child: Container(
+              width: 21,
+              height: 21,
+              decoration: BoxDecoration(
+                color: starSurface,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: c.bg.withValues(alpha: isDark ? 0.9 : 0.75),
+                  width: 1.5,
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.34 : 0.14),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.star_rounded, color: starColor, size: 13),
             ),
-            alignment: Alignment.center,
-            child: Icon(Icons.star_rounded, color: starColor, size: 13),
           ),
-        ),
       ],
     );
   }
