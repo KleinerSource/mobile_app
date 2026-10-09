@@ -188,6 +188,118 @@ void _main_0() {
     );
   });
 
+  test('HEVC MP4 通过直链或 SMB 代理均优先 AVPlayer', () {
+    for (final codec in ['hevc', 'H.265', 'hvc1', 'hev1', 'x265', null]) {
+      for (final origin in [
+        'https://example.com',
+        'http://127.0.0.1:56386',
+        'http://LOCALHOST:56386',
+        'http://[::1]:56386',
+        'file://',
+      ]) {
+        for (final extension in ['mp4', 'MOV', 'm4v', '3gp', '3g2']) {
+          expect(
+            PlaybackMediaInfo.inferInternalPlayer(
+              '$origin/video.$extension?token=1',
+              null,
+              videoCodec: codec,
+              // 文件源为 HLS 指定的偏好不应强制普通 MP4 走 FFmpeg。
+              preferFfmpegForHls: true,
+            ),
+            'AVPlayer',
+            reason: '$origin / $extension / $codec',
+          );
+        }
+      }
+    }
+  });
+
+  test('无扩展名代理使用容器提示，未知格式继续由 KSMEPlayer 处理', () {
+    for (final hint in ['video/mp4', 'mov,mp4,m4a,3gp,3g2,mj2', '3g2']) {
+      expect(
+        PlaybackMediaInfo.inferInternalPlayer(
+          'http://127.0.0.1:56386/token',
+          hint,
+          videoCodec: 'hevc',
+        ),
+        'AVPlayer',
+      );
+    }
+    for (final path in ['token', 'video.bin', 'video.ts']) {
+      expect(
+        PlaybackMediaInfo.inferInternalPlayer(
+          'http://127.0.0.1:56386/$path',
+          null,
+        ),
+        'KSMEPlayer',
+      );
+    }
+  });
+
+  test('FFmpeg 专用容器不被 MP4 提示或扩展名覆盖', () {
+    for (final container in [
+      'mkv',
+      'matroska',
+      'webm',
+      'avi',
+      'msvideo',
+      'wmv',
+      'asf',
+      'flv',
+      'rmvb',
+      'rm',
+      'mpg',
+      'mpeg',
+      'vob',
+      'divx',
+      'ogm',
+      'm2ts',
+      'ogv',
+      'ogg',
+    ]) {
+      for (final origin in ['https://example.com', 'http://127.0.0.1:56386']) {
+        expect(
+          PlaybackMediaInfo.inferInternalPlayer(
+            '$origin/video.mp4',
+            'video/x-$container',
+            videoCodec: 'hevc',
+          ),
+          'KSMEPlayer',
+        );
+        expect(
+          PlaybackMediaInfo.inferInternalPlayer(
+            '$origin/video.$container',
+            'video/mp4',
+            videoCodec: 'hevc',
+          ),
+          'KSMEPlayer',
+        );
+      }
+    }
+  });
+
+  test('HLS 手动偏好与回环策略优先于编码及容器提示', () {
+    for (final preferFfmpeg in [false, true]) {
+      for (final loopback in [false, true]) {
+        final origin = loopback ? 'http://[::1]:56386' : 'https://example.com';
+        for (final source in [
+          (url: '$origin/video.m3u8', hint: 'matroska'),
+          (url: '$origin/token', hint: 'application/vnd.apple.mpegurl'),
+        ]) {
+          expect(
+            PlaybackMediaInfo.inferInternalPlayer(
+              source.url,
+              source.hint,
+              videoCodec: 'hevc',
+              preferFfmpegForHls: preferFfmpeg,
+            ),
+            loopback || preferFfmpeg ? 'KSMEPlayer' : 'AVPlayer',
+          );
+        }
+      }
+    }
+  });
+
   test('服务器回退优先复用 HLS，否则要求强制视频转码重决策', () {
     final reuse = serverFallbackPlanFor(
       quality: 'auto',

@@ -354,14 +354,14 @@ void _main_3() {
         'mp4',
         videoCodec: 'hevc',
       ),
-      'KSMEPlayer',
+      'AVPlayer',
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(
         'http://127.0.0.1:56386/proxy.mp4',
         null,
       ),
-      'KSMEPlayer',
+      'AVPlayer',
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(

@@ -388,7 +388,6 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       useFfmpegPlayer: prefersFfmpegPlayer(
         url: mediaURL,
         formatHint: formatHint,
-        videoCodec: videoCodec,
         hlsPrefersFfmpeg: preferFfmpegForHls ?? false
       )
     )
@@ -549,25 +548,16 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private func prefersFfmpegPlayer(
     url: URL,
     formatHint: String?,
-    videoCodec: String?,
     hlsPrefersFfmpeg: Bool
   ) -> Bool {
-    // SMB 回环代理地址（含其上的 m3u8）始终交给 FFmpeg，需要其 Range/
-    // 流式读取能力。
-    let isLoopback = url.host == "127.0.0.1" ||
-      url.host == "localhost" ||
-      url.host == "::1"
-    if isLoopback {
-      return true
-    }
+    let host = url.host?.lowercased()
+    let isLoopback = host == "127.0.0.1" || host == "localhost" ||
+      host == "::1" || host == "[::1]"
     // 其余 HLS（OMM 转码流、DBO 在线流）默认交给 AVPlayer：KSMEPlayer 无法
     // 串流播放 OMM 转码会话，也无法对在线 HLS 执行 seek。文件源（WebDAV
     // 直连）由 Dart 层显式要求 FFmpeg 播放。
     if isHlsStream(url: url, formatHint: formatHint) {
-      return hlsPrefersFfmpeg
-    }
-    if let videoCodec, isFfmpegVideoCodec(videoCodec) {
-      return true
+      return isLoopback || hlsPrefersFfmpeg
     }
     let hint = [formatHint, url.pathExtension]
       .compactMap { $0?.lowercased() }
@@ -578,22 +568,15 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     // video/x-msvideo），因此同时收录 msvideo 这类分词结果。
     let ffmpegOnlyContainers: Set<String> = [
       "mkv", "matroska", "webm", "avi", "msvideo", "wmv", "asf", "flv",
-      "rmvb", "rm", "mpg", "mpeg", "vob", "divx", "ogm", "m2ts",
+      "rmvb", "rm", "mpg", "mpeg", "vob", "divx", "ogm", "m2ts", "ogv", "ogg",
     ]
-    return tokens.contains { ffmpegOnlyContainers.contains(String($0)) }
-  }
-
-  private func isFfmpegVideoCodec(_ codec: String) -> Bool {
-    let normalized = codec
-      .lowercased()
-      .replacingOccurrences(of: ".", with: "")
-      .replacingOccurrences(of: "-", with: "")
-      .replacingOccurrences(of: "_", with: "")
-    return normalized.contains("hevc") ||
-      normalized.contains("h265") ||
-      normalized.contains("hvc1") ||
-      normalized.contains("hev1") ||
-      normalized.contains("x265")
+    if tokens.contains(where: { ffmpegOnlyContainers.contains(String($0)) }) {
+      return true
+    }
+    // HEVC MP4/MOV 优先系统播放路径，启动失败时仍可单次回退 KSMEPlayer。
+    // SMB 回环代理已经支持 HTTP Range；只有未知或其他容器继续优先 FFmpeg。
+    let avContainers: Set<String> = ["mp4", "mov", "m4v", "3gp", "3g2"]
+    return isLoopback && !tokens.contains { avContainers.contains(String($0)) }
   }
 
   func play() throws {

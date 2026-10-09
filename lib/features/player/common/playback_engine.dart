@@ -158,38 +158,49 @@ class PlaybackMediaInfo {
     String? videoCodec,
     bool preferFfmpegForHls = false,
   }) {
-    // SMB 回环代理地址（含 m3u8）始终由 KSMEPlayer 处理，与原生
-    // prefersFfmpegPlayer 的决策顺序保持一致。
-    try {
-      final host = Uri.parse(url).host.toLowerCase();
-      if (host == '127.0.0.1' || host == 'localhost' || host == '::1') {
-        return 'KSMEPlayer';
-      }
-    } catch (_) {}
-    // 其余 HLS 默认 AVPlayer（OMM 转码/在线流），文件源显式要求 FFmpeg。
+    final uri = Uri.tryParse(url.trim());
+    final host = uri?.host.toLowerCase();
+    final isLoopback =
+        host == '127.0.0.1' || host == 'localhost' || host == '::1';
+    // HLS 保留现有策略：回环代理和文件源偏好走 FFmpeg，其余走 AVPlayer。
     if (_isHlsMedia(url, formatHint)) {
-      return preferFfmpegForHls ? 'KSMEPlayer' : 'AVPlayer';
+      return isLoopback || preferFfmpegForHls ? 'KSMEPlayer' : 'AVPlayer';
     }
-    if (_isFfmpegVideoCodec(videoCodec)) return 'KSMEPlayer';
+    // 与 Swift prefersFfmpegPlayer 同时检查提示和扩展名，优先保留
+    // FFmpeg 专用容器；HEVC 本身不是强制 FFmpeg 的理由。
+    final extension = inferPlaybackContainer(url, null);
+    final tokens = '${formatHint ?? ''},${extension ?? ''}'
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'));
+    const ffmpegOnlyContainers = {
+      'mkv',
+      'matroska',
+      'webm',
+      'avi',
+      'msvideo',
+      'wmv',
+      'asf',
+      'flv',
+      'rmvb',
+      'rm',
+      'mpg',
+      'mpeg',
+      'vob',
+      'divx',
+      'ogm',
+      'm2ts',
+      'ogv',
+      'ogg',
+    };
+    if (tokens.any(ffmpegOnlyContainers.contains)) return 'KSMEPlayer';
+    // SMB 代理支持 HTTP Range，已知 MP4/MOV 家族可优先使用系统播放路径。
+    const avContainers = {'mp4', 'mov', 'm4v', '3gp', '3g2'};
+    if (tokens.any(avContainers.contains)) return 'AVPlayer';
+    if (isLoopback) return 'KSMEPlayer';
     final container = inferPlaybackContainer(url, formatHint);
     if (container == null) return null;
-    return switch (container) {
-      'mkv' ||
-      'matroska' ||
-      'webm' ||
-      'wmv' ||
-      'asf' ||
-      'avi' ||
-      'flv' ||
-      'mpeg' ||
-      'mpg' ||
-      'vob' ||
-      'rm' ||
-      'rmvb' ||
-      'ogv' ||
-      'ogg' => 'KSMEPlayer',
-      _ => 'AVPlayer',
-    };
+    return 'AVPlayer';
   }
 
   static bool _isHlsMedia(String url, String? formatHint) {
@@ -201,18 +212,6 @@ class PlaybackMediaInfo {
         Uri.tryParse(url.trim())?.path.toLowerCase() ??
         url.trim().toLowerCase();
     return path.endsWith('.m3u8');
-  }
-
-  static bool _isFfmpegVideoCodec(String? codec) {
-    final normalized = (codec ?? '').toLowerCase().replaceAll(
-      RegExp(r'[^a-z0-9]'),
-      '',
-    );
-    return normalized.contains('hevc') ||
-        normalized.contains('h265') ||
-        normalized.contains('hvc1') ||
-        normalized.contains('hev1') ||
-        normalized.contains('x265');
   }
 
   factory PlaybackMediaInfo.fromJson(Map<String, dynamic> json) {
