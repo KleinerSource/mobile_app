@@ -323,7 +323,7 @@ class _MovieExtraFanartSectionState
                 return SizedBox(
                   width: cardWidth,
                   child: Material(
-                    color: appColors(context).surfaceAlt,
+                    color: Colors.black,
                     borderRadius: BorderRadius.circular(10),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
@@ -341,7 +341,7 @@ class _MovieExtraFanartSectionState
                         cacheManager: AppImageCacheManager.instance,
                         imageUrl: url,
                         cacheKey: stableImageCacheKey(url),
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         placeholder: (_, __) => const Center(
                           child: SizedBox(
                             width: 20,
