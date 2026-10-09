@@ -268,20 +268,28 @@ private final class KsPlayerContainerView: UIView {
   }
 }
 
-/// 对齐 SenPlayer `KSOptions2.process(assetTrack:)`：VideoToolbox 可识别的视频轨
-/// （H.264 / H.265 等，存在 formatDescription）改用 KSPlayer 自带的 VT 直解。
+/// 对齐 SenPlayer `KSOptions2.process(assetTrack:)` 的视频轨处理。
 ///
-/// 默认的 FFmpeg videotoolbox hwaccel 路径中，任意一帧解码报错都会让视频轨
-/// 进入 `.failed` 并退出解码线程，此后不再出帧，播放器停在加载中；部分 H.265
-/// 片源会稳定触发。VT 直解对非关键帧坏数据只重建会话，关键帧失败时才回退
-/// FFmpeg 解码。用户关闭硬解或父类因隔行 / 旋转关闭硬解时保持不变。
+/// 1. H.265 不走 fork 父类的自动去隔行。父类只要容器 / 码流带场序标记
+///    （tt/bb/tb/bt）就关闭硬解并挂 `yadif=mode=1` 逐场倍帧。H.265 的隔行内容
+///    以单场图像编码，解码器逐场输出，yadif 再把每个单场当成交织帧拆场，
+///    画面会在相邻两场之间来回跳。SenPlayer 内置 KSPlayer 的
+///    `process(assetTrack:)` 没有这段自动去隔行（只在 H.264 High 4:4:4 时关
+///    硬解），这类片源播放正常。H.264 等交织帧编码仍保留父类的去隔行。
+/// 2. VideoToolbox 可识别的视频轨（存在 formatDescription）改用 KSPlayer 自带
+///    的 VT 直解。默认的 FFmpeg videotoolbox hwaccel 路径中，任意一帧解码报错
+///    都会让视频轨进入 `.failed` 并退出解码线程，之后不再出帧。用户关闭硬解，
+///    或父类因隔行 / 旋转关闭硬解时，保持软解。
 private final class OmmKSOptions: KSOptions {
   override func process(assetTrack: some MediaPlayerTrack) {
-    super.process(assetTrack: assetTrack)
-    guard assetTrack.mediaType == .video,
-          hardwareDecode,
-          assetTrack.formatDescription != nil
-    else { return }
+    let isVideo = assetTrack.mediaType == .video
+    let isHevc = isVideo && assetTrack.formatDescription.map {
+      CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_HEVC
+    } ?? false
+    if !isHevc {
+      super.process(assetTrack: assetTrack)
+    }
+    guard isVideo, hardwareDecode, assetTrack.formatDescription != nil else { return }
     asynchronousDecompression = true
   }
 }
@@ -426,6 +434,11 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     // 只需攒满门槛的一半。KSMEPlayer 首帧后时钟停住的问题来自已移除的
     // startPlayTime 快路径（见 2da7ce0e），与秒开门控无关。
     options.isSecondOpen = true
+    // fork 默认开启 videoAdaptable：文件内只要有两条以上带码率的视频流（例如
+    // 杜比视界 Profile 7 双轨 MKV 的 BL + EL），KSMEPlayer 就把它们当成码率档位，
+    // 按缓冲状态在两条流之间来回切换，两路画面混进同一个帧队列。SenPlayer
+    // 内置 KSPlayer 的默认值为 false。
+    options.videoAdaptable = false
     configureRequestHeaders(options, headers: parameters.headers)
     if useFfmpegPlayer, startSeconds > 0 {
       // KSMEPlayer 的 startPlayTime 快路径会在首帧显示后留下停住的音视频时钟；
