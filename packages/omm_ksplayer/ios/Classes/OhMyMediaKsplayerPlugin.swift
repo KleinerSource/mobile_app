@@ -268,6 +268,24 @@ private final class KsPlayerContainerView: UIView {
   }
 }
 
+/// 对齐 SenPlayer `KSOptions2.process(assetTrack:)`：VideoToolbox 可识别的视频轨
+/// （H.264 / H.265 等，存在 formatDescription）改用 KSPlayer 自带的 VT 直解。
+///
+/// 默认的 FFmpeg videotoolbox hwaccel 路径中，任意一帧解码报错都会让视频轨
+/// 进入 `.failed` 并退出解码线程，此后不再出帧，播放器停在加载中；部分 H.265
+/// 片源会稳定触发。VT 直解对非关键帧坏数据只重建会话，关键帧失败时才回退
+/// FFmpeg 解码。用户关闭硬解或父类因隔行 / 旋转关闭硬解时保持不变。
+private final class OmmKSOptions: KSOptions {
+  override func process(assetTrack: some MediaPlayerTrack) {
+    super.process(assetTrack: assetTrack)
+    guard assetTrack.mediaType == .video,
+          hardwareDecode,
+          assetTrack.formatDescription != nil
+    else { return }
+    asynchronousDecompression = true
+  }
+}
+
 @MainActor
 private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private let playerId: Int64
@@ -380,7 +398,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     startVerificationGeneration += 1
 
     lastVideoSize = .zero
-    let options = KSOptions()
+    let options = OmmKSOptions()
     options.startPlayRate = desiredRate
     options.isSeekedAutoPlay = parameters.autoplay
     options.hardwareDecode = parameters.hardwareAcceleration
@@ -391,14 +409,23 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       // 复用本地文件的大前向缓存会让 KSPlayer 在定位后等待很久。
       options.preferredForwardBufferDuration = 3
       options.maxBufferDuration = 8
+    } else if useFfmpegPlayer {
+      // KSMEPlayer 的 preferredForwardBufferDuration 是起播、seek 后与卡顿后
+      // 恢复播放的门槛（按帧数 / fps 估算的已缓冲秒数），不是预加载量。
+      // 若与预加载上限同设为 30～120 秒，高码率 H.265 每次 seek / 卡顿都要
+      // 先攒满数百 MB 才恢复，表现为无限加载，并触发 Dart 侧的定位恢复重开
+      // 造成进度回弹。对齐 SenPlayer：恢复门槛 1 秒，预加载设置只决定上限。
+      options.preferredForwardBufferDuration = 1
+      options.maxBufferDuration = forwardBufferDuration(for: parameters.preloadBytes)
     } else {
       let bufferSeconds = forwardBufferDuration(for: parameters.preloadBytes)
       options.preferredForwardBufferDuration = bufferSeconds
       options.maxBufferDuration = bufferSeconds
     }
-    // HLS 与 AVPlayer 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其
-    // MKV）需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
-    options.isSecondOpen = isHls || !useFfmpegPlayer
+    // 与 SenPlayer 一致全局开启秒开门控：首开只需各轨解出 2 帧，seek 后
+    // 只需攒满门槛的一半。KSMEPlayer 首帧后时钟停住的问题来自已移除的
+    // startPlayTime 快路径（见 2da7ce0e），与秒开门控无关。
+    options.isSecondOpen = true
     configureRequestHeaders(options, headers: parameters.headers)
     if useFfmpegPlayer, startSeconds > 0 {
       // KSMEPlayer 的 startPlayTime 快路径会在首帧显示后留下停住的音视频时钟；
