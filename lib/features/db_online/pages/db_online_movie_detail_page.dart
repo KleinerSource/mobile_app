@@ -646,7 +646,7 @@ class _DbOnlinePreviewRow extends StatelessWidget {
         itemBuilder: (_, index) => SizedBox(
           width: cardWidth,
           child: Material(
-            color: appColors(context).surfaceAlt,
+            color: Colors.black,
             borderRadius: BorderRadius.circular(10),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -660,6 +660,8 @@ class _DbOnlinePreviewRow extends StatelessWidget {
                 title: movie.title,
                 aspectRatio: 16 / 9,
                 radius: 0,
+                imageFit: BoxFit.contain,
+                backgroundColor: Colors.black,
               ),
             ),
           ),

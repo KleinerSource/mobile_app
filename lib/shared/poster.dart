@@ -20,6 +20,8 @@ class Poster extends StatelessWidget {
     this.radius = 10,
     this.restricted = false,
     this.imageAlignment = Alignment.center,
+    this.imageFit = BoxFit.cover,
+    this.backgroundColor,
     this.httpHeaders,
   });
 
@@ -33,6 +35,8 @@ class Poster extends StatelessWidget {
   final double radius;
   final bool restricted;
   final Alignment imageAlignment;
+  final BoxFit imageFit;
+  final Color? backgroundColor;
   final Map<String, String>? httpHeaders;
 
   @override
@@ -65,7 +69,7 @@ class Poster extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _PlaceholderBase(),
+            _PlaceholderBase(color: backgroundColor),
             if (_imageUrls.isNotEmpty)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,6 +99,7 @@ class Poster extends StatelessWidget {
                     year: year,
                     httpHeaders: httpHeaders,
                     alignment: imageAlignment,
+                    fit: imageFit,
                     memCacheWidth: physicalWidth,
                   );
                 },
@@ -123,6 +128,7 @@ class Poster extends StatelessWidget {
           title: title,
           year: year,
           httpHeaders: httpHeaders,
+          fit: imageFit,
           memCacheWidth: physicalWidth,
         );
       },
@@ -144,6 +150,7 @@ class _RetryNetworkPoster extends StatefulWidget {
     required this.year,
     this.httpHeaders,
     this.alignment = Alignment.center,
+    this.fit = BoxFit.cover,
     this.memCacheWidth,
   });
 
@@ -152,6 +159,7 @@ class _RetryNetworkPoster extends StatefulWidget {
   final int? year;
   final Map<String, String>? httpHeaders;
   final Alignment alignment;
+  final BoxFit fit;
   final int? memCacheWidth;
 
   @override
@@ -200,7 +208,7 @@ class _RetryNetworkPosterState extends State<_RetryNetworkPoster> {
       key: ValueKey('$_attempt:${widget.imageUrl}'),
       imageUrl: widget.imageUrl,
       httpHeaders: widget.httpHeaders,
-      fit: BoxFit.cover,
+      fit: widget.fit,
       alignment: widget.alignment,
       memCacheWidth: widget.memCacheWidth,
       maxWidthDiskCache: _posterDiskCacheWidth,
@@ -232,14 +240,17 @@ class _RetryNetworkPosterState extends State<_RetryNetworkPoster> {
 
 /// 占位符底色 · 一个素净的深灰色块, 跟 app 主题协调
 class _PlaceholderBase extends StatelessWidget {
-  const _PlaceholderBase();
+  const _PlaceholderBase({this.color});
+
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1B1D24) : const Color(0xFFE8EAEF),
+        color:
+            color ?? (dark ? const Color(0xFF1B1D24) : const Color(0xFFE8EAEF)),
       ),
     );
   }
