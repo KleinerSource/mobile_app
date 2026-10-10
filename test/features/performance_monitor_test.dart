@@ -14,7 +14,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('Debug 关闭时性能监视器开关禁用，开启后可操作', (tester) async {
+  testWidgets('性能监视器开关独立于 Debug 模式，始终可操作', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(_settingsApp(prefs));
     await tester.pumpAndSettle();
@@ -28,12 +28,6 @@ void main() {
         find.descendant(of: tile, matching: find.byType(Switch)),
       );
     }
-
-    expect(findSwitch('性能监视器').onChanged, isNull);
-
-    await prefs.setBool('player.debug_mode', true);
-    await tester.pumpWidget(_settingsApp(prefs));
-    await tester.pumpAndSettle();
 
     expect(findSwitch('性能监视器').onChanged, isNotNull);
 
