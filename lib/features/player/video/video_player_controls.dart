@@ -41,6 +41,8 @@ class VideoPlayerControls extends StatefulWidget {
     required this.showPipButton,
     required this.showOrientationButton,
     required this.showMediaSwitchButton,
+    required this.debugInfoVisible,
+    required this.onToggleDebugInfo,
     required this.playbackRate,
     required this.onPictureInPicture,
     required this.onPreviousMedia,
@@ -77,6 +79,10 @@ class VideoPlayerControls extends StatefulWidget {
   final bool showPipButton;
   final bool showOrientationButton;
   final bool showMediaSwitchButton;
+
+  /// 播放信息 Debug OSD 是否显示（由顶栏信息图标切换，不依赖设置项）。
+  final bool debugInfoVisible;
+  final VoidCallback onToggleDebugInfo;
   final double playbackRate;
   final VoidCallback onPictureInPicture;
   final VoidCallback? onPreviousMedia;
@@ -228,6 +234,14 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls> {
               },
             ),
           if (widget.showSpeedButton) _speedButton(),
+          _topActionButton(
+            icon: widget.debugInfoVisible ? Icons.info : Icons.info_outline,
+            tooltip: AppL10n.of(context).playerToggleDebugInfo,
+            onPressed: () {
+              widget.onToggleDebugInfo();
+              widget.onInteraction();
+            },
+          ),
         ],
       ),
     );

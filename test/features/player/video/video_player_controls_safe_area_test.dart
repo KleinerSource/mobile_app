@@ -63,6 +63,8 @@ void main() {
                       showPipButton: false,
                       showOrientationButton: false,
                       showMediaSwitchButton: false,
+                      debugInfoVisible: false,
+                      onToggleDebugInfo: () {},
                       playbackRate: 1,
                       onPictureInPicture: () {},
                       onPreviousMedia: null,

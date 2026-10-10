@@ -223,19 +223,17 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                       leadingIcon: Icons.speed_outlined,
                       trailing: SettingsSwitch(
                         value: playerSettings.performanceMonitorEnabled,
-                        onChanged: playerSettings.debugMode
-                            ? (value) => unawaited(
+                        onChanged: (value) => unawaited(
+                          ref
+                              .read(playerSettingsProvider.notifier)
+                              .update(
                                 ref
-                                    .read(playerSettingsProvider.notifier)
-                                    .update(
-                                      ref
-                                          .read(playerSettingsProvider)
-                                          .copyWith(
-                                            performanceMonitorEnabled: value,
-                                          ),
+                                    .read(playerSettingsProvider)
+                                    .copyWith(
+                                      performanceMonitorEnabled: value,
                                     ),
-                              )
-                            : null,
+                              ),
+                        ),
                       ),
                     ),
                     SettingsTile(

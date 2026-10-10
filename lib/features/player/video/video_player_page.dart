@@ -324,6 +324,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   PlayerDeviceStats _deviceStats = const PlayerDeviceStats();
 
   bool _controlsVisible = true;
+  bool _debugInfoVisible = false;
   Timer? _hideTimer;
   PlayerIndicator? _indicator;
   StreamSubscription<double>? _volumeChangedSub;
@@ -1586,6 +1587,10 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     }
   }
 
+  void _toggleDebugInfo() {
+    setState(() => _debugInfoVisible = !_debugInfoVisible);
+  }
+
   void _onRateBoost(double rate) {
     if (_isLeaving) return;
     _isRateBoosting = true;
@@ -2105,6 +2110,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
       onRateChanged: _onRateChanged,
       onInteraction: _restartHideTimer,
       onExit: () => unawaited(_exitPlayer()),
+      debugInfoVisible: _debugInfoVisible,
+      onToggleDebugInfo: _toggleDebugInfo,
     );
   }
 }

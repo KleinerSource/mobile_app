@@ -66,6 +66,8 @@ class VideoPlayerView extends ConsumerWidget {
     required this.onRateChanged,
     required this.onInteraction,
     required this.onExit,
+    required this.debugInfoVisible,
+    required this.onToggleDebugInfo,
   });
 
   static const ksPlayerBufferingDelay = Duration(milliseconds: 350);
@@ -115,6 +117,10 @@ class VideoPlayerView extends ConsumerWidget {
   final ValueChanged<double> onRateChanged;
   final VoidCallback onInteraction;
   final VoidCallback onExit;
+
+  /// 播放信息 Debug OSD 是否显示（顶栏信息图标切换，不依赖设置项）。
+  final bool debugInfoVisible;
+  final VoidCallback onToggleDebugInfo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -176,7 +182,7 @@ class VideoPlayerView extends ConsumerWidget {
             showBattery: settings.showBattery,
           ),
         ),
-        if (settings.debugMode)
+        if (debugInfoVisible)
           Positioned(
             top: 42,
             left: 20,
@@ -219,6 +225,8 @@ class VideoPlayerView extends ConsumerWidget {
                         settings.showPipButton && capabilities.pictureInPicture,
                     showOrientationButton: settings.showOrientationButton,
                     showMediaSwitchButton: settings.showMediaSwitchButton,
+                    debugInfoVisible: debugInfoVisible,
+                    onToggleDebugInfo: onToggleDebugInfo,
                     playbackRate: playbackRate,
                     onPictureInPicture: onPictureInPicture,
                     onPreviousMedia: onPreviousMedia,

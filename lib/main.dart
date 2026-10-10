@@ -135,8 +135,7 @@ class OmmApp extends ConsumerWidget {
       ),
     );
     final playerSettings = ref.watch(playerSettingsProvider);
-    final showPerformanceMonitor =
-        playerSettings.debugMode && playerSettings.performanceMonitorEnabled;
+    final showPerformanceMonitor = playerSettings.performanceMonitorEnabled;
 
     return MaterialApp(
       title: 'Oh My Media',
