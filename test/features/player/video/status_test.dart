@@ -434,7 +434,9 @@ void _main_3() {
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
         locale: const Locale('zh'),
-        home: Scaffold(body: PlayerDebugOverlay(stateListenable: state)),
+        home: Scaffold(
+          body: PlayerDebugOverlay(stateListenable: state, onClose: () {}),
+        ),
       ),
     );
 

@@ -118,8 +118,8 @@ class VideoPlayerView extends ConsumerWidget {
   final VoidCallback onInteraction;
   final VoidCallback onExit;
 
-  /// 播放信息 Debug OSD 是否显示（顶栏信息图标切换，不依赖设置项）。
-  /// 开启后跟随控制栏覆盖层一起淡入淡出。
+  /// 播放信息 Debug OSD 是否显示（顶栏信息图标或面板关闭按钮切换，不依赖设置项）。
+  /// 开启后独立悬浮于控制层之上，不随控制栏隐藏。
   final bool debugInfoVisible;
   final VoidCallback onToggleDebugInfo;
 
@@ -183,20 +183,6 @@ class VideoPlayerView extends ConsumerWidget {
             showBattery: settings.showBattery,
           ),
         ),
-        if (debugInfoVisible)
-          Positioned(
-            top: 42,
-            left: 20,
-            right: 20,
-            // 跟随控制栏淡入淡出；淡出后仍留在树中，必须忽略指针以免挡住手势层。
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: controlsVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: PlayerDebugOverlay(stateListenable: controller),
-              ),
-            ),
-          ),
         Positioned.fill(
           child: IgnorePointer(
             ignoring: !controlsVisible,
@@ -282,6 +268,17 @@ class VideoPlayerView extends ConsumerWidget {
             ),
           ),
         ),
+        // 悬浮于控制层之上、不随控制栏隐藏；top: 90 避开顶栏按钮（36 + 46）。
+        if (debugInfoVisible)
+          Positioned(
+            top: 90,
+            left: 20,
+            right: 20,
+            child: PlayerDebugOverlay(
+              stateListenable: controller,
+              onClose: onToggleDebugInfo,
+            ),
+          ),
       ],
     );
   }

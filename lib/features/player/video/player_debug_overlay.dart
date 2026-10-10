@@ -4,43 +4,58 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 
-/// 播放器 Debug OSD。只读取统一播放状态，不参与控制栏和手势处理。
+/// 播放器 Debug OSD。只读取统一播放状态；主体忽略指针、点击穿透到
+/// 播放器手势层，仅右上角关闭按钮可交互。
 class PlayerDebugOverlay extends StatelessWidget {
-  const PlayerDebugOverlay({super.key, required this.stateListenable});
+  const PlayerDebugOverlay({
+    super.key,
+    required this.stateListenable,
+    required this.onClose,
+  });
 
   final ValueListenable<PlaybackViewState> stateListenable;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<PlaybackViewState>(
-      valueListenable: stateListenable,
-      builder: (context, state, _) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 2,
-            children: _items(context, state)
-                .map(
-                  (item) => Text(
-                    item,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      height: 1.2,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                )
-                .toList(growable: false),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IgnorePointer(
+          child: ValueListenableBuilder<PlaybackViewState>(
+            valueListenable: stateListenable,
+            builder: (context, state, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              ),
+              child: Padding(
+                // 右侧预留关闭按钮空间，避免文字压在按钮下方。
+                padding: const EdgeInsets.fromLTRB(8, 5, 32, 5),
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 2,
+                  children: _items(context, state)
+                      .map(
+                        (item) => Text(
+                          item,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            height: 1.2,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ),
+            ),
           ),
         ),
-      ),
+        Positioned(top: 0, right: 0, child: _CloseButton(onTap: onClose)),
+      ],
     );
   }
 
@@ -81,6 +96,35 @@ class PlayerDebugOverlay extends StatelessWidget {
   String _trimNumber(double value) {
     final text = value.toStringAsFixed(2);
     return text.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+}
+
+class _CloseButton extends StatelessWidget {
+  const _CloseButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.12),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: Center(
+            child: Icon(
+              Icons.close,
+              size: 14,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
