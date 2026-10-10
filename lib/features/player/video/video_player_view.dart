@@ -118,7 +118,7 @@ class VideoPlayerView extends ConsumerWidget {
   final VoidCallback onInteraction;
   final VoidCallback onExit;
 
-  /// 播放信息 Debug OSD 是否显示（顶栏信息图标或面板关闭按钮切换，不依赖设置项）。
+  /// 播放信息 Debug OSD 是否显示（顶栏信息图标开启、点击面板主体关闭，不依赖设置项）。
   /// 开启后独立悬浮于控制层之上，不随控制栏隐藏。
   final bool debugInfoVisible;
   final VoidCallback onToggleDebugInfo;
